@@ -2,21 +2,38 @@ import { useSeoMeta } from '@unhead/react';
 import { VideoFeed } from '@/components/VideoFeed';
 import { Navigation } from '@/components/Navigation';
 import { LoginArea } from '@/components/auth/LoginArea';
-import { ZapTokLogo } from '@/components/ZapTokLogo';
+import { LoginModal } from '@/components/auth/LoginModal';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 const Index = () => {
+  const { user } = useCurrentUser();
+
   useSeoMeta({
     title: 'ZapTok - Nostr Video Platform',
     description: 'Discover and share videos on the decentralized Nostr network.',
   });
 
+  // AuthGate: Show LoginModal if user is not authenticated
+  if (!user) {
+    return (
+      <>
+        <LoginModal isOpen={true} onClose={() => {}} />
+      </>
+    );
+  }
+
+  // Main application interface (only shown when authenticated)
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Top Navigation */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-gray-800">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center space-x-3">
-            <ZapTokLogo size={32} />
+            <img 
+              src="/images/ZapTok-v2.png" 
+              alt="ZapTok Logo" 
+              className="w-8 h-8 rounded-lg"
+            />
             <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
               ZapTok
             </h1>

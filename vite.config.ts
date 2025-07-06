@@ -7,7 +7,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig(() => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 5173,
   },
   plugins: [
     react(),
