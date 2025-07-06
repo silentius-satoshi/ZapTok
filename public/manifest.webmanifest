@@ -1,0 +1,21 @@
+{
+  "name": "ZapTok",
+  "short_name": "ZapTok",
+  "description": "Discover and share videos on the decentralized Nostr network",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#F97316",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

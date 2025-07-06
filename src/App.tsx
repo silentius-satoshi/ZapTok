@@ -1,10 +1,7 @@
-// NOTE: This file should normally not be modified unless you are adding a new provider.
-// To add new routes, edit the AppRouter.tsx file.
-
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createHead, UnheadProvider } from '@unhead/react/client';
 import { InferSeoMetaPlugin } from '@unhead/addons';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import NostrProvider from '@/components/NostrProvider';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -12,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AppConfig } from '@/contexts/AppContext';
+import { ZapTokLogo } from '@/components/ZapTokLogo';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -24,15 +22,15 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 60000, // 1 minute
-      gcTime: Infinity,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
     },
   },
 });
 
 const defaultConfig: AppConfig = {
-  theme: "light",
-  relayUrl: "wss://relay.primal.net",
+  theme: "dark", // Changed to dark theme for ZapTok
+  relayUrl: "wss://relay.nostr.band",
 };
 
 const presetRelays = [
@@ -41,6 +39,26 @@ const presetRelays = [
   { url: 'wss://relay.damus.io', name: 'Damus' },
   { url: 'wss://relay.primal.net', name: 'Primal' },
 ];
+
+function AppContent() {
+  // Set dark theme on app load
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
+
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <ZapTokLogo size={48} className="mb-4 mx-auto" />
+          <div className="text-white text-lg font-medium">Loading ZapTok...</div>
+        </div>
+      </div>
+    }>
+      <AppRouter />
+    </Suspense>
+  );
+}
 
 export function App() {
   return (
@@ -52,9 +70,7 @@ export function App() {
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
-                <Suspense>
-                  <AppRouter />
-                </Suspense>
+                <AppContent />
               </TooltipProvider>
             </NostrProvider>
           </NostrLoginProvider>

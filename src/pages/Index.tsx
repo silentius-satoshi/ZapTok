@@ -1,22 +1,65 @@
 import { useSeoMeta } from '@unhead/react';
-
-// FIXME: Update this page (the content is just a fallback if you fail to update the page)
+import { VideoFeed } from '@/components/VideoFeed';
+import { Navigation } from '@/components/Navigation';
+import { LoginArea } from '@/components/auth/LoginArea';
+import { ZapTokLogo } from '@/components/ZapTokLogo';
 
 const Index = () => {
   useSeoMeta({
-    title: 'Welcome to Your Blank App',
-    description: 'A modern Nostr client application built with React, TailwindCSS, and Nostrify.',
+    title: 'ZapTok - Nostr Video Platform',
+    description: 'Discover and share videos on the decentralized Nostr network.',
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-          Welcome to Your Blank App
-        </h1>
-        <p className="text-xl text-gray-600 dark:text-gray-400">
-          Start building your amazing project here!
-        </p>
+    <div className="min-h-screen bg-black text-white">
+      {/* Top Navigation */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-gray-800">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center space-x-3">
+            <ZapTokLogo size={32} />
+            <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
+              ZapTok
+            </h1>
+          </div>
+          <LoginArea className="max-w-48" />
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="pt-16">
+        <div className="flex">
+          {/* Left Sidebar - Navigation */}
+          <Navigation />
+          
+          {/* Video Feed */}
+          <div className="flex-1 max-w-2xl mx-auto">
+            <VideoFeed />
+          </div>
+          
+          {/* Right Sidebar - Could be used for trending, etc. */}
+          <div className="hidden lg:block w-80 p-4">
+            <div className="sticky top-20">
+              <h2 className="text-lg font-semibold mb-4">Trending</h2>
+              <div className="space-y-2">
+                <div className="text-sm text-gray-400">
+                  #nostr #decentralized #video
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      
+      {/* Bottom attribution */}
+      <div className="fixed bottom-4 right-4 text-xs text-gray-500">
+        <a 
+          href="https://soapbox.pub/mkstack" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="hover:text-gray-300 transition-colors"
+        >
+          Vibed with MKStack
+        </a>
       </div>
     </div>
   );
