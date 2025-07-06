@@ -6,37 +6,52 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Camera, User } from 'lucide-react';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useLoginActions } from '@/hooks/useLoginActions';
+import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 
 interface GetStartedModalProps {
   onClose: () => void;
-  onBackToLogin: () => void;
+  onBackToLogin?: () => void;
 }
 
-const GetStartedModal = ({ onClose, onBackToLogin }: GetStartedModalProps) => {
+const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
   const [name, setName] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [newKeypair, setNewKeypair] = useState<{ pubkey: string; nsec: string } | null>(null);
+  
   const { mutate: createEvent } = useNostrPublish();
+  const login = useLoginActions();
 
-  const adjectives = [
-    'Amazing', 'Brave', 'Creative', 'Daring', 'Energetic', 'Fearless', 'Graceful', 'Happy',
-    'Intelligent', 'Joyful', 'Kind', 'Lively', 'Magnificent', 'Noble', 'Optimistic', 'Peaceful',
-    'Quick', 'Radiant', 'Strong', 'Talented', 'Unique', 'Vibrant', 'Wise', 'Zealous'
-  ];
-
-  const animals = [
-    'Elephant', 'Tiger', 'Dolphin', 'Eagle', 'Lion', 'Butterfly', 'Wolf', 'Fox',
-    'Bear', 'Owl', 'Shark', 'Penguin', 'Giraffe', 'Octopus', 'Leopard', 'Whale',
-    'Falcon', 'Panda', 'Cheetah', 'Turtle', 'Rabbit', 'Hawk', 'Deer', 'Panther'
-  ];
-
-  const generateRandomName = () => {
-    const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
-    return `${randomAdjective} ${randomAnimal}`;
-  };
-
+  // Generate a fresh keypair when the modal opens
   useEffect(() => {
+    const secretKey = generateSecretKey();
+    const pubkey = getPublicKey(secretKey);
+    const nsec = nip19.nsecEncode(secretKey);
+    
+    setNewKeypair({ pubkey, nsec });
+  }, []);
+
+  // Generate random name when modal opens
+  useEffect(() => {
+    const adjectives = [
+      'Amazing', 'Brave', 'Creative', 'Daring', 'Energetic', 'Fearless', 'Graceful', 'Happy',
+      'Intelligent', 'Joyful', 'Kind', 'Lively', 'Magnificent', 'Noble', 'Optimistic', 'Peaceful',
+      'Quick', 'Radiant', 'Strong', 'Talented', 'Unique', 'Vibrant', 'Wise', 'Zealous'
+    ];
+
+    const animals = [
+      'Elephant', 'Tiger', 'Dolphin', 'Eagle', 'Lion', 'Butterfly', 'Wolf', 'Fox',
+      'Bear', 'Owl', 'Shark', 'Penguin', 'Giraffe', 'Octopus', 'Leopard', 'Whale',
+      'Falcon', 'Panda', 'Cheetah', 'Turtle', 'Rabbit', 'Hawk', 'Deer', 'Panther'
+    ];
+
+    const generateRandomName = () => {
+      const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+      const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
+      return `${randomAdjective} ${randomAnimal}`;
+    };
+
     setName(generateRandomName());
   }, []);
 
@@ -52,11 +67,14 @@ const GetStartedModal = ({ onClose, onBackToLogin }: GetStartedModalProps) => {
   };
 
   const handleSave = async () => {
-    setIsLoading(true);
-    console.log('Saving profile:', { name, profileImage });
+    if (!newKeypair) return;
     
+    setIsLoading(true);
     try {
-      // Create kind 0 metadata event
+      // First, log in with the new keypair
+      await login.nsec(newKeypair.nsec);
+      
+      // Then create the profile metadata event
       createEvent({
         kind: 0,
         content: JSON.stringify({
@@ -65,6 +83,8 @@ const GetStartedModal = ({ onClose, onBackToLogin }: GetStartedModalProps) => {
         }),
         tags: [],
       });
+      
+      // Close modal and user is now logged in
       onClose();
     } catch (error) {
       console.error('Failed to create profile:', error);
@@ -74,7 +94,12 @@ const GetStartedModal = ({ onClose, onBackToLogin }: GetStartedModalProps) => {
   };
 
   const handleSkip = async () => {
+    if (!newKeypair) return;
+    
     try {
+      // Log in with the new keypair
+      await login.nsec(newKeypair.nsec);
+      
       // Create profile with the generated name
       createEvent({
         kind: 0,
@@ -83,6 +108,8 @@ const GetStartedModal = ({ onClose, onBackToLogin }: GetStartedModalProps) => {
         }),
         tags: [],
       });
+      
+      // Close modal and user is now logged in
       onClose();
     } catch (error) {
       console.error('Failed to create profile:', error);
@@ -154,16 +181,17 @@ const GetStartedModal = ({ onClose, onBackToLogin }: GetStartedModalProps) => {
             {/* Save Button */}
             <Button 
               onClick={handleSave}
-              disabled={isLoading || !name.trim()}
+              disabled={isLoading || !name.trim() || !newKeypair}
               className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"
             >
-              {isLoading ? "Saving..." : "Save"}
+              {isLoading ? "Creating Profile..." : "Save"}
             </Button>
 
             {/* Skip Link */}
             <div className="text-center">
               <button
                 onClick={handleSkip}
+                disabled={!newKeypair}
                 className="text-gray-400 hover:text-gray-300 text-sm transition-colors"
               >
                 Skip for now

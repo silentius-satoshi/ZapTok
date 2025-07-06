@@ -494,6 +494,17 @@ The `LoginArea` component handles all the login-related UI and interactions, inc
 
 `LoginArea` displays a "Log in" button when the user is logged out, and changes to an account switcher once the user is logged in. It is an inline-flex element by default. To make it expand to the width of its container, you can pass a className like `flex` (to make it a block element) or `w-full`. If it is left as inline-flex, it's recommended to set a max width.
 
+#### New User Registration
+
+When users choose "Get Started" from the LoginModal, they go through the GetStartedModal which automatically generates a new Nostr keypair (pubkey/private key) for them. This creates a completely new Nostr identity with:
+
+- **Randomly generated name**: Combines adjectives and animals (e.g., "Amazing Tiger", "Brave Dolphin")
+- **New cryptographic identity**: Fresh pubkey and private key generated locally
+- **Profile setup**: Optional profile picture upload and name customization
+- **Immediate onboarding**: Users can start using the app immediately with their new identity
+
+Users can either save their custom profile information or skip the setup to use the randomly generated name, which can be changed later in profile settings.
+
 ### `npub`, `naddr`, and other Nostr addresses
 
 Nostr defines a set identifiers in NIP-19. Their prefixes:
