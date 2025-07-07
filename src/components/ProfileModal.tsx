@@ -1,0 +1,163 @@
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Card, CardContent } from '@/components/ui/card';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useAuthor } from '@/hooks/useAuthor';
+import { genUserName } from '@/lib/genUserName';
+import { EditProfileForm } from '@/components/EditProfileForm';
+import { User, Edit, LogOut } from 'lucide-react';
+import { useLoginActions } from '@/hooks/useLoginActions';
+
+interface ProfileModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
+  const { user } = useCurrentUser();
+  const author = useAuthor(user?.pubkey || '');
+  const metadata = author.data?.metadata;
+  const login = useLoginActions();
+  const [showEditForm, setShowEditForm] = useState(false);
+
+  if (!user) return null;
+
+  const displayName = metadata?.display_name || metadata?.name || genUserName(user.pubkey);
+  const userName = metadata?.name || genUserName(user.pubkey);
+  const bio = metadata?.about;
+  const profileImage = metadata?.picture;
+  const website = metadata?.website;
+  const nip05 = metadata?.nip05;
+
+  const handleLogout = () => {
+    login.logout();
+    onClose();
+  };
+
+  const handleEditProfile = () => {
+    setShowEditForm(true);
+  };
+
+  const handleCloseEdit = () => {
+    setShowEditForm(false);
+  };
+
+  if (showEditForm) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Edit className="w-5 h-5" />
+              <span>Edit Profile</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <EditProfileForm />
+            <div className="flex justify-end mt-6">
+              <Button variant="outline" onClick={handleCloseEdit}>
+                Done
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center space-x-2">
+            <User className="w-5 h-5" />
+            <span>Profile</span>
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-6">
+          {/* Profile Header */}
+          <div className="flex flex-col items-center space-y-4">
+            <Avatar className="w-24 h-24">
+              <AvatarImage src={profileImage} alt={displayName} />
+              <AvatarFallback className="text-lg">
+                {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            
+            <div className="text-center space-y-2">
+              <h2 className="text-xl font-semibold">{displayName}</h2>
+              {userName !== displayName && (
+                <p className="text-muted-foreground">@{userName}</p>
+              )}
+              {nip05 && (
+                <Badge variant="secondary" className="text-xs">
+                  ✓ {nip05}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Bio */}
+          {bio && (
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{bio}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Website */}
+          {website && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Website</h3>
+              <a 
+                href={website} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                {website}
+              </a>
+            </div>
+          )}
+
+          {/* Public Key */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">Public Key</h3>
+            <code className="text-xs bg-muted p-2 rounded block break-all">
+              {user.pubkey}
+            </code>
+          </div>
+
+          <Separator />
+
+          {/* Action Buttons */}
+          <div className="space-y-2">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start" 
+              onClick={handleEditProfile}
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit Profile
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Log Out
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
