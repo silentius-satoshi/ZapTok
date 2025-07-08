@@ -13,41 +13,51 @@ const Index = () => {
   return (
     <AuthGate>
       <div className="min-h-screen bg-black text-white">
-        {/* Top Navigation */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-gray-800">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center space-x-3">
-              <img 
-                src="/images/ZapTok-v2.png" 
-                alt="ZapTok Logo" 
-                className="w-8 h-8 rounded-lg"
-              />
-              <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-                ZapTok
-              </h1>
-            </div>
-            <LoginArea className="max-w-48" />
-          </div>
-        </header>
-
         {/* Main Content */}
-        <main className="pt-16">
-          <div className="flex">
-            {/* Left Sidebar - Navigation */}
-            <Navigation />
+        <main className="h-screen">
+          <div className="flex h-full">
+            {/* Left Sidebar - Logo and Navigation */}
+            <div className="flex flex-col bg-black">
+              {/* Logo at top of sidebar */}
+              <div className="p-4">
+                <div className="flex items-center space-x-3">
+                  <img 
+                    src="/images/ZapTok-v2.png" 
+                    alt="ZapTok Logo" 
+                    className="w-8 h-8 rounded-lg"
+                  />
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
+                    ZapTok
+                  </h1>
+                </div>
+              </div>
+              
+              {/* Navigation */}
+              <div className="flex-1">
+                <Navigation />
+              </div>
+            </div>
             
             {/* Video Feed */}
-            <div className="flex-1 max-w-2xl mx-auto">
+            <div className="flex-1 flex items-center justify-center">
               <VideoFeed />
             </div>
             
-            {/* Right Sidebar - Could be used for trending, etc. */}
+            {/* Right Sidebar - Login and Trending */}
             <div className="hidden lg:block w-80 p-4">
-              <div className="sticky top-20">
-                <h2 className="text-lg font-semibold mb-4">Trending</h2>
-                <div className="space-y-2">
-                  <div className="text-sm text-gray-400">
-                    #nostr #decentralized #video
+              <div className="sticky top-4 space-y-6">
+                {/* Login Area */}
+                <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-800">
+                  <LoginArea className="w-full" />
+                </div>
+                
+                {/* Trending */}
+                <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-800">
+                  <h2 className="text-lg font-semibold mb-4">Trending</h2>
+                  <div className="space-y-2">
+                    <div className="text-sm text-gray-400">
+                      #nostr #decentralized #video
+                    </div>
                   </div>
                 </div>
               </div>

@@ -51,6 +51,8 @@ export function VideoFeed() {
   const { nostr } = useNostr();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isScrollingRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
 
   const {
     data,
@@ -88,19 +90,103 @@ export function VideoFeed() {
 
   const videos = data?.pages.flat() || [];
 
-  // Handle keyboard navigation
+  // Handle keyboard navigation and scroll snapping
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp' && currentVideoIndex > 0) {
-        setCurrentVideoIndex(prev => prev - 1);
+        const newIndex = currentVideoIndex - 1;
+        setCurrentVideoIndex(newIndex);
+        scrollToVideo(newIndex);
       } else if (e.key === 'ArrowDown' && currentVideoIndex < videos.length - 1) {
-        setCurrentVideoIndex(prev => prev + 1);
+        const newIndex = currentVideoIndex + 1;
+        setCurrentVideoIndex(newIndex);
+        scrollToVideo(newIndex);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentVideoIndex, videos.length]);
+
+  // Function to scroll to a specific video
+  const scrollToVideo = (index: number) => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: index * window.innerHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  // Handle scroll events with improved snap behavior
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !videos?.length) return;
+
+    const handleScroll = () => {
+      if (isScrollingRef.current) return;
+      
+      const scrollTop = container.scrollTop;
+      const windowHeight = container.clientHeight;
+      const newIndex = Math.round(scrollTop / windowHeight);
+      
+      // Only update if we've actually moved to a different video
+      if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < videos.length) {
+        setCurrentVideoIndex(newIndex);
+      }
+      
+      lastScrollTopRef.current = scrollTop;
+    };
+
+    // Throttled scroll handler to improve performance
+    let ticking = false;
+    const throttledHandleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    const handleScrollEnd = () => {
+      if (isScrollingRef.current) return;
+      
+      const scrollTop = container.scrollTop;
+      const windowHeight = container.clientHeight;
+      const targetIndex = Math.round(scrollTop / windowHeight);
+      const targetScrollTop = targetIndex * windowHeight;
+      
+      // Only snap if we're not already perfectly aligned
+      if (Math.abs(scrollTop - targetScrollTop) > 5) {
+        isScrollingRef.current = true;
+        container.scrollTo({
+          top: targetScrollTop,
+          behavior: 'smooth'
+        });
+        
+        setTimeout(() => {
+          isScrollingRef.current = false;
+        }, 300);
+      }
+    };
+
+    // Use a timer to detect when scrolling has stopped
+    let scrollTimer: NodeJS.Timeout;
+    const handleScrollWithTimer = () => {
+      throttledHandleScroll();
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(handleScrollEnd, 150);
+    };
+
+    container.addEventListener('scroll', handleScrollWithTimer, { passive: true });
+    
+    return () => {
+      container.removeEventListener('scroll', handleScrollWithTimer);
+      clearTimeout(scrollTimer);
+    };
+  }, [videos, currentVideoIndex]);
 
   // Auto-load more videos when approaching the end
   useEffect(() => {
@@ -111,25 +197,18 @@ export function VideoFeed() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 p-4">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i} className="bg-gray-900 border-gray-800">
-            <CardContent className="p-0">
-              <Skeleton className="w-full h-96 bg-gray-800" />
-              <div className="p-4 space-y-2">
-                <Skeleton className="h-4 w-3/4 bg-gray-700" />
-                <Skeleton className="h-3 w-1/2 bg-gray-700" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="h-screen flex items-center justify-center bg-black">
+        <div className="text-center">
+          <div className="w-12 h-12 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading videos...</p>
+        </div>
       </div>
     );
   }
 
   if (error || videos.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh] p-8">
+      <div className="h-screen flex items-center justify-center bg-black">
         <Card className="border-dashed border-gray-700 bg-gray-900/50">
           <CardContent className="py-12 px-8 text-center">
             <div className="max-w-sm mx-auto space-y-6">
@@ -148,18 +227,31 @@ export function VideoFeed() {
   return (
     <div 
       ref={containerRef}
-      className="h-screen overflow-y-auto snap-y snap-mandatory scrollbar-hide"
+      className="h-screen overflow-y-auto scrollbar-hide"
+      style={{
+        scrollSnapType: 'y mandatory',
+        scrollBehavior: 'smooth'
+      }}
     >
       {videos.map((video, index) => (
         <div
           key={video.id}
-          className="h-screen snap-start flex items-center justify-center relative"
+          className="h-screen snap-start"
+          style={{ scrollSnapAlign: 'start' }}
         >
           <VideoCard
             event={video}
             isActive={index === currentVideoIndex}
-            onNext={() => setCurrentVideoIndex(index + 1)}
-            onPrevious={() => setCurrentVideoIndex(index - 1)}
+            onNext={() => {
+              const newIndex = Math.min(index + 1, videos.length - 1);
+              setCurrentVideoIndex(newIndex);
+              scrollToVideo(newIndex);
+            }}
+            onPrevious={() => {
+              const newIndex = Math.max(index - 1, 0);
+              setCurrentVideoIndex(newIndex);
+              scrollToVideo(newIndex);
+            }}
           />
         </div>
       ))}

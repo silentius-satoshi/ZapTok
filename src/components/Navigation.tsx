@@ -33,7 +33,7 @@ export function Navigation() {
 
   return (
     <TooltipProvider>
-      <div className="hidden md:flex flex-col w-64 p-4 space-y-2 sticky top-20 h-fit">
+      <div className="hidden md:flex flex-col w-64 p-4 space-y-2 h-full">
         {navItems.map((item) => {
           // Special handling for Lightning Wallet button with tooltip
           if (item.id === 'wallet') {

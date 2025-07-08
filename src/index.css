@@ -99,6 +99,10 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .snap-always {
+    scroll-snap-stop: always;
+  }
 }
 
 @layer base {
