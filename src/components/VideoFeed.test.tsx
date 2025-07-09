@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, act } from '@testing-library/react';
 import { VideoFeed } from './VideoFeed';
 import { TestApp } from '@/test/TestApp';
 
@@ -131,7 +131,9 @@ describe('VideoFeed Scroll Snapping Logic', () => {
     }
   });
 
-  it('should calculate correct video index from scroll position', () => {
+  it('should calculate correct video index from scroll position and snap to correct video', async () => {
+    vi.useFakeTimers();
+    
     render(
       <TestApp>
         <VideoFeed />
@@ -142,11 +144,12 @@ describe('VideoFeed Scroll Snapping Logic', () => {
     expect(container).toBeInTheDocument();
 
     if (container) {
-      // Mock scroll to second video (index 1)
+      // Mock scroll to position between videos (not perfectly aligned)
+      // This should trigger snapping to the nearest video
       Object.defineProperty(container, 'scrollTop', {
         writable: true,
         configurable: true,
-        value: 800, // Exactly at second video
+        value: 820, // Slightly past second video (800), should snap to 800
       });
       Object.defineProperty(container, 'clientHeight', {
         writable: true,
@@ -156,11 +159,20 @@ describe('VideoFeed Scroll Snapping Logic', () => {
 
       // Simulate scroll event
       fireEvent.scroll(container);
+      
+      // Fast-forward through the scroll timer (150ms)
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
 
-      // Calculate expected index: Math.round(800 / 800) = 1
-      const expectedIndex = Math.round(800 / 800);
-      expect(expectedIndex).toBe(1);
+      // Assert scrollTo is called with correct parameters for index 1
+      expect(scrollToSpy).toHaveBeenCalledWith({
+        top: 800,
+        behavior: 'smooth',
+      });
     }
+
+    vi.useRealTimers();
   });
 
   it('should handle keyboard navigation for video switching', () => {
@@ -192,7 +204,9 @@ describe('VideoFeed Scroll Snapping Logic', () => {
     });
   });
 
-  it('should handle edge cases for scroll boundaries', () => {
+  it('should handle edge cases for scroll boundaries', async () => {
+    vi.useFakeTimers();
+    
     render(
       <TestApp>
         <VideoFeed />
@@ -203,11 +217,12 @@ describe('VideoFeed Scroll Snapping Logic', () => {
     expect(container).toBeInTheDocument();
 
     if (container) {
-      // Test negative scroll position
+      // Test scroll position that should snap to first video
+      // Use a position that's close to 0 but not exactly 0
       Object.defineProperty(container, 'scrollTop', {
         writable: true,
         configurable: true,
-        value: -100,
+        value: 50, // Close to first video but not perfectly aligned
       });
       Object.defineProperty(container, 'clientHeight', {
         writable: true,
@@ -217,12 +232,20 @@ describe('VideoFeed Scroll Snapping Logic', () => {
 
       // Simulate scroll event
       fireEvent.scroll(container);
+      
+      // Fast-forward through the scroll timer (150ms)
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
 
-      // Calculate index: Math.round(-100 / 800) = -0, which should be treated as 0
-      const calculatedIndex = Math.round(-100 / 800);
-      expect(calculatedIndex).toBe(-0); // Accept -0 as valid
-      expect(Math.abs(calculatedIndex)).toBe(0); // Verify it's essentially 0
+      // Should snap to first video (index 0)
+      expect(scrollToSpy).toHaveBeenCalledWith({
+        top: 0,
+        behavior: 'smooth',
+      });
     }
+
+    vi.useRealTimers();
   });
 
   it('should prevent multiple simultaneous snap operations via throttling', () => {

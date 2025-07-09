@@ -38,3 +38,50 @@ global.ResizeObserver = vi.fn().mockImplementation((_callback) => ({
   unobserve: vi.fn(),
   disconnect: vi.fn(),
 }));
+
+// Mock HTMLMediaElement methods
+Object.defineProperty(HTMLVideoElement.prototype, 'play', {
+  writable: true,
+  value: vi.fn().mockResolvedValue(undefined),
+});
+
+Object.defineProperty(HTMLVideoElement.prototype, 'pause', {
+  writable: true,
+  value: vi.fn(),
+});
+
+Object.defineProperty(HTMLVideoElement.prototype, 'load', {
+  writable: true,
+  value: vi.fn(),
+});
+
+// Mock video element properties
+Object.defineProperty(HTMLVideoElement.prototype, 'duration', {
+  writable: true,
+  value: 60,
+});
+
+Object.defineProperty(HTMLVideoElement.prototype, 'currentTime', {
+  writable: true,
+  value: 0,
+});
+
+Object.defineProperty(HTMLVideoElement.prototype, 'paused', {
+  writable: true,
+  value: true,
+});
+
+Object.defineProperty(HTMLVideoElement.prototype, 'ended', {
+  writable: true,
+  value: false,
+});
+
+Object.defineProperty(HTMLVideoElement.prototype, 'volume', {
+  writable: true,
+  value: 1,
+});
+
+Object.defineProperty(HTMLVideoElement.prototype, 'muted', {
+  writable: true,
+  value: false,
+});

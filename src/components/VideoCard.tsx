@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { Heart, MessageCircle, Share, MoreHorizontal, Play } from 'lucide-react';
+import { Play, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { genUserName } from '@/lib/genUserName';
+import { VideoActionButtons } from '@/components/VideoActionButtons';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface VideoCardProps {
@@ -22,7 +23,10 @@ interface VideoCardProps {
 
 export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious }: VideoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -30,8 +34,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const { mutate: createEvent } = useNostrPublish();
   const author = useAuthor(event.pubkey);
 
-  const authorName = author.data?.metadata?.name || genUserName(event.pubkey);
-  const authorAvatar = author.data?.metadata?.picture;
+  const authorMetadata = author.data?.metadata;
+  const displayName = authorMetadata?.name || authorMetadata?.display_name || genUserName(event.pubkey);
+  const profilePicture = authorMetadata?.picture;
 
   useEffect(() => {
     const videoElement = videoRef.current;
@@ -40,7 +45,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     if (isActive) {
       // When video becomes active, only auto-play if user hasn't manually paused
       if (!userPaused) {
-        videoElement.play();
+        videoElement.play().catch(() => {
+          // Ignore play failures
+        });
         setIsPlaying(true);
       }
     } else {
@@ -56,7 +63,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     if (!videoElement) return;
 
     if (videoElement.paused) {
-      videoElement.play();
+      videoElement.play().catch(() => {
+        // Ignore play failures
+      });
       setIsPlaying(true);
       setUserPaused(false);
     } else {
@@ -72,6 +81,13 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
 
   const handleVideoPause = () => {
     setIsPlaying(false);
+  };
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsMuted(videoRef.current.muted);
+    }
   };
 
   const handleLike = () => {
@@ -91,6 +107,48 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     });
   };
 
+  const handleZap = () => {
+    if (!user) return;
+    // TODO: Implement zap functionality with Lightning
+    console.log('Zap functionality to be implemented');
+  };
+
+  const handleComment = () => {
+    if (!user) return;
+    // TODO: Open comment modal or navigate to comment view
+    console.log('Comment functionality to be implemented');
+  };
+
+  const handleBookmark = () => {
+    if (!user) return;
+    
+    setIsBookmarked(!isBookmarked);
+    
+    if (!isBookmarked) {
+      // Create a bookmark event (kind 10003 - bookmarks and curation sets)
+      createEvent({
+        kind: 10003,
+        content: '',
+        tags: [
+          ['e', event.id],
+          ['p', event.pubkey],
+          ['d', 'bookmarks'],
+        ],
+      });
+    } else {
+      // Create a removal event to unbookmark
+      createEvent({
+        kind: 10003,
+        content: 'remove',
+        tags: [
+          ['e', event.id],
+          ['p', event.pubkey],
+          ['d', 'bookmarks'],
+        ],
+      });
+    }
+  };
+
   const handleShare = async () => {
     if (navigator.share) {
       await navigator.share({
@@ -104,11 +162,24 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     }
   };
 
+  const handleFollow = () => {
+    if (!user) return;
+    
+    setIsFollowing(!isFollowing);
+    
+    // TODO: Update contact list (kind 3) to add/remove this user
+    console.log('Follow functionality to be implemented');
+  };
+
+  const handleProfileClick = () => {
+    // TODO: Navigate to user profile
+    console.log('Navigate to profile:', event.pubkey);
+  };
+
   return (
-    <div className="flex h-full w-full max-w-6xl mx-auto">
-      {/* Video Container */}
-      <div className="relative flex-1 bg-black group">
-        {/* Video */}
+    <div className="flex h-full w-full max-w-lg mx-auto bg-black">
+      {/* Mobile-First Video Container */}
+      <div className="relative flex-1 bg-black">
         <video
           ref={videoRef}
           src={event.videoUrl}
@@ -121,115 +192,106 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
           onPlay={handleVideoPlay}
           onPause={handleVideoPause}
         />
-        
-        {/* Pause Overlay - Shows when video is paused and user manually paused it */}
+
+        {/* Pause Overlay */}
         {userPaused && !isPlaying && (
-          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-            <div className="bg-black/50 rounded-full p-4 backdrop-blur-sm">
-              <Play className="w-12 h-12 text-white" />
+          <div 
+            className="absolute inset-0 bg-black/20 flex items-center justify-center cursor-pointer"
+            onClick={handlePlayPause}
+          >
+            <div className="bg-black/40 rounded-full p-6">
+              <Play className="w-16 h-16 text-white" fill="white" />
             </div>
           </div>
         )}
 
-      {/* Bottom Info */}
-      <div className="absolute bottom-4 left-4 right-4 text-white">
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <span className="font-semibold">@{authorName}</span>
-          </div>
-          
-          {/* Expandable Description */}
-          <div className="text-sm">
-            {isDescriptionExpanded ? (
-              <div className="space-y-2">
-                <p>{event.title || event.description || event.content}</p>
-                <div className="flex items-end space-x-2">
-                  <div className="flex flex-wrap gap-1 flex-1">
-                    {event.tags
-                      .filter(([name]) => name === 't')
-                      .map(([, tag], index) => (
-                        <span
-                          key={index}
-                          className="text-xs bg-gradient-to-r from-orange-400/20 via-pink-500/20 to-purple-600/20 border border-orange-400/30 px-2 py-1 rounded-full"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
+        {/* Volume Control - Top Right */}
+        <div className="absolute top-4 right-4 z-10">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-full bg-black/40 hover:bg-black/60 text-white h-10 w-10 backdrop-blur-sm"
+            onClick={toggleMute}
+          >
+            {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+          </Button>
+        </div>
+
+        {/* Video Description - Bottom Left */}
+        <div className="absolute bottom-4 left-4 right-4 text-white z-10">
+          <div className="space-y-3">
+            {/* Username */}
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-white">@{displayName}</span>
+              {authorMetadata?.nip05 && (
+                <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-300 border-blue-400/30">
+                  ✓ {authorMetadata.nip05}
+                </Badge>
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="text-sm">
+              {isDescriptionExpanded ? (
+                <div className="space-y-2">
+                  <p className="text-white leading-relaxed">
+                    {event.title || event.description || event.content}
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap gap-1 flex-1">
+                      {event.tags
+                        .filter(([name]) => name === 't')
+                        .map(([, tag], index) => (
+                          <span
+                            key={index}
+                            className="text-xs bg-white/10 text-white px-2 py-1 rounded-full backdrop-blur-sm"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                    </div>
+                    <button
+                      onClick={() => setIsDescriptionExpanded(false)}
+                      className="text-xs text-gray-300 hover:text-white transition-colors whitespace-nowrap font-medium"
+                    >
+                      ...less
+                    </button>
                   </div>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <p className="truncate flex-1 text-white leading-relaxed">
+                    {event.title || event.description || event.content}
+                  </p>
                   <button
-                    onClick={() => setIsDescriptionExpanded(false)}
-                    className="text-xs text-gray-300 hover:text-white transition-colors whitespace-nowrap"
+                    onClick={() => setIsDescriptionExpanded(true)}
+                    className="text-xs text-gray-300 hover:text-white transition-colors whitespace-nowrap font-medium"
                   >
-                    ...less
+                    ...more
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <p className="truncate flex-1">
-                  {event.title || event.description || event.content}
-                </p>
-                <button
-                  onClick={() => setIsDescriptionExpanded(true)}
-                  className="text-xs text-gray-300 hover:text-white transition-colors whitespace-nowrap"
-                >
-                  ...more
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Action Buttons - Outside Video Container at Bottom Right */}
+      <VideoActionButtons
+        event={event}
+        displayName={displayName}
+        profilePicture={profilePicture}
+        isLiked={isLiked}
+        isBookmarked={isBookmarked}
+        isFollowing={isFollowing}
+        onLike={handleLike}
+        onZap={handleZap}
+        onComment={handleComment}
+        onBookmark={handleBookmark}
+        onShare={handleShare}
+        onFollow={handleFollow}
+        onProfileClick={handleProfileClick}
+      />
     </div>
-
-    {/* Right Side Actions - Now outside video */}
-    <div className="flex flex-col justify-end items-center space-y-6 px-6 bg-black pb-20">
-      <div className="flex flex-col items-center space-y-4">
-        <Avatar className="w-14 h-14 border-2 border-white">
-          <AvatarImage src={authorAvatar} alt={authorName} />
-          <AvatarFallback>{authorName.slice(0, 2).toUpperCase()}</AvatarFallback>
-        </Avatar>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          className={`w-14 h-14 rounded-full flex flex-col items-center justify-center text-white hover:bg-white/20 ${
-            isLiked ? 'text-pink-500' : ''
-          }`}
-          onClick={handleLike}
-        >
-          <Heart size={28} fill={isLiked ? 'currentColor' : 'none'} />
-          <span className="text-xs mt-1">123</span>
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-14 h-14 rounded-full flex flex-col items-center justify-center text-white hover:bg-white/20"
-        >
-          <MessageCircle size={28} />
-          <span className="text-xs mt-1">45</span>
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-14 h-14 rounded-full flex flex-col items-center justify-center text-white hover:bg-white/20"
-          onClick={handleShare}
-        >
-          <Share size={28} />
-          <span className="text-xs mt-1">Share</span>
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-14 h-14 rounded-full flex items-center justify-center text-white hover:bg-white/20"
-        >
-          <MoreHorizontal size={28} />
-        </Button>
-      </div>
-    </div>
-  </div>
   );
 }
