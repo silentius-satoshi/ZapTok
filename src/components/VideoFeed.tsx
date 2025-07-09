@@ -1,8 +1,7 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { VideoCard } from '@/components/VideoCard';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { RelaySelector } from '@/components/RelaySelector';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -88,7 +87,7 @@ export function VideoFeed() {
     initialPageParam: undefined as number | undefined,
   });
 
-  const videos = data?.pages.flat() || [];
+  const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
 
   // Handle keyboard navigation and scroll snapping
   useEffect(() => {
