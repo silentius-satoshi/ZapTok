@@ -2,6 +2,7 @@ import { Heart, MessageCircle, Send, Zap, Bookmark, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useVideoReactions } from '@/hooks/useVideoReactions';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface VideoActionButtonsProps {
@@ -36,6 +37,17 @@ export function VideoActionButtons({
   onProfileClick,
 }: VideoActionButtonsProps) {
   const { user } = useCurrentUser();
+  const reactions = useVideoReactions(event.id);
+
+  // Format large numbers (e.g., 1234 -> 1.2K)
+  const formatCount = (count: number): string => {
+    if (count >= 1000000) {
+      return (count / 1000000).toFixed(1) + 'M';
+    } else if (count >= 1000) {
+      return (count / 1000).toFixed(1) + 'K';
+    }
+    return count.toString();
+  };
 
   return (
     <div className="flex flex-col justify-end items-center gap-4 p-4 w-16 bg-black">
@@ -82,7 +94,9 @@ export function VideoActionButtons({
         >
           <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
         </Button>
-        <span className="text-white text-xs font-medium">2.2M</span>
+        <span className="text-white text-xs font-medium">
+          {reactions.data ? formatCount(reactions.data.likes) : '0'}
+        </span>
       </div>
 
       {/* 3. Zap Button */}
@@ -95,7 +109,9 @@ export function VideoActionButtons({
         >
           <Zap className="w-6 h-6 text-yellow-500" />
         </Button>
-        <span className="text-white text-xs font-medium">847</span>
+        <span className="text-white text-xs font-medium">
+          {reactions.data ? formatCount(reactions.data.zaps) : '0'}
+        </span>
       </div>
 
       {/* 4. Comment Button */}
@@ -108,7 +124,10 @@ export function VideoActionButtons({
         >
           <MessageCircle className="w-6 h-6" />
         </Button>
-        <span className="text-white text-xs font-medium">5039</span>
+        <span className="text-white text-xs font-medium">
+          {/* TODO: Implement comment count when comments are added */}
+          0
+        </span>
       </div>
 
       {/* 5. Bookmark Button */}
@@ -121,7 +140,10 @@ export function VideoActionButtons({
         >
           <Bookmark className={`w-6 h-6 ${isBookmarked ? 'fill-yellow-500 text-yellow-500' : ''}`} />
         </Button>
-        <span className="text-white text-xs font-medium">113.9K</span>
+        <span className="text-white text-xs font-medium">
+          {/* TODO: Implement bookmark count when bookmarks are added */}
+          0
+        </span>
       </div>
 
       {/* 6. Share Button */}

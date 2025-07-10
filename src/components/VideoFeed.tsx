@@ -6,48 +6,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { RelaySelector } from '@/components/RelaySelector';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useFollowing } from '@/hooks/useFollowing';
+import { useProfileCache } from '@/hooks/useProfileCache';
+import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
+import { useVideoCache } from '@/hooks/useVideoCache';
+import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent } from '@/lib/validateVideoEvent';
 import type { NostrEvent } from '@nostrify/nostrify';
-
-interface VideoEvent extends NostrEvent {
-  videoUrl?: string;
-  thumbnail?: string;
-  title?: string;
-  description?: string;
-}
-
-function validateVideoEvent(event: NostrEvent): VideoEvent | null {
-  // Check for video content in imeta tags or content
-  const imetaTags = event.tags.filter(([name]) => name === 'imeta');
-  const videoUrl = imetaTags.find(([, , mime]) => mime?.startsWith('video/'))?.[1];
-  
-  if (!videoUrl && !event.content.includes('mp4') && !event.content.includes('webm')) {
-    return null;
-  }
-
-  const titleTag = event.tags.find(([name]) => name === 'title')?.[1];
-  const summaryTag = event.tags.find(([name]) => name === 'summary')?.[1];
-  const thumbnailTag = event.tags.find(([name]) => name === 'image')?.[1];
-
-  return {
-    ...event,
-    videoUrl: videoUrl || extractVideoUrl(event.content),
-    thumbnail: thumbnailTag,
-    title: titleTag || extractTitle(event.content),
-    description: summaryTag || event.content.substring(0, 200),
-  };
-}
-
-function extractVideoUrl(content: string): string | undefined {
-  const urlRegex = /(https?:\/\/[^\s]+\.(mp4|webm|mov))/i;
-  const match = content.match(urlRegex);
-  return match?.[0];
-}
-
-function extractTitle(content: string): string {
-  const lines = content.split('\n');
-  return lines[0].substring(0, 50) + (lines[0].length > 50 ? '...' : '');
-}
-
 export function VideoFeed() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
@@ -56,6 +19,11 @@ export function VideoFeed() {
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
   const lastScrollTopRef = useRef(0);
+
+  // Enhanced caching hooks
+  const { batchLoadProfiles } = useProfileCache();
+  const { preloadThumbnails } = useVideoPrefetch();
+  const { cacheVideoMetadata } = useVideoCache();
 
   const {
     data,
@@ -82,21 +50,63 @@ export function VideoFeed() {
         }
       ], { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) });
 
-      // Filter and validate video events, removing duplicates
+      // Filter and validate video events, removing duplicates by both event ID and video URL
       const uniqueEvents = new Map<string, NostrEvent>();
+      const seenVideoUrls = new Set<string>();
       
       events.forEach(event => {
-        // Only keep the latest version of each event
+        // Quick filter for potential video content
+        if (!hasVideoContent(event)) return;
+        
+        // Only keep the latest version of each event ID
         const existing = uniqueEvents.get(event.id);
-        if (!existing || event.created_at > existing.created_at) {
-          uniqueEvents.set(event.id, event);
-        }
+        if (existing && event.created_at <= existing.created_at) return;
+        
+        uniqueEvents.set(event.id, event);
       });
 
-      const videoEvents = Array.from(uniqueEvents.values())
-        .map(validateVideoEvent)
-        .filter((event): event is VideoEvent => event !== null)
-        .sort((a, b) => b.created_at - a.created_at);
+      // Validate events and deduplicate by video URL
+      const validatedEvents: VideoEvent[] = [];
+      
+      for (const event of uniqueEvents.values()) {
+        const videoEvent = validateVideoEvent(event);
+        if (!videoEvent || !videoEvent.videoUrl) continue;
+        
+        // Normalize URL for comparison to catch duplicates with different parameters
+        const normalizedUrl = normalizeVideoUrl(videoEvent.videoUrl);
+        
+        // Skip if we've already seen this video URL
+        if (seenVideoUrls.has(normalizedUrl)) continue;
+        
+        seenVideoUrls.add(normalizedUrl);
+        validatedEvents.push(videoEvent);
+      }
+
+      // Sort by creation time (most recent first)
+      const videoEvents = validatedEvents.sort((a, b) => b.created_at - a.created_at);
+
+      // Enhanced caching and prefetching
+      if (videoEvents.length > 0) {
+        // Cache video metadata for offline access
+        cacheVideoMetadata(videoEvents);
+        
+        // Extract author pubkeys for profile prefetching
+        const authorPubkeys = [...new Set(videoEvents.map(event => event.pubkey))];
+        
+        // Batch load profiles in background (non-blocking)
+        batchLoadProfiles(authorPubkeys).catch(error => {
+          console.warn('Profile prefetch failed:', error);
+        });
+        
+        // Preload thumbnails for smooth scrolling
+        const thumbnailUrls = videoEvents
+          .map(event => event.thumbnail)
+          .filter(Boolean) as string[];
+        
+        if (thumbnailUrls.length > 0) {
+          preloadThumbnails(thumbnailUrls);
+        }
+      }
 
       return videoEvents;
     },
