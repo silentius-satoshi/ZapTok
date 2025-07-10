@@ -43,22 +43,12 @@ const Index = () => {
               <VideoFeed />
             </div>
             
-            {/* Right Sidebar - Login and Trending */}
+            {/* Right Sidebar - Login Area */}
             <div className="hidden lg:block w-80 p-4">
               <div className="sticky top-4 space-y-6">
                 {/* Login Area */}
-                <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-800">
+                <div className="p-4">
                   <LoginArea className="w-full" />
-                </div>
-                
-                {/* Trending */}
-                <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-800">
-                  <h2 className="text-lg font-semibold mb-4">Trending</h2>
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-400">
-                      #nostr #decentralized #video
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
