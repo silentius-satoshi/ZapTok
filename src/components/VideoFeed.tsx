@@ -4,6 +4,8 @@ import { useNostr } from '@nostrify/react';
 import { VideoCard } from '@/components/VideoCard';
 import { Card, CardContent } from '@/components/ui/card';
 import { RelaySelector } from '@/components/RelaySelector';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useFollowing } from '@/hooks/useFollowing';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface VideoEvent extends NostrEvent {
@@ -48,6 +50,8 @@ function extractTitle(content: string): string {
 
 export function VideoFeed() {
   const { nostr } = useNostr();
+  const { user } = useCurrentUser();
+  const following = useFollowing(user?.pubkey || '');
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
@@ -61,19 +65,35 @@ export function VideoFeed() {
     isLoading,
     error,
   } = useInfiniteQuery({
-    queryKey: ['video-feed'],
+    queryKey: ['video-feed', following.data?.pubkeys],
     queryFn: async ({ pageParam, signal }) => {
+      // Only fetch videos if user has following list
+      if (!following.data?.pubkeys?.length) {
+        return [];
+      }
+
       const events = await nostr.query([
         {
           kinds: [1, 1063], // Text notes and file metadata
+          authors: following.data.pubkeys, // Only from followed users
           '#t': ['video', 'content', 'entertainment'],
           limit: 10,
           until: pageParam,
         }
       ], { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) });
 
-      // Filter and validate video events
-      const videoEvents = events
+      // Filter and validate video events, removing duplicates
+      const uniqueEvents = new Map<string, NostrEvent>();
+      
+      events.forEach(event => {
+        // Only keep the latest version of each event
+        const existing = uniqueEvents.get(event.id);
+        if (!existing || event.created_at > existing.created_at) {
+          uniqueEvents.set(event.id, event);
+        }
+      });
+
+      const videoEvents = Array.from(uniqueEvents.values())
         .map(validateVideoEvent)
         .filter((event): event is VideoEvent => event !== null)
         .sort((a, b) => b.created_at - a.created_at);
@@ -85,6 +105,7 @@ export function VideoFeed() {
       return lastPage[lastPage.length - 1].created_at;
     },
     initialPageParam: undefined as number | undefined,
+    enabled: !!following.data?.pubkeys?.length, // Only run when following list is available
   });
 
   const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
@@ -194,17 +215,60 @@ export function VideoFeed() {
     }
   }, [currentVideoIndex, videos.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  if (isLoading) {
+  // Show loading state while fetching following list or videos
+  if (following.isLoading || (following.data?.pubkeys?.length && isLoading)) {
     return (
       <div className="h-screen flex items-center justify-center bg-black">
         <div className="text-center">
           <div className="w-12 h-12 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading videos...</p>
+          <p className="text-gray-400">Loading your personalized feed...</p>
         </div>
       </div>
     );
   }
 
+  // Show empty state if user is not logged in
+  if (!user) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-black">
+        <Card className="border-dashed border-gray-700 bg-gray-900/50">
+          <CardContent className="py-12 px-8 text-center">
+            <div className="max-w-sm mx-auto space-y-6">
+              <div className="text-6xl mb-4">🎬</div>
+              <h2 className="text-2xl font-bold text-white">Welcome to ZapTok</h2>
+              <p className="text-gray-400">
+                Please log in to see videos from people you follow
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show empty state if user has no following list
+  if (!following.data?.pubkeys?.length) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-black">
+        <Card className="border-dashed border-gray-700 bg-gray-900/50">
+          <CardContent className="py-12 px-8 text-center">
+            <div className="max-w-sm mx-auto space-y-6">
+              <div className="text-6xl mb-4">👥</div>
+              <h2 className="text-2xl font-bold text-white">No Following List</h2>
+              <p className="text-gray-400">
+                Follow some users first to see their video content in your personalized feed
+              </p>
+              <p className="text-sm text-gray-500">
+                You can manage your following list from your profile settings
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show empty state if no video content found from following list
   if (error || videos.length === 0) {
     return (
       <div className="h-screen flex items-center justify-center bg-black">
@@ -212,8 +276,12 @@ export function VideoFeed() {
           <CardContent className="py-12 px-8 text-center">
             <div className="max-w-sm mx-auto space-y-6">
               <div className="text-6xl mb-4">🎬</div>
-              <p className="text-gray-400 text-lg">
-                No videos found. Try a different relay?
+              <h2 className="text-2xl font-bold text-white">No Videos Found</h2>
+              <p className="text-gray-400">
+                None of the people you follow have posted video content yet
+              </p>
+              <p className="text-sm text-gray-500 mb-4">
+                Check back later or follow more creators who share videos
               </p>
               <RelaySelector className="w-full" />
             </div>
@@ -234,7 +302,7 @@ export function VideoFeed() {
     >
       {videos.map((video, index) => (
         <div
-          key={video.id}
+          key={`${video.id}-${index}`}
           className="h-screen snap-start"
           style={{ scrollSnapAlign: 'start' }}
         >
