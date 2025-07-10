@@ -165,6 +165,8 @@ describe('VideoFeed Scroll Snapping Logic', () => {
     if (container) {
       // Mock scroll to position between videos (not perfectly aligned)
       // This should trigger snapping to the nearest video
+      // New full-screen layout: index * window.innerHeight
+      // Video 1 position = 1 * 800 = 800
       Object.defineProperty(container, 'scrollTop', {
         writable: true,
         configurable: true,
@@ -186,7 +188,7 @@ describe('VideoFeed Scroll Snapping Logic', () => {
 
       // Assert scrollTo is called with correct parameters for index 1
       expect(scrollToSpy).toHaveBeenCalledWith({
-        top: 800,
+        top: 800, // New calculation: 1 * 800 (window.innerHeight)
         behavior: 'smooth',
       });
     }
@@ -204,7 +206,8 @@ describe('VideoFeed Scroll Snapping Logic', () => {
     // Test ArrowDown key
     fireEvent.keyDown(window, { key: 'ArrowDown' });
     
-    // Should call scrollTo for next video (index 1 * 800 = 800)
+    // Should call scrollTo for next video (index 1)
+    // New calculation: 1 * 800 (window.innerHeight) = 800
     expect(scrollToSpy).toHaveBeenCalledWith({
       top: 800,
       behavior: 'smooth',
@@ -217,6 +220,7 @@ describe('VideoFeed Scroll Snapping Logic', () => {
     fireEvent.keyDown(window, { key: 'ArrowUp' });
     
     // Should call scrollTo to go to index 0
+    // New calculation: 0 * 800 (window.innerHeight) = 0
     expect(scrollToSpy).toHaveBeenCalledWith({
       top: 0,
       behavior: 'smooth',
@@ -237,7 +241,7 @@ describe('VideoFeed Scroll Snapping Logic', () => {
 
     if (container) {
       // Test scroll position that should snap to first video
-      // Use a position that's close to 0 but not exactly 0
+      // Use a position that's close to first video but not exactly aligned
       Object.defineProperty(container, 'scrollTop', {
         writable: true,
         configurable: true,
@@ -258,6 +262,7 @@ describe('VideoFeed Scroll Snapping Logic', () => {
       });
 
       // Should snap to first video (index 0)
+      // New calculation: 0 * 800 (window.innerHeight) = 0
       expect(scrollToSpy).toHaveBeenCalledWith({
         top: 0,
         behavior: 'smooth',
