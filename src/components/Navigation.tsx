@@ -1,16 +1,21 @@
-import { Home, Search, Heart, User, Plus, TrendingUp, Zap } from 'lucide-react';
+import { Search, Heart, TrendingUp, Zap, Play, PlusSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useAuthor } from '@/hooks/useAuthor';
+import { genUserName } from '@/lib/genUserName';
 import { ProfileModal } from '@/components/ProfileModal';
 import LightningWalletModal from '@/components/lightning/LightningWalletModal';
 import { useState } from 'react';
 
 export function Navigation() {
   const { user } = useCurrentUser();
+  const author = useAuthor(user?.pubkey || '');
+  const metadata = author.data?.metadata;
   const [activeTab, setActiveTab] = useState('home');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   const handleProfileClick = () => {
     setActiveTab('profile');
@@ -23,73 +28,130 @@ export function Navigation() {
   };
 
   const navItems = [
-    { id: 'home', icon: Home, label: 'For You', onClick: undefined },
+    { id: 'home', icon: Play, label: 'For You', onClick: undefined },
     { id: 'search', icon: Search, label: 'Discover', onClick: undefined },
     { id: 'trending', icon: TrendingUp, label: 'Trending', onClick: undefined },
     { id: 'notifications', icon: Heart, label: 'Notifications', onClick: undefined },
     { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: handleWalletClick },
-    { id: 'profile', icon: User, label: 'Profile', onClick: handleProfileClick },
   ];
 
   return (
-    <TooltipProvider>
-      <div className="hidden md:flex flex-col w-64 p-4 space-y-2 h-full">
-        {navItems.map((item) => {
-          // Special handling for Lightning Wallet button with tooltip
-          if (item.id === 'wallet') {
+    <>
+      <div className="hidden md:flex flex-col w-64 p-4 h-full">{/* Main Navigation */}
+        <div className="space-y-2 flex-1">
+          {navItems.map((item) => {
+            // All buttons use the same styling
             return (
-              <Tooltip key={item.id}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={activeTab === item.id ? 'default' : 'ghost'}
-                    className={`w-full justify-start text-left h-12 ${
-                      activeTab === item.id
-                        ? 'bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 text-white hover:from-orange-500 hover:via-pink-600 hover:to-purple-700'
-                        : 'text-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950'
-                    }`}
-                    onClick={item.onClick || (() => setActiveTab(item.id))}
-                  >
-                    <item.icon size={20} className="mr-3" />
-                    <span className="font-medium">{item.label}</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-sm">
-                  <div className="space-y-2">
-                    <div className="font-semibold text-orange-500">⚡ Lightning Integration</div>
-                    <p className="text-sm">
-                      ZapTok integrates Bitcoin's Lightning Network for instant, low-fee payments. Zap creators directly with just a tap! Lightning Network enables fast, low-cost Bitcoin payments perfect for microtransactions and zapping creators on Nostr.
-                    </p>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
+              <Button
+                key={item.id}
+                variant={activeTab === item.id ? 'default' : 'ghost'}
+                className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent ${
+                  activeTab === item.id
+                    ? 'text-gray-400 hover:text-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                onClick={item.onClick || (() => setActiveTab(item.id))}
+                onMouseEnter={() => setHoveredItem(item.id)}
+                onMouseLeave={() => setHoveredItem(null)}
+              >
+                <item.icon size={20} className={`mr-3 ${
+                  activeTab === item.id || hoveredItem === item.id
+                    ? 'text-orange-500'
+                    : 'text-gray-400'
+                }`} style={activeTab === item.id || hoveredItem === item.id ? {
+                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                } : {}} />
+                <span className={`font-medium ${
+                  activeTab === item.id || hoveredItem === item.id
+                    ? 'text-orange-500'
+                    : 'text-gray-400'
+                }`} style={activeTab === item.id || hoveredItem === item.id ? {
+                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                } : {}}>{item.label}</span>
+              </Button>
             );
-          }
+          })}
 
-          // Regular buttons without tooltip
-          return (
+          {user && (
             <Button
-              key={item.id}
-              variant={activeTab === item.id ? 'default' : 'ghost'}
-              className={`w-full justify-start text-left h-12 ${
-                activeTab === item.id
-                  ? 'bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 text-white hover:from-orange-500 hover:via-pink-600 hover:to-purple-700'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-              onClick={item.onClick || (() => setActiveTab(item.id))}
+              className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent ${
+                activeTab === 'upload'
+                  ? 'text-gray-400 hover:text-white'
+                  : 'text-gray-400 hover:text-white'
+              } mt-4`}
+              onClick={() => setActiveTab('upload')}
+              onMouseEnter={() => setHoveredItem('upload')}
+              onMouseLeave={() => setHoveredItem(null)}
             >
-              <item.icon size={20} className="mr-3" />
-              <span className="font-medium">{item.label}</span>
+              <PlusSquare size={20} className={`mr-3 ${
+                activeTab === 'upload' || hoveredItem === 'upload'
+                  ? 'text-orange-500'
+                  : 'text-gray-400'
+              }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
+                background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              } : {}} />
+              <span className={`font-medium ${
+                activeTab === 'upload' || hoveredItem === 'upload'
+                  ? 'text-orange-500'
+                  : 'text-gray-400'
+              }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
+                background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              } : {}}>Upload</span>
             </Button>
-          );
-        })}
+          )}
+        </div>
 
+        {/* Profile Section at Bottom */}
         {user && (
-          <Button
-            className="w-full justify-start text-left h-12 bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 text-white hover:from-orange-500 hover:via-pink-600 hover:to-purple-700 mt-4"
-          >
-            <Plus size={20} className="mr-3" />
-            <span className="font-medium">Upload</span>
-          </Button>
+          <div className="mt-auto pt-4">
+            <button 
+              className={`flex items-center gap-3 p-3 rounded-2xl transition-all w-full text-foreground ${
+                hoveredItem === 'profile' 
+                  ? 'bg-gray-800/30 scale-105' 
+                  : 'hover:bg-gray-800/20'
+              }`}
+              onClick={handleProfileClick}
+              onMouseEnter={() => setHoveredItem('profile')}
+              onMouseLeave={() => setHoveredItem(null)}
+              style={{
+                border: 'none',
+                outline: 'none',
+                boxShadow: 'none',
+                background: hoveredItem === 'profile' ? 'rgba(31, 41, 55, 0.3)' : 'transparent',
+              }}
+            >
+              <Avatar className={`w-10 h-10 transition-all ${
+                hoveredItem === 'profile' ? 'ring-2 ring-orange-400/50' : ''
+              }`}>
+                <AvatarImage src={metadata?.picture} alt={metadata?.name ?? genUserName(user.pubkey)} />
+                <AvatarFallback>{(metadata?.name ?? genUserName(user.pubkey)).charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div className='flex-1 text-left hidden md:block truncate'>
+                <p className={`font-medium text-sm truncate transition-colors ${
+                  hoveredItem === 'profile' ? 'text-white' : 'text-gray-300'
+                }`}>{metadata?.name ?? genUserName(user.pubkey)}</p>
+                {metadata?.nip05 && (
+                  <p className={`text-xs truncate transition-colors ${
+                    hoveredItem === 'profile' ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    {metadata.nip05}
+                  </p>
+                )}
+              </div>
+            </button>
+          </div>
         )}
       </div>
 
@@ -106,6 +168,6 @@ export function Navigation() {
         isOpen={showWalletModal} 
         onClose={() => setShowWalletModal(false)} 
       />
-    </TooltipProvider>
+    </>
   );
 }
