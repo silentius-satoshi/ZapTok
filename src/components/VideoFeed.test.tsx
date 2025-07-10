@@ -12,6 +12,25 @@ vi.mock('@/hooks/useNostr', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useCurrentUser', () => ({
+  useCurrentUser: () => ({
+    user: {
+      pubkey: 'test-pubkey',
+      signer: {},
+    },
+  }),
+}));
+
+vi.mock('@/hooks/useFollowing', () => ({
+  useFollowing: () => ({
+    data: {
+      pubkeys: ['pubkey1', 'pubkey2'],
+      count: 2,
+    },
+    isLoading: false,
+  }),
+}));
+
 vi.mock('@tanstack/react-query', async (importOriginal) => {
   const actual = await importOriginal() as typeof import('@tanstack/react-query');
   return {
