@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { VideoCard } from '@/components/VideoCard';
+import { VideoActionButtons } from '@/components/VideoActionButtons';
 import { Card, CardContent } from '@/components/ui/card';
 import { RelaySelector } from '@/components/RelaySelector';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -141,8 +142,12 @@ export function VideoFeed() {
   // Function to scroll to a specific video
   const scrollToVideo = (index: number) => {
     if (containerRef.current) {
+      // Calculate position for full-screen videos
+      const videoHeight = window.innerHeight; // Full screen height
+      const targetTop = index * videoHeight;
+      
       containerRef.current.scrollTo({
-        top: index * window.innerHeight,
+        top: targetTop,
         behavior: 'smooth'
       });
     }
@@ -157,8 +162,10 @@ export function VideoFeed() {
       if (isScrollingRef.current) return;
       
       const scrollTop = container.scrollTop;
-      const windowHeight = container.clientHeight;
-      const newIndex = Math.round(scrollTop / windowHeight);
+      const videoHeight = window.innerHeight; // Full screen height
+      
+      // Calculate which video is most visible
+      const newIndex = Math.round(scrollTop / videoHeight);
       
       // Only update if we've actually moved to a different video
       if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < videos.length) {
@@ -184,12 +191,13 @@ export function VideoFeed() {
       if (isScrollingRef.current) return;
       
       const scrollTop = container.scrollTop;
-      const windowHeight = container.clientHeight;
-      const targetIndex = Math.round(scrollTop / windowHeight);
-      const targetScrollTop = targetIndex * windowHeight;
+      const videoHeight = window.innerHeight;
       
-      // Only snap if we're not already perfectly aligned
-      if (Math.abs(scrollTop - targetScrollTop) > 5) {
+      const targetIndex = Math.round(scrollTop / videoHeight);
+      const targetScrollTop = targetIndex * videoHeight;
+      
+      // Only snap if we're not already close to the target position
+      if (Math.abs(scrollTop - targetScrollTop) > 10) {
         isScrollingRef.current = true;
         container.scrollTo({
           top: targetScrollTop,
@@ -304,37 +312,47 @@ export function VideoFeed() {
   return (
     <div 
       ref={containerRef}
-      className="h-screen overflow-y-auto scrollbar-hide"
+      className="h-screen overflow-y-auto scrollbar-hide bg-black snap-y snap-mandatory"
       style={{
-        scrollSnapType: 'y mandatory',
         scrollBehavior: 'smooth'
       }}
     >
       {videos.map((video, index) => (
         <div
           key={`${video.id}-${index}`}
-          className="h-screen snap-start"
-          style={{ scrollSnapAlign: 'start' }}
+          className="h-screen flex items-center justify-center snap-start px-6"
         >
-          <VideoCard
-            event={video}
-            isActive={index === currentVideoIndex}
-            onNext={() => {
-              const newIndex = Math.min(index + 1, videos.length - 1);
-              setCurrentVideoIndex(newIndex);
-              scrollToVideo(newIndex);
-            }}
-            onPrevious={() => {
-              const newIndex = Math.max(index - 1, 0);
-              setCurrentVideoIndex(newIndex);
-              scrollToVideo(newIndex);
-            }}
-          />
+          <div className="flex gap-6 w-full max-w-2xl items-end h-full py-4">
+            {/* Video Container - Full height from top to bottom */}
+            <div className="flex-1 h-full overflow-hidden rounded-3xl border-2 border-gray-800 bg-black shadow-2xl hover:shadow-3xl transition-all duration-300">
+              <VideoCard
+                event={video}
+                isActive={index === currentVideoIndex}
+                onNext={() => {
+                  const newIndex = Math.min(index + 1, videos.length - 1);
+                  setCurrentVideoIndex(newIndex);
+                  scrollToVideo(newIndex);
+                }}
+                onPrevious={() => {
+                  const newIndex = Math.max(index - 1, 0);
+                  setCurrentVideoIndex(newIndex);
+                  scrollToVideo(newIndex);
+                }}
+              />
+            </div>
+            
+            {/* Action Buttons - Outside and to the right of video */}
+            <div className="flex items-end pb-8">
+              <VideoActionButtons
+                event={video}
+              />
+            </div>
+          </div>
         </div>
       ))}
       
       {isFetchingNextPage && (
-        <div className="h-screen snap-start flex items-center justify-center">
+        <div className="h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="w-8 h-8 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-gray-400">Loading more videos...</p>
