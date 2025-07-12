@@ -1,44 +1,66 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bitcoin, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Bitcoin, Loader2, CheckCircle, X } from 'lucide-react';
 
 interface BitcoinConnectCardProps {
   isConnecting: boolean;
   onConnect: () => void;
+  isConnected?: boolean;
+  onDisconnect?: () => void;
 }
 
-const BitcoinConnectCard = ({ isConnecting, onConnect }: BitcoinConnectCardProps) => {
+const BitcoinConnectCard = ({ isConnecting, onConnect, isConnected = false, onDisconnect }: BitcoinConnectCardProps) => {
   return (
-    <Card className="bg-card border">
-      <CardHeader className="pb-3">
-        <div className="text-lg flex items-center space-x-2">
-          <Bitcoin className="w-5 h-5 text-orange-400" />
-          <CardTitle className="text-base">Bitcoin Connect</CardTitle>
+    <div className="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700">
+      <div className="flex items-center space-x-3">
+        <div className="p-2 bg-orange-500/20 rounded-lg">
+          <Bitcoin className="w-6 h-6 text-orange-400" />
         </div>
-        <CardDescription className="text-muted-foreground">
-          Connect your Bitcoin Lightning wallet directly
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <Button 
-          onClick={onConnect}
-          disabled={isConnecting}
-          className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-        >
-          {isConnecting ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Connecting...
-            </>
-          ) : (
-            <>
-              <Bitcoin className="w-4 h-4 mr-2" />
-              Connect Bitcoin Lightning Wallet
-            </>
-          )}
-        </Button>
-      </CardContent>
-    </Card>
+        <div>
+          <h3 className="font-medium text-white">Bitcoin Connect</h3>
+          <p className="text-sm text-gray-400">
+            {isConnected ? "Your Bitcoin Lightning wallet is connected" : "Connect your Bitcoin Lightning wallet directly"}
+          </p>
+        </div>
+      </div>
+      
+      <div className="flex items-center space-x-3">
+        {isConnected ? (
+          <>
+            {onDisconnect && (
+              <Button 
+                onClick={onDisconnect}
+                variant="ghost"
+                size="sm"
+                className="text-pink-400 hover:text-pink-300 hover:bg-pink-400/10"
+              >
+                disconnect
+              </Button>
+            )}
+            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/20">
+              <CheckCircle className="w-3 h-3 mr-1" />
+              Active
+            </Badge>
+          </>
+        ) : (
+          <Button 
+            onClick={onConnect}
+            disabled={isConnecting}
+            className="bg-pink-500 hover:bg-pink-600 text-white px-6"
+          >
+            {isConnecting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Connecting...
+              </>
+            ) : (
+              "Connect"
+            )}
+          </Button>
+        )}
+      </div>
+    </div>
   );
 };
 

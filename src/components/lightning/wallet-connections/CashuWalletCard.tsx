@@ -10,26 +10,24 @@ interface CashuWalletCardProps {
 
 const CashuWalletCard = ({ isConnecting, onConnect }: CashuWalletCardProps) => {
   return (
-    <Card className="bg-card border">
-      <CardHeader className="pb-3">
-        <div className="text-lg flex items-center justify-between">
-          <div className="text-lg flex items-center space-x-2">
-            <Coins className="w-5 h-5 text-green-500" />
-            <CardTitle className="text-base">Cashu Wallet</CardTitle>
-          </div>
-          <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-            Private
-          </Badge>
+    <div className="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700">
+      <div className="flex items-center space-x-3">
+        <div className="p-2 bg-green-500/20 rounded-lg">
+          <Coins className="w-6 h-6 text-green-400" />
         </div>
-        <CardDescription className="text-sm">
-          Privacy-focused eCash for anonymous payments
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pt-0">
+        <div>
+          <h3 className="font-medium text-white">Cashu Wallet</h3>
+          <p className="text-sm text-gray-400">
+            Privacy-focused eCash for anonymous payments
+          </p>
+        </div>
+      </div>
+      
+      <div className="flex items-center space-x-3">
         <Button 
           onClick={onConnect}
           disabled={isConnecting}
-          className="w-full bg-green-600 hover:bg-green-700 text-white"
+          className="bg-pink-500 hover:bg-pink-600 text-white px-6"
         >
           {isConnecting ? (
             <>
@@ -37,14 +35,11 @@ const CashuWalletCard = ({ isConnecting, onConnect }: CashuWalletCardProps) => {
               Connecting...
             </>
           ) : (
-            <>
-              <Coins className="w-4 h-4 mr-2" />
-              Connect Cashu Wallet
-            </>
+            "Connect"
           )}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

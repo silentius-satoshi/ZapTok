@@ -10,26 +10,24 @@ interface NostrWalletConnectCardProps {
 
 const NostrWalletConnectCard = ({ isConnecting, onConnect }: NostrWalletConnectCardProps) => {
   return (
-    <Card className="bg-card border">
-      <CardHeader className="pb-3">
-        <div className="text-lg flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <QrCode className="w-5 h-5 text-purple-400" />
-            <CardTitle className="text-base">Nostr Wallet Connect</CardTitle>
-          </div>
-          <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-            Recommended
-          </Badge>
+    <div className="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700">
+      <div className="flex items-center space-x-3">
+        <div className="p-2 bg-purple-500/20 rounded-lg">
+          <QrCode className="w-6 h-6 text-purple-400" />
         </div>
-        <CardDescription className="text-sm">
-          Connect via NWC protocol for seamless Nostr integration
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pt-0">
+        <div>
+          <h3 className="font-medium text-white">Nostr Wallet Connect</h3>
+          <p className="text-sm text-gray-400">
+            Connect an external wallet that supports NWC
+          </p>
+        </div>
+      </div>
+      
+      <div className="flex items-center space-x-3">
         <Button 
           onClick={onConnect}
           disabled={isConnecting}
-          className="w-full bg-purple-500 hover:bg-purple-600 text-white"
+          className="bg-pink-500 hover:bg-pink-600 text-white px-6"
         >
           {isConnecting ? (
             <>
@@ -37,17 +35,11 @@ const NostrWalletConnectCard = ({ isConnecting, onConnect }: NostrWalletConnectC
               Connecting...
             </>
           ) : (
-            <>
-              <Link className="w-4 h-4 mr-2" />
-              Connect NWC
-            </>
+            "Connect"
           )}
         </Button>
-        <p className="text-xs text-muted-foreground mt-2">
-          Works with Alby, Zeus, and other NWC-compatible wallets
-        </p>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, Send, Zap, Bookmark, Plus } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -6,7 +6,6 @@ import { useVideoReactions } from '@/hooks/useVideoReactions';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { ZapButton } from '@/components/ZapButton';
-import { useWallet } from '@/contexts/WalletContext';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface VideoActionButtonsProps {
@@ -33,7 +32,7 @@ export function VideoActionButtons({
   isBookmarked = false,
   isFollowing = false,
   onLike,
-  onZap,
+  onZap: _onZap,
   onComment,
   onBookmark,
   onShare,
@@ -53,11 +52,6 @@ export function VideoActionButtons({
   const handleLike = onLike || (() => {
     // TODO: Implement like functionality
     console.log('Like clicked');
-  });
-
-  const handleZap = onZap || (() => {
-    // TODO: Implement zap functionality
-    console.log('Zap clicked');
   });
 
   const handleComment = onComment || (() => {

@@ -5,7 +5,7 @@ import { Wallet, Zap, Unlink } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 
 export function WalletConnect() {
-  const { isConnected, connect, disconnect, provider, error } = useWallet();
+  const { isConnected, connect, disconnect, provider } = useWallet();
   const { toast } = useToast();
 
   const handleConnect = async () => {

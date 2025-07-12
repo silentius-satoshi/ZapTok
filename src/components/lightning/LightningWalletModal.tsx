@@ -3,6 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/useToast';
 import { Zap, Info } from 'lucide-react';
+import { WalletDashboard } from '@/components/WalletDashboard';
+import { SendReceivePanel } from '@/components/SendReceivePanel';
+import { useWallet } from '@/contexts/WalletContext';
 import NostrWalletConnectCard from './wallet-connections/NostrWalletConnectCard';
 import BitcoinConnectCard from './wallet-connections/BitcoinConnectCard';
 import CashuWalletCard from './wallet-connections/CashuWalletCard';
@@ -16,6 +19,7 @@ interface LightningWalletModalProps {
 const LightningWalletModal = ({ isOpen, onClose, showBTC: _showBTC = false }: LightningWalletModalProps) => {
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const { toast } = useToast();
+  const { isConnected } = useWallet();
 
   const handleNostrWalletConnect = async () => {
     setIsConnecting('nwc');
@@ -83,11 +87,11 @@ const LightningWalletModal = ({ isOpen, onClose, showBTC: _showBTC = false }: Li
   return (
     <TooltipProvider>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="bg-background border text-foreground max-w-md">
+        <DialogContent className="bg-background border text-foreground max-w-2xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2 text-orange-400">
               <Zap className="w-6 h-6" />
-              <span>Connect Lightning Wallet</span>
+              <span>{isConnected ? 'Lightning Wallet' : 'Connect Lightning Wallet'}</span>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="w-4 h-4 text-orange-400 cursor-help" />
@@ -105,27 +109,37 @@ const LightningWalletModal = ({ isOpen, onClose, showBTC: _showBTC = false }: Li
               </Tooltip>
             </DialogTitle>
           </DialogHeader>
+          
           <div className="max-h-[70vh] overflow-y-auto scrollbar-hide">
-            <div className="space-y-4">
-              <p className="text-muted-foreground text-sm">
-                Connect your Lightning wallet to send and receive instant Bitcoin payments on ZapTok.
-              </p>
-              
-              <NostrWalletConnectCard
-                isConnecting={isConnecting === 'nwc'}
-                onConnect={handleNostrWalletConnect}
-              />
-              
-              <BitcoinConnectCard
-                isConnecting={isConnecting === 'btc'}
-                onConnect={handleBitcoinConnect}
-              />
+            {isConnected ? (
+              // Show wallet dashboard and send/receive when connected
+              <div className="space-y-6">
+                <WalletDashboard />
+                <SendReceivePanel />
+              </div>
+            ) : (
+              // Show connection options when not connected
+              <div className="space-y-4">
+                <p className="text-muted-foreground text-sm">
+                  Connect your Lightning wallet to send and receive instant Bitcoin payments on ZapTok.
+                </p>
+                
+                <NostrWalletConnectCard
+                  isConnecting={isConnecting === 'nwc'}
+                  onConnect={handleNostrWalletConnect}
+                />
+                
+                <BitcoinConnectCard
+                  isConnecting={isConnecting === 'btc'}
+                  onConnect={handleBitcoinConnect}
+                />
 
-              <CashuWalletCard
-                isConnecting={isConnecting === 'cashu'}
-                onConnect={handleCashuConnect}
-              />
-            </div>
+                <CashuWalletCard
+                  isConnecting={isConnecting === 'cashu'}
+                  onConnect={handleCashuConnect}
+                />
+              </div>
+            )}
             <style>
               {`
                 .scrollbar-hide {

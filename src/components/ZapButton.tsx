@@ -118,7 +118,7 @@ export function ZapButton({ recipientPubkey, eventId, amount = 21, className }: 
     }
   };
 
-  const getZapEndpoint = async (pubkey: string): Promise<string | null> => {
+  const getZapEndpoint = async (_pubkey: string): Promise<string | null> => {
     // This would fetch the user's profile and extract lud16/lud06
     // For now, we'll return null to handle gracefully
     // In production, you'd query the user's kind 0 profile event
