@@ -29,7 +29,7 @@ export function Navigation() {
   };
 
   const navItems = [
-    { id: 'home', icon: Play, label: 'For You', onClick: undefined },
+    { id: 'home', icon: Play, label: 'For You', onClick: undefined, path: '/' },
     { id: 'search', icon: Search, label: 'Discover', onClick: undefined },
     { id: 'trending', icon: TrendingUp, label: 'Trending', onClick: undefined },
     { id: 'notifications', icon: Heart, label: 'Notifications', onClick: undefined },
