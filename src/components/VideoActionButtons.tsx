@@ -5,6 +5,8 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useVideoReactions } from '@/hooks/useVideoReactions';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
+import { ZapButton } from '@/components/ZapButton';
+import { useWallet } from '@/contexts/WalletContext';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface VideoActionButtonsProps {
@@ -143,7 +145,20 @@ export function VideoActionButtons({
         </span>
       </div>
 
-      {/* 3. Comment Button */}
+      {/* 3. Zap Button */}
+      <div className="flex flex-col items-center gap-1">
+        <ZapButton
+          recipientPubkey={event.pubkey}
+          eventId={event.id}
+          amount={21}
+          className="rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg p-0"
+        />
+        <span className="text-white text-xs font-bold">
+          {reactions.data ? formatCount(reactions.data.zaps) : '0'}
+        </span>
+      </div>
+
+      {/* 4. Comment Button */}
       <div className="flex flex-col items-center gap-1">
         <Button
           variant="ghost"
@@ -158,7 +173,7 @@ export function VideoActionButtons({
         </span>
       </div>
 
-      {/* 4. Bookmark Button */}
+      {/* 5. Bookmark Button */}
       <div className="flex flex-col items-center gap-1">
         <Button
           variant="ghost"
@@ -173,7 +188,7 @@ export function VideoActionButtons({
         </span>
       </div>
 
-      {/* 5. Share Button */}
+      {/* 6. Share Button */}
       <div className="flex flex-col items-center gap-1">
         <Button
           variant="ghost"
@@ -185,21 +200,6 @@ export function VideoActionButtons({
         </Button>
         <span className="text-white text-xs font-bold">
           Share
-        </span>
-      </div>
-
-      {/* 6. Zap Button */}
-      <div className="flex flex-col items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg"
-          onClick={handleZap}
-        >
-          <Zap className="w-6 h-6 text-yellow-500" />
-        </Button>
-        <span className="text-white text-xs font-bold">
-          {reactions.data ? formatCount(reactions.data.zaps) : '0'}
         </span>
       </div>
     </div>

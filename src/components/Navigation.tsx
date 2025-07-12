@@ -1,6 +1,7 @@
-import { Search, Heart, TrendingUp, Zap, Play, PlusSquare } from 'lucide-react';
+import { Search, Heart, TrendingUp, Zap, Play, PlusSquare, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Link } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
@@ -33,6 +34,7 @@ export function Navigation() {
     { id: 'trending', icon: TrendingUp, label: 'Trending', onClick: undefined },
     { id: 'notifications', icon: Heart, label: 'Notifications', onClick: undefined },
     { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: handleWalletClick },
+    { id: 'settings', icon: Settings, label: 'Settings', onClick: undefined, path: '/settings' },
   ];
 
   return (
@@ -40,7 +42,47 @@ export function Navigation() {
       <div className="hidden md:flex flex-col w-64 p-4 h-full">{/* Main Navigation */}
         <div className="space-y-2 flex-1">
           {navItems.map((item) => {
-            // All buttons use the same styling
+            // Special handling for settings item with Link
+            if (item.path) {
+              return (
+                <Link key={item.id} to={item.path}>
+                  <Button
+                    variant={activeTab === item.id ? 'default' : 'ghost'}
+                    className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent ${
+                      activeTab === item.id
+                        ? 'text-gray-400 hover:text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                    onClick={() => setActiveTab(item.id)}
+                    onMouseEnter={() => setHoveredItem(item.id)}
+                    onMouseLeave={() => setHoveredItem(null)}
+                  >
+                    <item.icon size={20} className={`mr-3 ${
+                      activeTab === item.id || hoveredItem === item.id
+                        ? 'text-orange-500'
+                        : 'text-gray-400'
+                    }`} style={activeTab === item.id || hoveredItem === item.id ? {
+                      background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    } : {}} />
+                    <span className={`font-medium ${
+                      activeTab === item.id || hoveredItem === item.id
+                        ? 'text-orange-500'
+                        : 'text-gray-400'
+                    }`} style={activeTab === item.id || hoveredItem === item.id ? {
+                      background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    } : {}}>{item.label}</span>
+                  </Button>
+                </Link>
+              );
+            }
+
+            // Regular navigation items
             return (
               <Button
                 key={item.id}

@@ -8,6 +8,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
+import { WalletProvider } from '@/contexts/WalletContext';
 import { AppConfig } from '@/contexts/AppContext';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import AppRouter from './AppRouter';
@@ -67,11 +68,13 @@ export function App() {
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
             <NostrProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <AppContent />
-              </TooltipProvider>
+              <WalletProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <AppContent />
+                </TooltipProvider>
+              </WalletProvider>
             </NostrProvider>
           </NostrLoginProvider>
         </QueryClientProvider>
