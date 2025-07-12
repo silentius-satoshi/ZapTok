@@ -21,7 +21,7 @@ export function useVideoCache() {
         const db = (event.target as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains('videoMetadata')) {
           const store = db.createObjectStore('videoMetadata', { keyPath: 'id' });
-          store.createIndex('timestamp', 'cached_at');
+          store.createIndex('cached_at', 'cached_at');
         }
       };
       
@@ -85,7 +85,7 @@ export function useVideoCache() {
         const db = (event.target as IDBOpenDBRequest).result;
         const transaction = db.transaction(['videoMetadata'], 'readwrite');
         const store = transaction.objectStore('videoMetadata');
-        const index = store.index('timestamp');
+        const index = store.index('cached_at');
         
         const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
         const range = IDBKeyRange.upperBound(weekAgo);
