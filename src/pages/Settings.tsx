@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, Plus, Link } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { ChevronRight, Link, ArrowLeft } from 'lucide-react';
 import { Navigation } from '@/components/Navigation';
 import { useAppContext } from '@/hooks/useAppContext';
 import BitcoinConnectCard from '@/components/lightning/wallet-connections/BitcoinConnectCard';
@@ -8,17 +8,24 @@ import NostrWalletConnectCard from '@/components/lightning/wallet-connections/No
 import CashuWalletCard from '@/components/lightning/wallet-connections/CashuWalletCard';
 import { useToast } from '@/hooks/useToast';
 import { useWallet } from '@/contexts/WalletContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export function Settings() {
-  const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { isConnected, disconnect } = useWallet();
   const { config, presetRelays = [] } = useAppContext();
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
 
-  // Settings sections matching Primal's layout
+  // Reset selectedSection when navigating to settings page
+  useEffect(() => {
+    if (location.pathname === '/settings') {
+      setSelectedSection(null);
+    }
+  }, [location.pathname]);
+
+  // Settings sections
   const settingsSections = [
     { id: 'appearance', title: 'Appearance' },
     { id: 'home-feeds', title: 'Home Feeds' },
@@ -157,81 +164,96 @@ export function Settings() {
   };
 
   const renderNetworkSection = () => (
-    <div className="space-y-6">
+    <div className="space-y-6 px-6 pt-0 pb-6">
       {/* Caching Service Section */}
       <div>
-        <h3 className="text-lg font-semibold mb-3">Caching Service</h3>
-        <p className="text-gray-400 text-sm mb-4">Connected caching service</p>
+        <h3 className="text-lg font-semibold text-white mb-4">Caching Service</h3>
         
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 p-3 bg-gray-900 rounded-lg border border-gray-700">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-gray-300 text-sm">wss://cache2.primal.net/v1</span>
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-gray-400 mb-3">Connected caching service</p>
+            <div className="flex items-center gap-2 p-3 bg-gray-800 rounded-lg">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="text-sm text-gray-300">wss://cache2.primal.net/v1</span>
+            </div>
           </div>
           
-          <div className="space-y-2">
-            <p className="text-gray-400 text-sm">Connect to a different caching service</p>
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                placeholder="wss://cachingservice.url" 
-                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm placeholder-gray-500"
-              />
-              <Button size="sm" className="px-4">
-                <Link className="w-4 h-4" />
-              </Button>
+          <div>
+            <p className="text-sm text-gray-400 mb-3">Connect to a different caching service</p>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="wss://cachingservice.url"
+                  className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500"
+                />
+                <Link className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              </div>
             </div>
-            <Button variant="ghost" className="text-pink-400 hover:text-pink-300 text-sm">
-              Restore default caching service
-            </Button>
           </div>
+          
+          <Button
+            variant="ghost"
+            className="text-pink-500 hover:text-pink-400 hover:bg-pink-500/10 p-0 h-auto"
+          >
+            Restore default caching service
+          </Button>
         </div>
       </div>
 
       {/* Relays Section */}
       <div>
-        <h3 className="text-lg font-semibold mb-3">Relays</h3>
-        <p className="text-gray-400 text-sm mb-4">My relays</p>
+        <h3 className="text-lg font-semibold text-white mb-4">Relays</h3>
         
-        <div className="space-y-2">
-          {getDisplayRelays().map((relay, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-700">
-              <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${
-                  relay.status === 'active' ? 'bg-green-500' : 
-                  relay.status === 'placeholder' ? 'bg-gray-500' : 'bg-red-500'
-                }`} />
-                <span className={`text-sm ${
-                  relay.status === 'placeholder' ? 'text-gray-500' : 'text-gray-300'
-                }`}>
-                  {relay.url}
-                </span>
-              </div>
-              {relay.status !== 'placeholder' && (
-                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-                  remove
-                </Button>
-              )}
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-gray-400 mb-3">My relays</p>
+            <div className="space-y-2">
+              {getDisplayRelays().map((relay, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${
+                      relay.status === 'active' ? 'bg-green-500' : 
+                      relay.status === 'placeholder' ? 'bg-gray-500' : 'bg-red-500'
+                    }`}></div>
+                    <span className={`text-sm ${
+                      relay.status === 'placeholder' ? 'text-gray-500' : 'text-gray-300'
+                    }`}>
+                      {relay.url}
+                    </span>
+                  </div>
+                  {relay.status !== 'placeholder' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500 hover:text-gray-300 hover:bg-gray-700"
+                    >
+                      remove
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-
-        <div className="mt-4 space-y-2">
-          <Button variant="ghost" className="text-pink-400 hover:text-pink-300 text-sm">
+          </div>
+          
+          <Button
+            variant="ghost"
+            className="text-pink-500 hover:text-pink-400 hover:bg-pink-500/10 p-0 h-auto"
+          >
             Reset relays
           </Button>
           
-          <div className="space-y-2">
-            <p className="text-gray-400 text-sm">Connect to relay</p>
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                placeholder="wss://relay.url" 
-                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm placeholder-gray-500"
-              />
-              <Button size="sm" className="px-4">
-                <Link className="w-4 h-4" />
-              </Button>
+          <div>
+            <p className="text-sm text-gray-400 mb-3">Connect to relay</p>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="wss://relay.url"
+                  className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500"
+                />
+                <Link className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              </div>
             </div>
           </div>
         </div>
@@ -261,130 +283,147 @@ export function Settings() {
   );
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="flex h-screen">
-        {/* Left Sidebar - Navigation */}
-        <div className="flex flex-col bg-black border-r border-gray-800">
-          {/* Logo at top of sidebar */}
-          <div className="p-4">
-            <div className="flex items-center space-x-3">
-              <img 
-                src="/images/ZapTok-v2.png" 
-                alt="ZapTok Logo" 
-                className="w-8 h-8 rounded-lg"
-              />
-              <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-                ZapTok
-              </h1>
-            </div>
-          </div>
-          
-          {/* Navigation */}
-          <div className="flex-1">
-            <Navigation />
-          </div>
-        </div>
-
-        {/* Main Content - Settings */}
-        <div className="flex-1">
-          {/* Header */}
-          <div className="p-4 border-b border-gray-800">
-            <h1 className="text-xl font-bold">
-              {selectedSection === 'connected-wallets' ? 'settings: connected wallets' :
-               selectedSection === 'network' ? 'settings: network' : 'settings'}
+    <div className="flex h-screen bg-black">
+      {/* Left Navigation Column */}
+      <div className="w-80 border-r border-gray-800 bg-black flex flex-col">
+        {/* Logo at top of sidebar */}
+        <div className="p-4">
+          <div className="flex items-center space-x-3">
+            <img 
+              src="/images/ZapTok-v2.png" 
+              alt="ZapTok Logo" 
+              className="w-8 h-8 rounded-lg"
+            />
+            <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
+              ZapTok
             </h1>
           </div>
+        </div>
+        
+        {/* Navigation */}
+        <div className="flex-1">
+          <Navigation />
+        </div>
+      </div>
 
-          {/* Settings Content */}
-          <div className="p-4">
-            {selectedSection === 'connected-wallets' ? (
-              <div>
-                <div className="mb-4">
-                  <Button
-                    variant="ghost"
-                    onClick={() => setSelectedSection(null)}
-                    className="text-gray-400 hover:text-white mb-3"
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Settings
-                  </Button>
-                  <p className="text-gray-400 text-sm">
-                    Manage your Lightning wallet connections for instant Bitcoin payments.
-                  </p>
-                </div>
-                {renderWalletConnections()}
-              </div>
-            ) : selectedSection === 'network' ? (
-              <div>
-                <div className="mb-4">
-                  <Button
-                    variant="ghost"
-                    onClick={() => setSelectedSection(null)}
-                    className="text-gray-400 hover:text-white mb-3"
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Settings
-                  </Button>
-                </div>
-                {renderNetworkSection()}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {settingsSections.map((section) => (
-                  <button
-                    key={section.id}
-                    onClick={() => {
-                      if (section.id === 'connected-wallets') {
-                        setSelectedSection('connected-wallets');
-                      } else if (section.id === 'network') {
-                        setSelectedSection('network');
-                      }
-                    }}
-                    className="w-full flex items-center justify-between p-3 rounded border border-gray-800 hover:bg-gray-800/50 transition-colors text-left"
-                  >
-                    <span className="text-white font-medium">{section.title}</span>
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+      {/* Middle Settings Column */}
+      <div className="flex-1 border-r border-gray-800 bg-black">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-gray-800">
+          <h1 className="text-3xl font-normal text-white">
+            {selectedSection === 'connected-wallets' ? 'settings: connected wallets' :
+             selectedSection === 'network' ? 'settings: network' : 
+             selectedSection ? `settings: ${settingsSections.find(s => s.id === selectedSection)?.title?.toLowerCase()}` : 'settings'}
+          </h1>
         </div>
 
-        {/* Right Sidebar - Relays */}
-        <div className="w-72 p-4 border-l border-gray-800">
-          <div className="space-y-6">
-            {/* Relays Section */}
+        {/* Content */}
+        <div className="overflow-y-auto" style={{ height: 'calc(100vh - 97px)' }}>
+          {selectedSection === 'connected-wallets' ? (
+            <div className="space-y-4 p-6">
+              <div className="mb-6">
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedSection(null)}
+                  className="text-gray-400 hover:text-white mb-4 p-0 h-auto"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Settings
+                </Button>
+                <h3 className="text-lg font-semibold text-white mb-2">Connected Wallets</h3>
+                <p className="text-sm text-gray-400">
+                  To enable zapping from the ZapTok web app, connect a wallet:
+                </p>
+              </div>
+              {renderWalletConnections()}
+            </div>
+          ) : selectedSection === 'network' ? (
             <div>
-              <h3 className="text-lg font-semibold mb-4">Relays</h3>
-              <div className="space-y-2">
-                {getDisplayRelays().map((relay, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm">
-                    <div className={`w-2 h-2 rounded-full ${
-                      relay.status === 'active' ? 'bg-green-500' : 
-                      relay.status === 'placeholder' ? 'bg-gray-500' : 'bg-red-500'
-                    }`} />
-                    <span className={`truncate ${
-                      relay.status === 'placeholder' ? 'text-gray-500' : 'text-gray-300'
-                    }`}>
-                      {relay.url}
-                    </span>
-                  </div>
-                ))}
+              <div className="p-6 pb-0">
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedSection(null)}
+                  className="text-gray-400 hover:text-white mb-4 p-0 h-auto"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Settings
+                </Button>
+              </div>
+              {renderNetworkSection()}
+            </div>
+          ) : selectedSection ? (
+            <div className="space-y-4 p-6">
+              <div className="mb-6">
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedSection(null)}
+                  className="text-gray-400 hover:text-white mb-4 p-0 h-auto"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Settings
+                </Button>
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  {settingsSections.find(s => s.id === selectedSection)?.title}
+                </h3>
+                <p className="text-sm text-gray-400">
+                  This section is coming soon.
+                </p>
               </div>
             </div>
+          ) : (
+            <div className="space-y-0">
+              {settingsSections.map((section, index) => (
+                <button
+                  key={section.id}
+                  onClick={() => {
+                    setSelectedSection(section.id);
+                  }}
+                  className={`w-full flex items-center justify-between h-16 px-6 rounded-none border-b border-gray-800 hover:bg-gray-800/50 transition-colors text-left ${
+                    index === 0 ? 'border-t border-gray-800' : ''
+                  }`}
+                >
+                  <span className="text-white text-lg font-medium">{section.title}</span>
+                  <ChevronRight className="w-6 h-6 text-gray-400" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
-            {/* Caching Services Section */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Caching services</h3>
-              <div className="space-y-2">
-                {cachingServices.map((service, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm">
-                    <div className={`w-2 h-2 rounded-full ${service.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <span className="text-gray-300 truncate">{service.url}</span>
-                  </div>
-                ))}
-              </div>
+      {/* Right Relay Column */}
+      <div className="w-96 bg-black p-8">
+        <div className="space-y-10">
+          {/* Relays Section */}
+          <div>
+            <h3 className="text-2xl font-semibold mb-6 text-white">Relays</h3>
+            <div className="space-y-4">
+              {getDisplayRelays().map((relay, index) => (
+                <div key={index} className="flex items-center gap-4 text-lg">
+                  <div className={`w-3 h-3 rounded-full ${
+                    relay.status === 'active' ? 'bg-green-500' : 
+                    relay.status === 'placeholder' ? 'bg-gray-500' : 'bg-red-500'
+                  }`} />
+                  <span className={`truncate ${
+                    relay.status === 'placeholder' ? 'text-gray-500' : 'text-gray-300'
+                  }`}>
+                    {relay.url}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Caching Services Section */}
+          <div>
+            <h3 className="text-2xl font-semibold mb-6 text-white">Caching services</h3>
+            <div className="space-y-4">
+              {cachingServices.map((service, index) => (
+                <div key={index} className="flex items-center gap-4 text-lg">
+                  <div className={`w-3 h-3 rounded-full ${service.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <span className="text-gray-300 truncate">{service.url}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
