@@ -3,7 +3,12 @@
     "nostr": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "xjsr", "@nostrbook/mcp"]
+      "args": ["-y", "@nostrbook/mcp@latest"]
+    },
+    "js-dev": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@soapbox.pub/js-dev-mcp@latest"]
     }
   }
 }
