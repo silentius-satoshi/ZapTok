@@ -28,14 +28,13 @@ export function Settings() {
   // Settings sections
   const settingsSections = [
     { id: 'appearance', title: 'Appearance' },
-    { id: 'home-feeds', title: 'Home Feeds' },
-    { id: 'reads-feeds', title: 'Reads Feeds' },
+    { id: 'home-feeds', title: 'For You Feed' },
+    { id: 'reads-feeds', title: 'Global Feed' },
     { id: 'media-uploads', title: 'Media Uploads' },
     { id: 'muted-content', title: 'Muted Content' },
     { id: 'content-moderation', title: 'Content Moderation' },
     { id: 'connected-wallets', title: 'Connected Wallets' },
     { id: 'notifications', title: 'Notifications' },
-    { id: 'dev-tools', title: 'Dev Tools' },
     { id: 'network', title: 'Network' },
     { id: 'zaps', title: 'Zaps' },
   ];
@@ -282,6 +281,32 @@ export function Settings() {
     </div>
   );
 
+  const renderSettingsHeader = () => {
+    if (!selectedSection) {
+      return (
+        <h1 className="text-3xl font-normal text-white">
+          settings
+        </h1>
+      );
+    }
+
+    const sectionTitle = selectedSection === 'connected-wallets' ? 'connected wallets' :
+                        selectedSection === 'network' ? 'network' : 
+                        settingsSections.find(s => s.id === selectedSection)?.title?.toLowerCase();
+
+    return (
+      <h1 className="text-3xl font-normal text-white">
+        <button
+          onClick={() => setSelectedSection(null)}
+          className="hover:underline hover:text-gray-300 transition-colors"
+        >
+          settings
+        </button>
+        : {sectionTitle}
+      </h1>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-black">
       {/* Left Navigation Column */}
@@ -310,11 +335,7 @@ export function Settings() {
       <div className="flex-1 border-r border-gray-800 bg-black">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-800">
-          <h1 className="text-3xl font-normal text-white">
-            {selectedSection === 'connected-wallets' ? 'settings: connected wallets' :
-             selectedSection === 'network' ? 'settings: network' : 
-             selectedSection ? `settings: ${settingsSections.find(s => s.id === selectedSection)?.title?.toLowerCase()}` : 'settings'}
-          </h1>
+          {renderSettingsHeader()}
         </div>
 
         {/* Content */}
