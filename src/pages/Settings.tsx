@@ -339,7 +339,7 @@ export function Settings() {
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto" style={{ height: 'calc(100vh - 97px)' }}>
+        <div className="overflow-y-auto scrollbar-hide" style={{ height: 'calc(100vh - 97px)' }}>
           {selectedSection === 'connected-wallets' ? (
             <div className="space-y-4 p-6">
               <div className="mb-6">
