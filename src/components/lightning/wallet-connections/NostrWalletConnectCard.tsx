@@ -1,7 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, QrCode, Link } from 'lucide-react';
+import { Loader2, QrCode } from 'lucide-react';
 
 interface NostrWalletConnectCardProps {
   isConnecting: boolean;

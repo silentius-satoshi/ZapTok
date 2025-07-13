@@ -48,7 +48,7 @@ export function Navigation() {
                 <Link key={item.id} to={item.path}>
                   <Button
                     variant={activeTab === item.id ? 'default' : 'ghost'}
-                    className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent ${
+                    className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent ${
                       activeTab === item.id
                         ? 'text-gray-400 hover:text-white'
                         : 'text-gray-400 hover:text-white'
@@ -57,7 +57,7 @@ export function Navigation() {
                     onMouseEnter={() => setHoveredItem(item.id)}
                     onMouseLeave={() => setHoveredItem(null)}
                   >
-                    <item.icon size={20} className={`mr-3 ${
+                    <item.icon size={24} className={`mr-4 ${
                       activeTab === item.id || hoveredItem === item.id
                         ? 'text-orange-500'
                         : 'text-gray-400'
@@ -67,7 +67,7 @@ export function Navigation() {
                       WebkitTextFillColor: 'transparent',
                       backgroundClip: 'text',
                     } : {}} />
-                    <span className={`font-medium ${
+                    <span className={`font-medium text-lg ${
                       activeTab === item.id || hoveredItem === item.id
                         ? 'text-orange-500'
                         : 'text-gray-400'
@@ -87,7 +87,7 @@ export function Navigation() {
               <Button
                 key={item.id}
                 variant={activeTab === item.id ? 'default' : 'ghost'}
-                className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent ${
+                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent ${
                   activeTab === item.id
                     ? 'text-gray-400 hover:text-white'
                     : 'text-gray-400 hover:text-white'
@@ -96,7 +96,7 @@ export function Navigation() {
                 onMouseEnter={() => setHoveredItem(item.id)}
                 onMouseLeave={() => setHoveredItem(null)}
               >
-                <item.icon size={20} className={`mr-3 ${
+                <item.icon size={24} className={`mr-4 ${
                   activeTab === item.id || hoveredItem === item.id
                     ? 'text-orange-500'
                     : 'text-gray-400'
@@ -106,7 +106,7 @@ export function Navigation() {
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
                 } : {}} />
-                <span className={`font-medium ${
+                <span className={`font-medium text-lg ${
                   activeTab === item.id || hoveredItem === item.id
                     ? 'text-orange-500'
                     : 'text-gray-400'
@@ -122,7 +122,7 @@ export function Navigation() {
 
           {user && (
             <Button
-              className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent ${
+              className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent ${
                 activeTab === 'upload'
                   ? 'text-gray-400 hover:text-white'
                   : 'text-gray-400 hover:text-white'
@@ -131,7 +131,7 @@ export function Navigation() {
               onMouseEnter={() => setHoveredItem('upload')}
               onMouseLeave={() => setHoveredItem(null)}
             >
-              <PlusSquare size={20} className={`mr-3 ${
+              <PlusSquare size={24} className={`mr-4 ${
                 activeTab === 'upload' || hoveredItem === 'upload'
                   ? 'text-orange-500'
                   : 'text-gray-400'
@@ -141,7 +141,7 @@ export function Navigation() {
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
               } : {}} />
-              <span className={`font-medium ${
+              <span className={`font-medium text-lg ${
                 activeTab === 'upload' || hoveredItem === 'upload'
                   ? 'text-orange-500'
                   : 'text-gray-400'
