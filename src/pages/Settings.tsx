@@ -41,7 +41,7 @@ export function Settings() {
 
   // Get relay status based on current relay selection
   const getRelayStatus = (relayUrl: string) => {
-    if (relayUrl === config.relayUrl) {
+    if (config.relayUrls.includes(relayUrl)) {
       return 'active'; // Currently selected relay
     }
     return 'inactive'; // Available but not selected
@@ -51,13 +51,15 @@ export function Settings() {
   const getAllRelays = () => {
     const allRelays = [...presetRelays];
     
-    // Add current relay if it's not in presets
-    if (!presetRelays.find(r => r.url === config.relayUrl)) {
-      allRelays.push({ 
-        name: config.relayUrl.replace(/^wss?:\/\//, ''), 
-        url: config.relayUrl 
-      });
-    }
+    // Add current relays if they're not in presets
+    config.relayUrls.forEach(relayUrl => {
+      if (!presetRelays.find(r => r.url === relayUrl)) {
+        allRelays.push({ 
+          name: relayUrl.replace(/^wss?:\/\//, ''), 
+          url: relayUrl 
+        });
+      }
+    });
 
     // Sort: active first, then inactive
     return allRelays.sort((a, b) => {
@@ -74,8 +76,8 @@ export function Settings() {
     const relays = getAllRelays();
     const activeRelays = relays.filter(r => getRelayStatus(r.url) === 'active');
     
-    // Add placeholder relays if less than 2
-    const placeholderCount = Math.max(0, 2 - activeRelays.length);
+    // Add placeholder relays if less than required for display
+    const placeholderCount = Math.max(0, Math.max(2, config.relayUrls.length) - activeRelays.length);
     const placeholders = Array.from({ length: placeholderCount }, (_, i) => ({
       name: `relay${i + 1}.example.com`,
       url: `wss://relay${i + 1}.example.com/`,

@@ -1,174 +1,192 @@
-import { Check, ChevronsUpDown, Wifi, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { useState } from "react";
-import { useAppContext } from "@/hooks/useAppContext";
+import { useState } from 'react';
+import { Check, Plus, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { useAppContext } from '@/hooks/useAppContext';
+import { cn } from '@/lib/utils';
 
-interface RelaySelectorProps {
+interface RelaySelectProps {
   className?: string;
 }
 
-export function RelaySelector(props: RelaySelectorProps) {
-  const { className } = props;
-  const { config, updateConfig, presetRelays = [] } = useAppContext();
-  
-  const selectedRelay = config.relayUrl;
-  const setSelectedRelay = (relay: string) => {
-    updateConfig((current) => ({ ...current, relayUrl: relay }));
+export function RelaySelector({ className }: RelaySelectProps) {
+  const { config, addRelay, removeRelay, presetRelays = [] } = useAppContext();
+  const [customRelay, setCustomRelay] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+
+  const handleToggleRelay = (relayUrl: string) => {
+    if (config.relayUrls.includes(relayUrl)) {
+      // Don't allow removing the last relay
+      if (config.relayUrls.length > 1) {
+        removeRelay(relayUrl);
+      }
+    } else {
+      addRelay(relayUrl);
+    }
   };
 
-  const [open, setOpen] = useState(false);
-  const [inputValue, setInputValue] = useState("");
+  const handleAddCustomRelay = () => {
+    const normalizedUrl = normalizeRelayUrl(customRelay);
+    if (normalizedUrl && !config.relayUrls.includes(normalizedUrl)) {
+      addRelay(normalizedUrl);
+      setCustomRelay('');
+      setShowCustomInput(false);
+    }
+  };
 
-  const selectedOption = presetRelays.find((option) => option.url === selectedRelay);
+  const handleRemoveRelay = (relayUrl: string) => {
+    if (config.relayUrls.length > 1) {
+      removeRelay(relayUrl);
+    }
+  };
 
   // Function to normalize relay URL by adding wss:// if no protocol is present
   const normalizeRelayUrl = (url: string): string => {
     const trimmed = url.trim();
-    if (!trimmed) return trimmed;
+    if (!trimmed) return '';
     
-    // Check if it already has a protocol
-    if (trimmed.includes('://')) {
+    // If it already has a protocol, return as is
+    if (trimmed.startsWith('wss://') || trimmed.startsWith('ws://')) {
       return trimmed;
     }
     
-    // Add wss:// prefix
+    // Otherwise, add wss:// prefix
     return `wss://${trimmed}`;
   };
 
-  // Handle adding a custom relay
-  const handleAddCustomRelay = (url: string) => {
-    setSelectedRelay?.(normalizeRelayUrl(url));
-    setOpen(false);
-    setInputValue("");
-  };
-
-  // Check if input value looks like a valid relay URL
-  const isValidRelayInput = (value: string): boolean => {
-    const trimmed = value.trim();
-    if (!trimmed) return false;
-    
-    // Basic validation - should contain at least a domain-like structure
-    const normalized = normalizeRelayUrl(trimmed);
-    try {
-      new URL(normalized);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn("justify-between", className)}
-        >
-          <div className="flex items-center gap-2">
-            <Wifi className="h-4 w-4" />
-            <span className="truncate">
-              {selectedOption 
-                ? selectedOption.name 
-                : selectedRelay 
-                  ? selectedRelay.replace(/^wss?:\/\//, '')
-                  : "Select relay..."
-              }
-            </span>
-          </div>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0">
-        <Command>
-          <CommandInput 
-            placeholder="Search relays or type URL..." 
-            value={inputValue}
-            onValueChange={setInputValue}
-          />
-          <CommandList>
-            <CommandEmpty>
-              {inputValue && isValidRelayInput(inputValue) ? (
-                <CommandItem
-                  onSelect={() => handleAddCustomRelay(inputValue)}
-                  className="cursor-pointer"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  <div className="flex flex-col">
-                    <span className="font-medium">Add custom relay</span>
-                    <span className="text-xs text-muted-foreground">
-                      {normalizeRelayUrl(inputValue)}
-                    </span>
-                  </div>
-                </CommandItem>
-              ) : (
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  {inputValue ? "Invalid relay URL" : "No relay found."}
-                </div>
-              )}
-            </CommandEmpty>
-            <CommandGroup>
-              {presetRelays
-                .filter((option) => 
-                  !inputValue || 
-                  option.name.toLowerCase().includes(inputValue.toLowerCase()) ||
-                  option.url.toLowerCase().includes(inputValue.toLowerCase())
-                )
-                .map((option) => (
-                  <CommandItem
-                    key={option.url}
-                    value={option.url}
-                    onSelect={(currentValue) => {
-                      setSelectedRelay(normalizeRelayUrl(currentValue));
-                      setOpen(false);
-                      setInputValue("");
-                    }}
+    <Card className={cn('w-full max-w-md', className)}>
+      <CardHeader>
+        <CardTitle className="text-base">Relay Selection</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Choose one or more relays to connect to
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Current Relays */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Connected Relays</Label>
+          <div className="flex flex-wrap gap-2">
+            {config.relayUrls.map((url) => (
+              <Badge key={url} variant="secondary" className="pr-1">
+                <span className="truncate max-w-[120px]" title={url}>
+                  {presetRelays.find(r => r.url === url)?.name || url.replace('wss://', '')}
+                </span>
+                {config.relayUrls.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-4 w-4 p-0 ml-1 hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => handleRemoveRelay(url)}
                   >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selectedRelay === option.url ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-medium">{option.name}</span>
-                      <span className="text-xs text-muted-foreground">{option.url}</span>
-                    </div>
-                  </CommandItem>
-                ))}
-              {inputValue && isValidRelayInput(inputValue) && (
-                <CommandItem
-                  onSelect={() => handleAddCustomRelay(inputValue)}
-                  className="cursor-pointer border-t"
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Preset Relays */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Popular Relays</Label>
+          <div className="space-y-2">
+            {presetRelays.map((relay) => (
+              <div key={relay.url} className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'h-8 w-8 p-0 rounded-full border',
+                    config.relayUrls.includes(relay.url)
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'border-muted-foreground/20'
+                  )}
+                  onClick={() => handleToggleRelay(relay.url)}
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  <div className="flex flex-col">
-                    <span className="font-medium">Add custom relay</span>
-                    <span className="text-xs text-muted-foreground">
-                      {normalizeRelayUrl(inputValue)}
-                    </span>
+                  {config.relayUrls.includes(relay.url) && (
+                    <Check className="h-4 w-4" />
+                  )}
+                </Button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium text-sm">{relay.name}</span>
                   </div>
-                </CommandItem>
-              )}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {relay.url.replace('wss://', '')}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Custom Relay */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Custom Relay</Label>
+          {showCustomInput ? (
+            <div className="space-y-2">
+              <Input
+                placeholder="relay.example.com"
+                value={customRelay}
+                onChange={(e) => setCustomRelay(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddCustomRelay();
+                  } else if (e.key === 'Escape') {
+                    setShowCustomInput(false);
+                    setCustomRelay('');
+                  }
+                }}
+                autoFocus
+              />
+              <div className="flex space-x-2">
+                <Button
+                  size="sm"
+                  onClick={handleAddCustomRelay}
+                  disabled={!customRelay.trim() || config.relayUrls.includes(normalizeRelayUrl(customRelay))}
+                >
+                  Add Relay
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCustomInput(false);
+                    setCustomRelay('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCustomInput(true)}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Custom Relay
+            </Button>
+          )}
+        </div>
+
+        <div className="text-xs text-muted-foreground">
+          <p>
+            <strong>Tip:</strong> Using multiple relays improves content discovery and redundancy.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

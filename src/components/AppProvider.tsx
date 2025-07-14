@@ -16,6 +16,12 @@ interface AppProviderProps {
 // Zod schema for AppConfig validation
 const AppConfigSchema: z.ZodType<AppConfig, z.ZodTypeDef, unknown> = z.object({
   theme: z.enum(['dark', 'light', 'system']),
+  relayUrls: z.array(z.string().url()).min(1),
+});
+
+// Migration schema for old single relay configs
+const LegacyAppConfigSchema = z.object({
+  theme: z.enum(['dark', 'light', 'system']),
   relayUrl: z.string().url(),
 });
 
@@ -35,7 +41,24 @@ export function AppProvider(props: AppProviderProps) {
       serialize: JSON.stringify,
       deserialize: (value: string) => {
         const parsed = JSON.parse(value);
-        return AppConfigSchema.parse(parsed);
+        
+        // Try to parse as new config first
+        const newConfigResult = AppConfigSchema.safeParse(parsed);
+        if (newConfigResult.success) {
+          return newConfigResult.data;
+        }
+        
+        // Try to parse as legacy config and migrate
+        const legacyConfigResult = LegacyAppConfigSchema.safeParse(parsed);
+        if (legacyConfigResult.success) {
+          return {
+            theme: legacyConfigResult.data.theme,
+            relayUrls: [legacyConfigResult.data.relayUrl],
+          };
+        }
+        
+        // If both fail, return default config
+        return defaultConfig;
       }
     }
   );
@@ -45,9 +68,27 @@ export function AppProvider(props: AppProviderProps) {
     setConfig(updater);
   };
 
+  // Add relay function
+  const addRelay = (relayUrl: string) => {
+    updateConfig((current) => ({
+      ...current,
+      relayUrls: [...current.relayUrls.filter(url => url !== relayUrl), relayUrl]
+    }));
+  };
+
+  // Remove relay function
+  const removeRelay = (relayUrl: string) => {
+    updateConfig((current) => ({
+      ...current,
+      relayUrls: current.relayUrls.filter(url => url !== relayUrl)
+    }));
+  };
+
   const appContextValue: AppContextType = {
     config,
     updateConfig,
+    addRelay,
+    removeRelay,
     presetRelays,
   };
 
