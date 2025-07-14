@@ -61,7 +61,7 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
   if (showEditForm && isCurrentUser) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Edit className="w-5 h-5" />

@@ -8,6 +8,8 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useBookmarkedVideos } from '@/hooks/useBookmarkedVideos';
+import { useUserVideos } from '@/hooks/useUserVideos';
+import { useLikedVideos } from '@/hooks/useLikedVideos';
 import { genUserName } from '@/lib/genUserName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +34,8 @@ const Profile = () => {
   const author = useAuthor(targetPubkey);
   const following = useFollowing(targetPubkey);
   const bookmarkedVideos = useBookmarkedVideos(isOwnProfile ? user?.pubkey : undefined);
+  const userVideos = useUserVideos(targetPubkey);
+  const likedVideos = useLikedVideos(targetPubkey);
   const metadata = author.data?.metadata;
 
   const displayName = metadata?.display_name || metadata?.name || genUserName(targetPubkey);
@@ -76,7 +80,7 @@ const Profile = () => {
               </div>
               
               {/* Edit Profile Content */}
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto scrollbar-hide">
                 <div className="max-w-2xl mx-auto p-6">
                   <div className="mb-6">
                     <Button 
@@ -135,7 +139,7 @@ const Profile = () => {
               </div>
               
               {/* Profile Content */}
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto scrollbar-hide">
                 <div className="max-w-4xl mx-auto p-6">
                   {/* Back to Home Button (only for other users' profiles) */}
                   {!isOwnProfile && (
@@ -245,7 +249,21 @@ const Profile = () => {
 
                   {/* Content Grid */}
                   <div className="mt-6">
-                    {activeTab === 'bookmarks' && isOwnProfile ? (
+                    {activeTab === 'posts' ? (
+                      <VideoGrid 
+                        videos={userVideos.data || []}
+                        isLoading={userVideos.isLoading}
+                        emptyMessage="No videos published yet. Start creating and sharing videos!"
+                        allowRemove={false}
+                      />
+                    ) : activeTab === 'liked' ? (
+                      <VideoGrid 
+                        videos={likedVideos.data || []}
+                        isLoading={likedVideos.isLoading}
+                        emptyMessage="No liked videos yet. Like some videos to see them here!"
+                        allowRemove={false}
+                      />
+                    ) : activeTab === 'bookmarks' && isOwnProfile ? (
                       <VideoGrid 
                         videos={bookmarkedVideos.data || []}
                         isLoading={bookmarkedVideos.isLoading}
@@ -256,8 +274,6 @@ const Profile = () => {
                       <div className="grid grid-cols-3 gap-4">
                         <div className="col-span-3 text-center py-12">
                           <p className="text-gray-400">
-                            {activeTab === 'posts' && 'No posts yet'}
-                            {activeTab === 'liked' && 'No liked videos yet'}
                             {activeTab === 'bookmarks' && (isOwnProfile ? 'No bookmarks yet' : 'Bookmarks are private')}
                           </p>
                         </div>
