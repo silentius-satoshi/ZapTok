@@ -4,11 +4,13 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useVideoReactions } from '@/hooks/useVideoReactions';
 import { useAuthor } from '@/hooks/useAuthor';
+import { useFollowing } from '@/hooks/useFollowing';
+import { useFollowUser } from '@/hooks/useFollowUser';
 import { genUserName } from '@/lib/genUserName';
 import { ZapButton } from '@/components/ZapButton';
-import { ProfileModal } from '@/components/ProfileModal';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface VideoActionButtonsProps {
   event: NostrEvent;
@@ -44,12 +46,18 @@ export function VideoActionButtons({
   const { user } = useCurrentUser();
   const reactions = useVideoReactions(event.id);
   const author = useAuthor(event.pubkey);
-  const [showProfileModal, setShowProfileModal] = useState(false);
+  const following = useFollowing(user?.pubkey || '');
+  const { mutate: followUser, isPending: isFollowPending } = useFollowUser();
+  const navigate = useNavigate();
 
   // Use author data if available, otherwise fall back to props
   const authorProfile = author.data?.metadata;
   const authorDisplayName = displayName || authorProfile?.display_name || authorProfile?.name || genUserName(event.pubkey);
   const authorProfilePicture = profilePicture || authorProfile?.picture;
+  
+  // Check if currently following this user
+  const followingList = following.data?.pubkeys || [];
+  const isCurrentlyFollowing = followingList.includes(event.pubkey);
 
   // Default handlers
   const handleLike = onLike || (() => {
@@ -73,12 +81,16 @@ export function VideoActionButtons({
   });
 
   const handleFollow = onFollow || (() => {
-    // TODO: Implement follow functionality
-    console.log('Follow clicked');
+    if (!user) return;
+    
+    followUser({
+      pubkeyToFollow: event.pubkey,
+      isCurrentlyFollowing: isCurrentlyFollowing,
+    });
   });
 
   const handleProfileClick = onProfileClick || (() => {
-    setShowProfileModal(true);
+    navigate(`/profile/${event.pubkey}`);
   });
 
   // Format large numbers (e.g., 1234 -> 1.2K)
@@ -111,11 +123,12 @@ export function VideoActionButtons({
               variant="ghost"
               size="sm"
               className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 rounded-full h-5 w-5 ${
-                isFollowing 
+                isCurrentlyFollowing 
                   ? 'bg-gray-600 hover:bg-gray-700' 
                   : 'bg-red-500 hover:bg-red-600'
-              } text-white border border-white/20 shadow-md`}
+              } text-white border border-white/20 shadow-md disabled:opacity-50`}
               onClick={handleFollow}
+              disabled={isFollowPending}
             >
               <Plus className="w-3 h-3" />
             </Button>
@@ -215,13 +228,6 @@ export function VideoActionButtons({
           </span>
         </div>
       </div>
-
-      {/* Profile Modal */}
-      <ProfileModal 
-        isOpen={showProfileModal} 
-        onClose={() => setShowProfileModal(false)} 
-        pubkey={event.pubkey}
-      />
     </>
   );
 }

@@ -1,11 +1,10 @@
 import { Search, Heart, TrendingUp, Zap, Play, PlusSquare, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
-import { ProfileModal } from '@/components/ProfileModal';
 import LightningWalletModal from '@/components/lightning/LightningWalletModal';
 import { useState } from 'react';
 
@@ -14,13 +13,13 @@ export function Navigation() {
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
   const [activeTab, setActiveTab] = useState('home');
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const handleProfileClick = () => {
     setActiveTab('profile');
-    setShowProfileModal(true);
+    navigate('/profile');
   };
 
   const handleWalletClick = () => {
@@ -196,14 +195,6 @@ export function Navigation() {
           </div>
         )}
       </div>
-
-      {/* Profile Modal */}
-      {user && (
-        <ProfileModal 
-          isOpen={showProfileModal} 
-          onClose={() => setShowProfileModal(false)} 
-        />
-      )}
 
       {/* Lightning Wallet Modal */}
       <LightningWalletModal 
