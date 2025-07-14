@@ -11,11 +11,13 @@ import { useFollowing } from '@/hooks/useFollowing';
 import { useProfileCache } from '@/hooks/useProfileCache';
 import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
 import { useVideoCache } from '@/hooks/useVideoCache';
+import { useCaching } from '@/contexts/CachingContext';
 import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent } from '@/lib/validateVideoEvent';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
 export function VideoFeed() {
   const { nostr } = useNostr();
+  const { queryWithCaching, currentService } = useCaching();
   const { user } = useCurrentUser();
   const following = useFollowing(user?.pubkey || '');
   const navigate = useNavigate();
@@ -37,22 +39,29 @@ export function VideoFeed() {
     isLoading,
     error,
   } = useInfiniteQuery({
-    queryKey: ['video-feed', following.data?.pubkeys],
+    queryKey: ['video-feed', following.data?.pubkeys, currentService?.url],
     queryFn: async ({ pageParam, signal }) => {
-      // Only fetch videos if user has following list
-      if (!following.data?.pubkeys?.length) {
-        return [];
+      console.log(`🔍 Fetching videos from configured relays`);
+      
+      let events: NostrEvent[] = [];
+      
+      // Try to get videos from following list first
+      if (following.data?.pubkeys?.length) {
+        console.log(`� Querying ${following.data.pubkeys.length} followed authors`);
+        
+        const eventsFromFollowing = await nostr.query([
+          {
+            kinds: [1, 1063], // Text notes and file metadata
+            authors: following.data.pubkeys.slice(0, 50), // Limit authors for faster queries
+            '#t': ['video', 'content', 'entertainment'],
+            limit: 15, // Reduced for faster loading
+            until: pageParam,
+          }
+        ], { signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]) });
+        
+        events = eventsFromFollowing;
+        console.log(`📋 Found ${events.length} events from following list`);
       }
-
-      const events = await nostr.query([
-        {
-          kinds: [1, 1063], // Text notes and file metadata
-          authors: following.data.pubkeys, // Only from followed users
-          '#t': ['video', 'content', 'entertainment'],
-          limit: 10,
-          until: pageParam,
-        }
-      ], { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) });
 
       // Filter and validate video events, removing duplicates by both event ID and video URL
       const uniqueEvents = new Map<string, NostrEvent>();
@@ -89,40 +98,55 @@ export function VideoFeed() {
       // Sort by creation time (most recent first)
       const videoEvents = validatedEvents.sort((a, b) => b.created_at - a.created_at);
 
-      // Enhanced caching and prefetching
+      // Minimal background processing for faster loading
       if (videoEvents.length > 0) {
-        // Cache video metadata for offline access
+        // Only cache video metadata (lightweight)
         cacheVideoMetadata(videoEvents);
         
-        // Extract author pubkeys for profile prefetching
-        const authorPubkeys = [...new Set(videoEvents.map(event => event.pubkey))];
-        
-        // Batch load profiles in background (non-blocking)
-        batchLoadProfiles(authorPubkeys).catch(error => {
-          console.warn('Profile prefetch failed:', error);
-        });
-        
-        // Preload thumbnails for smooth scrolling
-        const thumbnailUrls = videoEvents
-          .map(event => event.thumbnail)
-          .filter(Boolean) as string[];
-        
-        if (thumbnailUrls.length > 0) {
-          preloadThumbnails(thumbnailUrls);
-        }
+        // Skip heavy prefetching operations for faster initial load
+        // These can be done after the videos are displayed
       }
 
+      console.log(`⚡ Processed ${videoEvents.length} videos in current batch`);
       return videoEvents;
     },
     getNextPageParam: (lastPage) => {
+      // Continue loading older content chronologically
       if (lastPage.length === 0) return undefined;
-      return lastPage[lastPage.length - 1].created_at;
+      const oldestEvent = lastPage[lastPage.length - 1];
+      return oldestEvent.created_at;
     },
     initialPageParam: undefined as number | undefined,
     enabled: !!following.data?.pubkeys?.length, // Only run when following list is available
+    refetchOnWindowFocus: false, // Prevent unnecessary refetches
+    staleTime: 1000 * 60 * 2, // Reduced to 2 minutes for fresher content
+    gcTime: 1000 * 60 * 5, // Keep data in cache for 5 minutes
+    refetchOnMount: false, // Don't refetch when component mounts if data exists
   });
 
   const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
+
+  // Background prefetching after videos are loaded
+  useEffect(() => {
+    if (videos.length > 0) {
+      // Use setTimeout to defer heavy operations until after render
+      setTimeout(() => {
+        const authorPubkeys = [...new Set(videos.map(event => event.pubkey))];
+        const thumbnailUrls = videos
+          .map(event => event.thumbnail)
+          .filter(Boolean) as string[];
+        
+        // Background prefetch (non-blocking)
+        if (authorPubkeys.length > 0) {
+          batchLoadProfiles(authorPubkeys.slice(0, 20)).catch(() => {}); // Limit to 20 profiles
+        }
+        
+        if (thumbnailUrls.length > 0) {
+          preloadThumbnails(thumbnailUrls.slice(0, 10)); // Limit to 10 thumbnails
+        }
+      }, 100); // Small delay to let videos render first
+    }
+  }, [videos.length, batchLoadProfiles, preloadThumbnails]);
 
   // Handle keyboard navigation and scroll snapping
   useEffect(() => {
@@ -229,15 +253,62 @@ export function VideoFeed() {
     };
   }, [videos, currentVideoIndex]);
 
-  // Auto-load more videos when approaching the end
+  // Auto-load more videos when approaching the end (balanced approach)
   useEffect(() => {
-    if (currentVideoIndex >= videos.length - 3 && hasNextPage && !isFetchingNextPage) {
+    // Only auto-load if we have a reasonable amount of videos already
+    if (videos.length >= 5 && currentVideoIndex >= videos.length - 3 && hasNextPage && !isFetchingNextPage) {
+      console.log(`📖 Auto-loading more videos... (current: ${currentVideoIndex}, total: ${videos.length})`);
       fetchNextPage();
     }
   }, [currentVideoIndex, videos.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  // Pull-to-refresh when scrolled to top
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let isRefreshing = false;
+    let startY = 0;
+    let pullDistance = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (container.scrollTop === 0) {
+        startY = e.touches[0].clientY;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (container.scrollTop === 0 && startY > 0) {
+        pullDistance = e.touches[0].clientY - startY;
+        if (pullDistance > 100 && !isRefreshing) {
+          isRefreshing = true;
+          console.log('🔄 Pull-to-refresh triggered');
+          // Refetch first page to get newer content
+          setTimeout(() => {
+            window.location.reload(); // Simple refresh for now
+          }, 300);
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      startY = 0;
+      pullDistance = 0;
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: true });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
+
   // Show loading state while fetching following list or videos
-  if (following.isLoading || (following.data?.pubkeys?.length && isLoading)) {
+  if (following.isLoading || isLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-black">
         <div className="text-center">
@@ -322,7 +393,7 @@ export function VideoFeed() {
   return (
     <div 
       ref={containerRef}
-      className="h-screen overflow-y-auto scrollbar-hide bg-black snap-y snap-mandatory"
+      className="h-screen overflow-y-auto scrollbar-hide bg-black snap-y snap-mandatory relative"
       style={{
         scrollBehavior: 'smooth'
       }}
