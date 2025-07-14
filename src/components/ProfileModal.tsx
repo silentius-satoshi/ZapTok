@@ -17,21 +17,25 @@ import { useLoginActions } from '@/hooks/useLoginActions';
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Optional pubkey to show a specific user's profile. If not provided, shows current user's profile */
+  pubkey?: string;
 }
 
-export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
+export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
   const { user } = useCurrentUser();
-  const author = useAuthor(user?.pubkey || '');
-  const following = useFollowing(user?.pubkey || '');
+  const targetPubkey = pubkey || user?.pubkey || '';
+  const isCurrentUser = !pubkey || pubkey === user?.pubkey;
+  const author = useAuthor(targetPubkey);
+  const following = useFollowing(targetPubkey);
   const metadata = author.data?.metadata;
   const login = useLoginActions();
   const [showEditForm, setShowEditForm] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
 
-  if (!user) return null;
+  if (!targetPubkey) return null;
 
-  const displayName = metadata?.display_name || metadata?.name || genUserName(user.pubkey);
-  const userName = metadata?.name || genUserName(user.pubkey);
+  const displayName = metadata?.display_name || metadata?.name || genUserName(targetPubkey);
+  const userName = metadata?.name || genUserName(targetPubkey);
   const bio = metadata?.about;
   const profileImage = metadata?.picture;
   const website = metadata?.website;
@@ -54,7 +58,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     setShowFollowingModal(true);
   };
 
-  if (showEditForm) {
+  if (showEditForm && isCurrentUser) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -153,32 +157,34 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Public Key</h3>
               <code className="text-xs bg-muted p-2 rounded block break-all">
-                {user.pubkey}
+                {targetPubkey}
               </code>
             </div>
 
             <Separator />
 
-            {/* Action Buttons */}
-            <div className="space-y-2">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start" 
-                onClick={handleEditProfile}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Profile
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
-                onClick={handleLogout}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Log Out
-              </Button>
-            </div>
+            {/* Action Buttons - Only show for current user */}
+            {isCurrentUser && (
+              <div className="space-y-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start" 
+                  onClick={handleEditProfile}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Profile
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Log Out
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
