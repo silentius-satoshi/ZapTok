@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useWallet } from '@/contexts/WalletContext';
+import { useWallet } from '@/hooks/useWallet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/useToast';
 import { Zap, Info } from 'lucide-react';
 import { WalletDashboard } from '@/components/WalletDashboard';
 import { SendReceivePanel } from '@/components/SendReceivePanel';
-import { useWallet } from '@/contexts/WalletContext';
+import { useWallet } from '@/hooks/useWallet';
 import NostrWalletConnectCard from './wallet-connections/NostrWalletConnectCard';
 import BitcoinConnectCard from './wallet-connections/BitcoinConnectCard';
 import CashuWalletCard from './wallet-connections/CashuWalletCard';

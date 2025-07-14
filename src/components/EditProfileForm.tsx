@@ -40,6 +40,8 @@ export const EditProfileForm: React.FC = () => {
       banner: '',
       website: '',
       nip05: '',
+      lud16: '',
+      lud06: '',
       bot: false,
     },
   });
@@ -231,6 +233,59 @@ export const EditProfileForm: React.FC = () => {
               </FormItem>
             )}
           />
+        </div>
+
+        {/* Lightning Address Section */}
+        <div className="space-y-4">
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-medium">⚡ Lightning Payments</h3>
+            <p className="text-sm text-muted-foreground">
+              Enable others to send you Bitcoin tips (zaps) by setting up a Lightning address.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              control={form.control}
+              name="lud16"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Lightning Address (Recommended)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="you@getalby.com" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Your Lightning address (like an email). Get one from{' '}
+                    <a href="https://getalby.com" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline">
+                      Alby
+                    </a>{' '}
+                    or{' '}
+                    <a href="https://wallet.zebedee.io" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline">
+                      ZEBEDEE
+                    </a>.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="lud06"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>LNURL-pay (Advanced)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="lnurl1..." {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Alternative LNURL-pay string. Only needed if you don't have a Lightning address.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
 
         <FormField

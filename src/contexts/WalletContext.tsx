@@ -1,58 +1,10 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-
-interface Transaction {
-  id: string;
-  type: 'send' | 'receive';
-  amount: number; // in sats
-  timestamp: number;
-  description?: string;
-  preimage?: string;
-  payment_hash?: string;
-  settled: boolean;
-}
-
-interface WalletInfo {
-  alias?: string;
-  balance: number; // in sats
-  pubkey?: string;
-  version?: string;
-  implementation?: string;
-}
-
-// Enhanced WebLN interface for Bitcoin Connect compatibility
-interface WebLNProvider {
-  isEnabled: boolean;
-  enable(): Promise<void>;
-  sendPayment(invoice: string): Promise<{ preimage: string }>;
-  getBalance?(): Promise<{ balance: number }>;
-  makeInvoice?(args: { amount: number; defaultMemo?: string }): Promise<{ paymentRequest: string }>;
-  getInfo?(): Promise<Record<string, unknown>>;
-  listTransactions?(): Promise<{ transactions: Record<string, unknown>[] }>;
-}
-
-declare global {
-  interface Window {
-    webln?: WebLNProvider;
-  }
-}
-
-interface WalletContextType {
-  isConnected: boolean;
-  connect: () => Promise<void>;
-  disconnect: () => void;
-  sendPayment: (invoice: string) => Promise<{ preimage: string }>;
-  getBalance: () => Promise<number>;
-  makeInvoice: (amount: number, memo?: string) => Promise<string>;
-  getTransactionHistory: () => Promise<Transaction[]>;
-  getWalletInfo: () => Promise<WalletInfo>;
-  provider: WebLNProvider | null;
-  error: string | null;
-  walletInfo: WalletInfo | null;
-  transactions: Transaction[];
-  isLoading: boolean;
-}
-
-const WalletContext = createContext<WalletContextType | undefined>(undefined);
+import { useEffect, useState, ReactNode } from 'react';
+import type { 
+  Transaction, 
+  WalletInfo, 
+  WebLNProvider, 
+} from '@/lib/wallet-types';
+import { WalletContext } from './wallet-context';
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [provider, setProvider] = useState<WebLNProvider | null>(null);
@@ -65,20 +17,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        if (window.webln?.isEnabled) {
-          setProvider(window.webln);
-          setIsConnected(true);
-          
-          // Load initial wallet data
+        if (window.webln) {
+          // Always try to enable first, even if isEnabled is true
           try {
-            const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
-            setWalletInfo({
-              alias: 'WebLN Wallet',
-              balance: balance.balance || 0,
-              implementation: 'WebLN',
-            });
+            await window.webln.enable();
+            setProvider(window.webln);
+            setIsConnected(true);
+            
+            // Load initial wallet data after enabling
+            try {
+              const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
+              setWalletInfo({
+                alias: 'WebLN Wallet',
+                balance: balance.balance || 0,
+                implementation: 'WebLN',
+              });
+            } catch {
+              console.log('Could not load initial wallet data');
+            }
           } catch {
-            console.log('Could not load initial wallet data');
+            console.log('WebLN provider not enabled or user rejected');
           }
         }
       } catch {
@@ -153,12 +111,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!provider) throw new Error('No wallet connected');
     
     try {
+      // Ensure provider is enabled before calling getBalance
+      if (!provider.isEnabled) {
+        await provider.enable();
+      }
+      
       if (provider.getBalance) {
         const response = await provider.getBalance();
         return response.balance;
       }
       return 0; // Some wallets don't support balance queries
     } catch (error) {
+      if (error instanceof Error && error.message.includes('enable')) {
+        throw new Error('Wallet provider must be enabled before checking balance');
+      }
       throw new Error(error instanceof Error ? error.message : 'Failed to get balance');
     }
   };
@@ -181,6 +147,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!provider) throw new Error('No wallet connected');
     
     try {
+      // Ensure provider is enabled before calling methods
+      if (!provider.isEnabled) {
+        await provider.enable();
+      }
+      
       const balance = await getBalance();
       let info: Record<string, unknown> = {};
       
@@ -254,11 +225,3 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     </WalletContext.Provider>
   );
 }
-
-export const useWallet = () => {
-  const context = useContext(WalletContext);
-  if (!context) {
-    throw new Error('useWallet must be used within WalletProvider');
-  }
-  return context;
-};

@@ -4,7 +4,8 @@ import { useNostr } from '@nostrify/react';
 import { VideoCard } from '@/components/VideoCard';
 import { VideoActionButtons } from '@/components/VideoActionButtons';
 import { Card, CardContent } from '@/components/ui/card';
-import { RelaySelector } from '@/components/RelaySelector';
+import { Button } from '@/components/ui/button';
+import { Settings } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useProfileCache } from '@/hooks/useProfileCache';
@@ -12,10 +13,12 @@ import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
 import { useVideoCache } from '@/hooks/useVideoCache';
 import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent } from '@/lib/validateVideoEvent';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { useNavigate } from 'react-router-dom';
 export function VideoFeed() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const following = useFollowing(user?.pubkey || '');
+  const navigate = useNavigate();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
@@ -301,7 +304,14 @@ export function VideoFeed() {
               <p className="text-sm text-gray-500 mb-4">
                 Check back later or follow more creators who share videos
               </p>
-              <RelaySelector className="w-full" />
+              <Button 
+                onClick={() => navigate('/settings?section=network')} 
+                variant="outline" 
+                className="w-full"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Manage Relays
+              </Button>
             </div>
           </CardContent>
         </Card>

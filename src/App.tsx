@@ -31,7 +31,7 @@ const queryClient = new QueryClient({
 
 const defaultConfig: AppConfig = {
   theme: "dark", // Changed to dark theme for ZapTok
-  relayUrl: "wss://relay.nostr.band",
+  relayUrls: ["wss://relay.nostr.band"],
 };
 
 const presetRelays = [
