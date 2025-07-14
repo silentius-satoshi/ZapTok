@@ -33,6 +33,8 @@ export function Navigation() {
     // Map routes to navigation tabs
     if (pathname === '/') {
       setActiveTab('following');
+    } else if (pathname === '/discover') {
+      setActiveTab('discover');
     } else if (pathname === '/global') {
       setActiveTab('global');
     } else if (pathname === '/settings') {
@@ -66,7 +68,7 @@ export function Navigation() {
   };
 
   const navItems = [
-    { id: 'discover', icon: Search, label: 'Discover', onClick: () => setActiveTab('discover') },
+    { id: 'discover', icon: Search, label: 'Discover', onClick: () => navigate('/discover'), path: '/discover' },
     { id: 'following', icon: Users, label: 'Following', onClick: () => navigate('/'), path: '/' },
     { id: 'global', icon: Globe, label: 'Global', onClick: () => navigate('/global'), path: '/global' },
     { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => setActiveTab('notifications') },

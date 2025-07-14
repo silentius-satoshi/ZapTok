@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthors } from '@/hooks/useAuthors';
 import { genUserName } from '@/lib/genUserName';
 import { Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface FollowingListModalProps {
   isOpen: boolean;
@@ -14,6 +15,12 @@ interface FollowingListModalProps {
 
 export function FollowingListModal({ isOpen, onClose, pubkeys }: FollowingListModalProps) {
   const authors = useAuthors(pubkeys);
+  const navigate = useNavigate();
+
+  const handleProfileClick = (pubkey: string) => {
+    navigate(`/profile/${pubkey}`);
+    onClose(); // Close the modal after navigation
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -49,10 +56,7 @@ export function FollowingListModal({ isOpen, onClose, pubkeys }: FollowingListMo
                   <div
                     key={author.pubkey}
                     className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => {
-                      // TODO: Navigate to user profile or open profile modal
-                      console.log('Profile clicked:', author.pubkey);
-                    }}
+                    onClick={() => handleProfileClick(author.pubkey)}
                   >
                     <Avatar className="w-10 h-10">
                       <AvatarImage src={profileImage} alt={displayName} />

@@ -103,7 +103,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
               </CardTitle>
             </div>
             <CardDescription className="text-gray-300 flex items-center justify-center space-x-2">
-              <span>Connect your Nostr identity to start creating + earn sats</span>
+              <span>Connect your Nostr identity to create value + earn sats</span>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger>

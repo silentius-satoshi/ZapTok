@@ -16,9 +16,11 @@ interface ZapButtonProps {
   eventId?: string;
   amount?: number;
   className?: string;
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  size?: "default" | "sm" | "lg" | "icon";
 }
 
-export function ZapButton({ recipientPubkey, eventId, amount = 21, className }: ZapButtonProps) {
+export function ZapButton({ recipientPubkey, eventId, amount = 21, className, variant = "ghost", size = "sm" }: ZapButtonProps) {
   const { isConnected, sendPayment } = useWallet();
   const { user } = useCurrentUser();
   const { data: authorData } = useAuthor(recipientPubkey);
@@ -179,8 +181,8 @@ export function ZapButton({ recipientPubkey, eventId, amount = 21, className }: 
     <>
       <Button
         onClick={() => setIsOpen(true)}
-        variant="ghost"
-        size="sm"
+        variant={variant}
+        size={size}
         className={`group relative transition-all duration-200 hover:bg-orange-500/10 ${className} ${showSparks ? 'animate-pulse' : ''}`}
         disabled={!canZap}
         title={!lightningAddress ? 'User has no Lightning address' : !isConnected ? 'Connect wallet to zap' : 'Send zap'}
