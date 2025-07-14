@@ -6,6 +6,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import LightningWalletModal from '@/components/lightning/LightningWalletModal';
+import { VideoUploadModal } from '@/components/VideoUploadModal';
 import { useState, useEffect } from 'react';
 
 export function Navigation() {
@@ -22,6 +23,7 @@ export function Navigation() {
   });
   
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   // Update activeTab when location changes
@@ -31,6 +33,8 @@ export function Navigation() {
     // Map routes to navigation tabs
     if (pathname === '/') {
       setActiveTab('following');
+    } else if (pathname === '/global') {
+      setActiveTab('global');
     } else if (pathname === '/settings') {
       setActiveTab('settings');
     } else if (pathname === '/stream') {
@@ -56,10 +60,15 @@ export function Navigation() {
     setShowWalletModal(true);
   };
 
+  const handleUploadClick = () => {
+    setActiveTab('upload');
+    setShowUploadModal(true);
+  };
+
   const navItems = [
     { id: 'discover', icon: Search, label: 'Discover', onClick: () => setActiveTab('discover') },
     { id: 'following', icon: Users, label: 'Following', onClick: () => navigate('/'), path: '/' },
-    { id: 'global', icon: Globe, label: 'Global', onClick: () => setActiveTab('global') },
+    { id: 'global', icon: Globe, label: 'Global', onClick: () => navigate('/global'), path: '/global' },
     { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => setActiveTab('notifications') },
     { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: handleWalletClick },
     { id: 'settings', icon: Settings, label: 'Settings', onClick: () => navigate('/settings'), path: '/settings' },
@@ -156,7 +165,7 @@ export function Navigation() {
                     ? 'text-gray-400 hover:text-white'
                     : 'text-gray-400 hover:text-white'
                 } mt-4`}
-                onClick={() => setActiveTab('upload')}
+                onClick={handleUploadClick}
                 onMouseEnter={() => setHoveredItem('upload')}
                 onMouseLeave={() => setHoveredItem(null)}
               >
@@ -266,6 +275,12 @@ export function Navigation() {
       <LightningWalletModal 
         isOpen={showWalletModal} 
         onClose={() => setShowWalletModal(false)} 
+      />
+
+      {/* Video Upload Modal */}
+      <VideoUploadModal 
+        isOpen={showUploadModal} 
+        onClose={() => setShowUploadModal(false)} 
       />
     </>
   );
