@@ -7,12 +7,14 @@ import { AuthGate } from '@/components/AuthGate';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
+import { useBookmarkedVideos } from '@/hooks/useBookmarkedVideos';
 import { genUserName } from '@/lib/genUserName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { VideoGrid } from '@/components/VideoGrid';
 import { Users, Edit, ArrowLeft } from 'lucide-react';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { EditProfileForm } from '@/components/EditProfileForm';
@@ -29,6 +31,7 @@ const Profile = () => {
 
   const author = useAuthor(targetPubkey);
   const following = useFollowing(targetPubkey);
+  const bookmarkedVideos = useBookmarkedVideos(isOwnProfile ? user?.pubkey : undefined);
   const metadata = author.data?.metadata;
 
   const displayName = metadata?.display_name || metadata?.name || genUserName(targetPubkey);
@@ -241,15 +244,25 @@ const Profile = () => {
                   </div>
 
                   {/* Content Grid */}
-                  <div className="grid grid-cols-3 gap-4">
-                    {/* TODO: Add video grid based on activeTab */}
-                    <div className="col-span-3 text-center py-12">
-                      <p className="text-gray-400">
-                        {activeTab === 'posts' && 'No posts yet'}
-                        {activeTab === 'liked' && 'No liked videos yet'}
-                        {activeTab === 'bookmarks' && 'No bookmarks yet'}
-                      </p>
-                    </div>
+                  <div className="mt-6">
+                    {activeTab === 'bookmarks' && isOwnProfile ? (
+                      <VideoGrid 
+                        videos={bookmarkedVideos.data || []}
+                        isLoading={bookmarkedVideos.isLoading}
+                        emptyMessage="No bookmarks yet. Start bookmarking videos you want to save!"
+                        allowRemove={true}
+                      />
+                    ) : (
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-3 text-center py-12">
+                          <p className="text-gray-400">
+                            {activeTab === 'posts' && 'No posts yet'}
+                            {activeTab === 'liked' && 'No liked videos yet'}
+                            {activeTab === 'bookmarks' && (isOwnProfile ? 'No bookmarks yet' : 'Bookmarks are private')}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

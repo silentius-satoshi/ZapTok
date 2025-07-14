@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, Send, Bookmark, Plus, User } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -6,10 +6,11 @@ import { useVideoReactions } from '@/hooks/useVideoReactions';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useFollowUser } from '@/hooks/useFollowUser';
+import { useBookmarks } from '@/hooks/useBookmarks';
+import { useBookmarkVideo } from '@/hooks/useBookmarks';
 import { genUserName } from '@/lib/genUserName';
 import { ZapButton } from '@/components/ZapButton';
 import type { NostrEvent } from '@nostrify/nostrify';
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface VideoActionButtonsProps {
@@ -32,9 +33,6 @@ export function VideoActionButtons({
   event,
   displayName,
   profilePicture,
-  isLiked = false,
-  isBookmarked = false,
-  isFollowing = false,
   onLike,
   onZap: _onZap,
   onComment,
@@ -47,7 +45,9 @@ export function VideoActionButtons({
   const reactions = useVideoReactions(event.id);
   const author = useAuthor(event.pubkey);
   const following = useFollowing(user?.pubkey || '');
+  const bookmarks = useBookmarks(user?.pubkey);
   const { mutate: followUser, isPending: isFollowPending } = useFollowUser();
+  const { mutate: bookmarkVideo, isPending: isBookmarkPending } = useBookmarkVideo();
   const navigate = useNavigate();
 
   // Use author data if available, otherwise fall back to props
@@ -58,6 +58,15 @@ export function VideoActionButtons({
   // Check if currently following this user
   const followingList = following.data?.pubkeys || [];
   const isCurrentlyFollowing = followingList.includes(event.pubkey);
+  
+  // Check if currently bookmarked
+  const bookmarkList = bookmarks.data?.bookmarks || [];
+  const isCurrentlyBookmarked = bookmarkList.includes(event.id);
+  
+  // Check if current user has liked this video
+  const currentUserReaction = user?.pubkey ? reactions.data?.userReactions.get(user.pubkey) : null;
+  const isLiked = currentUserReaction && 
+    ['+', '❤️', '👍', '🤙'].includes(currentUserReaction.content.trim());
 
   // Default handlers
   const handleLike = onLike || (() => {
@@ -71,8 +80,12 @@ export function VideoActionButtons({
   });
 
   const handleBookmark = onBookmark || (() => {
-    // TODO: Implement bookmark functionality
-    console.log('Bookmark clicked');
+    if (!user) return;
+    
+    bookmarkVideo({
+      eventId: event.id,
+      isCurrentlyBookmarked: isCurrentlyBookmarked,
+    });
   });
 
   const handleShare = onShare || (() => {
@@ -183,13 +196,14 @@ export function VideoActionButtons({
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg"
+            className="rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg disabled:opacity-50"
             onClick={handleBookmark}
+            disabled={isBookmarkPending}
           >
-            <Bookmark className={`w-6 h-6 ${isBookmarked ? 'fill-yellow-500 text-yellow-500' : ''}`} />
+            <Bookmark className={`w-6 h-6 ${isCurrentlyBookmarked ? 'fill-yellow-500 text-yellow-500' : ''}`} />
           </Button>
           <span className="text-white text-xs font-bold">
-            0
+            {isCurrentlyBookmarked ? 'Saved' : 'Save'}
           </span>
         </div>
 
