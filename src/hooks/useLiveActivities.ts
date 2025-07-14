@@ -136,7 +136,7 @@ export function useLiveActivities() {
           ...(options?.hashtags?.length && { '#t': options.hashtags }),
         }];
 
-        const events = await nostr.query(filters as unknown[], { signal });
+        const events = await nostr.query(filters, { signal });
         
         // Parse and filter events
         const liveEvents = events

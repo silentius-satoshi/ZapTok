@@ -11,7 +11,8 @@ import { useFollowing } from '@/hooks/useFollowing';
 import { genUserName } from '@/lib/genUserName';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { FollowingListModal } from '@/components/FollowingListModal';
-import { User, Edit, LogOut, Users } from 'lucide-react';
+import { QRModal } from '@/components/QRModal';
+import { User, Edit, LogOut, Users, QrCode } from 'lucide-react';
 import { useLoginActions } from '@/hooks/useLoginActions';
 
 interface ProfileModalProps {
@@ -31,6 +32,7 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
   const login = useLoginActions();
   const [showEditForm, setShowEditForm] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
 
   if (!targetPubkey) return null;
 
@@ -56,6 +58,10 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
 
   const handleFollowingClick = () => {
     setShowFollowingModal(true);
+  };
+
+  const handleQRClick = () => {
+    setShowQRModal(true);
   };
 
   if (showEditForm && isCurrentUser) {
@@ -163,9 +169,22 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
 
             <Separator />
 
+            {/* QR Code Button - Show for all users */}
+            <div className="space-y-2">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start" 
+                onClick={handleQRClick}
+              >
+                <QrCode className="w-4 h-4 mr-2" />
+                QR Codes
+              </Button>
+            </div>
+
             {/* Action Buttons - Only show for current user */}
             {isCurrentUser && (
               <div className="space-y-2">
+                <Separator />
                 <Button 
                   variant="outline" 
                   className="w-full justify-start" 
@@ -194,6 +213,15 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
         isOpen={showFollowingModal}
         onClose={() => setShowFollowingModal(false)}
         pubkeys={following.data?.pubkeys || []}
+      />
+
+      {/* QR Modal */}
+      <QRModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        pubkey={targetPubkey}
+        metadata={metadata}
+        displayName={displayName}
       />
     </>
   );

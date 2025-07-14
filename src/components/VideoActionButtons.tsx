@@ -153,10 +153,14 @@ export function VideoActionButtons({
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg"
+            className="group rounded-full bg-gray-900/80 hover:bg-red-500/10 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg transition-all duration-200"
             onClick={handleLike}
           >
-            <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+            <Heart className={`w-6 h-6 transition-all duration-200 ${
+              isLiked 
+                ? 'fill-red-500 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]' 
+                : 'text-red-400 drop-shadow-[0_0_4px_rgba(239,68,68,0.6)] group-hover:text-red-300 group-hover:drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] group-hover:scale-110'
+            }`} />
           </Button>
           <span className="text-white text-xs font-bold">
             {reactions.data ? formatCount(reactions.data.likes) : '0'}
@@ -181,10 +185,10 @@ export function VideoActionButtons({
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg"
+            className="group rounded-full bg-gray-900/80 hover:bg-blue-500/10 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg transition-all duration-200"
             onClick={handleComment}
           >
-            <MessageCircle className="w-6 h-6" />
+            <MessageCircle className="w-6 h-6 text-blue-400 drop-shadow-[0_0_4px_rgba(59,130,246,0.6)] group-hover:text-blue-300 group-hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.8)] group-hover:scale-110 transition-all duration-200" />
           </Button>
           <span className="text-white text-xs font-bold">
             0
@@ -196,11 +200,15 @@ export function VideoActionButtons({
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg disabled:opacity-50"
+            className="group rounded-full bg-gray-900/80 hover:bg-purple-500/10 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg disabled:opacity-50 transition-all duration-200"
             onClick={handleBookmark}
             disabled={isBookmarkPending}
           >
-            <Bookmark className={`w-6 h-6 ${isCurrentlyBookmarked ? 'fill-yellow-500 text-yellow-500' : ''}`} />
+            <Bookmark className={`w-6 h-6 transition-all duration-200 ${
+              isCurrentlyBookmarked 
+                ? 'fill-purple-500 text-purple-500 drop-shadow-[0_0_8px_rgba(147,51,234,0.8)]' 
+                : 'text-purple-400 drop-shadow-[0_0_4px_rgba(147,51,234,0.6)] group-hover:text-purple-300 group-hover:drop-shadow-[0_0_8px_rgba(147,51,234,0.8)] group-hover:scale-110'
+            }`} />
           </Button>
           <span className="text-white text-xs font-bold">
             {isCurrentlyBookmarked ? 'Saved' : 'Save'}
@@ -212,10 +220,10 @@ export function VideoActionButtons({
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg"
+            className="group rounded-full bg-gray-900/80 hover:bg-gray-600/20 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg transition-all duration-200"
             onClick={handleShare}
           >
-            <Send className="w-6 h-6" />
+            <Send className="w-6 h-6 text-gray-300 drop-shadow-[0_0_4px_rgba(255,255,255,0.4)] group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] group-hover:scale-110 transition-all duration-200" />
           </Button>
           <span className="text-white text-xs font-bold">
             Share

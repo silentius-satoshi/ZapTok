@@ -17,9 +17,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { VideoGrid } from '@/components/VideoGrid';
-import { Users, Edit, ArrowLeft } from 'lucide-react';
+import { Users, Edit, ArrowLeft, QrCode } from 'lucide-react';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { EditProfileForm } from '@/components/EditProfileForm';
+import { QRModal } from '@/components/QRModal';
 
 const Profile = () => {
   const { pubkey } = useParams();
@@ -27,6 +28,7 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'bookmarks'>('posts');
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
   
   const targetPubkey = pubkey || user?.pubkey || '';
   const isOwnProfile = !pubkey || pubkey === user?.pubkey;
@@ -188,14 +190,24 @@ const Profile = () => {
                         </Button>
 
                         {isOwnProfile && (
-                          <Button
-                            variant="outline"
-                            onClick={() => setShowEditForm(true)}
-                            className="flex items-center space-x-2"
-                          >
-                            <Edit className="w-4 h-4" />
-                            <span>Edit Profile</span>
-                          </Button>
+                          <>
+                            <Button
+                              variant="outline"
+                              onClick={() => setShowQRModal(true)}
+                              className="flex items-center justify-center w-10 h-10 p-0"
+                            >
+                              <QrCode className="w-4 h-4" />
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              onClick={() => setShowEditForm(true)}
+                              className="flex items-center space-x-2"
+                            >
+                              <Edit className="w-4 h-4" />
+                              <span>Edit Profile</span>
+                            </Button>
+                          </>
                         )}
                       </div>
 
@@ -299,6 +311,15 @@ const Profile = () => {
         isOpen={showFollowingModal}
         onClose={() => setShowFollowingModal(false)}
         pubkeys={following.data?.pubkeys || []}
+      />
+
+      {/* QR Modal */}
+      <QRModal 
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        pubkey={targetPubkey}
+        metadata={metadata}
+        displayName={displayName}
       />
     </>
   );
