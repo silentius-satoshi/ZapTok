@@ -139,7 +139,7 @@ export function CachingProvider({ children }: CachingProviderProps) {
                 console.log(`ℹ️ Cache notice: ${data[1]}`);
               }
             }
-          } catch (error) {
+          } catch {
             console.warn(`⚠️ Could not parse Primal cache message:`, event.data);
           }
         };

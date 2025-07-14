@@ -7,15 +7,121 @@ export interface VideoEvent extends NostrEvent {
   description?: string;
   hash?: string;
   duration?: number;
+  published_at?: number; // NIP-71 published timestamp
+  alt?: string; // NIP-71 accessibility description
 }
 
 /**
  * Enhanced video event validation based on Nostr video standards
- * Follows the pattern from the reference implementation
+ * Supports both legacy formats and NIP-71 video events
  */
 export function validateVideoEvent(event: NostrEvent): VideoEvent | null {
   const tags = event.tags || [];
   
+  // NIP-71 video events (kind 21 = normal videos, kind 22 = short videos)
+  if (event.kind === 21 || event.kind === 22) {
+    return validateNip71VideoEvent(event, tags);
+  }
+  
+  // Legacy video event validation for kind 1 and 1063
+  return validateLegacyVideoEvent(event, tags);
+}
+
+/**
+ * Validate NIP-71 video events (kind 21 and 22)
+ */
+function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEvent | null {
+  const videoData: VideoEvent = {
+    ...event,
+    description: event.content
+  };
+
+  // Parse imeta tags first (primary video source in NIP-71)
+  const imetaTags = tags.filter(tag => tag[0] === 'imeta');
+  
+  for (const imetaTag of imetaTags) {
+    // Parse imeta tag properties
+    const imetaProps: Record<string, string> = {};
+    
+    for (let i = 1; i < imetaTag.length; i++) {
+      const prop = imetaTag[i];
+      const spaceIndex = prop.indexOf(' ');
+      if (spaceIndex > 0) {
+        const key = prop.substring(0, spaceIndex);
+        const value = prop.substring(spaceIndex + 1);
+        imetaProps[key] = value;
+      }
+    }
+
+    // Extract video URL (prefer primary url over fallback)
+    if (imetaProps.url && !videoData.videoUrl) {
+      videoData.videoUrl = imetaProps.url;
+    }
+    
+    // Extract thumbnail from image property
+    if (imetaProps.image && !videoData.thumbnail) {
+      videoData.thumbnail = imetaProps.image;
+    }
+    
+    // Extract hash from x property
+    if (imetaProps.x && !videoData.hash) {
+      videoData.hash = imetaProps.x;
+    }
+  }
+
+  // Parse other NIP-71 tags
+  for (const tag of tags) {
+    switch (tag[0]) {
+      case 'title': {
+        videoData.title = tag[1];
+        break;
+      }
+      case 'duration': {
+        const duration = parseInt(tag[1]);
+        if (!isNaN(duration) && duration > 0) {
+          videoData.duration = duration;
+        }
+        break;
+      }
+      case 'published_at': {
+        // NIP-71 uses published_at for original publication time
+        const publishedAt = parseInt(tag[1]);
+        if (!isNaN(publishedAt) && publishedAt > 0) {
+          videoData.published_at = publishedAt;
+        }
+        break;
+      }
+      case 'alt': {
+        // Accessibility description
+        videoData.alt = tag[1];
+        break;
+      }
+    }
+  }
+
+  // Set title if not provided
+  if (!videoData.title) {
+    const firstLine = event.content.split('\n')[0];
+    videoData.title = firstLine && firstLine.length < 100 ? firstLine : 'Video Post';
+  }
+
+  // NIP-71 events should have either a video URL from imeta or a hash
+  if (!videoData.videoUrl && !videoData.hash) {
+    return null;
+  }
+
+  // If we have a hash but no URL, construct Blossom URL
+  if (!videoData.videoUrl && videoData.hash) {
+    videoData.videoUrl = `https://blossom.primal.net/${videoData.hash}`;
+  }
+
+  return videoData;
+}
+
+/**
+ * Validate legacy video events (kind 1 and 1063)
+ */
+function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEvent | null {
   // Check if this is a potential video event
   // Must have either:
   // 1. An 'x' tag (hash tag for video files)
@@ -111,6 +217,12 @@ export function validateVideoEvent(event: NostrEvent): VideoEvent | null {
  * Lightweight check for filtering before full validation
  */
 export function hasVideoContent(event: NostrEvent): boolean {
+  // NIP-71 video events are automatically considered video content
+  if (event.kind === 21 || event.kind === 22) {
+    return true;
+  }
+
+  // Legacy video content detection for other kinds
   const tags = event.tags || [];
   
   // Quick checks for video indicators
