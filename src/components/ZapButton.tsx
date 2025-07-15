@@ -80,19 +80,39 @@ export function ZapButton({ recipientPubkey, eventId, amount = 21, className, va
       };
       console.log('📡 Sending invoice request:', requestPayload);
 
-      // Get invoice from zap endpoint
+      // Get invoice from zap endpoint with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(zapEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(requestPayload),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
       console.log('📨 Invoice response status:', response.status, response.statusText);
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Invoice request failed:', errorText);
-        throw new Error(`Failed to get invoice from Lightning service: ${response.status} ${response.statusText} - ${errorText}`);
+        
+        // Provide more specific error messages based on status codes
+        if (response.status === 400) {
+          throw new Error(`Invalid zap request: ${errorText}`);
+        } else if (response.status === 404) {
+          throw new Error(`Lightning service not found. The user's Lightning address (${lightningAddress}) may be outdated or inactive.`);
+        } else if (response.status === 500) {
+          throw new Error(`Lightning service internal error: ${errorText}`);
+        } else if (response.status === 429) {
+          throw new Error(`Too many requests to Lightning service. Please try again later.`);
+        } else {
+          throw new Error(`Lightning service returned error ${response.status}: ${errorText}`);
+        }
       }
 
       const data = await response.json();
@@ -101,7 +121,9 @@ export function ZapButton({ recipientPubkey, eventId, amount = 21, className, va
 
       if (!invoice) {
         console.error('❌ No invoice found in response:', data);
-        throw new Error('No invoice received from Lightning service');
+        // Check if there's an error message in the response
+        const errorMsg = data.reason || data.error || data.message || 'Unknown error';
+        throw new Error(`Lightning service couldn't generate invoice: ${errorMsg}`);
       }
 
       console.log('📄 Got invoice:', invoice.substring(0, 50) + '...');
@@ -149,15 +171,24 @@ export function ZapButton({ recipientPubkey, eventId, amount = 21, className, va
       let title = "Zap Failed";
       
       if (error instanceof Error) {
-        if (error.message.includes('Failed to get payment endpoint')) {
+        if (error.name === 'AbortError') {
+          title = "Request Timeout";
+          errorMessage = "The Lightning service took too long to respond. Please try again.";
+        } else if (error.message.includes('Failed to get payment endpoint')) {
           title = "Lightning Address Issue";
           errorMessage = `Could not resolve Lightning address: ${lightningAddress}. The Lightning service may be down or not configured correctly.`;
         } else if (error.message.includes('Failed to fetch')) {
           title = "Network Error";
           errorMessage = "Could not connect to Lightning service. This might be a CORS or network issue.";
-        } else if (error.message.includes('Failed to get invoice')) {
-          title = "Invoice Error";
-          errorMessage = "The Lightning service couldn't generate an invoice. Please try again or contact the recipient.";
+        } else if (error.message.includes("couldn't generate invoice")) {
+          title = "Invoice Generation Failed";
+          errorMessage = `The Lightning service couldn't generate an invoice. ${error.message}`;
+        } else if (error.message.includes('Lightning service not found')) {
+          title = "Lightning Address Inactive";
+          errorMessage = error.message + " The user may need to update their Lightning address in their profile.";
+        } else if (error.message.includes('Lightning service returned error')) {
+          title = "Lightning Service Error";
+          errorMessage = error.message;
         } else {
           errorMessage = error.message;
         }

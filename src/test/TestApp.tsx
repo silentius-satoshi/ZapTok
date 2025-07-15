@@ -7,6 +7,7 @@ import { AppProvider } from '@/components/AppProvider';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
+import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
 
 interface TestAppProps {
   children: React.ReactNode;
@@ -35,9 +36,11 @@ export function TestApp({ children }: TestAppProps) {
             <NostrProvider>
               <CachingProvider>
                 <WalletProvider>
-                  <BrowserRouter>
-                    {children}
-                  </BrowserRouter>
+                  <VideoPlaybackProvider>
+                    <BrowserRouter>
+                      {children}
+                    </BrowserRouter>
+                  </VideoPlaybackProvider>
                 </WalletProvider>
               </CachingProvider>
             </NostrProvider>

@@ -1,4 +1,4 @@
-import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio } from 'lucide-react';
+import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -7,6 +7,8 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import LightningWalletModal from '@/components/lightning/LightningWalletModal';
 import { VideoUploadModal } from '@/components/VideoUploadModal';
+import { UserSearchModal } from '@/components/UserSearchModal';
+import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
 import { useState, useEffect } from 'react';
 
 export function Navigation() {
@@ -15,6 +17,7 @@ export function Navigation() {
   const metadata = author.data?.metadata;
   const location = useLocation();
   const navigate = useNavigate();
+  const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
   
   // Set activeTab based on current route
   const [activeTab, setActiveTab] = useState(() => {
@@ -24,6 +27,7 @@ export function Navigation() {
   
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showUserSearchModal, setShowUserSearchModal] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   // Update activeTab when location changes
@@ -54,26 +58,64 @@ export function Navigation() {
 
   const handleProfileClick = () => {
     setActiveTab('profile');
+    pauseAllVideos();
     navigate('/profile');
   };
 
   const handleWalletClick = () => {
     setActiveTab('wallet');
+    pauseAllVideos();
     setShowWalletModal(true);
   };
 
   const handleUploadClick = () => {
     setActiveTab('upload');
+    pauseAllVideos();
     setShowUploadModal(true);
   };
 
+  const handleUserSearchClick = () => {
+    setActiveTab('userSearch');
+    pauseAllVideos();
+    setShowUserSearchModal(true);
+  };
+
+  const handleWalletModalClose = () => {
+    setShowWalletModal(false);
+    resumeAllVideos();
+  };
+
+  const handleUploadModalClose = () => {
+    setShowUploadModal(false);
+    resumeAllVideos();
+  };
+
+  const handleUserSearchModalClose = (open: boolean) => {
+    setShowUserSearchModal(open);
+    if (!open) {
+      resumeAllVideos();
+    }
+  };
+
+  const handleNavigateToPage = (path: string) => {
+    // Pause videos when navigating to non-video pages
+    if (path !== '/' && path !== '/global') {
+      pauseAllVideos();
+    } else {
+      // Resume videos when returning to video feeds
+      resumeAllVideos();
+    }
+    navigate(path);
+  };
+
   const navItems = [
-    { id: 'discover', icon: Search, label: 'Discover', onClick: () => navigate('/discover'), path: '/discover' },
-    { id: 'following', icon: Users, label: 'Following', onClick: () => navigate('/'), path: '/' },
-    { id: 'global', icon: Globe, label: 'Global', onClick: () => navigate('/global'), path: '/global' },
+    { id: 'discover', icon: Search, label: 'Discover', onClick: () => handleNavigateToPage('/discover'), path: '/discover' },
+    { id: 'following', icon: Users, label: 'Following', onClick: () => handleNavigateToPage('/'), path: '/' },
+    { id: 'global', icon: Globe, label: 'Global', onClick: () => handleNavigateToPage('/global'), path: '/global' },
+    { id: 'userSearch', icon: UserPlus, label: 'Search Users', onClick: handleUserSearchClick },
     { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => setActiveTab('notifications') },
     { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: handleWalletClick },
-    { id: 'settings', icon: Settings, label: 'Settings', onClick: () => navigate('/settings'), path: '/settings' },
+    { id: 'settings', icon: Settings, label: 'Settings', onClick: () => handleNavigateToPage('/settings'), path: '/settings' },
   ];
 
   return (
@@ -201,6 +243,7 @@ export function Navigation() {
                 }`}
                 onClick={() => {
                   setActiveTab('stream');
+                  pauseAllVideos();
                   navigate('/stream', { state: { fromNavigation: true } });
                 }}
                 onMouseEnter={() => setHoveredItem('stream')}
@@ -276,13 +319,19 @@ export function Navigation() {
       {/* Lightning Wallet Modal */}
       <LightningWalletModal 
         isOpen={showWalletModal} 
-        onClose={() => setShowWalletModal(false)} 
+        onClose={handleWalletModalClose} 
       />
 
       {/* Video Upload Modal */}
       <VideoUploadModal 
         isOpen={showUploadModal} 
-        onClose={() => setShowUploadModal(false)} 
+        onClose={handleUploadModalClose} 
+      />
+
+      {/* User Search Modal */}
+      <UserSearchModal 
+        open={showUserSearchModal} 
+        onOpenChange={handleUserSearchModalClose} 
       />
     </>
   );

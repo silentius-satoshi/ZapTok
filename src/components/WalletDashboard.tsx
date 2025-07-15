@@ -132,21 +132,9 @@ export function WalletDashboard() {
               <Separator />
 
               {/* Wallet Details */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                {walletInfo.alias && (
-                  <div>
-                    <p className="text-muted-foreground">Wallet Name</p>
-                    <p className="font-medium">{walletInfo.alias}</p>
-                  </div>
-                )}
-                {walletInfo.implementation && (
-                  <div>
-                    <p className="text-muted-foreground">Type</p>
-                    <p className="font-medium">{walletInfo.implementation}</p>
-                  </div>
-                )}
+              <div className="grid grid-cols-1 gap-4 text-sm">
                 {walletInfo.pubkey && (
-                  <div className="col-span-2">
+                  <div>
                     <p className="text-muted-foreground">Node ID</p>
                     <div className="flex items-center gap-2">
                       <p className="font-mono text-xs truncate">{walletInfo.pubkey}</p>

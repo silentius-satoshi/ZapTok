@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
 import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
@@ -71,11 +72,13 @@ export function App() {
             <NostrProvider>
               <CachingProvider>
                 <WalletProvider>
-                  <TooltipProvider>
-                    <Toaster />
-                    <Sonner />
-                    <AppContent />
-                  </TooltipProvider>
+                  <VideoPlaybackProvider>
+                    <TooltipProvider>
+                      <Toaster />
+                      <Sonner />
+                      <AppContent />
+                    </TooltipProvider>
+                  </VideoPlaybackProvider>
                 </WalletProvider>
               </CachingProvider>
             </NostrProvider>
