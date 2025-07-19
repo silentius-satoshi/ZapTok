@@ -4,7 +4,10 @@ import { BrowserRouter } from 'react-router-dom';
 import { NostrLoginProvider } from '@nostrify/react/login';
 import NostrProvider from '@/components/NostrProvider';
 import { AppProvider } from '@/components/AppProvider';
+import { WalletProvider } from '@/contexts/WalletContext';
+import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
+import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
 
 interface TestAppProps {
   children: React.ReactNode;
@@ -22,7 +25,7 @@ export function TestApp({ children }: TestAppProps) {
 
   const defaultConfig: AppConfig = {
     theme: 'light',
-    relayUrl: 'wss://relay.nostr.band',
+    relayUrls: ['wss://relay.nostr.band'],
   };
 
   return (
@@ -31,9 +34,15 @@ export function TestApp({ children }: TestAppProps) {
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='test-login'>
             <NostrProvider>
-              <BrowserRouter>
-                {children}
-              </BrowserRouter>
+              <CachingProvider>
+                <WalletProvider>
+                  <VideoPlaybackProvider>
+                    <BrowserRouter>
+                      {children}
+                    </BrowserRouter>
+                  </VideoPlaybackProvider>
+                </WalletProvider>
+              </CachingProvider>
             </NostrProvider>
           </NostrLoginProvider>
         </QueryClientProvider>

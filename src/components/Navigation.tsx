@@ -1,40 +1,121 @@
-import { Search, Heart, TrendingUp, Zap, Play, PlusSquare, Settings } from 'lucide-react';
+import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
-import { ProfileModal } from '@/components/ProfileModal';
 import LightningWalletModal from '@/components/lightning/LightningWalletModal';
-import { useState } from 'react';
+import { VideoUploadModal } from '@/components/VideoUploadModal';
+import { UserSearchModal } from '@/components/UserSearchModal';
+import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
+import { useState, useEffect } from 'react';
 
 export function Navigation() {
   const { user } = useCurrentUser();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
-  const [activeTab, setActiveTab] = useState('home');
-  const [showProfileModal, setShowProfileModal] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
+  
+  // Set activeTab based on current route
+  const [activeTab, setActiveTab] = useState(() => {
+    if (location.pathname === '/') return 'following';
+    return 'following'; // default to following for now
+  });
+  
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showUserSearchModal, setShowUserSearchModal] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+
+  // Update activeTab when location changes
+  useEffect(() => {
+    const pathname = location.pathname;
+    
+    // Map routes to navigation tabs
+    if (pathname === '/') {
+      setActiveTab('following');
+    } else if (pathname === '/discover') {
+      setActiveTab('discover');
+    } else if (pathname === '/global') {
+      setActiveTab('global');
+    } else if (pathname === '/settings') {
+      setActiveTab('settings');
+    } else if (pathname === '/stream') {
+      setActiveTab('stream');
+    } else if (pathname.startsWith('/profile')) {
+      setActiveTab('profile');
+    } else {
+      // For other routes, try to match by path or keep current activeTab
+      const matchedItem = navItems.find(item => item.path === pathname);
+      if (matchedItem) {
+        setActiveTab(matchedItem.id);
+      }
+    }
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleProfileClick = () => {
     setActiveTab('profile');
-    setShowProfileModal(true);
+    pauseAllVideos();
+    navigate('/profile');
   };
 
   const handleWalletClick = () => {
     setActiveTab('wallet');
+    pauseAllVideos();
     setShowWalletModal(true);
   };
 
+  const handleUploadClick = () => {
+    setActiveTab('upload');
+    pauseAllVideos();
+    setShowUploadModal(true);
+  };
+
+  const handleUserSearchClick = () => {
+    setActiveTab('userSearch');
+    pauseAllVideos();
+    setShowUserSearchModal(true);
+  };
+
+  const handleWalletModalClose = () => {
+    setShowWalletModal(false);
+    resumeAllVideos();
+  };
+
+  const handleUploadModalClose = () => {
+    setShowUploadModal(false);
+    resumeAllVideos();
+  };
+
+  const handleUserSearchModalClose = (open: boolean) => {
+    setShowUserSearchModal(open);
+    if (!open) {
+      resumeAllVideos();
+    }
+  };
+
+  const handleNavigateToPage = (path: string) => {
+    // Pause videos when navigating to non-video pages
+    if (path !== '/' && path !== '/global') {
+      pauseAllVideos();
+    } else {
+      // Resume videos when returning to video feeds
+      resumeAllVideos();
+    }
+    navigate(path);
+  };
+
   const navItems = [
-    { id: 'home', icon: Play, label: 'For You', onClick: undefined, path: '/' },
-    { id: 'search', icon: Search, label: 'Discover', onClick: undefined },
-    { id: 'trending', icon: TrendingUp, label: 'Trending', onClick: undefined },
-    { id: 'notifications', icon: Heart, label: 'Notifications', onClick: undefined },
+    { id: 'discover', icon: Search, label: 'Discover', onClick: () => handleNavigateToPage('/discover'), path: '/discover' },
+    { id: 'following', icon: Users, label: 'Following', onClick: () => handleNavigateToPage('/'), path: '/' },
+    { id: 'global', icon: Globe, label: 'Global', onClick: () => handleNavigateToPage('/global'), path: '/global' },
+    { id: 'userSearch', icon: UserPlus, label: 'Search Users', onClick: handleUserSearchClick },
+    { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => setActiveTab('notifications') },
     { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: handleWalletClick },
-    { id: 'settings', icon: Settings, label: 'Settings', onClick: undefined, path: '/settings' },
+    { id: 'settings', icon: Settings, label: 'Settings', onClick: () => handleNavigateToPage('/settings'), path: '/settings' },
   ];
 
   return (
@@ -42,22 +123,22 @@ export function Navigation() {
       <div className="hidden md:flex flex-col w-64 p-4 h-full">{/* Main Navigation */}
         <div className="space-y-2 flex-1">
           {navItems.map((item) => {
-            // Special handling for settings item with Link
+            // Special handling for items with paths (use Link for routing)
             if (item.path) {
               return (
                 <Link key={item.id} to={item.path}>
                   <Button
                     variant={activeTab === item.id ? 'default' : 'ghost'}
-                    className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent ${
+                    className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent ${
                       activeTab === item.id
                         ? 'text-gray-400 hover:text-white'
                         : 'text-gray-400 hover:text-white'
                     }`}
-                    onClick={() => setActiveTab(item.id)}
+                    onClick={item.onClick}
                     onMouseEnter={() => setHoveredItem(item.id)}
                     onMouseLeave={() => setHoveredItem(null)}
                   >
-                    <item.icon size={20} className={`mr-3 ${
+                    <item.icon size={24} className={`mr-4 ${
                       activeTab === item.id || hoveredItem === item.id
                         ? 'text-orange-500'
                         : 'text-gray-400'
@@ -67,7 +148,7 @@ export function Navigation() {
                       WebkitTextFillColor: 'transparent',
                       backgroundClip: 'text',
                     } : {}} />
-                    <span className={`font-medium ${
+                    <span className={`font-medium text-lg ${
                       activeTab === item.id || hoveredItem === item.id
                         ? 'text-orange-500'
                         : 'text-gray-400'
@@ -82,21 +163,21 @@ export function Navigation() {
               );
             }
 
-            // Regular navigation items
+            // Regular navigation items (no routing, just state changes)
             return (
               <Button
                 key={item.id}
                 variant={activeTab === item.id ? 'default' : 'ghost'}
-                className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent ${
+                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent ${
                   activeTab === item.id
                     ? 'text-gray-400 hover:text-white'
                     : 'text-gray-400 hover:text-white'
                 }`}
-                onClick={item.onClick || (() => setActiveTab(item.id))}
+                onClick={item.onClick}
                 onMouseEnter={() => setHoveredItem(item.id)}
                 onMouseLeave={() => setHoveredItem(null)}
               >
-                <item.icon size={20} className={`mr-3 ${
+                <item.icon size={24} className={`mr-4 ${
                   activeTab === item.id || hoveredItem === item.id
                     ? 'text-orange-500'
                     : 'text-gray-400'
@@ -106,7 +187,7 @@ export function Navigation() {
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
                 } : {}} />
-                <span className={`font-medium ${
+                <span className={`font-medium text-lg ${
                   activeTab === item.id || hoveredItem === item.id
                     ? 'text-orange-500'
                     : 'text-gray-400'
@@ -121,37 +202,75 @@ export function Navigation() {
           })}
 
           {user && (
-            <Button
-              className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent ${
-                activeTab === 'upload'
-                  ? 'text-gray-400 hover:text-white'
-                  : 'text-gray-400 hover:text-white'
-              } mt-4`}
-              onClick={() => setActiveTab('upload')}
-              onMouseEnter={() => setHoveredItem('upload')}
-              onMouseLeave={() => setHoveredItem(null)}
-            >
-              <PlusSquare size={20} className={`mr-3 ${
-                activeTab === 'upload' || hoveredItem === 'upload'
-                  ? 'text-orange-500'
-                  : 'text-gray-400'
-              }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
-                background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              } : {}} />
-              <span className={`font-medium ${
-                activeTab === 'upload' || hoveredItem === 'upload'
-                  ? 'text-orange-500'
-                  : 'text-gray-400'
-              }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
-                background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              } : {}}>Upload</span>
-            </Button>
+            <>
+              <Button
+                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent ${
+                  activeTab === 'upload'
+                    ? 'text-gray-400 hover:text-white'
+                    : 'text-gray-400 hover:text-white'
+                } mt-4`}
+                onClick={handleUploadClick}
+                onMouseEnter={() => setHoveredItem('upload')}
+                onMouseLeave={() => setHoveredItem(null)}
+              >
+                <PlusSquare size={24} className={`mr-4 ${
+                  activeTab === 'upload' || hoveredItem === 'upload'
+                    ? 'text-orange-500'
+                    : 'text-gray-400'
+                }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
+                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                } : {}} />
+                <span className={`font-medium text-lg ${
+                  activeTab === 'upload' || hoveredItem === 'upload'
+                    ? 'text-orange-500'
+                    : 'text-gray-400'
+                }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
+                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                } : {}}>Upload</span>
+              </Button>
+
+              <Button
+                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent ${
+                  activeTab === 'stream'
+                    ? 'text-gray-400 hover:text-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                onClick={() => {
+                  setActiveTab('stream');
+                  pauseAllVideos();
+                  navigate('/stream', { state: { fromNavigation: true } });
+                }}
+                onMouseEnter={() => setHoveredItem('stream')}
+                onMouseLeave={() => setHoveredItem(null)}
+              >
+                <Radio size={24} className={`mr-4 ${
+                  activeTab === 'stream' || hoveredItem === 'stream'
+                    ? 'text-orange-500'
+                    : 'text-gray-400'
+                }`} style={activeTab === 'stream' || hoveredItem === 'stream' ? {
+                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                } : {}} />
+                <span className={`font-medium text-lg ${
+                  activeTab === 'stream' || hoveredItem === 'stream'
+                    ? 'text-orange-500'
+                    : 'text-gray-400'
+                }`} style={activeTab === 'stream' || hoveredItem === 'stream' ? {
+                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                } : {}}>Stream</span>
+              </Button>
+            </>
           )}
         </div>
 
@@ -197,18 +316,22 @@ export function Navigation() {
         )}
       </div>
 
-      {/* Profile Modal */}
-      {user && (
-        <ProfileModal 
-          isOpen={showProfileModal} 
-          onClose={() => setShowProfileModal(false)} 
-        />
-      )}
-
       {/* Lightning Wallet Modal */}
       <LightningWalletModal 
         isOpen={showWalletModal} 
-        onClose={() => setShowWalletModal(false)} 
+        onClose={handleWalletModalClose} 
+      />
+
+      {/* Video Upload Modal */}
+      <VideoUploadModal 
+        isOpen={showUploadModal} 
+        onClose={handleUploadModalClose} 
+      />
+
+      {/* User Search Modal */}
+      <UserSearchModal 
+        open={showUserSearchModal} 
+        onOpenChange={handleUserSearchModalClose} 
       />
     </>
   );

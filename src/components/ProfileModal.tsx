@@ -11,27 +11,33 @@ import { useFollowing } from '@/hooks/useFollowing';
 import { genUserName } from '@/lib/genUserName';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { FollowingListModal } from '@/components/FollowingListModal';
-import { User, Edit, LogOut, Users } from 'lucide-react';
+import { QRModal } from '@/components/QRModal';
+import { User, Edit, LogOut, Users, QrCode } from 'lucide-react';
 import { useLoginActions } from '@/hooks/useLoginActions';
 
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Optional pubkey to show a specific user's profile. If not provided, shows current user's profile */
+  pubkey?: string;
 }
 
-export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
+export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
   const { user } = useCurrentUser();
-  const author = useAuthor(user?.pubkey || '');
-  const following = useFollowing(user?.pubkey || '');
+  const targetPubkey = pubkey || user?.pubkey || '';
+  const isCurrentUser = !pubkey || pubkey === user?.pubkey;
+  const author = useAuthor(targetPubkey);
+  const following = useFollowing(targetPubkey);
   const metadata = author.data?.metadata;
   const login = useLoginActions();
   const [showEditForm, setShowEditForm] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
 
-  if (!user) return null;
+  if (!targetPubkey) return null;
 
-  const displayName = metadata?.display_name || metadata?.name || genUserName(user.pubkey);
-  const userName = metadata?.name || genUserName(user.pubkey);
+  const displayName = metadata?.display_name || metadata?.name || genUserName(targetPubkey);
+  const userName = metadata?.name || genUserName(targetPubkey);
   const bio = metadata?.about;
   const profileImage = metadata?.picture;
   const website = metadata?.website;
@@ -54,10 +60,14 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     setShowFollowingModal(true);
   };
 
-  if (showEditForm) {
+  const handleQRClick = () => {
+    setShowQRModal(true);
+  };
+
+  if (showEditForm && isCurrentUser) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Edit className="w-5 h-5" />
@@ -153,32 +163,47 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Public Key</h3>
               <code className="text-xs bg-muted p-2 rounded block break-all">
-                {user.pubkey}
+                {targetPubkey}
               </code>
             </div>
 
             <Separator />
 
-            {/* Action Buttons */}
+            {/* QR Code Button - Show for all users */}
             <div className="space-y-2">
               <Button 
                 variant="outline" 
                 className="w-full justify-start" 
-                onClick={handleEditProfile}
+                onClick={handleQRClick}
               >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Profile
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
-                onClick={handleLogout}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Log Out
+                <QrCode className="w-4 h-4 mr-2" />
+                QR Codes
               </Button>
             </div>
+
+            {/* Action Buttons - Only show for current user */}
+            {isCurrentUser && (
+              <div className="space-y-2">
+                <Separator />
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start" 
+                  onClick={handleEditProfile}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Profile
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Log Out
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -188,6 +213,15 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         isOpen={showFollowingModal}
         onClose={() => setShowFollowingModal(false)}
         pubkeys={following.data?.pubkeys || []}
+      />
+
+      {/* QR Modal */}
+      <QRModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        pubkey={targetPubkey}
+        metadata={metadata}
+        displayName={displayName}
       />
     </>
   );

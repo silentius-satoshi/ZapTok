@@ -11,5 +11,13 @@
   },
   "editor.quickSuggestions": {
     "strings": true
+  },
+  "chat.mcp.serverSampling": {
+    "mkstack-zaptok-labs/.vscode/mcp.json: js-dev": {
+      "allowedModels": [
+        "github.copilot-chat/gpt-4.1",
+        "github.copilot-chat/claude-sonnet-4"
+      ]
+    }
   }
 }

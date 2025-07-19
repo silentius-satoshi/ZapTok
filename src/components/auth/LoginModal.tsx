@@ -49,7 +49,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           </div>
           
           <p className="text-gray-300 mb-8 text-lg">
-            Connect your Nostr identity to start creating + earn sats
+            Connect your Nostr identity to create value + earn sats
           </p>
           
           {/* Get Started Button */}

@@ -9,6 +9,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
+import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import AppRouter from './AppRouter';
@@ -31,7 +33,7 @@ const queryClient = new QueryClient({
 
 const defaultConfig: AppConfig = {
   theme: "dark", // Changed to dark theme for ZapTok
-  relayUrl: "wss://relay.nostr.band",
+  relayUrls: ["wss://relay.nostr.band"],
 };
 
 const presetRelays = [
@@ -68,13 +70,17 @@ export function App() {
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
             <NostrProvider>
-              <WalletProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Sonner />
-                  <AppContent />
-                </TooltipProvider>
-              </WalletProvider>
+              <CachingProvider>
+                <WalletProvider>
+                  <VideoPlaybackProvider>
+                    <TooltipProvider>
+                      <Toaster />
+                      <Sonner />
+                      <AppContent />
+                    </TooltipProvider>
+                  </VideoPlaybackProvider>
+                </WalletProvider>
+              </CachingProvider>
             </NostrProvider>
           </NostrLoginProvider>
         </QueryClientProvider>
