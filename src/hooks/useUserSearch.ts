@@ -1,8 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import { useNostr } from '@/hooks/useNostr';
-import { useAuthors } from '@/hooks/useAuthors';
-import { genUserName } from '@/lib/genUserName';
 import { useMemo } from 'react';
+import { useAuthor } from '@/hooks/useAuthor';
+import { nip19 } from 'nostr-tools';
 
 interface UserSearchResult {
   pubkey: string;
@@ -13,203 +11,68 @@ interface UserSearchResult {
     picture?: string;
     nip05?: string;
   };
-  followedBy: string[]; // Array of pubkeys who follow this user
+  followedBy: string[]; // Keep original interface for compatibility
+}
+
+// Helper function to detect and decode Nostr identifiers
+function parseNostrIdentifier(input: string): string | null {
+  const trimmed = input.trim();
+  
+  if (!trimmed) return null;
+
+  // Check if it's an npub
+  if (trimmed.startsWith('npub1')) {
+    try {
+      const decoded = nip19.decode(trimmed);
+      if (decoded.type === 'npub') {
+        return decoded.data as string;
+      }
+    } catch (error) {
+      console.error('Failed to decode npub:', error);
+      return null;
+    }
+  }
+
+  // Check if it's a hex pubkey (64 characters, all hex)
+  if (/^[a-fA-F0-9]{64}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return null;
 }
 
 export function useUserSearch(searchTerm: string = '', enabled: boolean = true) {
-  const { nostr } = useNostr();
-
   // Ensure searchTerm is always a string
   const safeSearchTerm = searchTerm || '';
+  
+  // Parse the search term to get pubkey if it's a valid identifier
+  const targetPubkey = parseNostrIdentifier(safeSearchTerm);
+  
+  // Use useAuthor hook for direct user lookup when we have a pubkey
+  const author = useAuthor(targetPubkey || '');
 
-  // First, get a comprehensive set of users from various sources
-  const { data: sampleUsers } = useQuery({
-    queryKey: ['sample-users'],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-      
-      // Get recent kind 3 events (contact lists) from various users
-      const contactEvents = await nostr.query([
-        {
-          kinds: [3],
-          limit: 100, // Increased limit
-        }
-      ], { signal });
+  // Transform author data to match expected interface
+  const data = useMemo((): UserSearchResult[] => {
+    if (!enabled || !safeSearchTerm || !targetPubkey) {
+      return [];
+    }
 
-      // Get recent posts to find active users
-      const recentPosts = await nostr.query([
-        {
-          kinds: [1],
-          limit: 200, // Increased limit
-        }
-      ], { signal });
+    if (author.data) {
+      console.log('🔍 Found user via direct lookup:', author.data.metadata?.name || author.data.metadata?.display_name || 'Unknown');
+      return [{
+        pubkey: targetPubkey,
+        metadata: author.data.metadata,
+        followedBy: [], // We don't have follower data from direct lookup
+      }];
+    }
 
-      // Get recent NIP-71 video events (most relevant for ZapTok)
-      const videoEvents = await nostr.query([
-        {
-          kinds: [21, 22], // NIP-71 video events (21 = normal videos, 22 = short videos)
-          limit: 150, // Good sample of video creators
-        }
-      ], { signal });
-
-      // Extract pubkeys from contact list authors
-      const contactAuthors = contactEvents.map(e => e.pubkey);
-      
-      // Extract pubkeys from post authors
-      const postAuthors = recentPosts.map(e => e.pubkey);
-      
-      // Extract pubkeys from video event authors (priority for video app)
-      const videoAuthors = videoEvents.map(e => e.pubkey);
-      
-      // Extract pubkeys mentioned in posts (p tags)
-      const mentionedUsers = recentPosts.flatMap(event => 
-        event.tags
-          .filter(([tagName]) => tagName === 'p')
-          .map(([, pubkey]) => pubkey)
-          .filter(Boolean)
-      );
-      
-      // Extract pubkeys from contact lists (people being followed)
-      const followedUsers = contactEvents.flatMap(event => 
-        event.tags
-          .filter(([tagName]) => tagName === 'p')
-          .map(([, pubkey]) => pubkey)
-          .filter(Boolean)
-      );
-
-      // Combine all sources and deduplicate (video authors first for priority)
-      const allPubkeys = [...new Set([
-        ...videoAuthors,    // Video creators get priority
-        ...contactAuthors, 
-        ...postAuthors, 
-        ...mentionedUsers, 
-        ...followedUsers
-      ])];
-      
-      console.log('🔍 Collected', allPubkeys.length, 'unique pubkeys from various sources');
-      console.log('📹 Video authors (21/22):', videoAuthors.length, 'Post authors:', postAuthors.length, 'Mentioned users:', mentionedUsers.length);
-      
-      return allPubkeys;
-    },
-    enabled: enabled && safeSearchTerm.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes - reduced for more fresh data
-  });
-
-  // Get following lists for sample users
-  const { data: followingLists } = useQuery({
-    queryKey: ['following-lists', sampleUsers],
-    queryFn: async (c) => {
-      if (!sampleUsers || sampleUsers.length === 0) return [];
-      
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
-      
-      // Get contact lists for sample users
-      const events = await nostr.query([
-        {
-          kinds: [3],
-          authors: sampleUsers,
-          limit: 100,
-        }
-      ], { signal });
-
-      // Build a map of who follows whom
-      const followMap = new Map<string, string[]>();
-      
-      events.forEach(event => {
-        const follower = event.pubkey;
-        const following = event.tags
-          .filter(([tagName]) => tagName === 'p')
-          .map(([, pubkey]) => pubkey)
-          .filter(Boolean);
-
-        following.forEach(followedPubkey => {
-          if (!followMap.has(followedPubkey)) {
-            followMap.set(followedPubkey, []);
-          }
-          followMap.get(followedPubkey)!.push(follower);
-        });
-      });
-
-      return followMap;
-    },
-    enabled: enabled && safeSearchTerm.length > 0 && !!sampleUsers,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
-  // Get all unique pubkeys that appear in following lists + sample users
-  const allPubkeysToSearch = useMemo(() => {
-    const followedPubkeys = followingLists && followingLists instanceof Map ? Array.from(followingLists.keys()) : [];
-    const samplePubkeys = sampleUsers || [];
-    
-    // Combine and deduplicate
-    return [...new Set([...followedPubkeys, ...samplePubkeys])];
-  }, [followingLists, sampleUsers]);
-
-  // Get author data for all pubkeys to search
-  const authors = useAuthors(allPubkeysToSearch);
-
-  // Filter and search results
-  const searchResults = useMemo(() => {
-    if (!safeSearchTerm || !authors.data || !followingLists || !(followingLists instanceof Map)) return [];
-
-    const results: UserSearchResult[] = [];
-    const searchLower = safeSearchTerm.toLowerCase().trim();
-
-    console.log('🔍 Searching through', authors.data.length, 'users for:', safeSearchTerm);
-
-    authors.data.forEach(author => {
-      const displayName = author.metadata?.display_name || author.metadata?.name || '';
-      const userName = author.metadata?.name || '';
-      const about = author.metadata?.about || '';
-      const nip05 = author.metadata?.nip05 || '';
-      
-      // Generate fallback username for searching
-      const generatedName = genUserName(author.pubkey);
-
-      // Debug specific user if searching for derekross
-      if (searchLower.includes('derekross') || nip05.includes('derekross')) {
-        console.log('🔍 Found derekross user:', {
-          pubkey: author.pubkey.slice(0, 8),
-          displayName,
-          userName,
-          nip05,
-          about: about.slice(0, 50),
-          generatedName
-        });
-      }
-
-      // Check if search term matches any of the searchable fields
-      const matchesSearch = 
-        displayName.toLowerCase().includes(searchLower) ||
-        userName.toLowerCase().includes(searchLower) ||
-        about.toLowerCase().includes(searchLower) ||
-        nip05.toLowerCase().includes(searchLower) ||
-        generatedName.toLowerCase().includes(searchLower) ||
-        // Also try exact match for NIP-05
-        nip05.toLowerCase() === searchLower ||
-        // Try partial match for domain part
-        (searchLower.includes('@') && nip05.toLowerCase().includes(searchLower.split('@')[1]));
-
-      if (matchesSearch) {
-        const followedBy = followingLists.get(author.pubkey) || [];
-        results.push({
-          pubkey: author.pubkey,
-          metadata: author.metadata,
-          followedBy,
-        });
-      }
-    });
-
-    console.log('🔍 Found', results.length, 'matching users');
-
-    // Sort by number of followers (most followed first)
-    return results.sort((a, b) => b.followedBy.length - a.followedBy.length);
-  }, [safeSearchTerm, authors.data, followingLists]);
+    return [];
+  }, [enabled, safeSearchTerm, targetPubkey, author.data]);
 
   return {
-    data: searchResults,
-    isLoading: authors.isLoading,
-    isError: authors.isError,
-    error: authors.error,
+    data,
+    isLoading: !!targetPubkey && author.isLoading,
+    isError: author.isError,
+    error: author.error,
   };
 }
