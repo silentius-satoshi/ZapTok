@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, Plus, Link } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Link } from 'lucide-react';
 import { Navigation } from '@/components/Navigation';
 import { useAppContext } from '@/hooks/useAppContext';
 import BitcoinConnectCard from '@/components/lightning/wallet-connections/BitcoinConnectCard';
@@ -11,7 +11,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useState } from 'react';
 
 export function Settings() {
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const { toast } = useToast();
   const { isConnected, disconnect } = useWallet();
   const { config, presetRelays = [] } = useAppContext();
