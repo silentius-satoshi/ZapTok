@@ -8,6 +8,7 @@ import NostrWalletConnectCard from '@/components/lightning/wallet-connections/No
 import CashuWalletCard from '@/components/lightning/wallet-connections/CashuWalletCard';
 import { useToast } from '@/hooks/useToast';
 import { useWallet } from '@/hooks/useWallet';
+import { useCaching } from '@/contexts/CachingContext';
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 
@@ -17,6 +18,7 @@ export function Settings() {
   const { toast } = useToast();
   const { isConnected, disconnect } = useWallet();
   const { config, presetRelays = [], addRelay, removeRelay } = useAppContext();
+  const { currentService, connectToCachingService, disconnectCachingService, availableServices } = useCaching();
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [customRelay, setCustomRelay] = useState('');
@@ -169,9 +171,40 @@ export function Settings() {
     return [...relays.map(r => ({ ...r, status: getRelayStatus(r.url) })), ...placeholders];
   };
 
-  const cachingServices = [
-    { url: 'wss://cache2.primal.net/v1', status: 'active' },
-  ];
+  const handleCachingServiceConnect = async (url: string) => {
+    setIsConnecting('caching');
+    try {
+      const success = await connectToCachingService(url);
+      if (success) {
+        toast({
+          title: "Caching Service Connected",
+          description: `Successfully connected to ${url}`,
+        });
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: "Could not connect to caching service",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Connection Error",
+        description: "An error occurred while connecting",
+        variant: "destructive",
+      });
+    } finally {
+      setIsConnecting(null);
+    }
+  };
+
+  const handleCachingServiceDisconnect = () => {
+    disconnectCachingService();
+    toast({
+      title: "Disconnected",
+      description: "Disconnected from caching service",
+    });
+  };
 
   const handleBitcoinConnect = async () => {
     setIsConnecting('btc');
@@ -250,19 +283,69 @@ export function Settings() {
     <div className="space-y-6 px-6 pt-0 pb-6">
       {/* Caching Service Section */}
       <div>
-        <h3 className="text-lg font-semibold text-white mb-4">Caching Service</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-lg font-semibold text-white">Caching Service</h3>
+          <span className="text-xs bg-yellow-600/20 text-yellow-400 px-2 py-1 rounded">Experimental</span>
+        </div>
+        <p className="text-sm text-gray-400 mb-4">
+          Caching services supplement relay data for improved performance. Your primary content comes from the relays configured below.
+        </p>
         
         <div className="space-y-4">
           <div>
             <p className="text-sm text-gray-400 mb-3">Connected caching service</p>
-            <div className="flex items-center gap-2 p-3 bg-gray-800 rounded-lg">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-gray-300">wss://cache2.primal.net/v1</span>
+            {currentService ? (
+              <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${currentService.isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span className="text-sm text-gray-300">{currentService.url}</span>
+                  <span className="text-xs text-gray-500">({currentService.name})</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCachingServiceDisconnect}
+                  className="text-red-400 hover:text-red-300"
+                >
+                  Disconnect
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-3 bg-gray-800 rounded-lg">
+                <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                <span className="text-sm text-gray-400">No caching service connected</span>
+              </div>
+            )}
+          </div>
+          
+          <div>
+            <p className="text-sm text-gray-400 mb-3">Available caching services</p>
+            <div className="space-y-2">
+              {availableServices.map((service) => (
+                <div key={service.url} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${service.isConnected ? 'bg-green-500' : 'bg-gray-500'}`}></div>
+                    <span className="text-sm text-gray-300">{service.name}</span>
+                    <span className="text-xs text-gray-500">{service.url}</span>
+                  </div>
+                  {!service.isConnected && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCachingServiceConnect(service.url)}
+                      disabled={isConnecting === 'caching'}
+                      className="text-blue-400 border-blue-400 hover:bg-blue-400/10"
+                    >
+                      {isConnecting === 'caching' ? 'Connecting...' : 'Connect'}
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
           
           <div>
-            <p className="text-sm text-gray-400 mb-3">Connect to a different caching service</p>
+            <p className="text-sm text-gray-400 mb-3">Connect to a custom caching service</p>
             <div className="flex items-center gap-2">
               <div className="flex-1 relative">
                 <input
@@ -679,18 +762,7 @@ export function Settings() {
             </div>
           </div>
 
-          {/* Caching Services Section */}
-          <div>
-            <h3 className="text-2xl font-semibold mb-6 text-white">Caching services</h3>
-            <div className="space-y-4">
-              {cachingServices.map((service, index) => (
-                <div key={index} className="flex items-center gap-4 text-lg">
-                  <div className={`w-3 h-3 rounded-full ${service.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <span className="text-gray-300 truncate">{service.url}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+
         </div>
       </div>
     </div>

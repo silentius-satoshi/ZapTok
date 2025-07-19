@@ -3,7 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 
-export function useBookmarks(pubkey?: string) {
+export function useBookmarks(pubkey?: string, enabled: boolean = true) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const targetPubkey = pubkey || user?.pubkey || '';
@@ -14,7 +14,6 @@ export function useBookmarks(pubkey?: string) {
       if (!targetPubkey) return { bookmarks: [], event: null };
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
-      console.log('🔖 Fetching bookmarks for pubkey:', targetPubkey);
       
       // Query for the user's bookmark list using NIP-51 standard kind 10003
       const events = await nostr.query([
@@ -24,8 +23,6 @@ export function useBookmarks(pubkey?: string) {
           limit: 1,
         }
       ], { signal });
-
-      console.log('🔖 Found bookmark events:', events.length);
 
       if (events.length === 0) {
         return { bookmarks: [], event: null };
@@ -40,14 +37,12 @@ export function useBookmarks(pubkey?: string) {
         .map(([, eventId]) => eventId)
         .filter(Boolean);
 
-      console.log('🔖 Extracted bookmark IDs:', bookmarkedEventIds);
-
       return {
         bookmarks: bookmarkedEventIds,
         event: bookmarkEvent,
       };
     },
-    enabled: !!targetPubkey,
+    enabled: !!targetPubkey && enabled,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }

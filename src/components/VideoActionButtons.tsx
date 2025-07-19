@@ -6,7 +6,6 @@ import { useVideoReactions } from '@/hooks/useVideoReactions';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useFollowUser } from '@/hooks/useFollowUser';
-import { useBookmarks } from '@/hooks/useBookmarks';
 import { useBookmarkVideo } from '@/hooks/useBookmarks';
 import { genUserName } from '@/lib/genUserName';
 import { ZapButton } from '@/components/ZapButton';
@@ -45,7 +44,7 @@ export function VideoActionButtons({
   const reactions = useVideoReactions(event.id);
   const author = useAuthor(event.pubkey);
   const following = useFollowing(user?.pubkey || '');
-  const bookmarks = useBookmarks(user?.pubkey);
+  // Bookmarks disabled in video feeds to prevent console spam
   const { mutate: followUser, isPending: isFollowPending } = useFollowUser();
   const { mutate: bookmarkVideo, isPending: isBookmarkPending } = useBookmarkVideo();
   const navigate = useNavigate();
@@ -59,9 +58,9 @@ export function VideoActionButtons({
   const followingList = following.data?.pubkeys || [];
   const isCurrentlyFollowing = followingList.includes(event.pubkey);
   
-  // Check if currently bookmarked
-  const bookmarkList = bookmarks.data?.bookmarks || [];
-  const isCurrentlyBookmarked = bookmarkList.includes(event.id);
+  // Since bookmarks are disabled in feeds, always show as unbookmarked
+  // This allows users to add bookmarks but doesn't fetch existing bookmark state
+  const isCurrentlyBookmarked = false;
   
   // Check if current user has liked this video
   const currentUserReaction = user?.pubkey ? reactions.data?.userReactions.get(user.pubkey) : null;

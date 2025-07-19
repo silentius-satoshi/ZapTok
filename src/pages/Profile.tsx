@@ -7,6 +7,7 @@ import { AuthGate } from '@/components/AuthGate';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
+import { useFollowUser } from '@/hooks/useFollowUser';
 import { useBookmarkedVideos } from '@/hooks/useBookmarkedVideos';
 import { useUserVideos } from '@/hooks/useUserVideos';
 import { useLikedVideos } from '@/hooks/useLikedVideos';
@@ -17,14 +18,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { VideoGrid } from '@/components/VideoGrid';
-import { Users, Edit, ArrowLeft, QrCode } from 'lucide-react';
+import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus } from 'lucide-react';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { QRModal } from '@/components/QRModal';
+import { ZapButton } from '@/components/ZapButton';
+import { useToast } from '@/hooks/useToast';
 
 const Profile = () => {
   const { pubkey } = useParams();
   const { user } = useCurrentUser();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'bookmarks'>('posts');
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -35,10 +39,19 @@ const Profile = () => {
 
   const author = useAuthor(targetPubkey);
   const following = useFollowing(targetPubkey);
+  const currentUserFollowing = useFollowing(user?.pubkey || '');
+  const followUser = useFollowUser();
   const bookmarkedVideos = useBookmarkedVideos(isOwnProfile ? user?.pubkey : undefined);
   const userVideos = useUserVideos(targetPubkey);
   const likedVideos = useLikedVideos(targetPubkey);
   const metadata = author.data?.metadata;
+
+  // Check if current user is following the target user
+  const isFollowingTarget = Boolean(
+    user?.pubkey && 
+    currentUserFollowing?.data?.pubkeys && 
+    (currentUserFollowing.data.pubkeys as string[]).includes(targetPubkey)
+  );
 
   const displayName = metadata?.display_name || metadata?.name || genUserName(targetPubkey);
   const userName = metadata?.name || genUserName(targetPubkey);
@@ -54,6 +67,35 @@ const Profile = () => {
 
   const handleFollowingClick = () => {
     setShowFollowingModal(true);
+  };
+
+  const handleFollowToggle = async () => {
+    if (!user) return;
+    
+    try {
+      const result = await followUser.mutateAsync({ 
+        pubkeyToFollow: targetPubkey,
+        isCurrentlyFollowing: isFollowingTarget
+      });
+      toast({
+        title: "Success",
+        description: result.isNowFollowing ? "User followed" : "User unfollowed",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update follow status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDirectMessage = () => {
+    // TODO: Implement direct message functionality
+    toast({
+      title: "Coming Soon",
+      description: "Direct messaging feature is coming soon!",
+    });
   };
 
   if (showEditForm && isOwnProfile) {
@@ -175,8 +217,9 @@ const Profile = () => {
                         )}
                       </div>
 
-                      {/* Profile Stats */}
-                      <div className="flex space-x-6">
+                      {/* Profile Action Buttons */}
+                      <div className="flex space-x-3">
+                        {/* 1. Following List Button */}
                         <Button
                           variant="outline"
                           onClick={handleFollowingClick}
@@ -189,25 +232,67 @@ const Profile = () => {
                           </span>
                         </Button>
 
-                        {isOwnProfile && (
+                        {/* 2. QR Code Button */}
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowQRModal(true)}
+                          className="flex items-center justify-center w-10 h-10 p-0"
+                        >
+                          <QrCode className="w-4 h-4" />
+                        </Button>
+
+                        {!isOwnProfile && (
                           <>
+                            {/* 3. Zap Button */}
+                            <ZapButton
+                              recipientPubkey={targetPubkey}
+                              variant="outline"
+                              size="icon"
+                              className="w-10 h-10"
+                            />
+
+                            {/* 4. Direct Message Button */}
                             <Button
                               variant="outline"
-                              onClick={() => setShowQRModal(true)}
+                              onClick={handleDirectMessage}
                               className="flex items-center justify-center w-10 h-10 p-0"
                             >
-                              <QrCode className="w-4 h-4" />
+                              <MessageCircle className="w-4 h-4" />
                             </Button>
 
+                            {/* 5. Follow/Unfollow Button */}
                             <Button
-                              variant="outline"
-                              onClick={() => setShowEditForm(true)}
+                              variant={isFollowingTarget ? "secondary" : "default"}
+                              onClick={handleFollowToggle}
+                              disabled={followUser.isPending || !user}
                               className="flex items-center space-x-2"
                             >
-                              <Edit className="w-4 h-4" />
-                              <span>Edit Profile</span>
+                              {isFollowingTarget ? (
+                                <UserMinus className="w-4 h-4" />
+                              ) : (
+                                <UserPlus className="w-4 h-4" />
+                              )}
+                              <span>
+                                {followUser.isPending 
+                                  ? 'Loading...' 
+                                  : isFollowingTarget 
+                                    ? 'Unfollow' 
+                                    : 'Follow'
+                                }
+                              </span>
                             </Button>
                           </>
+                        )}
+
+                        {isOwnProfile && (
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowEditForm(true)}
+                            className="flex items-center space-x-2"
+                          >
+                            <Edit className="w-4 h-4" />
+                            <span>Edit Profile</span>
+                          </Button>
                         )}
                       </div>
 

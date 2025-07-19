@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Play, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
+import { useVideoRegistration } from '@/hooks/useVideoRegistration';
 import { genUserName } from '@/lib/genUserName';
 import type { NostrEvent } from '@nostrify/nostrify';
 
@@ -23,7 +24,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const [isMuted, setIsMuted] = useState(true);
   const [userPaused, setUserPaused] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useVideoRegistration(); // Use the video registration hook
   const author = useAuthor(event.pubkey);
 
   const authorMetadata = author.data?.metadata;

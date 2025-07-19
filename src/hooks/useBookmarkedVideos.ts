@@ -6,7 +6,7 @@ import type { VideoEvent } from '@/lib/validateVideoEvent';
 
 export function useBookmarkedVideos(pubkey?: string) {
   const { nostr } = useNostr();
-  const bookmarks = useBookmarks(pubkey);
+  const bookmarks = useBookmarks(pubkey, true); // Enable bookmark fetching for bookmark views
 
   return useQuery({
     queryKey: ['bookmarked-videos', pubkey, bookmarks.data?.bookmarks],
