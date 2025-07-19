@@ -16,8 +16,11 @@ interface UserSearchResult {
   followedBy: string[]; // Array of pubkeys who follow this user
 }
 
-export function useUserSearch(searchTerm: string, enabled: boolean = true) {
+export function useUserSearch(searchTerm: string = '', enabled: boolean = true) {
   const { nostr } = useNostr();
+
+  // Ensure searchTerm is always a string
+  const safeSearchTerm = searchTerm || '';
 
   // First, get a comprehensive set of users from various sources
   const { data: sampleUsers } = useQuery({
@@ -88,7 +91,7 @@ export function useUserSearch(searchTerm: string, enabled: boolean = true) {
       
       return allPubkeys;
     },
-    enabled: enabled && searchTerm.length > 0,
+    enabled: enabled && safeSearchTerm.length > 0,
     staleTime: 5 * 60 * 1000, // 5 minutes - reduced for more fresh data
   });
 
@@ -129,7 +132,7 @@ export function useUserSearch(searchTerm: string, enabled: boolean = true) {
 
       return followMap;
     },
-    enabled: enabled && searchTerm.length > 0 && !!sampleUsers,
+    enabled: enabled && safeSearchTerm.length > 0 && !!sampleUsers,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -147,12 +150,12 @@ export function useUserSearch(searchTerm: string, enabled: boolean = true) {
 
   // Filter and search results
   const searchResults = useMemo(() => {
-    if (!searchTerm || !authors.data || !followingLists || !(followingLists instanceof Map)) return [];
+    if (!safeSearchTerm || !authors.data || !followingLists || !(followingLists instanceof Map)) return [];
 
     const results: UserSearchResult[] = [];
-    const searchLower = searchTerm.toLowerCase().trim();
+    const searchLower = safeSearchTerm.toLowerCase().trim();
 
-    console.log('🔍 Searching through', authors.data.length, 'users for:', searchTerm);
+    console.log('🔍 Searching through', authors.data.length, 'users for:', safeSearchTerm);
 
     authors.data.forEach(author => {
       const displayName = author.metadata?.display_name || author.metadata?.name || '';
@@ -201,7 +204,7 @@ export function useUserSearch(searchTerm: string, enabled: boolean = true) {
 
     // Sort by number of followers (most followed first)
     return results.sort((a, b) => b.followedBy.length - a.followedBy.length);
-  }, [searchTerm, authors.data, followingLists]);
+  }, [safeSearchTerm, authors.data, followingLists]);
 
   return {
     data: searchResults,

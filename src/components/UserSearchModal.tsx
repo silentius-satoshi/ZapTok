@@ -22,17 +22,18 @@ interface UserSearchModalProps {
 }
 
 export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [query, setQuery] = useState('');
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const { mutate: followUser } = useFollowUser();
   const following = useFollowing(user?.pubkey || '');
   
-  const { data: searchResults, isLoading, error } = useUserSearch(searchTerm);
+  // Use the useUserSearch hook with current query
+  const { data: results = [], isLoading } = useUserSearch(query.trim());
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
-      setSearchTerm('');
+      setQuery('');
     }
     onOpenChange(newOpen);
   };
@@ -76,31 +77,31 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Search Users
+            Direct User Search
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex-shrink-0 relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search users by name, about, or nip05..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Enter npub or pubkey..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
           />
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0">
-          {!searchTerm ? (
+          {!query.trim() ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Search className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
-                Start typing to search for users across the network
+                Enter a npub or pubkey to search for users
               </p>
             </div>
           ) : isLoading ? (
             <div className="space-y-4">
-              {Array.from({ length: 5 }).map((_, i) => (
+              {Array.from({ length: 3 }).map((_, i) => (
                 <Card key={i}>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
@@ -115,29 +116,16 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
                 </Card>
               ))}
             </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="text-destructive text-sm mb-4">
-                Error searching users: {error.message}
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => window.location.reload()}
-                size="sm"
-              >
-                Retry
-              </Button>
-            </div>
-          ) : searchResults.length === 0 ? (
+          ) : results.length === 0 && query.trim() ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Users className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
-                No users found matching "{searchTerm}"
+                No user found with that identifier
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {searchResults.map((result) => {
+              {results.map((result) => {
                 const displayName = result.metadata?.display_name || result.metadata?.name || genUserName(result.pubkey);
                 const userName = result.metadata?.name || genUserName(result.pubkey);
                 const about = result.metadata?.about;
