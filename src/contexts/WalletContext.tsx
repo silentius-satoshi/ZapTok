@@ -174,7 +174,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const getTransactionHistory = async (): Promise<Transaction[]> => {
+  const getTransactionHistory = async (args?: { 
+    from?: number; 
+    until?: number; 
+    limit?: number; 
+    offset?: number; 
+    unpaid?: boolean; 
+    type?: "incoming" | "outgoing";
+  }): Promise<Transaction[]> => {
     if (!provider) throw new Error('No wallet connected');
 
     try {
@@ -183,29 +190,44 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         await provider.enable();
       }
 
-      // Note: Transaction history support varies by wallet
-      // Some wallets may not support this method
       let transactions: Transaction[] = [];
 
       if (provider.listTransactions) {
-        const response = await provider.listTransactions();
-        transactions = response.transactions?.map((tx: Record<string, unknown>) => ({
-          id: (tx.payment_hash as string) || (tx.id as string) || Math.random().toString(36),
-          type: tx.type === 'outgoing' ? 'send' : 'receive',
-          amount: (tx.amount as number) || 0,
-          timestamp: (tx.settled_at as number) || (tx.created_at as number) || Date.now() / 1000,
-          description: (tx.description as string) || (tx.memo as string),
-          preimage: tx.preimage as string,
-          payment_hash: tx.payment_hash as string,
-          settled: tx.settled !== false,
-        })) || [];
+        console.log('Fetching transaction history with args:', args);
+        
+        try {
+          // Call listTransactions with optional parameters
+          const response = await provider.listTransactions(args || { limit: 50 });
+          
+          console.log('Transaction response:', response);
+          
+          // Map the NWC/NIP-47 transaction format to our internal format
+          transactions = response.transactions?.map((tx: Record<string, unknown>) => ({
+            id: (tx.payment_hash as string) || (tx.id as string) || Math.random().toString(36),
+            type: tx.type === 'outgoing' ? 'send' : 'receive',
+            amount: (tx.amount as number) || 0, // Already converted from msats in NostrWebLNProvider
+            timestamp: (tx.settled_at as number) || (tx.created_at as number) || Date.now() / 1000,
+            description: (tx.description as string) || (tx.memo as string) || '',
+            preimage: tx.preimage as string,
+            payment_hash: tx.payment_hash as string,
+            settled: tx.settled !== false,
+          })) || [];
+
+          console.log('Mapped transactions:', transactions);
+        } catch (error) {
+          console.log('Failed to fetch transactions from provider:', error);
+          // Fall through to show unsupported message
+        }
+      } else {
+        console.log('listTransactions method not available on provider (browser extension limitation)');
       }
 
       setTransactions(transactions);
       return transactions;
     } catch (error) {
-      // Many wallets don't support transaction history
-      console.log('Transaction history not available:', error);
+      console.error('Failed to fetch transaction history:', error);
+      // Return empty array instead of throwing to prevent UI crashes
+      setTransactions([]);
       return [];
     }
   };

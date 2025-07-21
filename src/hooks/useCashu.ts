@@ -210,7 +210,7 @@ export function useCashu() {
 
     try {
       // Select proofs to spend (simple selection - in production, use more sophisticated algorithm)
-      let selectedProofs: Proof[] = [];
+      const selectedProofs: Proof[] = [];
       let selectedAmount = 0;
 
       for (const proof of wallet.proofs) {
@@ -286,7 +286,7 @@ export function useCashu() {
       }
 
       // Select proofs to spend
-      let selectedProofs: Proof[] = [];
+      const selectedProofs: Proof[] = [];
       let selectedAmount = 0;
       const requiredAmount = quote.amount + quote.fee_reserve;
 

@@ -30,15 +30,42 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const authorMetadata = author.data?.metadata;
   const displayName = authorMetadata?.name || authorMetadata?.display_name || genUserName(event.pubkey);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('VideoCard props:', {
+      eventId: event.id,
+      title: event.title,
+      videoUrl: event.videoUrl,
+      isActive,
+      hasVideoUrl: !!event.videoUrl
+    });
+  }, [event.id, event.title, event.videoUrl, isActive]);
+
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
+    const handleError = (error: Event) => {
+      console.error('Video error for event:', event.id, 'URL:', event.videoUrl, 'Error:', error);
+    };
+
+    const handleLoadedData = () => {
+      console.log('Video loaded successfully:', event.videoUrl);
+    };
+
+    const handleLoadStart = () => {
+      console.log('Video load started:', event.videoUrl);
+    };
+
+    videoElement.addEventListener('error', handleError);
+    videoElement.addEventListener('loadeddata', handleLoadedData);
+    videoElement.addEventListener('loadstart', handleLoadStart);
+
     if (isActive) {
       // When video becomes active, only auto-play if user hasn't manually paused
       if (!userPaused) {
-        videoElement.play().catch(() => {
-          // Ignore play failures
+        videoElement.play().catch((error) => {
+          console.error('Auto-play failed:', error);
         });
         setIsPlaying(true);
       }
@@ -48,7 +75,13 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       setIsPlaying(false);
       setUserPaused(false);
     }
-  }, [isActive, userPaused]);
+
+    return () => {
+      videoElement.removeEventListener('error', handleError);
+      videoElement.removeEventListener('loadeddata', handleLoadedData);
+      videoElement.removeEventListener('loadstart', handleLoadStart);
+    };
+  }, [isActive, userPaused, event.id, event.videoUrl]);
 
   const handlePlayPause = () => {
     const videoElement = videoRef.current;
@@ -84,19 +117,28 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
 
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
-      {/* Video Element */}
-      <video
-        ref={videoRef}
-        src={event.videoUrl}
-        poster={event.thumbnail}
-        className="w-full h-full object-cover cursor-pointer"
-        loop
-        muted
-        playsInline
-        onClick={handlePlayPause}
-        onPlay={handleVideoPlay}
-        onPause={handleVideoPause}
-      />
+      {/* Video Element or Error State */}
+      {event.videoUrl ? (
+        <video
+          ref={videoRef}
+          src={event.videoUrl}
+          poster={event.thumbnail}
+          className="w-full h-full object-cover cursor-pointer"
+          loop
+          muted
+          playsInline
+          onClick={handlePlayPause}
+          onPlay={handleVideoPlay}
+          onPause={handleVideoPause}
+        />
+      ) : (
+        <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+          <div className="text-center text-gray-400">
+            <p className="text-sm">Video not available</p>
+            <p className="text-xs mt-1">URL not resolved</p>
+          </div>
+        </div>
+      )}
 
       {/* Pause Overlay */}
       {userPaused && !isPlaying && (

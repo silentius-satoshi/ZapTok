@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useNWC } from '@/hooks/useNWC';
 import { useCashu } from '@/hooks/useCashu';
+import type { WebLNProvider } from '@/lib/wallet-types';
 
 export type WalletType = 'webln' | 'nwc' | 'cashu';
 
@@ -26,23 +27,6 @@ interface WalletInfo {
   version?: string;
   implementation?: string;
   network?: string;
-}
-
-// Enhanced WebLN interface
-interface WebLNProvider {
-  isEnabled: boolean;
-  enable(): Promise<void>;
-  sendPayment(invoice: string): Promise<{ preimage: string }>;
-  getBalance?(): Promise<{ balance: number }>;
-  makeInvoice?(args: { amount: number; defaultMemo?: string }): Promise<{ paymentRequest: string }>;
-  getInfo?(): Promise<Record<string, unknown>>;
-  listTransactions?(): Promise<{ transactions: Record<string, unknown>[] }>;
-}
-
-declare global {
-  interface Window {
-    webln?: WebLNProvider;
-  }
 }
 
 interface UnifiedWalletContextType {

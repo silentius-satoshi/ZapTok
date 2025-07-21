@@ -31,6 +31,7 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
   const [cashuToken, setCashuToken] = useState('');
   const [newMintUrl, setNewMintUrl] = useState('https://mint.example.com');
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+  const [transactionFilter, setTransactionFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
 
   // Real-time Bitcoin price state
   const [btcPrice, setBtcPrice] = useState(65000); // fallback price
@@ -43,7 +44,11 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
       const loadTransactions = async () => {
         setIsLoadingTransactions(true);
         try {
-          await getTransactionHistory();
+          // Fetch recent transactions with a reasonable limit
+          await getTransactionHistory({
+            limit: 100, // Fetch last 100 transactions
+            type: undefined, // Include both incoming and outgoing
+          });
         } catch (error) {
           console.error('Failed to load transaction history:', error);
         } finally {
@@ -61,13 +66,25 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
 
     setIsLoadingTransactions(true);
     try {
-      await getTransactionHistory();
+      // Fetch recent transactions with parameters based on filter
+      await getTransactionHistory({
+        limit: 100, // Fetch last 100 transactions
+        type: transactionFilter === 'all' ? undefined : transactionFilter,
+      });
     } catch (error) {
       console.error('Failed to refresh transactions:', error);
     } finally {
       setIsLoadingTransactions(false);
     }
   };
+
+  // Fetch transactions when filter changes
+  useEffect(() => {
+    if (isOpen && isConnected) {
+      refreshTransactions();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactionFilter]);
 
   // Fetch real-time Bitcoin price from CoinGecko API
   useEffect(() => {
@@ -307,6 +324,11 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
                     <div className="w-2 h-2 bg-gray-800 rounded-sm"></div>
                   </div>
                   Transaction History
+                  {isConnected && transactions.length > 0 && (
+                    <span className="text-xs bg-gray-700 px-2 py-1 rounded-full text-gray-300">
+                      {transactions.length}
+                    </span>
+                  )}
                 </div>
                 {isConnected && (
                   <Button
@@ -323,10 +345,31 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
 
               <p className="text-gray-400 text-sm">
                 {isConnected
-                  ? "Recent Lightning transactions from your connected wallet"
-                  : "Connect your Lightning wallet to view transaction history"
+                  ? "Browser extension wallets like Alby don't expose transaction history for privacy reasons. Use a direct NWC connection to view transaction history."
+                  : "Connect your Lightning wallet to view available features"
                 }
               </p>
+
+              {/* Transaction Filter Buttons */}
+              {isConnected && (
+                <div className="flex gap-2">
+                  {(['all', 'incoming', 'outgoing'] as const).map((filter) => (
+                    <Button
+                      key={filter}
+                      variant={transactionFilter === filter ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTransactionFilter(filter)}
+                      className={`text-xs ${
+                        transactionFilter === filter
+                          ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                          : 'bg-gray-700 border-gray-600 hover:bg-gray-600 text-gray-300'
+                      }`}
+                    >
+                      {filter === 'all' ? 'All' : filter === 'incoming' ? 'Received' : 'Sent'}
+                    </Button>
+                  ))}
+                </div>
+              )}
 
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {isLoadingTransactions ? (
@@ -341,24 +384,32 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
                     <p className="text-gray-500 text-sm">Connect your wallet to view transactions</p>
                   </div>
                 ) : transactions.length === 0 ? (
-                  <div className="flex items-center justify-center py-8">
-                    <p className="text-gray-500 text-sm">No transactions found</p>
+                  <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                    <p className="text-gray-500 text-sm">No transaction history available</p>
+                    <p className="text-xs text-gray-600 text-center max-w-xs">
+                      Browser extensions don't expose transaction history. Try connecting via Nostr Wallet Connect (NWC) for full transaction features.
+                    </p>
                   </div>
                 ) : (
                   transactions.map((tx) => (
-                    <div key={tx.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                    <div key={tx.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
                       <div className="flex items-center gap-3">
                         {getTransactionIcon(tx.type)}
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <p className="font-medium text-white">
                             {tx.type === 'receive' ? '+' : '-'}{tx.amount.toLocaleString()} sats
                           </p>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-gray-400 truncate">
                             {tx.description || 'Lightning payment'}
                           </p>
+                          {tx.payment_hash && (
+                            <p className="text-xs text-gray-500 font-mono truncate">
+                              {tx.payment_hash.slice(0, 16)}...
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-right">
+                      <div className="flex items-center gap-2 text-right flex-shrink-0">
                         {getStatusIcon(tx)}
                         <div>
                           <p className="text-xs font-medium text-white capitalize">
