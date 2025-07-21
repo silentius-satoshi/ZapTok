@@ -12,8 +12,10 @@ export function useAuthor(pubkey: string | undefined) {
         return {};
       }
 
+      const filter = { kinds: [0], authors: [pubkey!], limit: 1 };
+
       const [event] = await nostr.query(
-        [{ kinds: [0], authors: [pubkey!], limit: 1 }],
+        [filter],
         { signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]) },
       );
 
@@ -24,7 +26,8 @@ export function useAuthor(pubkey: string | undefined) {
       try {
         const metadata = n.json().pipe(n.metadata()).parse(event.content);
         return { metadata, event };
-      } catch {
+      } catch (error) {
+        console.warn('[useAuthor] Failed to parse metadata JSON:', error);
         return { event };
       }
     },

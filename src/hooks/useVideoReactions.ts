@@ -21,14 +21,14 @@ export function useVideoReactions(videoId: string) {
 
       const signal = AbortSignal.timeout(3000);
       
+      const filter = {
+        kinds: [7, 9735], // Reactions and zaps
+        '#e': [videoId],
+        limit: 500,
+      };
+      
       // Query for reactions and zaps
-      const events = await nostr.query([
-        {
-          kinds: [7, 9735], // Reactions and zaps
-          '#e': [videoId],
-          limit: 500,
-        }
-      ], { signal });
+      const events = await nostr.query([filter], { signal });
 
       // Deduplicate by user (keep latest reaction per user)
       const userReactions = new Map<string, NostrEvent>();
