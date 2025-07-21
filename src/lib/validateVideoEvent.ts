@@ -36,8 +36,16 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
     description: event.content
   };
 
+  console.log('🔍 Validating NIP-71 video event:', {
+    id: event.id,
+    kind: event.kind,
+    content: event.content.substring(0, 100),
+    tags: tags.map(tag => `${tag[0]}: ${tag[1] || ''}`),
+  });
+
   // Parse imeta tags first (primary video source in NIP-71)
   const imetaTags = tags.filter(tag => tag[0] === 'imeta');
+  console.log('📋 Found imeta tags:', imetaTags.length, imetaTags);
   
   for (const imetaTag of imetaTags) {
     // Parse imeta tag properties
@@ -53,9 +61,12 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
       }
     }
 
+    console.log('🏷️ Parsed imeta props:', imetaProps);
+
     // Extract video URL (prefer primary url over fallback)
     if (imetaProps.url && !videoData.videoUrl) {
       videoData.videoUrl = imetaProps.url;
+      console.log('📹 Found video URL in imeta:', imetaProps.url);
     }
     
     // Extract thumbnail from image property
@@ -66,6 +77,7 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
     // Extract hash from x property
     if (imetaProps.x && !videoData.hash) {
       videoData.hash = imetaProps.x;
+      console.log('🔗 Found video hash in imeta:', imetaProps.x);
     }
   }
 
@@ -107,13 +119,21 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
 
   // NIP-71 events should have either a video URL from imeta or a hash
   if (!videoData.videoUrl && !videoData.hash) {
+    console.log('❌ No video URL or hash found in NIP-71 event');
     return null;
   }
 
   // If we have a hash but no URL, construct Blossom URL
   if (!videoData.videoUrl && videoData.hash) {
     videoData.videoUrl = `https://blossom.primal.net/${videoData.hash}`;
+    console.log('🌸 Constructed Blossom URL from hash:', videoData.videoUrl);
   }
+
+  console.log('✅ NIP-71 validation complete:', {
+    hasVideoUrl: !!videoData.videoUrl,
+    hasHash: !!videoData.hash,
+    title: videoData.title
+  });
 
   return videoData;
 }
