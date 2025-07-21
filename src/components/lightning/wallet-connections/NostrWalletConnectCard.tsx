@@ -11,22 +11,29 @@ import { isValidNWCURI } from '@/lib/nwc-utils';
 interface NostrWalletConnectCardProps {
   isConnecting: boolean;
   onConnect: () => void;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-const NostrWalletConnectCard = ({ isConnecting: _externalIsConnecting, onConnect: externalOnConnect }: NostrWalletConnectCardProps) => {
+const NostrWalletConnectCard = ({
+  isConnecting: _externalIsConnecting,
+  onConnect: externalOnConnect,
+  disabled = false,
+  disabledReason = "Another wallet is connected"
+}: NostrWalletConnectCardProps) => {
   const [connectionURI, setConnectionURI] = useState('');
   const [alias, setAlias] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showConnectionForm, setShowConnectionForm] = useState(false);
-  
-  const { 
+
+  const {
     connections,
     currentConnection: _currentConnection,
     addConnection,
     removeConnection,
     isConnecting,
     refreshWallet,
-    testConnection 
+    testConnection
   } = useNWC();
 
   const handleConnect = async () => {
@@ -41,7 +48,7 @@ const NostrWalletConnectCard = ({ isConnecting: _externalIsConnecting, onConnect
     }
 
     setError(null);
-    
+
     try {
       await addConnection(connectionURI, alias || undefined);
       setConnectionURI('');
@@ -74,7 +81,7 @@ const NostrWalletConnectCard = ({ isConnecting: _externalIsConnecting, onConnect
             <Zap className="w-5 h-5 text-orange-400" />
             Nostr Wallet Connect
           </h3>
-          <Button 
+          <Button
             onClick={() => setShowConnectionForm(true)}
             variant="outline"
             size="sm"
@@ -84,7 +91,7 @@ const NostrWalletConnectCard = ({ isConnecting: _externalIsConnecting, onConnect
         </div>
 
         {connections.map((connection) => (
-          <div 
+          <div
             key={connection.id}
             className="p-4 bg-gray-900 rounded-lg border border-gray-700"
           >
@@ -96,7 +103,7 @@ const NostrWalletConnectCard = ({ isConnecting: _externalIsConnecting, onConnect
                 <div>
                   <h4 className="font-medium text-white">{connection.alias}</h4>
                   <div className="flex items-center space-x-2">
-                    <Badge 
+                    <Badge
                       variant={connection.isConnected ? "default" : "destructive"}
                       className="text-xs"
                     >
@@ -110,7 +117,7 @@ const NostrWalletConnectCard = ({ isConnecting: _externalIsConnecting, onConnect
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <Button
                   onClick={() => handleTest(connection.id)}
@@ -122,7 +129,7 @@ const NostrWalletConnectCard = ({ isConnecting: _externalIsConnecting, onConnect
                 </Button>
                 <Button
                   onClick={() => handleRefresh(connection.id)}
-                  variant="ghost" 
+                  variant="ghost"
                   size="sm"
                   disabled={isConnecting !== null}
                 >
@@ -138,7 +145,7 @@ const NostrWalletConnectCard = ({ isConnecting: _externalIsConnecting, onConnect
                 </Button>
               </div>
             </div>
-            
+
             {connection.walletInfo && (
               <div className="mt-3 pt-3 border-t border-gray-700">
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -159,7 +166,7 @@ const NostrWalletConnectCard = ({ isConnecting: _externalIsConnecting, onConnect
         {showConnectionForm && (
           <div className="p-4 bg-gray-800 rounded-lg border border-gray-600 space-y-4">
             <h4 className="font-medium text-white">Add NWC Connection</h4>
-            
+
             <div className="space-y-3">
               <div>
                 <Label htmlFor="nwc-uri">Connection URI</Label>
@@ -171,7 +178,7 @@ const NostrWalletConnectCard = ({ isConnecting: _externalIsConnecting, onConnect
                   className="mt-1"
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="nwc-alias">Alias (optional)</Label>
                 <Input
@@ -226,32 +233,65 @@ const NostrWalletConnectCard = ({ isConnecting: _externalIsConnecting, onConnect
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700">
+    <div className={`flex items-center justify-between p-4 rounded-lg border ${
+      disabled
+        ? 'bg-gray-800/50 border-gray-700/50 opacity-60'
+        : 'bg-gray-900 border-gray-700'
+    }`}>
       <div className="flex items-center space-x-3">
-        <div className="p-2 bg-orange-500/20 rounded-lg">
-          <Zap className="w-6 h-6 text-orange-400" />
+        <div className={`p-2 rounded-lg ${
+          disabled
+            ? 'bg-gray-600/20'
+            : 'bg-orange-500/20'
+        }`}>
+          <Zap className={`w-6 h-6 ${
+            disabled
+              ? 'text-gray-500'
+              : 'text-orange-400'
+          }`} />
         </div>
         <div>
-          <h3 className="font-medium text-white">Nostr Wallet Connect</h3>
-          <p className="text-sm text-gray-400">
-            Connect via NWC protocol for secure Lightning payments
+          <h3 className={`font-medium ${
+            disabled
+              ? 'text-gray-500'
+              : 'text-white'
+          }`}>
+            Nostr Wallet Connect
+          </h3>
+          <p className={`text-sm ${
+            disabled
+              ? 'text-gray-600'
+              : 'text-gray-400'
+          }`}>
+            {disabled
+              ? disabledReason
+              : 'Connect via NWC protocol for secure Lightning payments'
+            }
           </p>
         </div>
       </div>
-      
+
       <div className="flex items-center space-x-3">
-        <a 
-          href="https://nwc.getalby.com" 
-          target="_blank" 
+        <a
+          href="https://nwc.getalby.com"
+          target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-gray-400 hover:text-gray-300 flex items-center"
+          className={`text-xs flex items-center ${
+            disabled
+              ? 'text-gray-600 pointer-events-none'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
         >
           Learn More <ExternalLink className="w-3 h-3 ml-1" />
         </a>
-        <Button 
+        <Button
           onClick={() => setShowConnectionForm(true)}
-          disabled={isConnecting !== null}
-          className="bg-orange-500 hover:bg-orange-600 text-white px-6"
+          disabled={disabled || isConnecting !== null}
+          className={`px-6 ${
+            disabled
+              ? 'bg-gray-600 text-gray-500 cursor-not-allowed hover:bg-gray-600'
+              : 'bg-orange-500 hover:bg-orange-600 text-white'
+          }`}
         >
           {isConnecting ? (
             <>

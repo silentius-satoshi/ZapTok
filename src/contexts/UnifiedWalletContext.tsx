@@ -448,4 +448,4 @@ export const useUnifiedWallet = () => {
 };
 
 // Re-export the original hook for backward compatibility
-export { useWallet } from '@/contexts/WalletContext';
+export { useWallet } from '@/hooks/useWallet';

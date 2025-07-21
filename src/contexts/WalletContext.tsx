@@ -1,8 +1,8 @@
 import { useEffect, useState, ReactNode } from 'react';
-import type { 
-  Transaction, 
-  WalletInfo, 
-  WebLNProvider, 
+import type {
+  Transaction,
+  WalletInfo,
+  WebLNProvider,
 } from '@/lib/wallet-types';
 import { WalletContext } from './wallet-context';
 
@@ -23,7 +23,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             await window.webln.enable();
             setProvider(window.webln);
             setIsConnected(true);
-            
+
             // Load initial wallet data after enabling
             try {
               const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
@@ -51,13 +51,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       setIsLoading(true);
-      
+
       // Try to use WebLN first
       if (window.webln) {
         await window.webln.enable();
         setProvider(window.webln);
         setIsConnected(true);
-        
+
         // Load initial wallet data
         try {
           const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
@@ -69,7 +69,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         } catch {
           console.log('Could not load initial wallet data');
         }
-        
+
         return;
       }
 
@@ -96,7 +96,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const sendPayment = async (invoice: string): Promise<{ preimage: string }> => {
     if (!provider) throw new Error('No wallet connected');
-    
+
     try {
       const response = await provider.sendPayment(invoice);
       // Refresh transaction history after payment
@@ -109,13 +109,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const getBalance = async (): Promise<number> => {
     if (!provider) throw new Error('No wallet connected');
-    
+
     try {
       // Ensure provider is enabled before calling getBalance
       if (!provider.isEnabled) {
         await provider.enable();
       }
-      
+
       if (provider.getBalance) {
         const response = await provider.getBalance();
         return response.balance;
@@ -131,7 +131,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const makeInvoice = async (amount: number, memo?: string): Promise<string> => {
     if (!provider) throw new Error('No wallet connected');
-    
+
     try {
       if (provider.makeInvoice) {
         const response = await provider.makeInvoice({ amount, defaultMemo: memo });
@@ -145,20 +145,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const getWalletInfo = async (): Promise<WalletInfo> => {
     if (!provider) throw new Error('No wallet connected');
-    
+
     try {
       // Ensure provider is enabled before calling methods
       if (!provider.isEnabled) {
         await provider.enable();
       }
-      
+
       const balance = await getBalance();
       let info: Record<string, unknown> = {};
-      
+
       if (provider.getInfo) {
         info = await provider.getInfo();
       }
-      
+
       const walletInfo: WalletInfo = {
         alias: (info.alias as string) || 'Unknown Wallet',
         balance,
@@ -166,7 +166,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         version: info.version as string,
         implementation: (info.implementation_name as string) || 'WebLN Wallet',
       };
-      
+
       setWalletInfo(walletInfo);
       return walletInfo;
     } catch (error) {
@@ -176,12 +176,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const getTransactionHistory = async (): Promise<Transaction[]> => {
     if (!provider) throw new Error('No wallet connected');
-    
+
     try {
+      // Ensure provider is enabled before calling listTransactions
+      if (!provider.isEnabled) {
+        await provider.enable();
+      }
+
       // Note: Transaction history support varies by wallet
       // Some wallets may not support this method
       let transactions: Transaction[] = [];
-      
+
       if (provider.listTransactions) {
         const response = await provider.listTransactions();
         transactions = response.transactions?.map((tx: Record<string, unknown>) => ({
@@ -195,7 +200,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           settled: tx.settled !== false,
         })) || [];
       }
-      
+
       setTransactions(transactions);
       return transactions;
     } catch (error) {
