@@ -96,38 +96,32 @@ export function LoginArea({ className }: LoginAreaProps) {
     console.log('formatBalance called:', { balance, walletInfo, isConnected, btcPrice });
 
     if (currency === 'BTC') {
-      return `₿ ${balance.toLocaleString()}`;
+      return `${balance.toLocaleString()} sats`;
     } else {
       // Convert sats to BTC, then to USD using real-time price
       const btcAmount = balance / 100_000_000; // Convert sats to BTC
       const usdAmount = btcAmount * btcPrice;
       
-      // Format USD more compactly - remove "USD" text and just show $ sign
-      if (usdAmount >= 1000) {
-        return `$${(usdAmount / 1000).toFixed(1)}k`;
-      } else if (usdAmount >= 1) {
-        return `$${usdAmount.toFixed(2)}`;
-      } else {
-        return `$${usdAmount.toFixed(4)}`;
-      }
+      // Show full exact USD amount without minimizing
+      return `$${usdAmount.toFixed(2)} USD`;
     }
   };
 
-  // Lightning wallet button
+  // Lightning wallet button - Enhanced with better styling
   const LightningWalletButton = () => (
     <button
-      className='flex items-center justify-center p-3 rounded-2xl bg-gray-800/30 hover:bg-gray-700/40 transition-all'
+      className='group flex items-center justify-center p-3 rounded-xl bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200'
       onClick={() => setLightningModalOpen(true)}
       title="Lightning Wallet"
     >
-      <Zap className='w-5 h-5 text-yellow-400' />
+      <Zap className='w-4 h-4 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-200' />
     </button>
   );
 
-  // Currency toggle button (BTC/USD) with balance display
+  // Currency toggle button (BTC/USD) with balance display - Enhanced styling
   const CurrencyToggleButton = () => (
     <button
-      className='flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gray-800/30 hover:bg-gray-700/40 transition-all whitespace-nowrap min-w-0 max-w-32 overflow-hidden'
+      className='group flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200 whitespace-nowrap min-w-fit'
       onClick={() => {
         setCurrency(prev => prev === 'BTC' ? 'USD' : 'BTC');
         console.log('Currency toggled to:', currency === 'BTC' ? 'USD' : 'BTC');
@@ -135,21 +129,28 @@ export function LoginArea({ className }: LoginAreaProps) {
       title={`Switch to ${currency === 'BTC' ? 'USD' : 'BTC'} ${priceLoading ? '(updating price...)' : lastPriceUpdate ? `(updated ${lastPriceUpdate.toLocaleTimeString()})` : ''}`}
     >
       {currency === 'BTC' ? (
-        <span className='text-sm font-medium text-orange-400 truncate'>
-          {formatBalance()}
-        </span>
+        <>
+          <span className='text-orange-400 font-semibold text-sm group-hover:text-orange-300 transition-colors duration-200'>₿</span>
+          <span className='text-orange-200 font-medium text-sm group-hover:text-orange-100 transition-colors duration-200'>
+            {formatBalance().replace(' sats', '')} sats
+          </span>
+        </>
       ) : (
-        <span className='text-sm font-medium text-green-400 truncate'>
-          {formatBalance()} {priceLoading && <span className="opacity-50">⟳</span>}
-        </span>
+        <>
+          <span className='text-green-400 font-semibold text-sm group-hover:text-green-300 transition-colors duration-200'>$</span>
+          <span className='text-green-200 font-medium text-sm group-hover:text-green-100 transition-colors duration-200'>
+            {formatBalance().replace('$', '').replace(' USD', '')} USD
+            {priceLoading && <span className="opacity-50 ml-1">⟳</span>}
+          </span>
+        </>
       )}
     </button>
   );
 
   return (
-    <div className={cn("inline-flex items-center justify-center min-w-0", className)}>
+    <div className={cn("inline-flex items-center justify-start min-w-0", className)}>
       {currentUser ? (
-        <div className="flex items-center gap-2 min-w-0 max-w-full overflow-hidden">
+        <div className="flex items-center gap-3">
           {/* Lightning Wallet Button */}
           <LightningWalletButton />
 

@@ -23,7 +23,7 @@ interface LightningWalletModalProps {
 }
 
 const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) => {
-  const { walletInfo, transactions, getTransactionHistory, isConnected } = useWallet();
+  const { walletInfo, transactions, getTransactionHistory, isConnected, transactionSupport } = useWallet();
   const { currentBalance: cashuBalance } = useCashu();
   const [showInSats, setShowInSats] = useState(true);
   const [lightningAmount, setLightningAmount] = useState('');
@@ -40,7 +40,7 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
 
   // Fetch transaction history when modal opens and wallet is connected
   useEffect(() => {
-    if (isOpen && isConnected) {
+    if (isOpen && isConnected && transactionSupport !== false) {
       const loadTransactions = async () => {
         setIsLoadingTransactions(true);
         try {
@@ -57,11 +57,11 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
       };
       loadTransactions();
     }
-  }, [isOpen, isConnected, getTransactionHistory]); // getTransactionHistory is from useWallet hook
+  }, [isOpen, isConnected, getTransactionHistory, transactionSupport]); // Added transactionSupport dependency
 
   // Function to refresh transactions
   const refreshTransactions = useCallback(async () => {
-    if (!isConnected) return;
+    if (!isConnected || transactionSupport === false) return;
 
     setIsLoadingTransactions(true);
     try {
@@ -75,7 +75,7 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
     } finally {
       setIsLoadingTransactions(false);
     }
-  }, [isConnected, getTransactionHistory, transactionFilter]);
+  }, [isConnected, getTransactionHistory, transactionFilter, transactionSupport]);
 
   // Fetch transactions when filter changes
   useEffect(() => {
@@ -148,12 +148,12 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
 
   const formatBalance = (sats: number) => {
     if (showInSats) {
-      return `${sats.toLocaleString()} sats`;
+      return `₿ ${sats.toLocaleString()} sats`;
     } else {
       // Convert sats to BTC, then to USD using real-time price
       const btcAmount = sats / 100_000_000; // Convert sats to BTC
       const usdAmount = btcAmount * btcPrice;
-      return `${usdAmount.toFixed(2)} USD`;
+      return `$ ${usdAmount.toFixed(2)} USD`;
     }
   };
 
@@ -203,7 +203,7 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
 
           {/* Centered content */}
           <div className="text-center">
-            <DialogTitle className="text-2xl font-bold text-white">
+            <DialogTitle className={`text-2xl font-bold ${showInSats ? 'text-orange-400' : 'text-green-400'}`}>
               {formatBalance(totalBalance)}
             </DialogTitle>
             <p className="text-gray-400 text-sm mt-2">Total Balance</p>
@@ -214,7 +214,15 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
               className="text-gray-400 hover:text-white text-xs flex items-center gap-1 mx-auto mt-2"
               title={`Switch to ${showInSats ? 'USD' : 'sats'} ${priceLoading ? '(updating price...)' : lastPriceUpdate ? `(updated ${lastPriceUpdate.toLocaleTimeString()})` : ''}`}
             >
-              ₿ Show in {showInSats ? 'USD' : 'sats'}
+              {showInSats ? (
+                <>
+                  <span className="text-green-400">$</span> Show in USD
+                </>
+              ) : (
+                <>
+                  <span className="text-orange-400">₿</span> Show in sats
+                </>
+              )}
               <RotateCcw className="w-3 h-3" />
               {!showInSats && priceLoading && <span className="opacity-50">⟳</span>}
             </Button>
@@ -343,7 +351,9 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
 
               <p className="text-gray-400 text-sm">
                 {isConnected
-                  ? "Browser extension wallets like Alby don't expose transaction history for privacy reasons. Use a direct NWC connection to view transaction history."
+                  ? transactionSupport === false 
+                    ? "Browser extension wallets like Alby don't expose transaction history for privacy reasons. Use a direct NWC connection to view transaction history."
+                    : "Your wallet supports transaction history."
                   : "Connect your Lightning wallet to view available features"
                 }
               </p>
@@ -381,12 +391,16 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
                   <div className="flex items-center justify-center py-8">
                     <p className="text-gray-500 text-sm">Connect your wallet to view transactions</p>
                   </div>
-                ) : transactions.length === 0 ? (
+                ) : transactionSupport === false ? (
                   <div className="flex flex-col items-center justify-center py-8 space-y-3">
                     <p className="text-gray-500 text-sm">No transaction history available</p>
                     <p className="text-xs text-gray-600 text-center max-w-xs">
                       Browser extensions don't expose transaction history. Try connecting via Nostr Wallet Connect (NWC) for full transaction features.
                     </p>
+                  </div>
+                ) : transactions.length === 0 ? (
+                  <div className="flex items-center justify-center py-8">
+                    <p className="text-gray-500 text-sm">No transactions found</p>
                   </div>
                 ) : (
                   transactions.map((tx) => (

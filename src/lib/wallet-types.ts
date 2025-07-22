@@ -62,4 +62,5 @@ export interface WalletContextType {
   walletInfo: WalletInfo | null;
   transactions: Transaction[];
   isLoading: boolean;
+  transactionSupport: boolean | null;
 }

@@ -40,6 +40,14 @@ export function useCurrentUser() {
   const user = users[0] as NUser | undefined;
   const author = useAuthor(user?.pubkey);
 
+  // Debug logging
+  console.log('useCurrentUser:', {
+    loginCount: logins.length,
+    userCount: users.length,
+    hasUser: !!user,
+    userPubkey: user?.pubkey?.substring(0, 8) + '...'
+  });
+
   return {
     user,
     users,

@@ -44,7 +44,7 @@ const Index = () => {
             </div>
             
             {/* Right Sidebar - Login Area */}
-            <div className="hidden lg:block w-80 p-4 overflow-hidden">
+            <div className="hidden lg:block w-[28rem] p-4 overflow-hidden">
               <div className="sticky top-4 space-y-6">
                 {/* Login Area */}
                 <div className="p-4 overflow-hidden">
