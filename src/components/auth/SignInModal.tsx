@@ -33,7 +33,9 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       if (!('nostr' in window)) {
         throw new Error('Nostr extension not found. Please install a NIP-07 extension.');
       }
+      console.log('Starting extension login process...');
       await login.extension();
+      console.log('Extension login successful, closing modal');
       onClose();
     } catch (error) {
       console.error('Extension login failed:', error);

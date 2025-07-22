@@ -1,4 +1,5 @@
 import { useEffect, useState, ReactNode } from 'react';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type {
   Transaction,
   WalletInfo,
@@ -7,14 +8,21 @@ import type {
 import { WalletContext } from './wallet-context';
 
 export function WalletProvider({ children }: { children: ReactNode }) {
+  const { user } = useCurrentUser(); // Only auto-connect if user is logged in
   const [provider, setProvider] = useState<WebLNProvider | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [transactionSupport, setTransactionSupport] = useState<boolean | null>(null);
 
   useEffect(() => {
+    // Only attempt automatic WebLN connection if user is logged in
+    if (!user) {
+      return;
+    }
+
     const checkConnection = async () => {
       try {
         if (window.webln) {
@@ -32,6 +40,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 balance: balance.balance || 0,
                 implementation: 'WebLN',
               });
+
+              // Check transaction support once during initial connection
+              setTransactionSupport(!!window.webln.listTransactions);
             } catch {
               console.log('Could not load initial wallet data');
             }
@@ -45,7 +56,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
 
     checkConnection();
-  }, []);
+  }, [user]); // Only run when user login state changes
 
   const connect = async () => {
     try {
@@ -66,6 +77,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             balance: balance.balance || 0,
             implementation: 'WebLN',
           });
+
+          // Check transaction support once during manual connection
+          setTransactionSupport(!!window.webln.listTransactions);
         } catch {
           console.log('Could not load initial wallet data');
         }
@@ -92,6 +106,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setError(null);
     setWalletInfo(null);
     setTransactions([]);
+    setTransactionSupport(null);
   };
 
   const sendPayment = async (invoice: string): Promise<{ preimage: string }> => {
@@ -192,6 +207,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       let transactions: Transaction[] = [];
 
+      // Use cached transaction support check to avoid repeated calls
+      if (transactionSupport === null) {
+        // First time check - update the support flag
+        const hasSupport = !!provider.listTransactions;
+        setTransactionSupport(hasSupport);
+        
+        if (!hasSupport) {
+          console.log('listTransactions method not available on provider (browser extension limitation)');
+          setTransactions([]);
+          return [];
+        }
+      } else if (transactionSupport === false) {
+        // Already confirmed no support, skip API call
+        console.log('Skipping transaction history call - provider does not support listTransactions');
+        setTransactions([]);
+        return [];
+      }
+
+      // Provider supports transactions, proceed with API call
       if (provider.listTransactions) {
         console.log('Fetching transaction history with args:', args);
         
@@ -218,8 +252,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           console.log('Failed to fetch transactions from provider:', error);
           // Fall through to show unsupported message
         }
-      } else {
-        console.log('listTransactions method not available on provider (browser extension limitation)');
       }
 
       setTransactions(transactions);
@@ -247,6 +279,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       walletInfo,
       transactions,
       isLoading,
+      transactionSupport,
     }}>
       {children}
     </WalletContext.Provider>

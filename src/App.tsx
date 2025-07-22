@@ -8,6 +8,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
+import { AuthFilter } from '@/components/auth/AuthFilter';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
 import { CachingProvider } from '@/components/CachingProvider';
@@ -69,19 +70,21 @@ export function App() {
       <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
-            <NostrProvider>
-              <CachingProvider>
-                <WalletProvider>
-                  <VideoPlaybackProvider>
-                    <TooltipProvider>
-                      <Toaster />
-                      <Sonner />
-                      <AppContent />
-                    </TooltipProvider>
-                  </VideoPlaybackProvider>
-                </WalletProvider>
-              </CachingProvider>
-            </NostrProvider>
+            <AuthFilter>
+              <NostrProvider>
+                <CachingProvider>
+                  <WalletProvider>
+                    <VideoPlaybackProvider>
+                      <TooltipProvider>
+                        <Toaster />
+                        <Sonner />
+                        <AppContent />
+                      </TooltipProvider>
+                    </VideoPlaybackProvider>
+                  </WalletProvider>
+                </CachingProvider>
+              </NostrProvider>
+            </AuthFilter>
           </NostrLoginProvider>
         </QueryClientProvider>
       </AppProvider>

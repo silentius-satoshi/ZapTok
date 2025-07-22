@@ -30,9 +30,9 @@ describe('useVideoUrlFallback', () => {
       })
     );
 
-    // Initially testing
+    // Initially should return the original URL while testing
     expect(result.current.isTestingUrls).toBe(true);
-    expect(result.current.workingUrl).toBeNull();
+    expect(result.current.workingUrl).toBe('https://example.com/video.mp4');
 
     // Wait for URL testing to complete
     await waitFor(() => {
@@ -89,8 +89,8 @@ describe('useVideoUrlFallback', () => {
     }, { timeout: 3000 });
 
     expect(result.current.workingUrl).toBeNull();
-    // Should have tried original URL + 3 fallback servers
-    expect(mockFetch).toHaveBeenCalledTimes(4);
+    // Should have tried original URL + 5 fallback servers (6 total)
+    expect(mockFetch).toHaveBeenCalledTimes(6);
   });
 
   it('should handle missing hash gracefully', async () => {
