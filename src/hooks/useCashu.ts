@@ -111,6 +111,62 @@ export function useCashu() {
     return addMint(mintUrl, alias);
   }, [addMint]);
 
+  // Create a new wallet with NIP-60 integration
+  const createWallet = useCallback(async (params: { 
+    name: string; 
+    mintUrl: string; 
+  }): Promise<string> => {
+    if (!isValidMintUrl(params.mintUrl)) {
+      throw new Error('Invalid mint URL');
+    }
+
+    setIsConnecting('new');
+    
+    try {
+      const mint: CashuMint = {
+        url: params.mintUrl,
+        alias: params.name,
+      };
+
+      const client = new CashuClient(mint);
+      
+      // Test connection and get mint info
+      const mintInfo = await client.getMintInfo();
+      mint.info = mintInfo;
+
+      const id = crypto.randomUUID();
+      const wallet: CashuWalletConnection = {
+        id,
+        mint,
+        alias: params.name,
+        proofs: [],
+        balance: 0,
+        isConnected: true,
+        lastSeen: Date.now(),
+      };
+
+      setWallets(prev => [...prev, wallet]);
+      
+      // Store client
+      clientsRef.current.set(id, client);
+      
+      // Set as active if it's the first wallet
+      if (wallets.length === 0) {
+        setActiveWallet(id);
+      }
+
+      // TODO: Create NIP-60 encrypted event for wallet backup
+      // This would require useCurrentUser and useNostrPublish integration
+      
+      return id;
+    } catch (error) {
+      console.error('Failed to create Cashu wallet:', error);
+      throw error;
+    } finally {
+      setIsConnecting(null);
+    }
+  }, [wallets, setWallets, setActiveWallet]);
+
   // Remove a wallet
   const removeWallet = useCallback((walletId: string) => {
     setWallets(prev => prev.filter(w => w.id !== walletId));
@@ -302,13 +358,9 @@ export function useCashu() {
       // Melt the tokens
       const result = await client.meltTokens(quote.quote, selectedProofs);
 
-      // Update wallet balance (remove spent proofs, add change if any)
+      // Update wallet balance (remove spent proofs)
       const spentSecrets = selectedProofs.map(p => p.secret);
-      let remainingProofs = wallet.proofs.filter(p => !spentSecrets.includes(p.secret));
-
-      if (result.change) {
-        remainingProofs = [...remainingProofs, ...result.change];
-      }
+      const remainingProofs = wallet.proofs.filter(p => !spentSecrets.includes(p.secret));
 
       setWallets(prev => prev.map(w => 
         w.id === activeWallet 
@@ -322,7 +374,7 @@ export function useCashu() {
 
       return {
         success: true,
-        preimage: result.preimage,
+        preimage: result.payment_preimage,
       };
     } catch (error) {
       console.error('Failed to pay invoice:', error);
@@ -432,6 +484,7 @@ export function useCashu() {
     setActiveWallet,
     addMint,
     addWellKnownMint,
+    createWallet,
     removeWallet,
     testConnection,
     refreshWallet,

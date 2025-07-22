@@ -12,6 +12,7 @@ import { useNutzaps } from "@/hooks/useNutzaps";
 import { Zap, Gift } from "lucide-react";
 import { getNutzapAmount, getNutzapMint } from '@/lib/nip61-types';
 import { isValidMintUrl } from '@/lib/cashu-client';
+import { CreateCashuWalletModal } from '../CreateCashuWalletModal';
 
 interface CashuWalletCardProps {
   isConnecting: boolean;
@@ -23,6 +24,7 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
   const [_alias, setAlias] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showMintForm, setShowMintForm] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [connectionMethod, setConnectionMethod] = useState<'well-known' | 'custom'>('well-known');
   const [selectedWellKnownMint, setSelectedWellKnownMint] = useState<keyof typeof CASHU_MINTS>('MINIBITS');
 
@@ -116,7 +118,7 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
             NIP-60 Cashu Wallets
           </h3>
           <Button
-            onClick={() => setShowMintForm(true)}
+            onClick={() => setShowCreateModal(true)}
             variant="outline"
             size="sm"
           >
@@ -382,6 +384,17 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
             </div>
           </div>
         )}
+
+        <CreateCashuWalletModal 
+          open={showCreateModal} 
+          onClose={() => {
+            setShowCreateModal(false);
+            // Call external handler if provided
+            if (externalOnConnect) {
+              externalOnConnect();
+            }
+          }}
+        />
       </div>
     );
   }
@@ -418,7 +431,7 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
           NIP-61 Spec <ExternalLink className="w-3 h-3 ml-1" />
         </a>
         <Button
-          onClick={() => setShowMintForm(true)}
+          onClick={() => setShowCreateModal(true)}
           disabled={isLoading}
           className="bg-green-500 hover:bg-green-600 text-white px-6"
         >
@@ -432,6 +445,17 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
           )}
         </Button>
       </div>
+
+      <CreateCashuWalletModal 
+        open={showCreateModal} 
+        onClose={() => {
+          setShowCreateModal(false);
+          // Call external handler if provided
+          if (externalOnConnect) {
+            externalOnConnect();
+          }
+        }}
+      />
     </div>
   );
 };

@@ -96,12 +96,20 @@ export function LoginArea({ className }: LoginAreaProps) {
     console.log('formatBalance called:', { balance, walletInfo, isConnected, btcPrice });
 
     if (currency === 'BTC') {
-      return `₿ ${balance.toLocaleString()} sats`;
+      return `₿ ${balance.toLocaleString()}`;
     } else {
       // Convert sats to BTC, then to USD using real-time price
       const btcAmount = balance / 100_000_000; // Convert sats to BTC
       const usdAmount = btcAmount * btcPrice;
-      return `$ ${usdAmount.toFixed(2)} USD`;
+      
+      // Format USD more compactly - remove "USD" text and just show $ sign
+      if (usdAmount >= 1000) {
+        return `$${(usdAmount / 1000).toFixed(1)}k`;
+      } else if (usdAmount >= 1) {
+        return `$${usdAmount.toFixed(2)}`;
+      } else {
+        return `$${usdAmount.toFixed(4)}`;
+      }
     }
   };
 
@@ -119,7 +127,7 @@ export function LoginArea({ className }: LoginAreaProps) {
   // Currency toggle button (BTC/USD) with balance display
   const CurrencyToggleButton = () => (
     <button
-      className='flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gray-800/30 hover:bg-gray-700/40 transition-all whitespace-nowrap'
+      className='flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gray-800/30 hover:bg-gray-700/40 transition-all whitespace-nowrap min-w-0 max-w-32 overflow-hidden'
       onClick={() => {
         setCurrency(prev => prev === 'BTC' ? 'USD' : 'BTC');
         console.log('Currency toggled to:', currency === 'BTC' ? 'USD' : 'BTC');
@@ -127,11 +135,11 @@ export function LoginArea({ className }: LoginAreaProps) {
       title={`Switch to ${currency === 'BTC' ? 'USD' : 'BTC'} ${priceLoading ? '(updating price...)' : lastPriceUpdate ? `(updated ${lastPriceUpdate.toLocaleTimeString()})` : ''}`}
     >
       {currency === 'BTC' ? (
-        <span className='text-sm font-medium text-orange-400'>
+        <span className='text-sm font-medium text-orange-400 truncate'>
           {formatBalance()}
         </span>
       ) : (
-        <span className='text-sm font-medium text-green-400'>
+        <span className='text-sm font-medium text-green-400 truncate'>
           {formatBalance()} {priceLoading && <span className="opacity-50">⟳</span>}
         </span>
       )}
@@ -139,9 +147,9 @@ export function LoginArea({ className }: LoginAreaProps) {
   );
 
   return (
-    <div className={cn("inline-flex items-center justify-center", className)}>
+    <div className={cn("inline-flex items-center justify-center min-w-0", className)}>
       {currentUser ? (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0 max-w-full overflow-hidden">
           {/* Lightning Wallet Button */}
           <LightningWalletButton />
 
@@ -149,7 +157,9 @@ export function LoginArea({ className }: LoginAreaProps) {
           {isConnected && <CurrencyToggleButton />}
 
           {/* Account Switcher */}
-          <AccountSwitcher onAddAccountClick={() => setLoginModalOpen(true)} />
+          <div className="flex-shrink-0">
+            <AccountSwitcher onAddAccountClick={() => setLoginModalOpen(true)} />
+          </div>
         </div>
       ) : (
         <Button
