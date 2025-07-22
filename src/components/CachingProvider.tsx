@@ -41,8 +41,7 @@ export function CachingProvider({ children }: CachingProviderProps) {
     if (config.selectedServiceUrl) {
       connectToCachingService(config.selectedServiceUrl);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.selectedServiceUrl]);
+  }, [config.selectedServiceUrl]); // connectToCachingService is stable
 
   const connectToCachingService = useCallback(async (url: string): Promise<boolean> => {
     if (isConnecting) {
@@ -158,7 +157,7 @@ export function CachingProvider({ children }: CachingProviderProps) {
       setIsConnecting(false);
       return false;
     }
-  }, [availableServices, currentService, setConfig]);
+  }, [availableServices, currentService, setConfig, isConnecting]);
 
   const disconnectCachingService = useCallback(() => {
     if (cachingWebSocket.current) {
