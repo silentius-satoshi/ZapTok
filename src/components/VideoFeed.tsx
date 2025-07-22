@@ -89,7 +89,22 @@ export function VideoFeed() {
       
       for (const event of uniqueEvents.values()) {
         const videoEvent = validateVideoEvent(event);
-        if (!videoEvent || !videoEvent.videoUrl) continue;
+        if (!videoEvent) {
+          console.log('❌ Event failed validation:', event.id, event.content.substring(0, 50));
+          continue;
+        }
+        
+        if (!videoEvent.videoUrl) {
+          console.log('❌ Event has no video URL:', event.id, 'Title:', videoEvent.title, 'Hash:', videoEvent.hash);
+          continue;
+        }
+        
+        console.log('✅ Valid video event:', {
+          id: event.id,
+          title: videoEvent.title,
+          videoUrl: videoEvent.videoUrl,
+          hash: videoEvent.hash
+        });
         
         // Normalize URL for comparison to catch duplicates with different parameters
         const normalizedUrl = normalizeVideoUrl(videoEvent.videoUrl);
@@ -152,7 +167,7 @@ export function VideoFeed() {
         }
       }, 100); // Small delay to let videos render first
     }
-  }, [videos.length, batchLoadProfiles, preloadThumbnails]);
+  }, [videos, batchLoadProfiles, preloadThumbnails]);
 
   // Handle keyboard navigation and scroll snapping
   useEffect(() => {

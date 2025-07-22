@@ -1,8 +1,8 @@
 import { useEffect, useState, ReactNode } from 'react';
-import type { 
-  Transaction, 
-  WalletInfo, 
-  WebLNProvider, 
+import type {
+  Transaction,
+  WalletInfo,
+  WebLNProvider,
 } from '@/lib/wallet-types';
 import { WalletContext } from './wallet-context';
 
@@ -23,7 +23,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             await window.webln.enable();
             setProvider(window.webln);
             setIsConnected(true);
-            
+
             // Load initial wallet data after enabling
             try {
               const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
@@ -51,13 +51,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       setIsLoading(true);
-      
+
       // Try to use WebLN first
       if (window.webln) {
         await window.webln.enable();
         setProvider(window.webln);
         setIsConnected(true);
-        
+
         // Load initial wallet data
         try {
           const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
@@ -69,7 +69,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         } catch {
           console.log('Could not load initial wallet data');
         }
-        
+
         return;
       }
 
@@ -96,7 +96,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const sendPayment = async (invoice: string): Promise<{ preimage: string }> => {
     if (!provider) throw new Error('No wallet connected');
-    
+
     try {
       const response = await provider.sendPayment(invoice);
       // Refresh transaction history after payment
@@ -109,13 +109,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const getBalance = async (): Promise<number> => {
     if (!provider) throw new Error('No wallet connected');
-    
+
     try {
       // Ensure provider is enabled before calling getBalance
       if (!provider.isEnabled) {
         await provider.enable();
       }
-      
+
       if (provider.getBalance) {
         const response = await provider.getBalance();
         return response.balance;
@@ -131,7 +131,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const makeInvoice = async (amount: number, memo?: string): Promise<string> => {
     if (!provider) throw new Error('No wallet connected');
-    
+
     try {
       if (provider.makeInvoice) {
         const response = await provider.makeInvoice({ amount, defaultMemo: memo });
@@ -145,20 +145,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const getWalletInfo = async (): Promise<WalletInfo> => {
     if (!provider) throw new Error('No wallet connected');
-    
+
     try {
       // Ensure provider is enabled before calling methods
       if (!provider.isEnabled) {
         await provider.enable();
       }
-      
+
       const balance = await getBalance();
       let info: Record<string, unknown> = {};
-      
+
       if (provider.getInfo) {
         info = await provider.getInfo();
       }
-      
+
       const walletInfo: WalletInfo = {
         alias: (info.alias as string) || 'Unknown Wallet',
         balance,
@@ -166,7 +166,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         version: info.version as string,
         implementation: (info.implementation_name as string) || 'WebLN Wallet',
       };
-      
+
       setWalletInfo(walletInfo);
       return walletInfo;
     } catch (error) {
@@ -174,33 +174,60 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const getTransactionHistory = async (): Promise<Transaction[]> => {
+  const getTransactionHistory = async (args?: { 
+    from?: number; 
+    until?: number; 
+    limit?: number; 
+    offset?: number; 
+    unpaid?: boolean; 
+    type?: "incoming" | "outgoing";
+  }): Promise<Transaction[]> => {
     if (!provider) throw new Error('No wallet connected');
-    
+
     try {
-      // Note: Transaction history support varies by wallet
-      // Some wallets may not support this method
-      let transactions: Transaction[] = [];
-      
-      if (provider.listTransactions) {
-        const response = await provider.listTransactions();
-        transactions = response.transactions?.map((tx: Record<string, unknown>) => ({
-          id: (tx.payment_hash as string) || (tx.id as string) || Math.random().toString(36),
-          type: tx.type === 'outgoing' ? 'send' : 'receive',
-          amount: (tx.amount as number) || 0,
-          timestamp: (tx.settled_at as number) || (tx.created_at as number) || Date.now() / 1000,
-          description: (tx.description as string) || (tx.memo as string),
-          preimage: tx.preimage as string,
-          payment_hash: tx.payment_hash as string,
-          settled: tx.settled !== false,
-        })) || [];
+      // Ensure provider is enabled before calling listTransactions
+      if (!provider.isEnabled) {
+        await provider.enable();
       }
-      
+
+      let transactions: Transaction[] = [];
+
+      if (provider.listTransactions) {
+        console.log('Fetching transaction history with args:', args);
+        
+        try {
+          // Call listTransactions with optional parameters
+          const response = await provider.listTransactions(args || { limit: 50 });
+          
+          console.log('Transaction response:', response);
+          
+          // Map the NWC/NIP-47 transaction format to our internal format
+          transactions = response.transactions?.map((tx: Record<string, unknown>) => ({
+            id: (tx.payment_hash as string) || (tx.id as string) || Math.random().toString(36),
+            type: tx.type === 'outgoing' ? 'send' : 'receive',
+            amount: (tx.amount as number) || 0, // Already converted from msats in NostrWebLNProvider
+            timestamp: (tx.settled_at as number) || (tx.created_at as number) || Date.now() / 1000,
+            description: (tx.description as string) || (tx.memo as string) || '',
+            preimage: tx.preimage as string,
+            payment_hash: tx.payment_hash as string,
+            settled: tx.settled !== false,
+          })) || [];
+
+          console.log('Mapped transactions:', transactions);
+        } catch (error) {
+          console.log('Failed to fetch transactions from provider:', error);
+          // Fall through to show unsupported message
+        }
+      } else {
+        console.log('listTransactions method not available on provider (browser extension limitation)');
+      }
+
       setTransactions(transactions);
       return transactions;
     } catch (error) {
-      // Many wallets don't support transaction history
-      console.log('Transaction history not available:', error);
+      console.error('Failed to fetch transaction history:', error);
+      // Return empty array instead of throwing to prevent UI crashes
+      setTransactions([]);
       return [];
     }
   };

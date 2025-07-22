@@ -25,7 +25,14 @@ export interface WebLNProvider {
   getBalance?(): Promise<{ balance: number }>;
   makeInvoice?(args: { amount: number; defaultMemo?: string }): Promise<{ paymentRequest: string }>;
   getInfo?(): Promise<Record<string, unknown>>;
-  listTransactions?(): Promise<{ transactions: Record<string, unknown>[] }>;
+  listTransactions?(args?: {
+    from?: number;
+    until?: number;
+    limit?: number;
+    offset?: number;
+    unpaid?: boolean;
+    type?: "incoming" | "outgoing";
+  }): Promise<{ transactions: Record<string, unknown>[] }>;
 }
 
 declare global {
@@ -41,7 +48,14 @@ export interface WalletContextType {
   sendPayment: (invoice: string) => Promise<{ preimage: string }>;
   getBalance: () => Promise<number>;
   makeInvoice: (amount: number, memo?: string) => Promise<string>;
-  getTransactionHistory: () => Promise<Transaction[]>;
+  getTransactionHistory: (args?: {
+    from?: number;
+    until?: number;
+    limit?: number;
+    offset?: number;
+    unpaid?: boolean;
+    type?: "incoming" | "outgoing";
+  }) => Promise<Transaction[]>;
   getWalletInfo: () => Promise<WalletInfo>;
   provider: WebLNProvider | null;
   error: string | null;

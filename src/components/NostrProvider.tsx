@@ -30,7 +30,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   if (!pool.current) {
     pool.current = new NPool({
       open(url: string) {
-        return new NRelay1(url);
+        console.log(`[NostrProvider] Connecting to relay: ${url}`);
+        const relay = new NRelay1(url);
+        return relay;
       },
       reqRouter(filters) {
         // Distribute requests across all selected relays

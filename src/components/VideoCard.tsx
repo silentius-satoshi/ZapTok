@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useVideoRegistration } from '@/hooks/useVideoRegistration';
+import { useVideoUrlFallback } from '@/hooks/useVideoUrlFallback';
 import { genUserName } from '@/lib/genUserName';
 import type { NostrEvent } from '@nostrify/nostrify';
 
@@ -13,6 +14,7 @@ interface VideoCardProps {
     thumbnail?: string;
     title?: string;
     description?: string;
+    hash?: string;
   };
   isActive: boolean;
   onNext: () => void;
@@ -26,19 +28,55 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const videoRef = useVideoRegistration(); // Use the video registration hook
   const author = useAuthor(event.pubkey);
+  
+  // Use fallback URL system to find working video URLs
+  const { workingUrl, isTestingUrls } = useVideoUrlFallback({
+    originalUrl: event.videoUrl,
+    hash: event.hash,
+    title: event.title,
+  });
 
   const authorMetadata = author.data?.metadata;
   const displayName = authorMetadata?.name || authorMetadata?.display_name || genUserName(event.pubkey);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('VideoCard props:', {
+      eventId: event.id,
+      title: event.title,
+      originalVideoUrl: event.videoUrl,
+      workingUrl,
+      isTestingUrls,
+      hasHash: !!event.hash,
+      isActive
+    });
+  }, [event.id, event.title, event.videoUrl, workingUrl, isTestingUrls, event.hash, isActive]);
 
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
+    const handleError = (error: Event) => {
+      console.error('Video error for event:', event.id, 'URL:', workingUrl, 'Error:', error);
+    };
+
+    const handleLoadedData = () => {
+      console.log('Video loaded successfully:', workingUrl);
+    };
+
+    const handleLoadStart = () => {
+      console.log('Video load started:', workingUrl);
+    };
+
+    videoElement.addEventListener('error', handleError);
+    videoElement.addEventListener('loadeddata', handleLoadedData);
+    videoElement.addEventListener('loadstart', handleLoadStart);
+
     if (isActive) {
       // When video becomes active, only auto-play if user hasn't manually paused
       if (!userPaused) {
-        videoElement.play().catch(() => {
-          // Ignore play failures
+        videoElement.play().catch((error) => {
+          console.error('Auto-play failed:', error);
         });
         setIsPlaying(true);
       }
@@ -48,7 +86,13 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       setIsPlaying(false);
       setUserPaused(false);
     }
-  }, [isActive, userPaused]);
+
+    return () => {
+      videoElement.removeEventListener('error', handleError);
+      videoElement.removeEventListener('loadeddata', handleLoadedData);
+      videoElement.removeEventListener('loadstart', handleLoadStart);
+    };
+  }, [videoRef, isActive, userPaused, event.id, workingUrl]);
 
   const handlePlayPause = () => {
     const videoElement = videoRef.current;
@@ -84,19 +128,40 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
 
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
-      {/* Video Element */}
-      <video
-        ref={videoRef}
-        src={event.videoUrl}
-        poster={event.thumbnail}
-        className="w-full h-full object-cover cursor-pointer"
-        loop
-        muted
-        playsInline
-        onClick={handlePlayPause}
-        onPlay={handleVideoPlay}
-        onPause={handleVideoPause}
-      />
+      {/* Video Element or Error State */}
+      {workingUrl ? (
+        <video
+          ref={videoRef}
+          src={workingUrl}
+          poster={event.thumbnail}
+          className="w-full h-full object-cover cursor-pointer"
+          loop
+          muted
+          playsInline
+          onClick={handlePlayPause}
+          onPlay={handleVideoPlay}
+          onPause={handleVideoPause}
+        />
+      ) : isTestingUrls ? (
+        <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+          <div className="text-center text-gray-400">
+            <div className="animate-spin w-8 h-8 border-2 border-gray-600 border-t-white rounded-full mx-auto mb-2"></div>
+            <p className="text-sm">Finding video source...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+          <div className="text-center text-gray-400">
+            <p className="text-sm">Video not available</p>
+            <p className="text-xs mt-1">No working source found</p>
+            {event.hash && (
+              <p className="text-xs mt-1 font-mono text-gray-500">
+                Hash: {event.hash.slice(0, 16)}...
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Pause Overlay */}
       {userPaused && !isPlaying && (

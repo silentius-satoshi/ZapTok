@@ -151,7 +151,7 @@ export function QRModal({ isOpen, onClose, pubkey, metadata, displayName }: QRMo
     if (isOpen) {
       generateQRCodes();
     }
-  }, [isOpen, pubkey, lightningAddress]);
+  }, [isOpen, lightningAddress, npub]);
 
   const copyToClipboard = async (text: string, type: 'pubkey' | 'npub' | 'lightning') => {
     try {

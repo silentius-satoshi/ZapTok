@@ -12,9 +12,9 @@ const Index = () => {
 
   return (
     <AuthGate>
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-black text-white overflow-hidden">
         {/* Main Content */}
-        <main className="h-screen">
+        <main className="h-screen overflow-hidden">
           <div className="flex h-full">
             {/* Left Sidebar - Logo and Navigation */}
             <div className="flex flex-col bg-black">
@@ -39,15 +39,15 @@ const Index = () => {
             </div>
             
             {/* Video Feed */}
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center overflow-hidden">
               <VideoFeed />
             </div>
             
             {/* Right Sidebar - Login Area */}
-            <div className="hidden lg:block w-80 p-4">
+            <div className="hidden lg:block w-80 p-4 overflow-hidden">
               <div className="sticky top-4 space-y-6">
                 {/* Login Area */}
-                <div className="p-4">
+                <div className="p-4 overflow-hidden">
                   <LoginArea className="w-full" />
                 </div>
               </div>

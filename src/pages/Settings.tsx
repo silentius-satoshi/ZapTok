@@ -70,12 +70,12 @@ export function Settings() {
   const normalizeRelayUrl = (url: string): string => {
     const trimmed = url.trim();
     if (!trimmed) return '';
-    
+
     // If it already has a protocol, return as is
     if (trimmed.startsWith('wss://') || trimmed.startsWith('ws://')) {
       return trimmed;
     }
-    
+
     // Otherwise, add wss:// prefix
     return `wss://${trimmed}`;
   };
@@ -134,12 +134,12 @@ export function Settings() {
   // Get all relays with status
   const getAllRelays = () => {
     const allRelays: Array<{ name: string; url: string; status: string }> = [];
-    
+
     // Add all known relays (connected, disconnected, and presets)
     Array.from(knownRelays).forEach(relayUrl => {
       const presetRelay = presetRelays.find(r => r.url === relayUrl);
       const isConnected = config.relayUrls.includes(relayUrl);
-      
+
       allRelays.push({
         name: presetRelay?.name || relayUrl.replace(/^wss?:\/\//, ''),
         url: relayUrl,
@@ -159,7 +159,7 @@ export function Settings() {
   const getDisplayRelays = () => {
     const relays = getAllRelays();
     const activeRelays = relays.filter(r => getRelayStatus(r.url) === 'active');
-    
+
     // Add placeholder relays if less than required for display
     const placeholderCount = Math.max(0, Math.max(2, config.relayUrls.length) - activeRelays.length);
     const placeholders = Array.from({ length: placeholderCount }, (_, i) => ({
@@ -209,15 +209,21 @@ export function Settings() {
   const handleBitcoinConnect = async () => {
     setIsConnecting('btc');
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Attempt to connect to WebLN wallet (browser extension)
+      if (!window.webln) {
+        throw new Error('No WebLN wallet found. Please install a Lightning wallet extension like Alby.');
+      }
+
+      await window.webln.enable();
+
       toast({
         title: "Bitcoin Connect",
         description: "Successfully connected your Bitcoin wallet!"
       });
-    } catch {
+    } catch (err) {
       toast({
         title: "Connection failed",
-        description: "Could not connect to Bitcoin Connect",
+        description: err instanceof Error ? err.message : "Could not connect to Bitcoin Connect",
         variant: "destructive"
       });
     } finally {
@@ -260,25 +266,6 @@ export function Settings() {
     }
   };
 
-  const handleCashuConnect = async () => {
-    setIsConnecting('cashu');
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast({
-        title: "Cashu Wallet",
-        description: "Successfully connected your Cashu wallet!"
-      });
-    } catch {
-      toast({
-        title: "Connection failed",
-        description: "Could not connect to Cashu wallet",
-        variant: "destructive"
-      });
-    } finally {
-      setIsConnecting(null);
-    }
-  };
-
   const renderNetworkSection = () => (
     <div className="space-y-6 px-6 pt-0 pb-6">
       {/* Caching Service Section */}
@@ -290,7 +277,7 @@ export function Settings() {
         <p className="text-sm text-gray-400 mb-4">
           Caching services supplement relay data for improved performance. Your primary content comes from the relays configured below.
         </p>
-        
+
         <div className="space-y-4">
           <div>
             <p className="text-sm text-gray-400 mb-3">Connected caching service</p>
@@ -317,7 +304,7 @@ export function Settings() {
               </div>
             )}
           </div>
-          
+
           <div>
             <p className="text-sm text-gray-400 mb-3">Available caching services</p>
             <div className="space-y-2">
@@ -343,7 +330,7 @@ export function Settings() {
               ))}
             </div>
           </div>
-          
+
           <div>
             <p className="text-sm text-gray-400 mb-3">Connect to a custom caching service</p>
             <div className="flex items-center gap-2">
@@ -357,7 +344,7 @@ export function Settings() {
               </div>
             </div>
           </div>
-          
+
           <Button
             variant="ghost"
             className="text-pink-500 hover:text-pink-400 hover:bg-pink-500/10 p-0 h-auto"
@@ -370,7 +357,7 @@ export function Settings() {
       {/* Relays Section */}
       <div>
         <h3 className="text-lg font-semibold text-white mb-4">Relays</h3>
-        
+
         <div className="space-y-4">
           <div>
             <p className="text-sm text-gray-400 mb-3">My relays</p>
@@ -424,14 +411,14 @@ export function Settings() {
               ))}
             </div>
           </div>
-          
+
           <Button
             variant="ghost"
             className="text-pink-500 hover:text-pink-400 hover:bg-pink-500/10 p-0 h-auto"
           >
             Reset relays
           </Button>
-          
+
           <div>
             <p className="text-sm text-gray-400 mb-3">Connect to relay</p>
             {showCustomInput ? (
@@ -507,15 +494,16 @@ export function Settings() {
         isConnected={isConnected}
         onDisconnect={handleDisconnect}
       />
-      
+
       <NostrWalletConnectCard
         isConnecting={isConnecting === 'nwc'}
         onConnect={handleNostrWalletConnect}
+        disabled={isConnected}
+        disabledReason="Browser extension wallet is connected"
       />
 
       <CashuWalletCard
         isConnecting={isConnecting === 'cashu'}
-        onConnect={handleCashuConnect}
       />
     </div>
   );
@@ -530,7 +518,7 @@ export function Settings() {
     }
 
     const sectionTitle = selectedSection === 'connected-wallets' ? 'connected wallets' :
-                        selectedSection === 'network' ? 'network' : 
+                        selectedSection === 'network' ? 'network' :
                         settingsSections.find(s => s.id === selectedSection)?.title?.toLowerCase();
 
     return (
@@ -553,9 +541,9 @@ export function Settings() {
         {/* Logo at top of sidebar */}
         <div className="p-4">
           <div className="flex items-center space-x-3">
-            <img 
-              src="/images/ZapTok-v2.png" 
-              alt="ZapTok Logo" 
+            <img
+              src="/images/ZapTok-v2.png"
+              alt="ZapTok Logo"
               className="w-8 h-8 rounded-lg"
             />
             <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
@@ -563,7 +551,7 @@ export function Settings() {
             </h1>
           </div>
         </div>
-        
+
         {/* Navigation */}
         <div className="flex-1">
           <Navigation />
@@ -679,17 +667,17 @@ export function Settings() {
                     This streaming implementation uses NIP-53 Live Activities for decentralized broadcasting.
                   </p>
                   <div className="flex items-center space-x-4">
-                    <a 
-                      href="https://github.com/nostr-protocol/nips/blob/master/53.md" 
-                      target="_blank" 
+                    <a
+                      href="https://github.com/nostr-protocol/nips/blob/master/53.md"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-purple-400 hover:text-purple-300 text-sm underline"
                     >
                       Learn about NIP-53
                     </a>
-                    <a 
-                      href="https://zap.stream" 
-                      target="_blank" 
+                    <a
+                      href="https://zap.stream"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-purple-400 hover:text-purple-300 text-sm underline"
                     >
@@ -749,7 +737,7 @@ export function Settings() {
               {getDisplayRelays().map((relay, index) => (
                 <div key={index} className="flex items-center gap-4 text-lg">
                   <div className={`w-3 h-3 rounded-full ${
-                    relay.status === 'active' ? 'bg-green-500' : 
+                    relay.status === 'active' ? 'bg-green-500' :
                     relay.status === 'placeholder' ? 'bg-gray-500' : 'bg-red-500'
                   }`} />
                   <span className={`truncate ${

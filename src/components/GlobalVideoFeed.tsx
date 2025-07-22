@@ -142,7 +142,7 @@ export function GlobalVideoFeed() {
         }
       }, 100);
     }
-  }, [videos.length, batchLoadProfiles, preloadThumbnails]);
+  }, [videos, batchLoadProfiles, preloadThumbnails]);
 
   // Keyboard navigation
   useEffect(() => {
