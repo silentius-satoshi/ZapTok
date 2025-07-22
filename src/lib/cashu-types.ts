@@ -24,7 +24,7 @@ export interface Contact {
 }
 
 export interface NutInfo {
-  [key: string]: any;
+  [key: string]: unknown;
   "4": Nut4Info;
   "5": Nut5Info;
 }

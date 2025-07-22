@@ -21,14 +21,17 @@ import {
 } from './nwc-types';
 
 export interface NostrInterface {
-  query(filters: any[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]>;
+  query(filters: Array<Record<string, unknown>>, opts?: { signal?: AbortSignal }): Promise<NostrEvent[]>;
   event(event: Partial<NostrEvent>): Promise<NostrEvent>;
 }
 
 // Adapter to convert Nostrify NPool to our NostrInterface
-export function createNostrAdapter(nostr: any): NostrInterface {
+export function createNostrAdapter(nostr: { 
+  query: (filters: Array<Record<string, unknown>>, opts?: { signal?: AbortSignal }) => Promise<NostrEvent[]>;
+  event: (event: Partial<NostrEvent>) => Promise<NostrEvent>;
+}): NostrInterface {
   return {
-    async query(filters: any[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
+    async query(filters: Array<Record<string, unknown>>, opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
       return await nostr.query(filters, opts);
     },
     
@@ -119,10 +122,10 @@ export class NWCClient {
   /**
    * Send a generic NWC request
    */
-  private async sendRequest<T>(method: string, params: any, timeout = 30000): Promise<T> {
+  private async sendRequest<T>(method: string, params: unknown, timeout = 30000): Promise<T> {
     const request: NWCRequest = {
       method,
-      params,
+      params: params as Record<string, unknown>,
     };
 
     // Encrypt the request

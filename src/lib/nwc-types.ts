@@ -10,7 +10,7 @@ export interface NWCConnectionURI {
 
 export interface NWCRequest {
   method: string;
-  params: Record<string, any>;
+  params: Record<string, unknown>;
 }
 
 export interface NWCResponse {
@@ -19,12 +19,12 @@ export interface NWCResponse {
     code: string;
     message: string;
   };
-  result?: Record<string, any>;
+  result?: Record<string, unknown>;
 }
 
 export interface NWCNotification {
   notification_type: string;
-  notification: Record<string, any>;
+  notification: Record<string, unknown>;
 }
 
 // Command Types
@@ -56,7 +56,7 @@ export interface MakeInvoiceResult {
   fees_paid?: number;
   created_at: number;
   expires_at?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface GetBalanceResult {
@@ -86,7 +86,7 @@ export interface Transaction {
   created_at: number;
   expires_at?: number;
   settled_at?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ListTransactionsParams {

@@ -65,11 +65,11 @@ export function useNIP60Cashu(): UseNIP60CashuResult {
   const walletManager = useMemo(() => {
     if (!user) return null;
 
-    const createNIP60Adapter = (nostr: object): NIP60NostrInterface => {
-      const baseAdapter = createNostrAdapter(nostr);
+    const createNIP60Adapter = (nostrInstance: unknown): NIP60NostrInterface => {
+      const baseAdapter = createNostrAdapter(nostrInstance as Parameters<typeof createNostrAdapter>[0]);
       return {
         ...baseAdapter,
-        event: async (event: object) => {
+        event: async (event: Record<string, unknown>) => {
           const result = await baseAdapter.event(event);
           return result; // Return the event itself to match NIP60 interface
         }

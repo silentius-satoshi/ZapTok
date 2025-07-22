@@ -105,7 +105,7 @@ export function useNWC() {
 
     try {
       const parsedURI = parseNWCURI(connection.uri);
-      const client = new NWCClient(parsedURI, createNostrAdapter(nostr));
+      const client = new NWCClient(parsedURI, createNostrAdapter(nostr as unknown as Parameters<typeof createNostrAdapter>[0]));
       clientsRef.current.set(connectionId, client);
       return client;
     } catch (error) {
@@ -120,7 +120,7 @@ export function useNWC() {
     
     try {
       const parsedURI = parseNWCURI(uri);
-      const client = new NWCClient(parsedURI, createNostrAdapter(nostr));
+      const client = new NWCClient(parsedURI, createNostrAdapter(nostr as unknown as Parameters<typeof createNostrAdapter>[0]));
       
       // Test connection and get wallet info
       const walletInfo = await client.getInfo();
