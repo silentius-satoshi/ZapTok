@@ -30,32 +30,6 @@ export function Navigation() {
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
-  // Update activeTab when location changes
-  useEffect(() => {
-    const pathname = location.pathname;
-    
-    // Map routes to navigation tabs
-    if (pathname === '/') {
-      setActiveTab('following');
-    } else if (pathname === '/discover') {
-      setActiveTab('discover');
-    } else if (pathname === '/global') {
-      setActiveTab('global');
-    } else if (pathname === '/settings') {
-      setActiveTab('settings');
-    } else if (pathname === '/stream') {
-      setActiveTab('stream');
-    } else if (pathname.startsWith('/profile')) {
-      setActiveTab('profile');
-    } else {
-      // For other routes, try to match by path or keep current activeTab
-      const matchedItem = navItems.find(item => item.path === pathname);
-      if (matchedItem) {
-        setActiveTab(matchedItem.id);
-      }
-    }
-  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleProfileClick = () => {
     setActiveTab('profile');
     pauseAllVideos();
@@ -117,6 +91,32 @@ export function Navigation() {
     { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: handleWalletClick },
     { id: 'settings', icon: Settings, label: 'Settings', onClick: () => handleNavigateToPage('/settings'), path: '/settings' },
   ];
+
+  // Update activeTab when location changes
+  useEffect(() => {
+    const pathname = location.pathname;
+    
+    // Map routes to navigation tabs
+    if (pathname === '/') {
+      setActiveTab('following');
+    } else if (pathname === '/discover') {
+      setActiveTab('discover');
+    } else if (pathname === '/global') {
+      setActiveTab('global');
+    } else if (pathname === '/settings') {
+      setActiveTab('settings');
+    } else if (pathname === '/stream') {
+      setActiveTab('stream');
+    } else if (pathname.startsWith('/profile')) {
+      setActiveTab('profile');
+    } else {
+      // For other routes, try to match by path or keep current activeTab
+      const matchedItem = navItems.find(item => item.path === pathname);
+      if (matchedItem) {
+        setActiveTab(matchedItem.id);
+      }
+    }
+  }, [location.pathname, navItems]);
 
   return (
     <>

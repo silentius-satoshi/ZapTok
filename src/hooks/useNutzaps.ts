@@ -155,7 +155,7 @@ export function useNutzaps(): UseNutzapsResult {
     } finally {
       setIsLoading(false);
     }
-  }, [user, nostr, wallets, relayUrl, publishEvent]);
+  }, [user, wallets, relayUrl, publishEvent]);
 
   /**
    * Send a nutzap to another user
@@ -319,7 +319,7 @@ export function useNutzaps(): UseNutzapsResult {
     } finally {
       setIsLoading(false);
     }
-  }, [user, nostr, wallets, createWallet, receiveTokens, relayUrl, publishEvent]);
+  }, [user, wallets, createWallet, receiveTokens, relayUrl, publishEvent]);
 
   return {
     // Nutzap info

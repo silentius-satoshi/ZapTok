@@ -167,7 +167,7 @@ export function VideoFeed() {
         }
       }, 100); // Small delay to let videos render first
     }
-  }, [videos.length, batchLoadProfiles, preloadThumbnails]);
+  }, [videos, batchLoadProfiles, preloadThumbnails]);
 
   // Handle keyboard navigation and scroll snapping
   useEffect(() => {

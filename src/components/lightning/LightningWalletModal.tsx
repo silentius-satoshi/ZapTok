@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,11 +57,10 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
       };
       loadTransactions();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, isConnected]); // Intentionally omitted getTransactionHistory to prevent infinite loop
+  }, [isOpen, isConnected, getTransactionHistory]); // getTransactionHistory is from useWallet hook
 
   // Function to refresh transactions
-  const refreshTransactions = async () => {
+  const refreshTransactions = useCallback(async () => {
     if (!isConnected) return;
 
     setIsLoadingTransactions(true);
@@ -76,15 +75,14 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
     } finally {
       setIsLoadingTransactions(false);
     }
-  };
+  }, [isConnected, getTransactionHistory, transactionFilter]);
 
   // Fetch transactions when filter changes
   useEffect(() => {
     if (isOpen && isConnected) {
       refreshTransactions();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactionFilter]);
+  }, [transactionFilter, isOpen, isConnected, refreshTransactions]);
 
   // Fetch real-time Bitcoin price from CoinGecko API
   useEffect(() => {
