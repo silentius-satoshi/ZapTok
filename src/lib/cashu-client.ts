@@ -43,7 +43,7 @@ export class CashuClient {
   /**
    * Get keyset information
    */
-  async getKeysets(): Promise<any> {
+  async getKeysets(): Promise<{ keysets: Array<{ id: string; unit: string; active: boolean }> }> {
     const response = await fetch(`${this.mint.url}/v1/keysets`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
@@ -59,7 +59,7 @@ export class CashuClient {
   /**
    * Get keys for a specific keyset
    */
-  async getKeys(id?: string): Promise<any> {
+  async getKeys(id?: string): Promise<{ keysets: Array<{ id: string; keys: Record<string, string> }> }> {
     const url = id 
       ? `${this.mint.url}/v1/keys/${id}`
       : `${this.mint.url}/v1/keys`;
@@ -129,7 +129,7 @@ export class CashuClient {
   /**
    * Mint new tokens after paying the quote
    */
-  async mintTokens(quote: string, outputs: any[]): Promise<any> {
+  async mintTokens(quote: string, outputs: Array<{ amount: number; id: string }>): Promise<{ signatures: Proof[] }> {
     const request = {
       quote,
       outputs,
@@ -207,7 +207,7 @@ export class CashuClient {
   /**
    * Melt tokens to pay Lightning invoice
    */
-  async meltTokens(quote: string, inputs: Proof[]): Promise<any> {
+  async meltTokens(quote: string, inputs: Proof[]): Promise<{ paid: boolean; payment_preimage?: string }> {
     const request = {
       quote,
       inputs,
@@ -235,7 +235,7 @@ export class CashuClient {
   /**
    * Swap tokens (used for change)
    */
-  async swapTokens(inputs: Proof[], outputs: any[]): Promise<any> {
+  async swapTokens(inputs: Proof[], outputs: Array<{ amount: number; id: string }>): Promise<{ signatures: Proof[] }> {
     const request = {
       inputs,
       outputs,
