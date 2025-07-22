@@ -108,6 +108,36 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
         videoData.alt = tag[1];
         break;
       }
+      // Additional fallback patterns
+      case 'url': {
+        if (!videoData.videoUrl) {
+          videoData.videoUrl = tag[1];
+          console.log('📹 Found video URL in url tag:', tag[1]);
+        }
+        break;
+      }
+      case 'x': {
+        if (!videoData.hash) {
+          videoData.hash = tag[1];
+          console.log('🔗 Found video hash in x tag:', tag[1]);
+        }
+        break;
+      }
+    }
+  }
+
+  // Check content for direct video URLs if still no URL
+  if (!videoData.videoUrl && !videoData.hash) {
+    const urlMatch = event.content.match(/(https?:\/\/[^\s]+)/);
+    if (urlMatch) {
+      const potentialUrl = urlMatch[0];
+      if (potentialUrl.match(/\.(mp4|webm|mov|avi|mkv)(\?.*)?$/i) ||
+          potentialUrl.includes('blossom') ||
+          potentialUrl.includes('satellite.earth') ||
+          potentialUrl.includes('nostr.build')) {
+        videoData.videoUrl = potentialUrl;
+        console.log('📹 Found video URL in content:', potentialUrl);
+      }
     }
   }
 
@@ -125,8 +155,23 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
 
   // If we have a hash but no URL, construct Blossom URL
   if (!videoData.videoUrl && videoData.hash) {
-    videoData.videoUrl = `https://blossom.primal.net/${videoData.hash}`;
+    // Try multiple Blossom servers for better reliability
+    videoData.videoUrl = `https://cdn.satellite.earth/${videoData.hash}`;
     console.log('🌸 Constructed Blossom URL from hash:', videoData.videoUrl);
+    
+    // Also try testing the URL accessibility
+    fetch(videoData.videoUrl, { method: 'HEAD' }).then(response => {
+      if (response.ok) {
+        console.log('✅ Blossom URL is accessible:', videoData.videoUrl);
+      } else {
+        console.log('❌ Blossom URL failed:', response.status, videoData.videoUrl);
+        // Try alternative server
+        const altUrl = `https://blossom.primal.net/${videoData.hash}`;
+        console.log('🔄 Trying alternative server:', altUrl);
+      }
+    }).catch(error => {
+      console.log('🚫 Network error testing Blossom URL:', error);
+    });
   }
 
   console.log('✅ NIP-71 validation complete:', {
