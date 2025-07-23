@@ -54,8 +54,8 @@ export function Settings() {
   // Settings sections
   const settingsSections = [
     { id: 'appearance', title: 'Appearance' },
-    { id: 'home-feeds', title: 'Following Feed' },
-    { id: 'reads-feeds', title: 'Global Feed' },
+    { id: 'feeds', title: 'Feeds' },
+    { id: 'discovery', title: 'Discovery' },
     { id: 'media-uploads', title: 'Media Uploads' },
     { id: 'stream', title: 'Stream' },
     { id: 'muted-content', title: 'Muted Content' },
@@ -683,6 +683,610 @@ export function Settings() {
                     >
                       Visit zap.stream
                     </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : selectedSection === 'appearance' ? (
+            <div className="space-y-4 p-6">
+              <div className="mb-6">
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedSection(null)}
+                  className="text-gray-400 hover:text-white mb-4 p-0 h-auto"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Settings
+                </Button>
+                <h3 className="text-lg font-semibold text-white mb-2">Appearance</h3>
+              </div>
+
+              <div className="space-y-6">
+                {/* Select a theme */}
+                <div>
+                  <label className="text-white mb-4 block">Select a theme</label>
+                  <div className="flex justify-between gap-2">
+                    {/* Bitcoin Orange */}
+                    <div className="relative opacity-60 flex-1">
+                      <div className="w-full aspect-square bg-black rounded-lg border-2 border-gray-700 flex items-center justify-center cursor-not-allowed">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 via-purple-600 to-orange-500"></div>
+                      </div>
+                      <p className="text-gray-500 text-center mt-2 text-sm">bitcoin orange</p>
+                    </div>
+
+                    {/* Nostr Purple */}
+                    <div className="relative opacity-60 flex-1">
+                      <div className="w-full aspect-square bg-gray-200 rounded-lg border-2 border-gray-400 flex items-center justify-center cursor-not-allowed">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 via-red-500 to-purple-600"></div>
+                      </div>
+                      <p className="text-gray-500 text-center mt-2 text-sm">nostr purple</p>
+                    </div>
+
+                    {/* ZapTok Gradient - Selected */}
+                    <div className="relative opacity-60 flex-1">
+                      <div className="w-full aspect-square bg-black rounded-lg border-2 border-green-500 flex items-center justify-center cursor-not-allowed">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600"></div>
+                        <div className="absolute top-1 right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      </div>
+                      <p className="text-gray-500 text-center mt-2 text-sm">zaptok gradient</p>
+                    </div>
+
+                    {/* Privacy Blue */}
+                    <div className="relative opacity-60 flex-1">
+                      <div className="w-full aspect-square bg-gray-200 rounded-lg border-2 border-gray-400 flex items-center justify-center cursor-not-allowed">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 via-cyan-500 to-purple-600"></div>
+                      </div>
+                      <p className="text-gray-500 text-center mt-2 text-sm">privacy blue</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Show Animations */}
+                <div className="flex items-center space-x-3 opacity-60">
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    disabled
+                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                  />
+                  <span className="text-gray-500">Show Animations</span>
+                </div>
+
+                {/* Automatically set Dark or Light mode */}
+                <div className="flex items-center space-x-3 opacity-60">
+                  <input
+                    type="checkbox"
+                    disabled
+                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                  />
+                  <span className="text-gray-500">Automatically set Dark or Light mode based on your system settings</span>
+                </div>
+              </div>
+            </div>
+          ) : selectedSection === 'feeds' ? (
+            <div className="space-y-4 p-6">
+              <div className="mb-6">
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedSection(null)}
+                  className="text-gray-400 hover:text-white mb-4 p-0 h-auto"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Settings
+                </Button>
+                <h3 className="text-lg font-semibold text-white mb-2">Feeds</h3>
+              </div>
+
+              <div className="space-y-8">
+                {/* Following Feed Section */}
+                <div>
+                  <h4 className="text-white font-medium mb-4">Following Feed</h4>
+                  <div className="space-y-4 opacity-60">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Show reposts in following feed</span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Show replies in following feed</span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Show reactions in following feed</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Global Feed Section */}
+                <div>
+                  <h4 className="text-white font-medium mb-4">Global Feed</h4>
+                  <div className="space-y-4 opacity-60">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Enable global feed discovery</span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Filter explicit content in global feed</span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Show trending content</span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Limit global feed to specific hashtags</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Feed Preferences */}
+                <div>
+                  <h4 className="text-white font-medium mb-4">Feed Preferences</h4>
+                  <div className="space-y-4 opacity-60">
+                    <div>
+                      <label className="text-gray-500 mb-2 block">Default feed on app launch</label>
+                      <select
+                        disabled
+                        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-500 cursor-not-allowed"
+                      >
+                        <option>Following Feed</option>
+                        <option>Global Feed</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-gray-500 mb-2 block">Feed refresh interval</label>
+                      <select
+                        disabled
+                        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-500 cursor-not-allowed"
+                      >
+                        <option>30 seconds</option>
+                        <option>1 minute</option>
+                        <option>5 minutes</option>
+                        <option>Manual only</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : selectedSection === 'discovery' ? (
+            <div className="space-y-4 p-6">
+              <div className="mb-6">
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedSection(null)}
+                  className="text-gray-400 hover:text-white mb-4 p-0 h-auto"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Settings
+                </Button>
+                <h3 className="text-lg font-semibold text-white mb-2">Discovery</h3>
+                <p className="text-sm text-gray-400">
+                  Configure how you discover new content and users on the network.
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                {/* Content Discovery */}
+                <div>
+                  <h4 className="text-white font-medium mb-4">Content Discovery</h4>
+                  <div className="space-y-4 opacity-60">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Enable trending hashtags</span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Show popular videos</span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Personalized recommendations</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* User Discovery */}
+                <div>
+                  <h4 className="text-white font-medium mb-4">User Discovery</h4>
+                  <div className="space-y-4 opacity-60">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Suggest users to follow</span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Show users based on mutual connections</span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Display creator profiles in search</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Search & Filters */}
+                <div>
+                  <h4 className="text-white font-medium mb-4">Search & Filters</h4>
+                  <div className="space-y-4 opacity-60">
+                    <div>
+                      <label className="text-gray-500 mb-2 block">Default search scope</label>
+                      <select
+                        disabled
+                        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-500 cursor-not-allowed"
+                      >
+                        <option>Global network</option>
+                        <option>Following only</option>
+                        <option>Current relay</option>
+                      </select>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Enable content warnings filter</span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Show search suggestions</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : selectedSection === 'notifications' ? (
+            <div className="space-y-4 p-6">
+              <div className="mb-6">
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedSection(null)}
+                  className="text-gray-400 hover:text-white mb-4 p-0 h-auto"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Settings
+                </Button>
+                <h3 className="text-lg font-semibold text-white mb-2">Notifications</h3>
+              </div>
+
+              <div className="space-y-6">
+                {/* Show notifications for */}
+                <div>
+                  <label className="text-white mb-4 block">Show notifications for:</label>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3 opacity-60">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-2xl">👤</span>
+                      <span className="text-gray-500">New Followers</span>
+                    </div>
+
+                    <div className="flex items-center space-x-3 opacity-60">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-2xl">⚡</span>
+                      <span className="text-gray-500">Zaps</span>
+                    </div>
+
+                    <div className="flex items-center space-x-3 opacity-60">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-2xl">💖</span>
+                      <span className="text-gray-500">Reactions</span>
+                    </div>
+
+                    <div className="flex items-center space-x-3 opacity-60">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-2xl">🔄</span>
+                      <span className="text-gray-500">Reposts</span>
+                    </div>
+
+                    <div className="flex items-center space-x-3 opacity-60">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-2xl">💬</span>
+                      <span className="text-gray-500">Replies</span>
+                    </div>
+
+                    <div className="flex items-center space-x-3 opacity-60">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-2xl">🏷️</span>
+                      <span className="text-gray-500">Mentions</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notification preferences */}
+                <div>
+                  <label className="text-white mb-4 block">Notification preferences:</label>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3 opacity-60">
+                      <input
+                        type="checkbox"
+                        defaultChecked
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Ignore notes with more than 10 mentions</span>
+                    </div>
+
+                    <div className="flex items-center space-x-3 opacity-60">
+                      <input
+                        type="checkbox"
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Only show DM notifications from users I follow</span>
+                    </div>
+
+                    <div className="flex items-center space-x-3 opacity-60">
+                      <input
+                        type="checkbox"
+                        disabled
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+                      />
+                      <span className="text-gray-500">Only show reactions from users I follow</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : selectedSection === 'zaps' ? (
+            <div className="space-y-4 p-6">
+              <div className="mb-6">
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedSection(null)}
+                  className="text-gray-400 hover:text-white mb-4 p-0 h-auto"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Settings
+                </Button>
+                <h3 className="text-lg font-semibold text-white mb-2">Zaps</h3>
+              </div>
+
+              <div className="space-y-6">
+                {/* Set default zap amount */}
+                <div>
+                  <label className="text-white mb-4 block">Set default zap amount:</label>
+                  <input
+                    type="number"
+                    defaultValue="1"
+                    disabled
+                    className="w-full p-4 bg-gray-800 border border-gray-700 rounded-lg text-gray-500 cursor-not-allowed opacity-60"
+                  />
+                </div>
+
+                {/* Set custom zap amount presets */}
+                <div>
+                  <label className="text-white mb-4 block">Set custom zap amount presets:</label>
+                  <div className="space-y-3">
+                    {/* Zap preset items */}
+                    <div className="flex items-center gap-4 p-4 bg-gray-800 rounded-lg border border-gray-700 opacity-60">
+                      <span className="text-2xl">⚡</span>
+                      <span className="text-gray-500 w-8">1</span>
+                      <span className="text-gray-500 flex-1">Here's a zap for ya</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 p-4 bg-gray-800 rounded-lg border border-gray-700 opacity-60">
+                      <span className="text-2xl">🚀</span>
+                      <span className="text-gray-500 w-8">5</span>
+                      <span className="text-gray-500 flex-1"></span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 p-4 bg-gray-800 rounded-lg border border-gray-700 opacity-60">
+                      <span className="text-2xl">☕</span>
+                      <span className="text-gray-500 w-8">10</span>
+                      <span className="text-gray-500 flex-1">Coffee on me ☕</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 p-4 bg-gray-800 rounded-lg border border-gray-700 opacity-60">
+                      <span className="text-2xl">🍻</span>
+                      <span className="text-gray-500 w-8">15</span>
+                      <span className="text-gray-500 flex-1">Cheers 🍻</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 p-4 bg-gray-800 rounded-lg border border-gray-700 opacity-60">
+                      <span className="text-2xl">🍌</span>
+                      <span className="text-gray-500 w-8">20</span>
+                      <span className="text-gray-500 flex-1">#V4V ⚡</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 p-4 bg-gray-800 rounded-lg border border-gray-700 opacity-60">
+                      <span className="text-2xl">🧑‍💼</span>
+                      <span className="text-gray-500 w-8">25</span>
+                      <span className="text-gray-500 flex-1"></span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Restore Default Feeds button */}
+                <button
+                  disabled
+                  className="text-gray-500 hover:text-gray-500 p-0 h-auto cursor-not-allowed opacity-60"
+                >
+                  Restore Default Feeds
+                </button>
+              </div>
+            </div>
+          ) : selectedSection === 'media-uploads' ? (
+            <div className="space-y-4 p-6">
+              <div className="mb-6">
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedSection(null)}
+                  className="text-gray-400 hover:text-white mb-4 p-0 h-auto"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Settings
+                </Button>
+                <h3 className="text-lg font-semibold text-white mb-2">Media Uploads</h3>
+              </div>
+
+              {/* Media Server Section */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-gray-400 font-medium mb-4">Media Server</h4>
+                  
+                  {/* Connected Server */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-2 h-2 rounded-full bg-gray-500"></div>
+                    <span className="text-gray-500">https://blossom.primal.net</span>
+                  </div>
+                  
+                  {/* Switch Media Server */}
+                  <div className="space-y-3">
+                    <p className="text-gray-500">Switch media server</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          placeholder="enter blossom server url..."
+                          disabled
+                          className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-500 placeholder-gray-600 cursor-not-allowed opacity-60"
+                        />
+                        <Link className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-600" />
+                      </div>
+                    </div>
+                    
+                    <button
+                      disabled
+                      className="text-gray-500 hover:text-gray-500 p-0 h-auto cursor-not-allowed opacity-60"
+                    >
+                      restore default media server
+                    </button>
+                  </div>
+                </div>
+
+                {/* Media Mirrors Section */}
+                <div>
+                  <h4 className="text-gray-400 font-medium mb-4">Media Mirrors</h4>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="enable-media-mirrors"
+                        disabled
+                        className="w-4 h-4 bg-gray-800 border border-gray-600 rounded cursor-not-allowed opacity-60"
+                      />
+                      <label htmlFor="enable-media-mirrors" className="text-gray-500 cursor-not-allowed">
+                        Enable media mirrors
+                      </label>
+                    </div>
+                    
+                    <p className="text-gray-500 text-sm">
+                      You can enable one or more media mirror servers. When enabled, your uploads to the primary media server will be automatically copied to the mirror(s).
+                    </p>
                   </div>
                 </div>
               </div>
