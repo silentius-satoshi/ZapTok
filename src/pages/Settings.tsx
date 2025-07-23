@@ -750,6 +750,41 @@ export function Settings() {
             </div>
           </div>
 
+          {/* Caching Services Section */}
+          <div>
+            <h3 className="text-2xl font-semibold mb-6 text-white">Caching Services</h3>
+            <div className="space-y-4">
+              {/* Currently Connected Service */}
+              {currentService && (
+                <div className="flex items-center gap-4 text-lg">
+                  <div className={`w-3 h-3 rounded-full ${currentService.isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <span className={`truncate ${currentService.isConnected ? 'text-gray-300' : 'text-gray-500'}`}>
+                    {currentService.url}
+                  </span>
+                </div>
+              )}
+              
+              {/* Available Services (exclude currently connected one) */}
+              {availableServices
+                .filter(service => !currentService || service.url !== currentService.url)
+                .map((service, index) => (
+                <div key={service.url} className="flex items-center gap-4 text-lg">
+                  <div className={`w-3 h-3 rounded-full ${service.isConnected ? 'bg-green-500' : 'bg-gray-500'}`} />
+                  <span className={`truncate ${service.isConnected ? 'text-gray-300' : 'text-gray-500'}`}>
+                    {service.url}
+                  </span>
+                </div>
+              ))}
+              
+              {/* No services available fallback */}
+              {!currentService && availableServices.length === 0 && (
+                <div className="flex items-center gap-4 text-lg">
+                  <div className="w-3 h-3 rounded-full bg-gray-500" />
+                  <span className="truncate text-gray-500">No caching services</span>
+                </div>
+              )}
+            </div>
+          </div>
 
         </div>
       </div>

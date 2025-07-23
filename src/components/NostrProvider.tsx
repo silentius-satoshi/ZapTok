@@ -32,6 +32,16 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       open(url: string) {
         console.log(`[NostrProvider] Connecting to relay: ${url}`);
         const relay = new NRelay1(url);
+        
+        // Simple connection status check after a delay
+        setTimeout(() => {
+          if (relay.socket && relay.socket.readyState === 1) {
+            console.log(`✅ [NostrProvider] Successfully connected to: ${url}`);
+          } else {
+            console.warn(`⚠️ [NostrProvider] Connection pending or failed for: ${url}`);
+          }
+        }, 2000);
+        
         return relay;
       },
       reqRouter(filters) {

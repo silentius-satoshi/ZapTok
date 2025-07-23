@@ -40,17 +40,24 @@ export function useCurrentUser() {
   const user = users[0] as NUser | undefined;
   const author = useAuthor(user?.pubkey);
 
-  // Debug logging
-  console.log('useCurrentUser:', {
-    loginCount: logins.length,
-    userCount: users.length,
-    hasUser: !!user,
-    userPubkey: user?.pubkey?.substring(0, 8) + '...'
-  });
-
-  return {
+  // Memoize the return object to prevent unnecessary re-renders
+  const result = useMemo(() => ({
     user,
     users,
     ...author.data,
-  };
+  }), [user, users, author.data]);
+
+  // Debug logging - only in development and throttled
+  useMemo(() => {
+    if (import.meta.env.DEV) {
+      console.debug('useCurrentUser:', {
+        loginCount: logins.length,
+        userCount: users.length,
+        hasUser: !!user,
+        userPubkey: user?.pubkey?.substring(0, 8) + '...'
+      });
+    }
+  }, [logins.length, users.length, user?.pubkey]);
+
+  return result;
 }
