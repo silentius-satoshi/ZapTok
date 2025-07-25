@@ -24,9 +24,10 @@ import { EditProfileForm } from '@/components/EditProfileForm';
 import { QRModal } from '@/components/QRModal';
 import { ZapButton } from '@/components/ZapButton';
 import { useToast } from '@/hooks/useToast';
+import { nip19 } from 'nostr-tools';
 
 const Profile = () => {
-  const { pubkey } = useParams();
+  const { pubkey: paramPubkey } = useParams();
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'bookmarks'>('posts');
@@ -34,8 +35,27 @@ const Profile = () => {
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   
-  const targetPubkey = pubkey || user?.pubkey || '';
-  const isOwnProfile = !pubkey || pubkey === user?.pubkey;
+  // Handle both hex pubkeys and npub identifiers
+  const targetPubkey = (() => {
+    if (!paramPubkey) return user?.pubkey || '';
+    
+    // If it looks like an npub, decode it
+    if (paramPubkey.startsWith('npub1')) {
+      try {
+        const decoded = nip19.decode(paramPubkey);
+        if (decoded.type === 'npub') {
+          return decoded.data;
+        }
+      } catch (error) {
+        console.error('Failed to decode npub:', error);
+      }
+    }
+    
+    // Otherwise assume it's a hex pubkey
+    return paramPubkey;
+  })();
+  
+  const isOwnProfile = !paramPubkey || targetPubkey === user?.pubkey;
 
   const author = useAuthor(targetPubkey);
   const following = useFollowing(targetPubkey);
@@ -60,9 +80,18 @@ const Profile = () => {
   const website = metadata?.website;
   const nip05 = metadata?.nip05;
 
+  // Generate NIP-19 identifiers for meta tags
+  const npub = targetPubkey ? nip19.npubEncode(targetPubkey) : '';
+  const nprofile = targetPubkey ? nip19.nprofileEncode({ pubkey: targetPubkey }) : '';
+
   useSeoMeta({
     title: isOwnProfile ? 'My Profile - ZapTok' : `${displayName} - ZapTok`,
     description: bio || `View ${displayName}'s profile on ZapTok`,
+    // NIP-21 meta tags for profile attribution
+    ...(targetPubkey && {
+      'link:me': `nostr:${npub}`,
+      'link:author': `nostr:${nprofile}`,
+    }),
   });
 
   const handleFollowingClick = () => {

@@ -95,7 +95,7 @@ describe('NoteContent', () => {
 
     const nostrHashtag = screen.getByRole('link', { name: '#nostr' });
     const bitcoinHashtag = screen.getByRole('link', { name: '#bitcoin' });
-    
+
     expect(nostrHashtag).toBeInTheDocument();
     expect(bitcoinHashtag).toBeInTheDocument();
     expect(nostrHashtag).toHaveAttribute('href', '/t/nostr');
@@ -123,14 +123,37 @@ describe('NoteContent', () => {
     // The mention should be rendered with a deterministic name
     const mention = screen.getByRole('link');
     expect(mention).toBeInTheDocument();
-    
+
     // Should have muted styling for generated names (gray instead of blue)
     expect(mention).toHaveClass('text-gray-500');
     expect(mention).not.toHaveClass('text-blue-500');
-    
+
     // The text should start with @ and contain a generated name (not a truncated npub)
     const linkText = mention.textContent;
     expect(linkText).not.toMatch(/^@npub1/); // Should not be a truncated npub
     expect(linkText).toEqual("@Swift Falcon");
+  });
+
+  it('handles naddr references correctly', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Check out this article: nostr:naddr1qvzqqqr4gupzpq35r7yzkm4te5460u00jz4djcw0qa90zku7739qn7wj4ralhe4zqq9x67fdv9e8g6trd3jstuxuc2',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    const naddrLink = screen.getByRole('link');
+    expect(naddrLink).toBeInTheDocument();
+    expect(naddrLink).toHaveAttribute('href', '/naddr1qvzqqqr4gupzpq35r7yzkm4te5460u00jz4djcw0qa90zku7739qn7wj4ralhe4zqq9x67fdv9e8g6trd3jstuxuc2');
+    expect(naddrLink).toHaveTextContent('nostr:naddr1qvzqqqr4gupzpq35r7yzkm4te5460u00jz4djcw0qa90zku7739qn7wj4ralhe4zqq9x67fdv9e8g6trd3jstuxuc2');
   });
 });

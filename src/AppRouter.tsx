@@ -9,6 +9,7 @@ import Global from "./pages/Global";
 import Discover from "./pages/Discover";
 import { Settings } from "./pages/Settings";
 import { Stream } from "./components/stream/Stream";
+import { NostrEntity } from "./pages/NostrEntity";
 import NotFound from "./pages/NotFound";
 
 function RouteHandler() {
@@ -31,6 +32,8 @@ function RouteHandler() {
       <Route path="/global" element={<Global />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/stream" element={<Stream />} />
+      {/* Nostr entity handler - must be after specific routes */}
+      <Route path="/:nip19Id" element={<NostrEntity />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
