@@ -17,7 +17,6 @@ ZapTok is a decentralized video platform powered by Bitcoin and Nostr. We delive
 - [x] Enhanced video encoding and streaming (NIP-71)
 - [x] Multi-relay support and relay management
 - [x] Basic content moderation tools
-- [ ] Cross-platform mobile apps (iOS/Android)
 
 **Creator Economy Basics**
 - [x] Lightning Network integration for instant zap functionality (NIP-57)
@@ -58,6 +57,7 @@ ZapTok is a decentralized video platform powered by Bitcoin and Nostr. We delive
 - [ ] Live Activities & Streaming (NIP-53)
 
 **Platform Expansion**
+- [ ] Cross-platform mobile apps (iOS/Android)
 - [ ] Marketplace Integration (NIP-15)
 - [ ] Multiple Account Support
 - [ ] Push Notifications
