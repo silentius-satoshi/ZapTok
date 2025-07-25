@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useWallet } from '@/hooks/useWallet';
 import { useCashu } from '@/hooks/useCashu';
+import { SendReceivePanel } from '@/components/SendReceivePanel';
 import type { Transaction } from '@/lib/wallet-types';
 
 interface LightningWalletModalProps {
@@ -26,8 +27,6 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
   const { walletInfo, transactions, getTransactionHistory, isConnected, transactionSupport } = useWallet();
   const { currentBalance: cashuBalance } = useCashu();
   const [showInSats, setShowInSats] = useState(true);
-  const [lightningAmount, setLightningAmount] = useState('');
-  const [lightningDescription, setLightningDescription] = useState('');
   const [cashuToken, setCashuToken] = useState('');
   const [newMintUrl, setNewMintUrl] = useState('https://mint.example.com');
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
@@ -234,47 +233,14 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             {/* Lightning Wallet Section */}
+                        {/* Lightning Wallet Send/Receive */}
             <div className="bg-gray-800 rounded-lg p-6 space-y-4">
               <div className="flex items-center gap-2 text-yellow-400 font-medium">
                 <Zap className="w-5 h-5" />
                 Lightning Wallet
               </div>
 
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1 bg-gray-700 border-gray-600 hover:bg-gray-600 text-white"
-                >
-                  <ArrowDownLeft className="w-4 h-4 mr-2" />
-                  Receive
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 bg-gray-700 border-gray-600 hover:bg-gray-600 text-white"
-                >
-                  <ArrowUpRight className="w-4 h-4 mr-2" />
-                  Send
-                </Button>
-              </div>
-
-              <div className="space-y-3">
-                <Input
-                  placeholder="Amount (sats)"
-                  value={lightningAmount}
-                  onChange={(e) => setLightningAmount(e.target.value)}
-                  className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
-                />
-                <Input
-                  placeholder="Description (optional)"
-                  value={lightningDescription}
-                  onChange={(e) => setLightningDescription(e.target.value)}
-                  className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
-                />
-                <Button className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-medium">
-                  <Zap className="w-4 h-4 mr-2" />
-                  Generate Invoice
-                </Button>
-              </div>
+              <SendReceivePanel />
             </div>
 
             {/* Cashu Mints Section */}
@@ -322,117 +288,26 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
               </div>
             </div>
 
-            {/* Transaction History Section */}
+            {/* Cashu Transaction History Section */}
             <div className="bg-gray-800 rounded-lg p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-blue-400 font-medium">
-                  <div className="w-5 h-5 bg-blue-400 rounded-sm flex items-center justify-center">
-                    <div className="w-2 h-2 bg-gray-800 rounded-sm"></div>
+                <div>
+                  <div className="flex items-center gap-2 text-white font-medium">
+                    <span>Transaction History</span>
                   </div>
-                  Transaction History
-                  {isConnected && transactions.length > 0 && (
-                    <span className="text-xs bg-gray-700 px-2 py-1 rounded-full text-gray-300">
-                      {transactions.length}
-                    </span>
-                  )}
+                  <p className="text-gray-400 text-sm">Your Cashu transaction history</p>
                 </div>
-                {isConnected && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={refreshTransactions}
-                    disabled={isLoadingTransactions}
-                    className="text-gray-400 hover:text-white h-8 w-8 p-0"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isLoadingTransactions ? 'animate-spin' : ''}`} />
-                  </Button>
-                )}
+                <Button
+                  variant="ghost" 
+                  size="sm"
+                  className="text-gray-400 hover:text-white h-6 w-6 p-0"
+                >
+                  <ArrowUpRight className="w-4 h-4 rotate-90" />
+                </Button>
               </div>
 
-              <p className="text-gray-400 text-sm">
-                {isConnected
-                  ? transactionSupport === false 
-                    ? "Browser extension wallets like Alby don't expose transaction history for privacy reasons. Use a direct NWC connection to view transaction history."
-                    : "Your wallet supports transaction history."
-                  : "Connect your Lightning wallet to view available features"
-                }
-              </p>
-
-              {/* Transaction Filter Buttons */}
-              {isConnected && (
-                <div className="flex gap-2">
-                  {(['all', 'incoming', 'outgoing'] as const).map((filter) => (
-                    <Button
-                      key={filter}
-                      variant={transactionFilter === filter ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTransactionFilter(filter)}
-                      className={`text-xs ${
-                        transactionFilter === filter
-                          ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                          : 'bg-gray-700 border-gray-600 hover:bg-gray-600 text-gray-300'
-                      }`}
-                    >
-                      {filter === 'all' ? 'All' : filter === 'incoming' ? 'Received' : 'Sent'}
-                    </Button>
-                  ))}
-                </div>
-              )}
-
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {isLoadingTransactions ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Loading transactions...</span>
-                    </div>
-                  </div>
-                ) : !isConnected ? (
-                  <div className="flex items-center justify-center py-8">
-                    <p className="text-gray-500 text-sm">Connect your wallet to view transactions</p>
-                  </div>
-                ) : transactionSupport === false ? (
-                  <div className="flex flex-col items-center justify-center py-8 space-y-3">
-                    <p className="text-gray-500 text-sm">No transaction history available</p>
-                    <p className="text-xs text-gray-600 text-center max-w-xs">
-                      Browser extensions don't expose transaction history. Try connecting via Nostr Wallet Connect (NWC) for full transaction features.
-                    </p>
-                  </div>
-                ) : transactions.length === 0 ? (
-                  <div className="flex items-center justify-center py-8">
-                    <p className="text-gray-500 text-sm">No transactions found</p>
-                  </div>
-                ) : (
-                  transactions.map((tx) => (
-                    <div key={tx.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
-                      <div className="flex items-center gap-3">
-                        {getTransactionIcon(tx.type)}
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-white">
-                            {tx.type === 'receive' ? '+' : '-'}{tx.amount.toLocaleString()} sats
-                          </p>
-                          <p className="text-xs text-gray-400 truncate">
-                            {tx.description || 'Lightning payment'}
-                          </p>
-                          {tx.payment_hash && (
-                            <p className="text-xs text-gray-500 font-mono truncate">
-                              {tx.payment_hash.slice(0, 16)}...
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-right flex-shrink-0">
-                        {getStatusIcon(tx)}
-                        <div>
-                          <p className="text-xs font-medium text-white capitalize">
-                            {tx.settled ? 'Confirmed' : 'Pending'}
-                          </p>
-                          <p className="text-xs text-gray-400">{formatTimestamp(tx.timestamp)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+              <div className="py-8 text-center">
+                <p className="text-gray-400 text-sm">No transactions yet</p>
               </div>
             </div>
 
