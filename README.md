@@ -1,7 +1,7 @@
 <div align="center">
 
 <a href="https://chorus.community/group/34550%3A8b12bddc423189c660156eab1ea04e1d44cc6621c550c313686705f704dda895%3Azaptok-mdgpgdbb">
-    <img src="./public/images/ZapTok-v2.png" alt="ZapTok Logo" title="ZapTok logo" width="200"/>
+    <img src="./public/images/ZapTok-v3.png" alt="ZapTok Logo" title="ZapTok logo" width="200"/>
 </a>
 
 </div>
