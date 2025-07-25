@@ -3,16 +3,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, Coins, Loader2, ExternalLink, Wallet, Plus } from 'lucide-react';
+import { AlertCircle, Coins, Loader2, ExternalLink, Wallet, Plus, Trash2, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { useNIP60Cashu } from '@/hooks/useNIP60Cashu';
+import { useNIP60Cashu, type NIP60CashuWallet } from '@/hooks/useNIP60Cashu';
 import { CASHU_MINTS } from '@/lib/cashu-types';
 import { useNutzaps } from "@/hooks/useNutzaps";
 import { Zap, Gift } from "lucide-react";
 import { getNutzapAmount, getNutzapMint } from '@/lib/nip61-types';
 import { isValidMintUrl } from '@/lib/cashu-client';
 import { CreateCashuWalletModal } from '../CreateCashuWalletModal';
+import { useToast } from '@/hooks/useToast';
 
 interface CashuWalletCardProps {
   isConnecting: boolean;
@@ -27,6 +28,9 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [connectionMethod, setConnectionMethod] = useState<'well-known' | 'custom'>('well-known');
   const [selectedWellKnownMint, setSelectedWellKnownMint] = useState<keyof typeof CASHU_MINTS>('MINIBITS');
+  const [expandedMints, setExpandedMints] = useState<Record<string, boolean>>({});
+
+  const { toast } = useToast();
 
   const {
     wallets,
@@ -37,7 +41,9 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
     isLoading,
     error: hookError,
     refreshWallet,
-    testConnection
+    testConnection,
+    cleanupWallet,
+    removeMintFromWallet
   } = useNIP60Cashu();
 
   const {
@@ -106,6 +112,54 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
     await refreshWallet(walletId);
   };
 
+  const handleCleanupWallet = async (walletId: string) => {
+    try {
+      await cleanupWallet(walletId);
+      toast({
+        title: "Wallet cleaned up",
+        description: "Spent tokens have been removed and wallet data consolidated.",
+      });
+    } catch (err) {
+      toast({
+        title: "Cleanup failed",
+        description: err instanceof Error ? err.message : "Failed to cleanup wallet",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveMint = async (walletId: string, mintUrl: string) => {
+    try {
+      await removeMintFromWallet(walletId, mintUrl);
+      toast({
+        title: "Mint removed",
+        description: `Successfully removed ${mintUrl.replace('https://', '').replace('http://', '')} from wallet`,
+      });
+    } catch (err) {
+      toast({
+        title: "Remove failed",
+        description: err instanceof Error ? err.message : "Failed to remove mint",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleMintExpansion = (mintUrl: string) => {
+    setExpandedMints(prev => ({
+      ...prev,
+      [mintUrl]: !prev[mintUrl]
+    }));
+  };
+
+  const getMintBalance = (wallet: NIP60CashuWallet, mintUrl: string): number => {
+    return wallet.tokens
+      .filter((token) => token.mint === mintUrl)
+      .reduce((sum: number, token) => {
+        // Sum up all proof amounts for this mint
+        return sum + token.proofs.reduce((proofSum, proof) => proofSum + proof.amount, 0);
+      }, 0);
+  };
+
   // Display error from hook if present
   const displayError = error || hookError || nutzapError;
 
@@ -132,7 +186,7 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
             key={wallet.id}
             className="p-4 bg-gray-900 rounded-lg border border-gray-700"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-green-500/20 rounded-lg">
                   <Wallet className="w-6 h-6 text-green-400" />
@@ -142,10 +196,7 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
                     NIP-60 Wallet ({wallet.mints.length} mint{wallet.mints.length !== 1 ? 's' : ''})
                   </h4>
                   <div className="flex items-center space-x-2">
-                    <Badge
-                      variant="default"
-                      className="text-xs"
-                    >
+                    <Badge variant="default" className="text-xs">
                       On-chain
                     </Badge>
                     <span className="text-sm text-gray-400">
@@ -188,59 +239,145 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
               </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-gray-700">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-400">Mints:</span>
-                  <div className="ml-2 text-white text-xs space-y-1">
-                    {wallet.mints.map((mint, index) => (
-                      <div key={index} className="truncate block">
-                        {mint.replace('https://', '').replace('http://', '')}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-400">Protocol:</span>
-                  <span className="ml-2 text-white block">
-                    NIP-60 Compliant
-                  </span>
-                </div>
+            {/* Mints Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h5 className="text-sm font-medium text-white">Mints</h5>
+                <span className="text-xs text-gray-400">Manage your Cashu mints</span>
               </div>
 
-              {/* Nutzap Status Section */}
-              <div className="mt-3 pt-3 border-t border-gray-600">
-                <span className="text-gray-400">Nutzaps:</span>
-                <div className="flex items-center space-x-2 mt-1">
-                  {isNutzapInfoPublished ? (
-                    <Badge variant="secondary" className="text-xs bg-purple-500/20 text-purple-400">
-                      <Zap className="w-3 h-3 mr-1" />
-                      NIP-61 Ready
-                    </Badge>
-                  ) : (
-                    <Button
-                      onClick={publishNutzapInfo}
-                      variant="outline"
-                      size="sm"
-                      disabled={isLoading || nutzapLoading}
-                      className="text-xs"
-                    >
-                      Enable Nutzaps
-                    </Button>
-                  )}
-                  {receivedNutzaps.length > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      <Gift className="w-3 h-3 mr-1" />
-                      {receivedNutzaps.length} pending
-                    </Badge>
-                  )}
-                </div>
-                {(totalReceived > 0 || totalSent > 0) && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    Received: {totalReceived} sats • Sent: {totalSent} sats
+              {wallet.mints.map((mint) => {
+                const isExpanded = expandedMints[mint];
+                const mintBalance = getMintBalance(wallet, mint);
+                const displayUrl = mint.replace('https://', '').replace('http://', '');
+                
+                return (
+                  <div key={mint} className="bg-gray-800 rounded-lg border border-gray-600">
+                    <div className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                          <button
+                            onClick={() => toggleMintExpansion(mint)}
+                            className="text-gray-400 hover:text-gray-300"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )}
+                          </button>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium text-white truncate">
+                                {displayUrl}
+                              </span>
+                              <Badge 
+                                variant={mintBalance > 0 ? "default" : "secondary"} 
+                                className="text-xs"
+                              >
+                                Active
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {mintBalance.toLocaleString()} sats used
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            onClick={() => handleCleanupWallet(wallet.id)}
+                            variant="ghost"
+                            size="sm"
+                            disabled={isLoading}
+                            className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10"
+                          >
+                            <Sparkles className="w-4 h-4 mr-1" />
+                            Cleanup Wallet
+                          </Button>
+                          <Button
+                            onClick={() => handleRemoveMint(wallet.id, mint)}
+                            variant="ghost"
+                            size="sm"
+                            disabled={isLoading || wallet.mints.length === 1}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                            title={wallet.mints.length === 1 ? "Cannot remove the last mint" : "Remove this mint"}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="mt-3 pt-3 border-t border-gray-700">
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-400">Full URL:</span>
+                              <div className="ml-2 text-white text-xs break-all">
+                                {mint}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Status:</span>
+                              <span className="ml-2 text-green-400 text-xs">
+                                Connected
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                );
+              })}
+
+              {/* Add Mint Button */}
+              <Button
+                onClick={() => setShowMintForm(true)}
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={isLoading}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Mint
+              </Button>
+            </div>
+
+            {/* Nutzap Status Section */}
+            <div className="mt-4 pt-4 border-t border-gray-600">
+              <span className="text-gray-400">Nutzaps:</span>
+              <div className="flex items-center space-x-2 mt-1">
+                {isNutzapInfoPublished ? (
+                  <Badge variant="secondary" className="text-xs bg-purple-500/20 text-purple-400">
+                    <Zap className="w-3 h-3 mr-1" />
+                    NIP-61 Ready
+                  </Badge>
+                ) : (
+                  <Button
+                    onClick={publishNutzapInfo}
+                    variant="outline"
+                    size="sm"
+                    disabled={isLoading || nutzapLoading}
+                    className="text-xs"
+                  >
+                    Enable Nutzaps
+                  </Button>
+                )}
+                {receivedNutzaps.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    <Gift className="w-3 h-3 mr-1" />
+                    {receivedNutzaps.length} pending
+                  </Badge>
                 )}
               </div>
+              {(totalReceived > 0 || totalSent > 0) && (
+                <div className="text-xs text-gray-500 mt-1">
+                  Received: {totalReceived} sats • Sent: {totalSent} sats
+                </div>
+              )}
             </div>
           </div>
         ))}

@@ -28,6 +28,8 @@ interface UseNIP60CashuResult {
   addMintToWallet: (walletId: string, mintUrl: string) => Promise<void>;
   setActiveWallet: (walletId: string) => void;
   refreshWallet: (walletId: string) => Promise<void>;
+  cleanupWallet: (walletId: string) => Promise<void>;
+  removeMintFromWallet: (walletId: string, mintUrl: string) => Promise<void>;
 
   // Well-known mints
   addWellKnownMint: (mintKey: keyof typeof CASHU_MINTS) => Promise<string>;
@@ -387,6 +389,79 @@ export function useNIP60Cashu(): UseNIP60CashuResult {
     return wallet ? groupProofsByMint(wallet.tokens) : {};
   }, [wallets, activeWallet]);
 
+  /**
+   * Cleanup wallet by removing spent tokens and consolidating data
+   */
+  const cleanupWallet = useCallback(async (walletId: string): Promise<void> => {
+    if (!user || !walletManager) {
+      throw new Error('User must be logged in to cleanup wallet');
+    }
+
+    const wallet = wallets.find(w => w.id === walletId);
+    if (!wallet) {
+      throw new Error('Wallet not found');
+    }
+
+    setError(null);
+    try {
+      // Mark wallet as loading
+      setWallets(prev => prev.map(w =>
+        w.id === walletId ? { ...w, isLoading: true } : w
+      ));
+
+      // Simply refresh the wallet data which will automatically filter out spent tokens
+      // due to the getCurrentTokens implementation in walletManager
+      await refreshWallet(walletId);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to cleanup wallet';
+      setError(errorMsg);
+      throw err;
+    }
+  }, [user, walletManager, wallets, refreshWallet]);
+
+  /**
+   * Remove a mint from the wallet by creating a new wallet without that mint
+   */
+  const removeMintFromWallet = useCallback(async (walletId: string, mintUrl: string): Promise<void> => {
+    if (!user || !walletManager) {
+      throw new Error('User must be logged in to modify wallets');
+    }
+
+    const wallet = wallets.find(w => w.id === walletId);
+    if (!wallet) {
+      throw new Error('Wallet not found');
+    }
+
+    if (!wallet.mints.includes(mintUrl)) {
+      throw new Error('Mint not found in wallet');
+    }
+
+    if (wallet.mints.length === 1) {
+      throw new Error('Cannot remove the last mint from a wallet');
+    }
+
+    setError(null);
+    try {
+      // Create new wallet without the specified mint
+      const newMints = wallet.mints.filter(mint => mint !== mintUrl);
+      
+      // Check if there are any tokens for this mint
+      const hasTokensForMint = wallet.tokens.some(token => token.mint === mintUrl);
+      
+      if (hasTokensForMint) {
+        throw new Error('Cannot remove mint with existing tokens. Spend or transfer tokens first.');
+      }
+
+      await createWallet(newMints);
+
+      // The createWallet function will refresh the wallets list
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to remove mint from wallet';
+      setError(errorMsg);
+      throw err;
+    }
+  }, [user, walletManager, wallets, createWallet]);
+
   return {
     // State
     wallets,
@@ -400,6 +475,8 @@ export function useNIP60Cashu(): UseNIP60CashuResult {
     addMintToWallet,
     setActiveWallet,
     refreshWallet,
+    cleanupWallet,
+    removeMintFromWallet,
     addWellKnownMint,
     receiveTokens,
     sendTokens,

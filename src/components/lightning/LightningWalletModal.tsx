@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,15 +8,11 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Plus,
-  CheckCircle,
-  Clock,
-  RotateCcw,
-  RefreshCw
+  RotateCcw
 } from 'lucide-react';
 import { useWallet } from '@/hooks/useWallet';
 import { useCashu } from '@/hooks/useCashu';
 import { SendReceivePanel } from '@/components/SendReceivePanel';
-import type { Transaction } from '@/lib/wallet-types';
 
 interface LightningWalletModalProps {
   isOpen: boolean;
@@ -24,64 +20,18 @@ interface LightningWalletModalProps {
 }
 
 const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) => {
-  const { walletInfo, transactions, getTransactionHistory, isConnected, transactionSupport } = useWallet();
+  const { walletInfo } = useWallet();
   const { currentBalance: cashuBalance } = useCashu();
   const [showInSats, setShowInSats] = useState(true);
   const [cashuToken, setCashuToken] = useState('');
   const [newMintUrl, setNewMintUrl] = useState('https://mint.example.com');
-  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
-  const [transactionFilter, setTransactionFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
+  const [_isLoadingTransactions, _setIsLoadingTransactions] = useState(false);
+  const [_transactionFilter, _setTransactionFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
 
   // Real-time Bitcoin price state
   const [btcPrice, setBtcPrice] = useState(65000); // fallback price
   const [priceLoading, setPriceLoading] = useState(false);
   const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
-
-  // Fetch transaction history when modal opens and wallet is connected
-  useEffect(() => {
-    if (isOpen && isConnected && transactionSupport !== false) {
-      const loadTransactions = async () => {
-        setIsLoadingTransactions(true);
-        try {
-          // Fetch recent transactions with a reasonable limit
-          await getTransactionHistory({
-            limit: 100, // Fetch last 100 transactions
-            type: undefined, // Include both incoming and outgoing
-          });
-        } catch (error) {
-          console.error('Failed to load transaction history:', error);
-        } finally {
-          setIsLoadingTransactions(false);
-        }
-      };
-      loadTransactions();
-    }
-  }, [isOpen, isConnected, getTransactionHistory, transactionSupport]); // Added transactionSupport dependency
-
-  // Function to refresh transactions
-  const refreshTransactions = useCallback(async () => {
-    if (!isConnected || transactionSupport === false) return;
-
-    setIsLoadingTransactions(true);
-    try {
-      // Fetch recent transactions with parameters based on filter
-      await getTransactionHistory({
-        limit: 100, // Fetch last 100 transactions
-        type: transactionFilter === 'all' ? undefined : transactionFilter,
-      });
-    } catch (error) {
-      console.error('Failed to refresh transactions:', error);
-    } finally {
-      setIsLoadingTransactions(false);
-    }
-  }, [isConnected, getTransactionHistory, transactionFilter, transactionSupport]);
-
-  // Fetch transactions when filter changes
-  useEffect(() => {
-    if (isOpen && isConnected) {
-      refreshTransactions();
-    }
-  }, [transactionFilter, isOpen, isConnected, refreshTransactions]);
 
   // Fetch real-time Bitcoin price from CoinGecko API
   useEffect(() => {
@@ -154,35 +104,6 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
       const usdAmount = btcAmount * btcPrice;
       return `$ ${usdAmount.toFixed(2)} USD`;
     }
-  };
-
-  // Helper function to format timestamps
-  const formatTimestamp = (timestamp: number): string => {
-    const now = Date.now() / 1000;
-    const diff = now - timestamp;
-
-    if (diff < 60) return 'Just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-
-    // For older transactions, show the actual date
-    return new Date(timestamp * 1000).toLocaleDateString();
-  };
-
-  // Updated to work with real Transaction data
-  const getStatusIcon = (transaction: Transaction) => {
-    if (transaction.settled) {
-      return <CheckCircle className="w-4 h-4 text-green-400" />;
-    } else {
-      return <Clock className="w-4 h-4 text-yellow-400" />;
-    }
-  };
-
-  const getTransactionIcon = (type: 'send' | 'receive') => {
-    return type === 'receive'
-      ? <ArrowDownLeft className="w-4 h-4 text-green-400" />
-      : <ArrowUpRight className="w-4 h-4 text-red-400" />;
   };
 
   return (
