@@ -19,9 +19,10 @@ interface VideoCardProps {
   isActive: boolean;
   onNext: () => void;
   onPrevious: () => void;
+  onVideoUnavailable?: () => void;
 }
 
-export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious }: VideoCardProps) {
+export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious, onVideoUnavailable }: VideoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [userPaused, setUserPaused] = useState(false);
@@ -35,6 +36,19 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     hash: event.hash,
     title: event.title,
   });
+
+  // Auto-skip to next video when current video becomes unavailable
+  useEffect(() => {
+    // Only auto-skip if the video is currently active and has finished testing URLs
+    if (isActive && !isTestingUrls && !workingUrl && onVideoUnavailable) {
+      console.log('🚫 Auto-skipping unavailable video:', event.title || event.id);
+      // Small delay to prevent jarring immediate skip
+      const timeoutId = setTimeout(() => {
+        onVideoUnavailable();
+      }, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isActive, isTestingUrls, workingUrl, onVideoUnavailable, event.title, event.id]);
 
   const authorMetadata = author.data?.metadata;
   const displayName = authorMetadata?.name || authorMetadata?.display_name || genUserName(event.pubkey);

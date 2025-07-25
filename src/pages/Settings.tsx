@@ -1371,7 +1371,7 @@ export function Settings() {
               {/* Available Services (exclude currently connected one) */}
               {availableServices
                 .filter(service => !currentService || service.url !== currentService.url)
-                .map((service, index) => (
+                .map((service, _index) => (
                 <div key={service.url} className="flex items-center gap-4 text-lg">
                   <div className={`w-3 h-3 rounded-full ${service.isConnected ? 'bg-green-500' : 'bg-gray-500'}`} />
                   <span className={`truncate ${service.isConnected ? 'text-gray-300' : 'text-gray-500'}`}>

@@ -201,6 +201,15 @@ export function VideoFeed() {
     }
   };
 
+  // Function to skip to next available video
+  const skipToNextVideo = () => {
+    if (currentVideoIndex < videos.length - 1) {
+      const newIndex = currentVideoIndex + 1;
+      setCurrentVideoIndex(newIndex);
+      scrollToVideo(newIndex);
+    }
+  };
+
   // Handle scroll events with improved snap behavior
   useEffect(() => {
     const container = containerRef.current;
@@ -440,6 +449,7 @@ export function VideoFeed() {
                   setCurrentVideoIndex(newIndex);
                   scrollToVideo(newIndex);
                 }}
+                onVideoUnavailable={index === currentVideoIndex ? skipToNextVideo : undefined}
               />
             </div>
             
