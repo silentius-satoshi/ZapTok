@@ -14,6 +14,7 @@ import {
 } from '@/lib/nip60-types';
 import { CASHU_MINTS } from '@/lib/cashu-types';
 import { CashuClient, isValidMintUrl } from '@/lib/cashu-client';
+import { useNIP87MintDiscovery, type DiscoveredMint } from './useNIP87MintDiscovery';
 
 interface UseNIP60CashuResult {
   // Wallet state
@@ -33,6 +34,12 @@ interface UseNIP60CashuResult {
 
   // Well-known mints
   addWellKnownMint: (mintKey: keyof typeof CASHU_MINTS) => Promise<string>;
+
+  // NIP-87 dynamic mint discovery
+  discoveredMints: DiscoveredMint[];
+  recommendedMints: DiscoveredMint[];
+  addDiscoveredMint: (mint: DiscoveredMint) => Promise<string>;
+  refreshMintDiscovery: () => Promise<void>;
 
   // Token operations
   receiveTokens: (tokenString: string, walletId?: string) => Promise<void>;
@@ -57,6 +64,18 @@ export interface NIP60CashuWallet {
 export function useNIP60Cashu(): UseNIP60CashuResult {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+
+  // NIP-87 mint discovery
+  const {
+    cashuMints: discoveredMints,
+    recommendations,
+    refreshDiscovery
+  } = useNIP87MintDiscovery();
+
+  // Get recommended mints (mints that have recommendations from users we follow)
+  const recommendedMints = discoveredMints.filter(mint => 
+    recommendations.some(rec => rec.recommendedMint.pubkey === mint.pubkey)
+  );
 
   const [wallets, setWallets] = useState<NIP60CashuWallet[]>([]);
   const [activeWallet, setActiveWallet] = useState<string | null>(null);
@@ -462,6 +481,29 @@ export function useNIP60Cashu(): UseNIP60CashuResult {
     }
   }, [user, walletManager, wallets, createWallet]);
 
+  /**
+   * Add a discovered mint from NIP-87 to create a wallet
+   */
+  const addDiscoveredMint = useCallback(async (mint: DiscoveredMint): Promise<string> => {
+    if (mint.type !== 'cashu') {
+      throw new Error('Only Cashu mints are supported in this wallet');
+    }
+    return await createWallet([mint.url]);
+  }, [createWallet]);
+
+  /**
+   * Refresh NIP-87 mint discovery
+   */
+  const refreshMintDiscovery = useCallback(async (): Promise<void> => {
+    try {
+      await refreshDiscovery();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to refresh mint discovery';
+      setError(errorMsg);
+      throw err;
+    }
+  }, [refreshDiscovery]);
+
   return {
     // State
     wallets,
@@ -478,10 +520,16 @@ export function useNIP60Cashu(): UseNIP60CashuResult {
     cleanupWallet,
     removeMintFromWallet,
     addWellKnownMint,
+    addDiscoveredMint,
+    refreshMintDiscovery,
     receiveTokens,
     sendTokens,
     testConnection,
     getBalance,
-    getProofsByMint
+    getProofsByMint,
+
+    // NIP-87 discovered mints
+    discoveredMints,
+    recommendedMints
   };
 }

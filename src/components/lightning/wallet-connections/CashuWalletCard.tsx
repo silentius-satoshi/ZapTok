@@ -3,11 +3,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, Coins, Loader2, ExternalLink, Wallet, Plus, Trash2, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Wallet,
+  Plus,
+  Trash2,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  AlertCircle,
+  Coins,
+  Heart,
+  ExternalLink
+} from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useNIP60Cashu, type NIP60CashuWallet } from '@/hooks/useNIP60Cashu';
 import { CASHU_MINTS } from '@/lib/cashu-types';
+import { MintDiscovery } from '@/components/MintDiscovery';
+import type { DiscoveredMint } from '@/hooks/useNIP87MintDiscovery';
 import { useNutzaps } from "@/hooks/useNutzaps";
 import { Zap, Gift } from "lucide-react";
 import { getNutzapAmount, getNutzapMint } from '@/lib/nip61-types';
@@ -26,7 +40,7 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
   const [error, setError] = useState<string | null>(null);
   const [showMintForm, setShowMintForm] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [connectionMethod, setConnectionMethod] = useState<'well-known' | 'custom'>('well-known');
+  const [connectionMethod, setConnectionMethod] = useState<'well-known' | 'discovered' | 'custom'>('well-known');
   const [selectedWellKnownMint, setSelectedWellKnownMint] = useState<keyof typeof CASHU_MINTS>('MINIBITS');
   const [expandedMints, setExpandedMints] = useState<Record<string, boolean>>({});
 
@@ -34,16 +48,17 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
 
   const {
     wallets,
-    currentWallet: _currentWallet,
-    createWallet,
-    addWellKnownMint,
-    setActiveWallet: _setActiveWallet,
     isLoading,
     error: hookError,
+    createWallet,
+    addWellKnownMint,
+    addDiscoveredMint,
     refreshWallet,
-    testConnection,
     cleanupWallet,
-    removeMintFromWallet
+    removeMintFromWallet,
+    testConnection,
+    discoveredMints,
+    recommendedMints
   } = useNIP60Cashu();
 
   const {
@@ -167,10 +182,27 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Coins className="w-5 h-5 text-green-400" />
-            NIP-60 Cashu Wallets
-          </h3>
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Coins className="w-5 h-5 text-green-400" />
+              NIP-60 Cashu Wallets
+            </h3>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>{wallets.length} wallet{wallets.length !== 1 ? 's' : ''}</span>
+              {discoveredMints.length > 0 && (
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  {discoveredMints.length} discovered mint{discoveredMints.length !== 1 ? 's' : ''}
+                </span>
+              )}
+              {recommendedMints.length > 0 && (
+                <span className="flex items-center gap-1">
+                  <Heart className="w-3 h-3 text-red-500" />
+                  {recommendedMints.length} recommended
+                </span>
+              )}
+            </div>
+          </div>
           <Button
             onClick={() => setShowCreateModal(true)}
             variant="outline"
@@ -441,13 +473,14 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
                 <Label>Connection Method</Label>
                 <Select
                   value={connectionMethod}
-                  onValueChange={(value) => setConnectionMethod(value as 'well-known' | 'custom')}
+                  onValueChange={(value) => setConnectionMethod(value as 'well-known' | 'discovered' | 'custom')}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="well-known">Well-known Mints</SelectItem>
+                    <SelectItem value="discovered">Discovered Mints (NIP-87)</SelectItem>
                     <SelectItem value="custom">Custom Mint URL</SelectItem>
                   </SelectContent>
                 </Select>
@@ -469,6 +502,30 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
                       <SelectItem value="CASHU_ME">Cashu.me (cashu.me)</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              ) : connectionMethod === 'discovered' ? (
+                <div className="space-y-4">
+                  <Label>Discover Mints from Nostr Network</Label>
+                  <MintDiscovery
+                    onMintSelect={async (mint: DiscoveredMint) => {
+                      try {
+                        await addDiscoveredMint(mint);
+                        toast({
+                          title: 'Mint Added',
+                          description: `Successfully added ${mint.name || mint.url} to your wallet.`
+                        });
+                      } catch (err) {
+                        const errorMsg = err instanceof Error ? err.message : 'Failed to add mint';
+                        toast({
+                          title: 'Failed to Add Mint',
+                          description: errorMsg,
+                          variant: 'destructive'
+                        });
+                      }
+                    }}
+                    selectedMints={wallets.flatMap(w => w.mints)}
+                    className="max-h-96"
+                  />
                 </div>
               ) : (
                 <div>
@@ -504,20 +561,22 @@ const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: exter
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleConnect}
-                disabled={isLoading}
-                size="sm"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create Wallet'
-                )}
-              </Button>
+              {connectionMethod !== 'discovered' && (
+                <Button
+                  onClick={handleConnect}
+                  disabled={isLoading}
+                  size="sm"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Wallet'
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         )}
