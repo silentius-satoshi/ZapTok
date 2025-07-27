@@ -160,12 +160,30 @@ export function useNIP60Cashu(): UseNIP60CashuResult {
     setError(null);
     try {
       console.log('useNIP60Cashu: Calling walletManager.createWallet...');
-      const walletId = await walletManager.createWallet(mints);
+      
+      // Add timeout to wallet creation
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Wallet creation timed out after 15 seconds')), 15000)
+      );
+
+      const walletId = await Promise.race([
+        walletManager.createWallet(mints),
+        timeoutPromise
+      ]);
+      
       console.log('useNIP60Cashu: Wallet created with ID:', walletId);
 
-      // Refresh wallets list
+      // Refresh wallets list with timeout
       console.log('useNIP60Cashu: Refreshing wallets list...');
-      const nip60Wallets = await walletManager.getWallets();
+      const refreshTimeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Wallet refresh timed out after 10 seconds')), 10000)
+      );
+
+      const nip60Wallets = await Promise.race([
+        walletManager.getWallets(),
+        refreshTimeoutPromise
+      ]);
+
       const convertedWallets: NIP60CashuWallet[] = nip60Wallets.map((w: NIP60Wallet) => ({
         id: w.id,
         mints: w.mints,
