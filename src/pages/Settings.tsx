@@ -5,7 +5,7 @@ import { Navigation } from '@/components/Navigation';
 import { useAppContext } from '@/hooks/useAppContext';
 import BitcoinConnectCard from '@/components/lightning/wallet-connections/BitcoinConnectCard';
 import NostrWalletConnectCard from '@/components/lightning/wallet-connections/NostrWalletConnectCard';
-import CashuWalletCard from '@/components/lightning/wallet-connections/CashuWalletCard';
+import { CashuWalletCard } from '@/components/lightning/wallet-connections/CashuWalletCard';
 import { useToast } from '@/hooks/useToast';
 import { useWallet } from '@/hooks/useWallet';
 import { useCaching } from '@/contexts/CachingContext';
@@ -502,9 +502,7 @@ export function Settings() {
         disabledReason="Browser extension wallet is connected"
       />
 
-      <CashuWalletCard
-        isConnecting={isConnecting === 'cashu'}
-      />
+      <CashuWalletCard />
     </div>
   );
 
