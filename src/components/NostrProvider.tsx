@@ -10,7 +10,7 @@ interface NostrProviderProps {
 
 const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const { children } = props;
-  const { config, presetRelays } = useAppContext();
+  const { config, presetRelays: _presetRelays } = useAppContext();
 
   const queryClient = useQueryClient();
 

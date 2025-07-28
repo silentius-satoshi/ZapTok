@@ -1,7 +1,7 @@
 // Types and utilities for Cashu wallet (NIP-60)
 
 import { useCashuStore } from "@/stores/cashuStore";
-import { CashuMint, Proof, CashuWallet, GetInfoResponse, MintKeyset, MintKeys, getDecodedToken } from "@cashu/cashu-ts";
+import { CashuMint, Proof, CashuWallet, getDecodedToken, type MintActiveKeys, type GetInfoResponse } from "@cashu/cashu-ts";
 
 export interface CashuProof {
   id: string;
@@ -113,7 +113,7 @@ export function isValidCashuToken(tokenString: string): boolean {
   }
 }
 
-export async function activateMint(url: string): Promise<{ mintInfo: any, keysets: any }> {
+export async function activateMint(url: string): Promise<{ mintInfo: GetInfoResponse, keysets: MintActiveKeys }> {
   try {
     const mint = new CashuMint(url);
     
@@ -132,7 +132,7 @@ export async function activateMint(url: string): Promise<{ mintInfo: any, keyset
 
 export async function updateMintKeys(wallet: CashuWallet): Promise<void> {
   try {
-    const keys = await wallet.mint.getKeys();
+    await wallet.mint.getKeys();
     // Keys are automatically stored in the wallet
   } catch (error) {
     console.error('Failed to update mint keys:', error);

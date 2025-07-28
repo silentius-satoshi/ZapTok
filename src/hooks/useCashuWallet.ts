@@ -1,7 +1,7 @@
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CASHU_EVENT_KINDS, CashuWalletStruct, CashuToken, activateMint, updateMintKeys, defaultMints } from '@/lib/cashu';
+import { CASHU_EVENT_KINDS, CashuWalletStruct, CashuToken, activateMint, defaultMints } from '@/lib/cashu';
 import { NostrEvent, getPublicKey } from 'nostr-tools';
 import { useCashuStore, Nip60TokenEvent } from '@/stores/cashuStore';
 import { Proof } from '@cashu/cashu-ts';
@@ -86,7 +86,7 @@ export function useCashuWallet() {
           console.log('useCashuWallet: Received keysets:', keysets);
           cashuStore.addMint(mint);
           cashuStore.setMintInfo(mint, mintInfo);
-          cashuStore.setKeysets(mint, keysets);
+          cashuStore.setKeysets(mint, Object.values(keysets));
           // Don't pass keysets to setKeys - they are different things
           console.log('useCashuWallet: Successfully activated mint:', mint);
         }));
