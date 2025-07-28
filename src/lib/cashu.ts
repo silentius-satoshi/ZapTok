@@ -41,9 +41,10 @@ export const CASHU_EVENT_KINDS = {
   HISTORY: 7376,
   QUOTE: 7377,
   ZAPINFO: 9735,
-  ZAP: 9734,
+  ZAP: 9321, // Nutzap events (corrected from 9734)
   TRANSACTION: 37376,
   NUTZAP: 7378,
+  INFO: 10019, // Nutzap informational events
 } as const;
 
 export const defaultMints = [

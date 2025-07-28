@@ -14,6 +14,7 @@ import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
 import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
+import { WalletLoader } from '@/components/WalletLoader';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -76,6 +77,7 @@ export function App() {
                   <WalletProvider>
                     <VideoPlaybackProvider>
                       <TooltipProvider>
+                        <WalletLoader />
                         <Toaster />
                         <Sonner />
                         <AppContent />

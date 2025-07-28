@@ -7,12 +7,12 @@ import {
   X,
   ArrowUpRight,
   ArrowDownLeft,
-  Plus,
   RotateCcw
 } from 'lucide-react';
 import { useWallet } from '@/hooks/useWallet';
 import { useCashu } from '@/hooks/useCashu';
 import { SendReceivePanel } from '@/components/SendReceivePanel';
+import { CashuWalletCard } from '@/components/CashuWalletCard';
 
 interface LightningWalletModalProps {
   isOpen: boolean;
@@ -24,7 +24,6 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
   const { currentBalance: cashuBalance } = useCashu();
   const [showInSats, setShowInSats] = useState(true);
   const [cashuToken, setCashuToken] = useState('');
-  const [newMintUrl, setNewMintUrl] = useState('https://mint.example.com');
   const [_isLoadingTransactions, _setIsLoadingTransactions] = useState(false);
   const [_transactionFilter, _setTransactionFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
 
@@ -76,22 +75,6 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
 
     return () => clearInterval(interval);
   }, [isOpen]);
-
-  // Cashu mints mock data (to be replaced with real data later)
-  const [cashuMints] = useState([
-    {
-      name: 'Minibits',
-      url: 'https://mint.minibits.cash/Bitcoin',
-      balance: 0,
-      unit: 'USD'
-    },
-    {
-      name: 'Chorus',
-      url: 'https://mint.chorus.community',
-      balance: 0,
-      unit: 'USD'
-    }
-  ]);
 
   const totalBalance = (walletInfo?.balance || 0) + (cashuBalance || 0);
 
@@ -165,49 +148,7 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
             </div>
 
             {/* Cashu Mints Section */}
-            <div className="bg-gray-800 rounded-lg p-6 space-y-4">
-              <div className="flex items-center gap-2 text-green-400 font-medium">
-                <div className="w-5 h-5 bg-green-400 rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 bg-gray-800 rounded-full"></div>
-                </div>
-                Cashu Mints
-              </div>
-
-              <p className="text-gray-400 text-sm">Connect to existing mints or add new ones</p>
-
-              <div className="space-y-3">
-                {cashuMints.map((mint, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
-                    <div>
-                      <p className="font-medium text-white">{mint.name}</p>
-                      <p className="text-xs text-gray-400">{mint.url}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-white">${mint.balance.toFixed(2)}</p>
-                      <p className="text-xs text-gray-400">{mint.unit}</p>
-                    </div>
-                  </div>
-                ))}
-
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-white">Add Mint</p>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="https://mint.example.com"
-                      value={newMintUrl}
-                      onChange={(e) => setNewMintUrl(e.target.value)}
-                      className="flex-1 bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
-                    />
-                    <Button
-                      size="icon"
-                      className="bg-purple-500 hover:bg-purple-600"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <CashuWalletCard />
 
             {/* Cashu Transaction History Section */}
             <div className="bg-gray-800 rounded-lg p-6 space-y-4">
