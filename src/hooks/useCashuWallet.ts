@@ -25,17 +25,23 @@ export function useCashuWallet() {
   const walletQuery = useQuery({
     queryKey: ['cashu', 'wallet', user?.pubkey],
     queryFn: async ({ signal }) => {
+      console.log('useCashuWallet: Starting wallet query', { userPubkey: user?.pubkey });
+
       if (!user) throw new Error('User not logged in');
 
       const events = await nostr.query([
         { kinds: [CASHU_EVENT_KINDS.WALLET], authors: [user.pubkey], limit: 1 }
       ], { signal });
 
+      console.log('useCashuWallet: Found wallet events:', events.length);
+
       if (events.length === 0) {
+        console.log('useCashuWallet: No wallet events found, returning null');
         return null;
       }
 
       const event = events[0];
+      console.log('useCashuWallet: Processing wallet event:', event.id);
 
       // Decrypt wallet content
       if (!user.signer.nip44) {
@@ -71,27 +77,47 @@ export function useCashuWallet() {
       walletData.mints = [...new Set(walletData.mints)];
 
       // fetch the mint info and keysets for each mint
-      await Promise.all(walletData.mints.map(async (mint) => {
-        const { mintInfo, keysets } = await activateMint(mint);
-        cashuStore.addMint(mint);
-        cashuStore.setMintInfo(mint, mintInfo);
-        cashuStore.setKeysets(mint, keysets);
-        // For now, just pass empty keys - the actual keys will be fetched by activateMint
-        cashuStore.setKeys(mint, keysets);
-      }));
+      console.log('useCashuWallet: About to activate mints:', walletData.mints);
+      try {
+        await Promise.all(walletData.mints.map(async (mint) => {
+          console.log('useCashuWallet: Activating mint:', mint);
+          const { mintInfo, keysets } = await activateMint(mint);
+          console.log('useCashuWallet: Received mintInfo:', mintInfo);
+          console.log('useCashuWallet: Received keysets:', keysets);
+          cashuStore.addMint(mint);
+          cashuStore.setMintInfo(mint, mintInfo);
+          cashuStore.setKeysets(mint, keysets);
+          // Don't pass keysets to setKeys - they are different things
+          console.log('useCashuWallet: Successfully activated mint:', mint);
+        }));
+      } catch (error) {
+        console.error('useCashuWallet: Error activating mints:', error);
+        throw error;
+      }
 
+      console.log('useCashuWallet: Setting privkey in store');
       cashuStore.setPrivkey(walletData.privkey);
 
       // if no active mint is set, set the first mint as active
       if (!cashuStore.getActiveMintUrl()) {
+        console.log('useCashuWallet: Setting active mint:', walletData.mints[0]);
         cashuStore.setActiveMintUrl(walletData.mints[0]);
       }
 
       // log wallet data
-      console.log('walletData', walletData);
+      console.log('useCashuWallet: Final wallet data:', walletData);
 
       // call getNip60TokensQuery
-      await getNip60TokensQuery.refetch();
+      console.log('useCashuWallet: Refetching NIP60 tokens');
+      try {
+        await getNip60TokensQuery.refetch();
+        console.log('useCashuWallet: Successfully refetched NIP60 tokens');
+      } catch (error) {
+        console.error('useCashuWallet: Error refetching NIP60 tokens:', error);
+        // Don't throw here - we can still return the wallet even if token fetch fails
+      }
+      
+      console.log('useCashuWallet: Returning wallet data successfully');
       return {
         id: event.id,
         wallet: walletData,
@@ -223,7 +249,7 @@ export function useCashuWallet() {
         throw new Error('NIP-44 encryption not supported by your signer');
       }
 
-      // get all event IDs of proofsToRemove 
+      // get all event IDs of proofsToRemove
       const eventIdsToRemoveUnfiltered = proofsToRemove.map(proof => cashuStore.getProofEventId(proof));
       const eventIdsToRemove = [...new Set(eventIdsToRemoveUnfiltered.filter(id => id !== undefined) as string[])];
 

@@ -32,6 +32,7 @@ export function NutzapButton({
   children
 }: NutzapButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   if (!userPubkey) {
     return (
@@ -52,7 +53,7 @@ export function NutzapButton({
   }
 
   return (
-    <UserNutzapDialog userPubkey={userPubkey} eventId={eventId}>
+    <>
       <Button
         variant={variant}
         size={size}
@@ -64,6 +65,7 @@ export function NutzapButton({
         )}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onClick={() => setDialogOpen(true)}
       >
         {disabled ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -84,7 +86,13 @@ export function NutzapButton({
           </span>
         ) : null}
       </Button>
-    </UserNutzapDialog>
+
+      <UserNutzapDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        pubkey={userPubkey}
+      />
+    </>
   );
 }
 

@@ -1,18 +1,21 @@
 import { useState } from 'react';
-import { useSendNutzap } from '@/hooks/useSendNutzap';
+import { useSendNutzap, useFetchNutzapInfo, useVerifyMintCompatibility } from '@/hooks/useSendNutzap';
+import { useCashuToken } from '@/hooks/useCashuToken';
+import { useCashuStore } from '@/stores/cashuStore';
 import { formatBalance } from '@/lib/cashu';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
+import { Proof } from '@cashu/cashu-ts';
+import {
   Send,
   Zap,
   Loader2,
   User
 } from 'lucide-react';
-import { useToast } from '@/hooks/useToast';
+import { toast } from 'sonner';
 
 interface NutzapFormProps {
   recipientPubkey?: string;
@@ -21,52 +24,61 @@ interface NutzapFormProps {
   className?: string;
 }
 
-export function NutzapForm({ 
+export function NutzapForm({
   recipientPubkey = '',
   eventId,
   onSuccess,
-  className 
+  className
 }: NutzapFormProps) {
   const [pubkey, setPubkey] = useState(recipientPubkey);
   const [amount, setAmount] = useState<number>(21);
   const [comment, setComment] = useState('');
-  
+
   const { sendNutzap, isSending } = useSendNutzap();
-  const { toast } = useToast();
+  const { fetchNutzapInfo } = useFetchNutzapInfo();
+  const { verifyMintCompatibility } = useVerifyMintCompatibility();
+  const { sendToken } = useCashuToken();
+  const cashuStore = useCashuStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!pubkey.trim()) {
-      toast({
-        title: "Missing recipient",
-        description: "Please enter a recipient's npub or pubkey",
-        variant: "destructive"
-      });
+      toast.error("Please enter a recipient's npub or pubkey");
       return;
     }
 
     if (amount <= 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Amount must be greater than 0",
-        variant: "destructive"
-      });
+      toast.error("Amount must be greater than 0");
       return;
     }
 
     try {
-      await sendNutzap({
-        recipientPubkey: pubkey,
+      // Get recipient info first
+      const recipientInfo = await fetchNutzapInfo(pubkey);
+      if (!recipientInfo) {
+        throw new Error('Could not fetch recipient nutzap info');
+      }
+
+      // Verify mint compatibility and get a compatible mint URL
+      const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
+
+      // Generate proofs using sendToken
+      const proofs = (await sendToken(
+        compatibleMintUrl,
         amount,
+        recipientInfo.p2pkPubkey
+      )) as Proof[];
+
+      await sendNutzap({
+        recipientInfo,
         comment,
+        proofs,
+        mintUrl: compatibleMintUrl,
         eventId
       });
 
-      toast({
-        title: "Nutzap sent!",
-        description: `Successfully sent ${formatBalance(amount)} sats`
-      });
+      toast.success(`Successfully sent ${formatBalance(amount)} sats`);
 
       // Reset form
       if (!recipientPubkey) {
@@ -74,14 +86,10 @@ export function NutzapForm({
       }
       setAmount(21);
       setComment('');
-      
+
       onSuccess?.();
     } catch (err) {
-      toast({
-        title: "Failed to send nutzap",
-        description: err instanceof Error ? err.message : "Unknown error",
-        variant: "destructive"
-      });
+      toast.error(err instanceof Error ? err.message : 'Failed to send nutzap');
     }
   };
 
@@ -136,7 +144,7 @@ export function NutzapForm({
               placeholder="Enter amount in sats"
               min="1"
             />
-            
+
             {/* Preset Buttons */}
             <div className="flex flex-wrap gap-2">
               {presetAmounts.map((preset) => (
@@ -184,7 +192,7 @@ export function NutzapForm({
           {/* Submit Button */}
           <Button
             type="submit"
-            disabled={isSending || amount <= 0 || !pubkey.trim() || (pubkey && !isValidPubkey(pubkey))}
+            disabled={isSending || amount <= 0 || pubkey.trim().length === 0 || (pubkey.trim().length > 0 && !isValidPubkey(pubkey))}
             className="w-full"
             size="lg"
           >

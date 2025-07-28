@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Zap, 
+import {
+  Zap,
   Send,
   Gift,
   Settings,
@@ -23,9 +23,9 @@ interface NutzapInterfaceProps {
 
 export function NutzapInterface({ className }: NutzapInterfaceProps) {
   const [activeTab, setActiveTab] = useState('received');
-  
-  const { 
-    nutzaps: receivedNutzaps, 
+
+  const {
+    nutzaps: receivedNutzaps,
     isLoading: isLoadingReceived,
     refetch: refetchReceived,
     unclaimedCount,
@@ -149,8 +149,8 @@ export function NutzapInterface({ className }: NutzapInterfaceProps) {
                 </Badge>
               )}
             </div>
-            
-            <NutzapList 
+
+            <NutzapList
               limit={10}
               showEmpty={true}
             />
@@ -163,14 +163,12 @@ export function NutzapInterface({ className }: NutzapInterfaceProps) {
               <p className="text-sm text-muted-foreground mb-6">
                 Send instant bitcoin payments to other users via Cashu tokens
               </p>
-              
-              <UserNutzapDialog userPubkey="">
-                <Button disabled>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Send Nutzap
-                </Button>
-              </UserNutzapDialog>
-              
+
+              <Button disabled>
+                <Plus className="h-4 w-4 mr-2" />
+                Send Nutzap
+              </Button>
+
               <p className="text-xs text-muted-foreground mt-4">
                 Enter a user's npub to send them a nutzap
               </p>

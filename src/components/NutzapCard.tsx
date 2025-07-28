@@ -9,8 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  Zap, 
+import {
+  Zap,
   Gift,
   Clock,
   CheckCircle,
@@ -49,7 +49,7 @@ function NutzapItem({ nutzap, onRedeem, isRedeeming }: NutzapItemProps) {
               <p className="text-sm font-medium truncate">
                 {metadata?.name || `${nutzap.senderPubkey.slice(0, 8)}...`}
               </p>
-              <Badge 
+              <Badge
                 variant={nutzap.status === 'claimed' ? 'default' : 'secondary'}
                 className="text-xs"
               >
@@ -61,7 +61,7 @@ function NutzapItem({ nutzap, onRedeem, isRedeeming }: NutzapItemProps) {
                 {nutzap.status}
               </Badge>
             </div>
-            
+
             {nutzap.comment && (
               <div className="flex items-center space-x-1">
                 <MessageSquare className="h-3 w-3 text-muted-foreground" />
@@ -70,12 +70,12 @@ function NutzapItem({ nutzap, onRedeem, isRedeeming }: NutzapItemProps) {
                 </p>
               </div>
             )}
-            
+
             <p className="text-xs text-muted-foreground">
               {new Date(nutzap.timestamp).toLocaleDateString()}
             </p>
           </div>
-          
+
           <div className="text-right space-y-2">
             <div className="flex items-center space-x-1">
               <Zap className="h-4 w-4 text-orange-500" />
@@ -83,7 +83,7 @@ function NutzapItem({ nutzap, onRedeem, isRedeeming }: NutzapItemProps) {
                 {formatBalance(nutzap.amount)}
               </span>
             </div>
-            
+
             {nutzap.status === 'pending' && (
               <Button
                 size="sm"
@@ -111,21 +111,21 @@ interface NutzapCardProps {
   className?: string;
 }
 
-export function NutzapCard({ 
-  limit = 10, 
+export function NutzapCard({
+  limit = 10,
   showStats = true,
-  className 
+  className
 }: NutzapCardProps) {
-  const { 
-    nutzaps, 
-    isLoading, 
-    refetch, 
-    unclaimedCount, 
-    totalUnclaimed 
+  const {
+    nutzaps,
+    isLoading,
+    refetch,
+    unclaimedCount,
+    totalUnclaimed
   } = useReceivedNutzaps();
-  const { redeemNutzap, isRedeeming } = useNutzapRedemption();
+  const { createRedemption, isCreatingRedemption } = useNutzapRedemption();
   const { toast } = useToast();
-  
+
   const [redeemingNutzapId, setRedeemingNutzapId] = useState<string | null>(null);
 
   const displayNutzaps = limit ? nutzaps.slice(0, limit) : nutzaps;
@@ -133,8 +133,15 @@ export function NutzapCard({
   const handleRedeem = async (nutzap: ReceivedNutzap) => {
     try {
       setRedeemingNutzapId(nutzap.id);
-      await redeemNutzap(nutzap);
-      
+
+      // Convert ReceivedNutzap to expected format
+      await createRedemption({
+        nutzapEventIds: [nutzap.id],
+        direction: 'in' as const,
+        amount: nutzap.amount.toString(),
+        createdTokenEventId: nutzap.id // Using the same ID for now
+      });
+
       toast({
         title: "Nutzap claimed!",
         description: `Successfully claimed ${formatBalance(nutzap.amount)} sats`
@@ -222,7 +229,7 @@ export function NutzapCard({
                 {unclaimedCount} nutzap{unclaimedCount !== 1 ? 's' : ''}
               </p>
             </div>
-            
+
             <div className="space-y-1">
               <div className="flex items-center space-x-1">
                 <Zap className="h-3 w-3 text-orange-600" />
@@ -247,7 +254,7 @@ export function NutzapCard({
               </Button>
             )}
           </div>
-          
+
           {displayNutzaps.length === 0 ? (
             <div className="py-8 text-center">
               <Gift className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
@@ -266,7 +273,7 @@ export function NutzapCard({
                     <NutzapItem
                       nutzap={nutzap}
                       onRedeem={handleRedeem}
-                      isRedeeming={redeemingNutzapId === nutzap.id}
+                      isRedeeming={redeemingNutzapId === nutzap.id && isCreatingRedemption}
                     />
                     {index < displayNutzaps.length - 1 && (
                       <div className="border-b border-border/50" />
@@ -289,10 +296,10 @@ export function NutzapCard({
                 const unclaimedNutzaps = nutzaps.filter(n => n.status === 'pending');
                 unclaimedNutzaps.forEach(nutzap => handleRedeem(nutzap));
               }}
-              disabled={isRedeeming}
+              disabled={isCreatingRedemption}
               className="w-full"
             >
-              {isRedeeming ? (
+              {isCreatingRedemption ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Claiming All...

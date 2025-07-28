@@ -53,19 +53,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return relayMap;
       },
       eventRouter(_event: NostrEvent) {
-        // Publish to all selected relays
-        const allRelays = new Set<string>(relayUrls.current);
-
-        // Also publish to the preset relays, capped to 5 total
-        for (const { url } of (presetRelays ?? [])) {
-          allRelays.add(url);
-
-          if (allRelays.size >= 5) {
-            break;
-          }
-        }
-
-        return [...allRelays];
+        // Publish only to the configured relays - don't auto-add preset relays
+        return [...relayUrls.current];
       },
     });
   }

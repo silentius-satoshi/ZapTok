@@ -1,198 +1,189 @@
-import { useState } from 'react';
-import { useSendNutzap } from '@/hooks/useSendNutzap';
-import { useAuthor } from '@/hooks/useAuthor';
-import { formatBalance } from '@/lib/cashu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Zap, 
-  User,
-  Send,
-  Loader2
-} from 'lucide-react';
-import { useToast } from '@/hooks/useToast';
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuthor } from "@/hooks/useAuthor";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useSendNutzap, useFetchNutzapInfo, useVerifyMintCompatibility } from "@/hooks/useSendNutzap";
+import { useCashuWallet } from "@/hooks/useCashuWallet";
+import { useCashuStore } from "@/stores/cashuStore";
+import { useCashuToken } from "@/hooks/useCashuToken";
+import { Proof } from "@cashu/cashu-ts";
+import { toast } from "sonner";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useBitcoinPrice, satsToUSD, formatUSD } from "@/hooks/useBitcoinPrice";
+import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
+import { formatBalance } from "@/lib/cashu";
 
 interface UserNutzapDialogProps {
-  userPubkey: string;
-  children: React.ReactNode;
-  eventId?: string; // Optional event to nutzap on
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  pubkey: string;
 }
 
-export function UserNutzapDialog({ 
-  userPubkey, 
-  children, 
-  eventId 
-}: UserNutzapDialogProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [amount, setAmount] = useState<number>(21);
-  const [comment, setComment] = useState('');
-  
-  const { sendNutzap, isSending } = useSendNutzap();
-  const author = useAuthor(userPubkey);
-  const { toast } = useToast();
-
+export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialogProps) {
+  const author = useAuthor(pubkey);
   const metadata = author.data?.metadata;
+  const { user } = useCurrentUser();
+  const { wallet } = useCashuWallet();
+  const cashuStore = useCashuStore();
+  const { sendToken } = useCashuToken();
+  const { sendNutzap, isSending } = useSendNutzap();
+  const { fetchNutzapInfo, isFetching } = useFetchNutzapInfo();
+  const { verifyMintCompatibility } = useVerifyMintCompatibility();
+  const { showSats } = useCurrencyDisplayStore();
+  const { data: btcPrice } = useBitcoinPrice();
+  
+  const displayName = metadata?.name || pubkey.slice(0, 8);
+  const profileImage = metadata?.picture;
+
+  const [amount, setAmount] = useState("");
+  const [comment, setComment] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Create a unique event ID for the zap
+  const eventId = `user-zap-${pubkey.slice(0, 8)}-${Date.now()}`;
+
+  // Format amount based on user preference
+  const formatAmount = (sats: number) => {
+    if (showSats) {
+      return formatBalance(sats);
+    } else if (btcPrice) {
+      return formatUSD(satsToUSD(sats, btcPrice.USD));
+    }
+    return formatBalance(sats);
+  };
 
   const handleSendNutzap = async () => {
-    if (amount <= 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Amount must be greater than 0",
-        variant: "destructive"
-      });
+    if (!user || !wallet || !cashuStore.activeMintUrl) {
+      return;
+    }
+
+    if (!amount || isNaN(parseFloat(amount))) {
+      toast.error("Please enter a valid amount");
       return;
     }
 
     try {
+      setIsProcessing(true);
+
+      // Fetch recipient's nutzap info
+      const recipientInfo = await fetchNutzapInfo(pubkey);
+
+      // Convert amount based on currency preference
+      let amountValue: number;
+
+      if (showSats) {
+        amountValue = parseInt(amount);
+      } else {
+        // Convert USD to sats
+        if (!btcPrice) {
+          toast.error("Bitcoin price not available");
+          return;
+        }
+        const usdAmount = parseFloat(amount);
+        amountValue = Math.round((usdAmount / btcPrice.USD) * 100000000); // Convert USD to sats
+      }
+
+      if (amountValue < 1) {
+        toast.error("Amount must be at least 1 sat");
+        return;
+      }
+
+      // Verify mint compatibility and get a compatible mint URL
+      const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
+
+      // Send token using p2pk pubkey from recipient info
+      const proofs = (await sendToken(
+        compatibleMintUrl,
+        amountValue,
+        recipientInfo.p2pkPubkey
+      )) as Proof[];
+
+      // Send nutzap using recipient info
       await sendNutzap({
-        recipientPubkey: userPubkey,
-        amount,
+        recipientInfo,
         comment,
-        eventId
+        proofs,
+        mintUrl: compatibleMintUrl,
+        eventId: eventId,
       });
 
-      toast({
-        title: "Nutzap sent!",
-        description: `Sent ${formatBalance(amount)} sats to ${metadata?.name || 'user'}`
-      });
-
-      setIsOpen(false);
-      setAmount(21);
-      setComment('');
-    } catch (err) {
-      toast({
-        title: "Failed to send nutzap",
-        description: err instanceof Error ? err.message : "Unknown error",
-        variant: "destructive"
-      });
+      toast.success(`Successfully sent ${formatAmount(amountValue)} to ${displayName}`);
+      setAmount("");
+      setComment("");
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error sending nutzap:", error);
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  // Preset amounts
-  const presetAmounts = [21, 100, 500, 1000, 5000];
-
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      
-      <DialogContent className="max-w-md">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <Zap className="h-5 w-5 text-orange-500" />
-            <span>Send Nutzap</span>
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Recipient Info */}
-          <div className="flex items-center space-x-3 p-4 bg-muted/30 rounded-lg">
-            <Avatar className="h-12 w-12">
-              <AvatarImage src={metadata?.picture} />
-              <AvatarFallback>
-                {metadata?.name?.[0] || <User className="h-6 w-6" />}
-              </AvatarFallback>
+          <div className="flex flex-col items-center text-center">
+            <Avatar className="h-10 w-10 mb-2">
+              <AvatarImage src={profileImage} />
+              <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <div className="flex-1">
-              <p className="font-medium">
-                {metadata?.name || 'Anonymous User'}
-              </p>
-              {metadata?.about && (
-                <p className="text-sm text-muted-foreground truncate">
-                  {metadata.about}
-                </p>
-              )}
-              <div className="flex items-center space-x-1 mt-1">
-                <Badge variant="outline" className="text-xs">
-                  npub...{userPubkey.slice(-8)}
-                </Badge>
-              </div>
-            </div>
+            <DialogTitle>
+              Send eCash to {displayName}
+            </DialogTitle>
+            <DialogDescription className="text-center mt-1">
+              Send eCash directly to this user to show your support.
+            </DialogDescription>
           </div>
-
-          {/* Amount Selection */}
-          <div className="space-y-3">
-            <Label htmlFor="amount">Amount (sats)</Label>
-            <div className="space-y-3">
-              <Input
-                id="amount"
-                type="number"
-                value={amount || ''}
-                onChange={(e) => setAmount(Number(e.target.value))}
-                placeholder="Enter amount in sats"
-                min="1"
-              />
-              
-              {/* Preset Buttons */}
-              <div className="flex flex-wrap gap-2">
-                {presetAmounts.map((preset) => (
-                  <Button
-                    key={preset}
-                    variant={amount === preset ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setAmount(preset)}
-                    className="text-xs"
-                  >
-                    {formatBalance(preset)}
-                  </Button>
-                ))}
-              </div>
-            </div>
+        </DialogHeader>
+        
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="user-amount" className="text-right">
+              Amount {showSats ? "(sats)" : "(USD)"}
+            </Label>
+            <Input
+              id="user-amount"
+              type="number"
+              placeholder={showSats ? "100" : "0.10"}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="col-span-3"
+            />
           </div>
-
-          {/* Comment */}
-          <div className="space-y-2">
-            <Label htmlFor="comment">Comment (optional)</Label>
-            <Textarea
-              id="comment"
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="user-comment" className="text-right">
+              Comment
+            </Label>
+            <Input
+              id="user-comment"
+              placeholder="Thanks for your contributions!"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Add a message with your nutzap..."
-              rows={3}
-              maxLength={280}
+              className="col-span-3"
             />
-            {comment && (
-              <p className="text-xs text-muted-foreground text-right">
-                {comment.length}/280
-              </p>
-            )}
           </div>
-
-          {/* Event Context */}
-          {eventId && (
-            <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                This nutzap will be attached to a specific post or event.
-              </p>
-            </div>
-          )}
-
-          {/* Send Button */}
-          <Button
-            onClick={handleSendNutzap}
-            disabled={isSending || amount <= 0}
-            className="w-full"
-            size="lg"
-          >
-            {isSending ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Sending Nutzap...
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4 mr-2" />
-                Send {formatBalance(amount)} sats
-              </>
-            )}
-          </Button>
         </div>
+        
+        <DialogFooter>
+          <Button
+            type="submit"
+            onClick={handleSendNutzap}
+            disabled={isProcessing || isSending || isFetching || !amount}
+          >
+            {isProcessing ? "Sending..." : "Send eCash"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

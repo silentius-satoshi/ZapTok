@@ -58,7 +58,10 @@ export function calculateBalance(proofs: Proof[]): Record<string, number> {
   for (const mint of mints) {
     balances[mint.url] = 0;
     const keysets = mint.keysets;
-    if (!keysets) continue;
+    
+    // Ensure keysets is an array and is iterable
+    if (!keysets || !Array.isArray(keysets)) continue;
+    
     for (const keyset of keysets) {
       // select all proofs with id == keyset.id
       const proofsForKeyset = proofs.filter((proof) => proof.id === keyset.id);
@@ -110,15 +113,17 @@ export function isValidCashuToken(tokenString: string): boolean {
   }
 }
 
-export async function activateMint(url: string): Promise<CashuWallet> {
+export async function activateMint(url: string): Promise<{ mintInfo: any, keysets: any }> {
   try {
     const mint = new CashuMint(url);
     
-    // Try to get keys to verify the mint is working
-    await mint.getKeys();
+    // Get mint info and keysets
+    const [mintInfo, keysets] = await Promise.all([
+      mint.getInfo(),
+      mint.getKeys()
+    ]);
     
-    const wallet = new CashuWallet(mint);
-    return wallet;
+    return { mintInfo, keysets };
   } catch (error) {
     console.error('Failed to activate mint:', error);
     throw new Error(`Failed to activate mint: ${error instanceof Error ? error.message : 'Unknown error'}`);
