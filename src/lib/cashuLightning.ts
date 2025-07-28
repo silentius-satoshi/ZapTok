@@ -188,6 +188,7 @@ export async function payMeltQuote(mintUrl: string, quoteId: string, proofs: Pro
       fee: meltQuote.fee_reserve || 0,
       change: meltResponse.change || [],
       keep,
+      send,
       success: true
     };
   } catch (error) {
@@ -245,3 +246,6 @@ export function parseInvoiceAmount(paymentRequest: string): number | null {
     return null;
   }
 }
+
+// Alias for compatibility
+export { payMeltQuote as payLightningInvoice };

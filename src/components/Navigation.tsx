@@ -88,7 +88,7 @@ export function Navigation() {
     { id: 'global', icon: Globe, label: 'Global', onClick: () => handleNavigateToPage('/global'), path: '/global' },
     { id: 'userSearch', icon: UserPlus, label: 'Search Users', onClick: handleUserSearchClick },
     { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => setActiveTab('notifications') },
-    { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: handleWalletClick },
+    { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: () => handleNavigateToPage('/wallet'), path: '/wallet' },
     { id: 'settings', icon: Settings, label: 'Settings', onClick: () => handleNavigateToPage('/settings'), path: '/settings' },
   ];
 
@@ -105,6 +105,8 @@ export function Navigation() {
       setActiveTab('global');
     } else if (pathname === '/settings') {
       setActiveTab('settings');
+    } else if (pathname === '/wallet') {
+      setActiveTab('wallet');
     } else if (pathname === '/stream') {
       setActiveTab('stream');
     } else if (pathname.startsWith('/profile')) {
