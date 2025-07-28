@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ChevronDown, ChevronUp, Send, Download, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 
@@ -90,20 +91,20 @@ export function CashuTokenCard() {
   };
 
   return (
-    <Card className="bg-gray-800 border-gray-700">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 bg-purple-400 rounded-lg flex items-center justify-center">
               <div className="w-2 h-2 bg-gray-800 rounded-lg"></div>
             </div>
-            <CardTitle className="text-white font-medium">Send & Receive</CardTitle>
+            <CardTitle>Send & Receive</CardTitle>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={toggleExpanded}
-            className="text-gray-400 hover:text-white h-6 w-6 p-0"
+            className="h-6 w-6 p-0"
           >
             {isExpanded ? (
               <ChevronUp className="w-4 h-4" />
@@ -112,18 +113,18 @@ export function CashuTokenCard() {
             )}
           </Button>
         </div>
-        <p className="text-gray-400 text-sm">Transfer Cashu tokens</p>
+        <p className="text-muted-foreground text-sm">Transfer Cashu tokens</p>
       </CardHeader>
 
       {isExpanded && (
         <CardContent className="pt-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-gray-700">
-              <TabsTrigger value="receive" className="data-[state=active]:bg-gray-600">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="receive">
                 <Download className="w-4 h-4 mr-2" />
                 Receive
               </TabsTrigger>
-              <TabsTrigger value="send" className="data-[state=active]:bg-gray-600">
+              <TabsTrigger value="send">
                 <Send className="w-4 h-4 mr-2" />
                 Send
               </TabsTrigger>
@@ -132,18 +133,18 @@ export function CashuTokenCard() {
             <TabsContent value="receive" className="mt-4 space-y-4">
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-white mb-1">Token</label>
+                  <label className="block text-sm font-medium mb-1">Token</label>
                   <Textarea
                     placeholder="cashuB..."
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
-                    className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400 min-h-[100px]"
+                    className="min-h-[100px]"
                   />
                 </div>
                 <Button 
                   onClick={handleReceiveToken}
                   disabled={!token.trim() || isLoading}
-                  className="w-full bg-green-500 hover:bg-green-600 text-white font-medium"
+                  className="w-full"
                 >
                   {isLoading ? "Processing..." : "Receive Token"}
                 </Button>
@@ -153,32 +154,30 @@ export function CashuTokenCard() {
             <TabsContent value="send" className="mt-4 space-y-4">
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-white mb-1">Amount (sats)</label>
+                  <label className="block text-sm font-medium mb-1">Amount (sats)</label>
                   <Input
                     type="number"
                     placeholder="1000"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
                   />
                 </div>
                 <Button 
                   onClick={handleSendToken}
                   disabled={!amount || isLoading}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium"
+                  className="w-full"
                 >
                   {isLoading ? "Generating..." : "Generate Token"}
                 </Button>
 
                 {generatedToken && (
-                  <div className="mt-4 p-3 bg-gray-700 rounded-lg">
+                  <div className="mt-4 p-3 bg-muted rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm font-medium text-white">Generated Token</label>
+                      <label className="text-sm font-medium">Generated Token</label>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={copyToken}
-                        className="text-gray-400 hover:text-white"
                       >
                         <Copy className="w-4 h-4" />
                       </Button>
@@ -186,7 +185,7 @@ export function CashuTokenCard() {
                     <Textarea
                       value={generatedToken}
                       readOnly
-                      className="bg-gray-600 border-gray-500 text-white text-xs min-h-[80px]"
+                      className="text-xs min-h-[80px]"
                     />
                   </div>
                 )}
@@ -195,15 +194,15 @@ export function CashuTokenCard() {
           </Tabs>
 
           {error && (
-            <div className="mt-3 p-3 bg-red-900/50 border border-red-700 rounded-lg">
-              <p className="text-red-300 text-sm">{error}</p>
-            </div>
+            <Alert variant="destructive" className="mt-3">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           {success && (
-            <div className="mt-3 p-3 bg-green-900/50 border border-green-700 rounded-lg">
-              <p className="text-green-300 text-sm">{success}</p>
-            </div>
+            <Alert className="mt-3">
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
           )}
         </CardContent>
       )}

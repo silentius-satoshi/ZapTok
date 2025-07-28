@@ -31,11 +31,11 @@ export function LightningWallet() {
                 
                 {/* Wallet Cards Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <CashuWalletCard />
                   <CashuWalletLightningCard />
-                  <CashuHistoryCard />
+                  <CashuWalletCard />
                   <CashuTokenCard />
                   <NutzapCard />
+                  <CashuHistoryCard className="lg:col-span-2" />
                 </div>
               </div>
             </div>
