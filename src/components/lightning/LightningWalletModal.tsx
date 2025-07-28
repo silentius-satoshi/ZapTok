@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useWallet } from '@/hooks/useWallet';
 import { useCashu } from '@/hooks/useCashu';
+import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { SendReceivePanel } from '@/components/SendReceivePanel';
 import { CashuWalletCard } from '@/components/CashuWalletCard';
 
@@ -22,59 +23,11 @@ interface LightningWalletModalProps {
 const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) => {
   const { walletInfo } = useWallet();
   const { currentBalance: cashuBalance } = useCashu();
+  const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
   const [showInSats, setShowInSats] = useState(true);
   const [cashuToken, setCashuToken] = useState('');
   const [_isLoadingTransactions, _setIsLoadingTransactions] = useState(false);
   const [_transactionFilter, _setTransactionFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
-
-  // Real-time Bitcoin price state
-  const [btcPrice, setBtcPrice] = useState(65000); // fallback price
-  const [priceLoading, setPriceLoading] = useState(false);
-  const [lastPriceUpdate, setLastPriceUpdate] = useState<Date | null>(null);
-
-  // Fetch real-time Bitcoin price from CoinGecko API
-  useEffect(() => {
-    if (!isOpen) return; // Only fetch when modal is open
-
-    const fetchBitcoinPrice = async () => {
-      setPriceLoading(true);
-      try {
-        const response = await fetch(
-          'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_last_updated_at=true',
-          {
-            headers: {
-              'Accept': 'application/json',
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.bitcoin && data.bitcoin.usd) {
-          setBtcPrice(data.bitcoin.usd);
-          setLastPriceUpdate(new Date());
-          console.log('Bitcoin price updated:', data.bitcoin.usd);
-        }
-      } catch (error) {
-        console.error('Failed to fetch Bitcoin price:', error);
-        // Keep using the fallback/previous price on error
-      } finally {
-        setPriceLoading(false);
-      }
-    };
-
-    // Fetch price immediately when modal opens
-    fetchBitcoinPrice();
-
-    // Set up interval to fetch price every 1 minute while modal is open
-    const interval = setInterval(fetchBitcoinPrice, 1 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [isOpen]);
 
   const totalBalance = (walletInfo?.balance || 0) + (cashuBalance || 0);
 
@@ -82,10 +35,13 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
     if (showInSats) {
       return `₿ ${sats.toLocaleString()} sats`;
     } else {
-      // Convert sats to BTC, then to USD using real-time price
-      const btcAmount = sats / 100_000_000; // Convert sats to BTC
-      const usdAmount = btcAmount * btcPrice;
-      return `$ ${usdAmount.toFixed(2)} USD`;
+      // Use the existing useBitcoinPrice hook utilities
+      if (btcPriceData?.USD) {
+        const usdAmount = satsToUSD(sats, btcPriceData.USD);
+        return `$ ${formatUSD(usdAmount).replace(' usd', ' USD')}`;
+      } else {
+        return `$ ${sats.toLocaleString()} sats (price loading...)`;
+      }
     }
   };
 
@@ -115,7 +71,7 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
               size="sm"
               onClick={() => setShowInSats(!showInSats)}
               className="text-gray-400 hover:text-white text-xs flex items-center gap-1 mx-auto mt-2"
-              title={`Switch to ${showInSats ? 'USD' : 'sats'} ${priceLoading ? '(updating price...)' : lastPriceUpdate ? `(updated ${lastPriceUpdate.toLocaleTimeString()})` : ''}`}
+              title={`Switch to ${showInSats ? 'USD' : 'sats'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`}
             >
               {showInSats ? (
                 <>
@@ -127,7 +83,7 @@ const LightningWalletModal = ({ isOpen, onClose }: LightningWalletModalProps) =>
                 </>
               )}
               <RotateCcw className="w-3 h-3" />
-              {!showInSats && priceLoading && <span className="opacity-50">⟳</span>}
+              {!showInSats && isPriceLoading && <span className="opacity-50">⟳</span>}
             </Button>
           </div>
         </DialogHeader>
