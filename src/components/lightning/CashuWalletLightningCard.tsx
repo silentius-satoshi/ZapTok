@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronUp, QrCode } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronUp, QrCode, Zap } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -320,23 +320,27 @@ export function CashuWalletLightningCard() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Lightning</CardTitle>
-          <CardDescription>Withdraw or deposit Bitcoin</CardDescription>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Zap className="w-5 h-5 text-yellow-400" />
+            <CardTitle>Lightning</CardTitle>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => walletUiStore.toggleCardExpansion("lightning")}
+            aria-label={isExpanded ? "Collapse" : "Expand"}
+            className="h-6 w-6 p-0"
+          >
+            {isExpanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => walletUiStore.toggleCardExpansion("lightning")}
-          aria-label={isExpanded ? "Collapse" : "Expand"}
-        >
-          {isExpanded ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-        </Button>
+        <p className="text-muted-foreground text-sm">Withdraw or deposit Bitcoin</p>
       </CardHeader>
       {isExpanded && (
         <CardContent>

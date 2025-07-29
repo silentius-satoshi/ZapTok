@@ -2,6 +2,7 @@
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
 import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { LoginModal } from './LoginModal';
@@ -10,7 +11,6 @@ import { AccountSwitcher } from './AccountSwitcher';
 import { useWallet } from '@/hooks/useWallet';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { cn } from '@/lib/utils';
-import LightningWalletModal from '@/components/lightning/LightningWalletModal';
 
 export interface LoginAreaProps {
   className?: string;
@@ -21,8 +21,8 @@ export function LoginArea({ className }: LoginAreaProps) {
   const { walletInfo, isConnected, getBalance, provider } = useWallet();
   const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
   const [loginModalOpen, setLoginModalOpen] = useState(false);
-  const [lightningModalOpen, setLightningModalOpen] = useState(false);
   const [currency, setCurrency] = useState<'BTC' | 'USD'>('BTC');
+  const navigate = useNavigate();
 
   // Function to refresh wallet balance
   const refreshBalance = useCallback(async () => {
@@ -68,7 +68,7 @@ export function LoginArea({ className }: LoginAreaProps) {
   const LightningWalletButton = () => (
     <button
       className='group flex items-center justify-center p-3 rounded-xl bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200'
-      onClick={() => setLightningModalOpen(true)}
+      onClick={() => navigate('/wallet')}
       title="Lightning Wallet"
     >
       <Zap className='w-4 h-4 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-200' />
@@ -132,11 +132,6 @@ export function LoginArea({ className }: LoginAreaProps) {
       <LoginModal
         isOpen={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
-      />
-
-      <LightningWalletModal
-        isOpen={lightningModalOpen}
-        onClose={() => setLightningModalOpen(false)}
       />
     </div>
   );

@@ -5,7 +5,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
-import LightningWalletModal from '@/components/lightning/LightningWalletModal';
 import { VideoUploadModal } from '@/components/VideoUploadModal';
 import { UserSearchModal } from '@/components/UserSearchModal';
 import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
@@ -25,7 +24,6 @@ export function Navigation() {
     return 'following'; // default to following for now
   });
   
-  const [showWalletModal, setShowWalletModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -34,12 +32,6 @@ export function Navigation() {
     setActiveTab('profile');
     pauseAllVideos();
     navigate('/profile');
-  };
-
-  const handleWalletClick = () => {
-    setActiveTab('wallet');
-    pauseAllVideos();
-    setShowWalletModal(true);
   };
 
   const handleUploadClick = () => {
@@ -52,11 +44,6 @@ export function Navigation() {
     setActiveTab('userSearch');
     pauseAllVideos();
     setShowUserSearchModal(true);
-  };
-
-  const handleWalletModalClose = () => {
-    setShowWalletModal(false);
-    resumeAllVideos();
   };
 
   const handleUploadModalClose = () => {
@@ -317,12 +304,6 @@ export function Navigation() {
           </div>
         )}
       </div>
-
-      {/* Lightning Wallet Modal */}
-      <LightningWalletModal 
-        isOpen={showWalletModal} 
-        onClose={handleWalletModalClose} 
-      />
 
       {/* Video Upload Modal */}
       <VideoUploadModal 

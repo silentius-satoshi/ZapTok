@@ -94,12 +94,7 @@ export function CashuTokenCard() {
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-purple-400 rounded-lg flex items-center justify-center">
-              <div className="w-2 h-2 bg-gray-800 rounded-lg"></div>
-            </div>
-            <CardTitle>Send & Receive</CardTitle>
-          </div>
+          <CardTitle>Send & Receive</CardTitle>
           <Button
             variant="ghost"
             size="sm"
