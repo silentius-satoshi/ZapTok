@@ -8,11 +8,12 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import {
   CheckCheck,
   Trash2,
-  Settings
+  Settings,
+  ArrowLeft
 } from 'lucide-react';
 import NotificationItem from '@/components/NotificationItem';
 
@@ -20,6 +21,12 @@ export default function Notifications() {
   const { user } = useCurrentUser();
   const { data: notifications = [], isLoading, refetch } = useNotifications();
   const [selectedTab, setSelectedTab] = useState('all');
+  const navigate = useNavigate();
+
+  // Redirect to home if user is not logged in
+  if (!user) {
+    return <Navigate to="/" />;
+  }
 
   // Filter notifications based on selected tab
   const filteredNotifications = useMemo(() => {
@@ -46,10 +53,9 @@ export default function Notifications() {
     return notifications.filter(n => !n.read).length;
   }, [notifications]);
 
-  // Redirect to home if user is not logged in
-  if (!user) {
-    return <Navigate to="/" />;
-  }
+  const handleBack = () => {
+    navigate(-1); // Go back to previous page
+  };
 
   const markAllAsRead = () => {
     // Implementation for marking all as read
@@ -59,6 +65,10 @@ export default function Notifications() {
   const clearAllNotifications = () => {
     // Implementation for clearing all notifications
     refetch();
+  };
+
+  const handleSettingsClick = () => {
+    navigate('/settings?section=notifications');
   };
 
   if (isLoading) {
@@ -94,14 +104,24 @@ export default function Notifications() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              Notifications
-              {unreadCount > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {unreadCount}
-                </Badge>
-              )}
-            </CardTitle>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                className="p-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <CardTitle className="flex items-center gap-2">
+                Notifications
+                {unreadCount > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {unreadCount}
+                  </Badge>
+                )}
+              </CardTitle>
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -120,7 +140,11 @@ export default function Notifications() {
                 <Trash2 className="h-4 w-4 mr-1" />
                 Clear all
               </Button>
-              <Button variant="ghost" size="sm">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={handleSettingsClick}
+              >
                 <Settings className="h-4 w-4" />
               </Button>
             </div>
