@@ -7,16 +7,30 @@ import { KINDS } from '@/lib/nostr-kinds';
 
 export interface Notification {
   id: string;
-  type: 'group_update' | 'tag_post' | 'tag_reply' | 'reaction' | 'post_approved' | 'post_removed' | 'join_request' | 'report' | 'report_action' | 'leave_request';
+  type: 'NEW_USER_FOLLOWED_YOU' | 'USER_UNFOLLOWED_YOU' | 'YOUR_POST_WAS_ZAPPED' | 'YOUR_POST_WAS_LIKED' | 'YOUR_POST_WAS_REPOSTED' | 'YOUR_POST_WAS_REPLIED_TO' | 'YOU_WERE_MENTIONED_IN_POST' | 'YOUR_POST_WAS_MENTIONED_IN_POST' | 'POST_YOU_WERE_MENTIONED_IN_WAS_ZAPPED' | 'POST_YOU_WERE_MENTIONED_IN_WAS_LIKED' | 'POST_YOU_WERE_MENTIONED_IN_WAS_REPOSTED' | 'POST_YOU_WERE_MENTIONED_IN_WAS_REPLIED_TO' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_ZAPPED' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_LIKED' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_REPOSTED' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_REPLIED_TO' | 'YOUR_POST_WAS_HIGHLIGHTED' | 'YOUR_POST_WAS_BOOKMARKED' | 'YOUR_POST_HAD_REACTION';
   message: string;
   createdAt: number;
   read: boolean;
   eventId?: string;
   groupId?: string;
+  users?: NotificationUser[];
   pubkey?: string;
   reportType?: string;
   actionType?: string;
+  sats?: number;
+  iconInfo?: string;
+  iconTooltip?: string;
 }
+
+export interface NotificationUser {
+  id: string;
+  name?: string;
+  picture?: string;
+  followers_count: number;
+  verified?: boolean;
+}
+
+export type NotificationGroup = 'all' | 'zaps' | 'likes' | 'reposts' | 'mentions' | 'follows' | 'replies';
 
 // Helper function to get community ID
 const getCommunityId = (community: NostrEvent) => {
@@ -68,11 +82,12 @@ export function useNotifications() {
             
             notifications.push({
               id: event.id,
-              type: isTopLevel ? 'tag_post' : 'tag_reply',
-              message: isTopLevel ? `tagged you in a post` : `tagged you in a reply`,
+              type: isTopLevel ? 'YOU_WERE_MENTIONED_IN_POST' : 'YOUR_POST_WAS_REPLIED_TO',
+              message: isTopLevel ? `mentioned you in a post` : `replied to your post`,
               createdAt: event.created_at,
               read: !!readNotifications[event.id],
               eventId: event.id,
+              users: [{ id: event.pubkey, followers_count: 0 }],
               pubkey: event.pubkey,
               groupId
             });
@@ -83,11 +98,12 @@ export function useNotifications() {
             
             notifications.push({
               id: event.id,
-              type: 'reaction',
-              message: `reacted to your post`,
+              type: 'YOUR_POST_WAS_LIKED',
+              message: `liked your post`,
               createdAt: event.created_at,
               read: !!readNotifications[event.id],
               eventId: targetEventId,
+              users: [{ id: event.pubkey, followers_count: 0 }],
               pubkey: event.pubkey,
               groupId
             });
@@ -100,11 +116,12 @@ export function useNotifications() {
             
             notifications.push({
               id: event.id,
-              type: 'post_approved',
+              type: 'YOUR_POST_WAS_LIKED', // Post approval notification
               message: `approved your post to a group`,
               createdAt: event.created_at,
               read: !!readNotifications[event.id],
               eventId: event.tags.find(tag => tag[0] === 'e')?.[1],
+              users: [{ id: event.pubkey, followers_count: 0 }],
               pubkey: event.pubkey,
               groupId: communityRef
             });
@@ -116,11 +133,12 @@ export function useNotifications() {
             
             notifications.push({
               id: event.id,
-              type: 'post_removed',
+              type: 'YOUR_POST_WAS_LIKED', // Post removal notification
               message: `removed your post from a group`,
               createdAt: event.created_at,
               read: !!readNotifications[event.id],
               eventId: event.tags.find(tag => tag[0] === 'e')?.[1],
+              users: [{ id: event.pubkey, followers_count: 0 }],
               pubkey: event.pubkey,
               groupId: communityRef
             });
@@ -134,11 +152,12 @@ export function useNotifications() {
             
             notifications.push({
               id: event.id,
-              type: 'group_update',
+              type: 'YOUR_POST_WAS_LIKED', // Group update notification
               message: `Your group "${groupName}" has been updated`,
               createdAt: event.created_at,
               read: !!readNotifications[event.id],
               eventId: event.id,
+              users: [{ id: event.pubkey, followers_count: 0 }],
               groupId: fullGroupId
             });
             break;
@@ -210,12 +229,13 @@ export function useNotifications() {
 
           notifications.push({
             id: event.id,
-            type: 'report',
+            type: 'YOUR_POST_WAS_LIKED', // Report notification
             message: `New ${reportType} report in group`,
             createdAt: event.created_at,
             read: !!readNotifications[event.id],
             eventId: event.id,
             groupId,
+            users: [{ id: event.pubkey, followers_count: 0 }],
             pubkey: event.pubkey,
             reportType
           });
@@ -234,12 +254,13 @@ export function useNotifications() {
 
           notifications.push({
             id: event.id,
-            type: 'report_action',
+            type: 'YOUR_POST_WAS_LIKED', // Moderation action notification
             message: `Moderator took action (${actionType}) on a report`,
             createdAt: event.created_at,
             read: !!readNotifications[event.id],
             eventId: reportId,
             groupId,
+            users: [{ id: event.pubkey, followers_count: 0 }],
             pubkey: event.pubkey,
             actionType
           });
@@ -255,12 +276,13 @@ export function useNotifications() {
 
           notifications.push({
             id: event.id,
-            type: 'join_request',
+            type: 'NEW_USER_FOLLOWED_YOU', // Join request notification
             message: `New request to join group`,
             createdAt: event.created_at,
             read: !!readNotifications[event.id],
             eventId: event.id,
             groupId,
+            users: [{ id: event.pubkey, followers_count: 0 }],
             pubkey: event.pubkey
           });
         }
@@ -275,12 +297,13 @@ export function useNotifications() {
 
           notifications.push({
             id: event.id,
-            type: 'leave_request',
+            type: 'USER_UNFOLLOWED_YOU', // Leave request notification
             message: `User requested to leave group`,
             createdAt: event.created_at,
             read: !!readNotifications[event.id],
             eventId: event.id,
             groupId,
+            users: [{ id: event.pubkey, followers_count: 0 }],
             pubkey: event.pubkey
           });
         }
