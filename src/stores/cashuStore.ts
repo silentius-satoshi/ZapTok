@@ -113,7 +113,7 @@ export interface CashuStore {
   addQuote: (mintUrl: string, quote: MintQuoteResponse | MeltQuoteResponse) => void;
   removeQuote: (id: string) => void;
 
-  // Separate methods for mint and melt quotes (Chorus compatibility)
+  // Separate methods for mint and melt quotes
   addMintQuote: (mintUrl: string, quote: MintQuoteResponse) => void;
   addMeltQuote: (mintUrl: string, quote: MeltQuoteResponse) => void;
   updateMintQuote: (mintUrl: string, quoteId: string, quote: MintQuoteResponse) => void;
@@ -128,7 +128,7 @@ export interface CashuStore {
   getTotalBalance: () => number;
   getBalanceByMint: (mintUrl: string) => number;
   
-  // Chorus compatibility methods
+  // Additional wallet methods
   getMintProofs: (mintUrl: string) => Promise<Proof[]>;
   privkey?: string;
 }
@@ -374,7 +374,7 @@ export const useCashuStore = create<CashuStore>()(
         // Remove quote by id
       },
 
-      // Chorus compatibility methods for quotes
+      // Quote management methods
       addMintQuote: (mintUrl: string, quote: MintQuoteResponse) => {
         set((state) => {
           const newMintQuotes = new Map(state.mintQuotes);
@@ -438,7 +438,7 @@ export const useCashuStore = create<CashuStore>()(
         return wallet ? wallet.balance : 0;
       },
 
-      // Chorus compatibility methods
+      // Additional wallet methods
       getMintProofs: async (mintUrl: string) => {
         const state = get();
         const mint = state.mints.find(m => m.url === mintUrl);

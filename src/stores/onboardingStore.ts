@@ -23,7 +23,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
       },
     }),
     { 
-      name: 'chorus-onboarding',
+      name: 'zaptok-onboarding',
       // This ensures the data persists even when other stores are cleared
     }
   )
