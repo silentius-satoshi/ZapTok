@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Global from "./pages/Global";
 import Discover from "./pages/Discover";
+import Notifications from "./pages/Notifications";
 import { Settings } from "./pages/Settings";
 import { LightningWallet } from "./pages/LightningWallet";
 import { Stream } from "./components/stream/Stream";
@@ -31,6 +32,7 @@ function RouteHandler() {
       <Route path="/profile" element={<Profile />} />
       <Route path="/profile/:pubkey" element={<Profile />} />
       <Route path="/global" element={<Global />} />
+      <Route path="/notifications" element={<Notifications />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/wallet" element={<LightningWallet />} />
       <Route path="/stream" element={<Stream />} />

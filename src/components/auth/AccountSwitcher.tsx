@@ -1,7 +1,7 @@
 // NOTE: This file is stable and usually should not be modified.
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
-import { ChevronDown, LogOut, UserIcon, UserPlus, Settings, Upload, Wallet, Info, Download } from 'lucide-react';
+import { ChevronDown, LogOut, UserIcon, UserPlus, Settings, Upload, Wallet, Info, Download, Heart } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,7 +84,7 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
         
         {/* View Profile */}
         <DropdownMenuItem
-          onClick={() => {/* TODO: Navigate to profile */}}
+          onClick={() => navigate('/profile')}
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
           <UserIcon className='w-4 h-4' />
@@ -97,7 +97,7 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
           <Wallet className='w-4 h-4' />
-          <span>Lightning Wallet</span>
+          <span>Lightning Wallet settings</span>
         </DropdownMenuItem>
 
         {/* Notifications */}
@@ -105,7 +105,7 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
           onClick={() => navigate('/settings?section=notifications')}
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
-          <div className='w-4 h-4 flex items-center justify-center'>🔔</div>
+          <Heart className='w-4 h-4' />
           <span>Notifications</span>
         </DropdownMenuItem>
 

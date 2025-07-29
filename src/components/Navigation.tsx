@@ -74,7 +74,7 @@ export function Navigation() {
     { id: 'following', icon: Users, label: 'Following', onClick: () => handleNavigateToPage('/'), path: '/' },
     { id: 'global', icon: Globe, label: 'Global', onClick: () => handleNavigateToPage('/global'), path: '/global' },
     { id: 'userSearch', icon: UserPlus, label: 'Search Users', onClick: handleUserSearchClick },
-    { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => setActiveTab('notifications') },
+    { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => handleNavigateToPage('/notifications'), path: '/notifications' },
     { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: () => handleNavigateToPage('/wallet'), path: '/wallet' },
     { id: 'settings', icon: Settings, label: 'Settings', onClick: () => handleNavigateToPage('/settings'), path: '/settings' },
   ];
