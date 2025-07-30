@@ -5,7 +5,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
-import LightningWalletModal from '@/components/lightning/LightningWalletModal';
 import { VideoUploadModal } from '@/components/VideoUploadModal';
 import { UserSearchModal } from '@/components/UserSearchModal';
 import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
@@ -25,7 +24,6 @@ export function Navigation() {
     return 'following'; // default to following for now
   });
   
-  const [showWalletModal, setShowWalletModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -34,12 +32,6 @@ export function Navigation() {
     setActiveTab('profile');
     pauseAllVideos();
     navigate('/profile');
-  };
-
-  const handleWalletClick = () => {
-    setActiveTab('wallet');
-    pauseAllVideos();
-    setShowWalletModal(true);
   };
 
   const handleUploadClick = () => {
@@ -52,11 +44,6 @@ export function Navigation() {
     setActiveTab('userSearch');
     pauseAllVideos();
     setShowUserSearchModal(true);
-  };
-
-  const handleWalletModalClose = () => {
-    setShowWalletModal(false);
-    resumeAllVideos();
   };
 
   const handleUploadModalClose = () => {
@@ -87,8 +74,8 @@ export function Navigation() {
     { id: 'following', icon: Users, label: 'Following', onClick: () => handleNavigateToPage('/'), path: '/' },
     { id: 'global', icon: Globe, label: 'Global', onClick: () => handleNavigateToPage('/global'), path: '/global' },
     { id: 'userSearch', icon: UserPlus, label: 'Search Users', onClick: handleUserSearchClick },
-    { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => setActiveTab('notifications') },
-    { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: handleWalletClick },
+    { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => handleNavigateToPage('/notifications'), path: '/notifications' },
+    { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: () => handleNavigateToPage('/wallet'), path: '/wallet' },
     { id: 'settings', icon: Settings, label: 'Settings', onClick: () => handleNavigateToPage('/settings'), path: '/settings' },
   ];
 
@@ -105,6 +92,8 @@ export function Navigation() {
       setActiveTab('global');
     } else if (pathname === '/settings') {
       setActiveTab('settings');
+    } else if (pathname === '/wallet') {
+      setActiveTab('wallet');
     } else if (pathname === '/stream') {
       setActiveTab('stream');
     } else if (pathname.startsWith('/profile')) {
@@ -315,12 +304,6 @@ export function Navigation() {
           </div>
         )}
       </div>
-
-      {/* Lightning Wallet Modal */}
-      <LightningWalletModal 
-        isOpen={showWalletModal} 
-        onClose={handleWalletModalClose} 
-      />
 
       {/* Video Upload Modal */}
       <VideoUploadModal 

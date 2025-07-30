@@ -1,463 +1,368 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, Coins, Loader2, ExternalLink, Wallet, Plus } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { useNIP60Cashu } from '@/hooks/useNIP60Cashu';
-import { CASHU_MINTS } from '@/lib/cashu-types';
-import { useNutzaps } from "@/hooks/useNutzaps";
-import { Zap, Gift } from "lucide-react";
-import { getNutzapAmount, getNutzapMint } from '@/lib/nip61-types';
-import { isValidMintUrl } from '@/lib/cashu-client';
-import { CreateCashuWalletModal } from '../CreateCashuWalletModal';
+import { useState, useEffect, useRef } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { useCashuWallet } from "@/hooks/useCashuWallet";
+import { calculateBalance, formatBalance } from "@/lib/cashu";
+import { useBitcoinPrice, satsToUSD, formatUSD } from "@/hooks/useBitcoinPrice";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  Trash,
+  Eraser,
+} from "lucide-react";
+import { useCashuStore } from "@/stores/cashuStore";
 
-interface CashuWalletCardProps {
-  isConnecting: boolean;
-  onConnect?: () => void; // Make optional
-}
+import { Badge } from "@/components/ui/badge";
+import { useCashuToken } from "@/hooks/useCashuToken";
+import { useCreateCashuWallet } from "@/hooks/useCreateCashuWallet";
+import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
+import { useWalletUiStore } from "@/stores/walletUiStore";
 
-const CashuWalletCard = ({ isConnecting: _externalIsConnecting, onConnect: externalOnConnect }: CashuWalletCardProps) => {
-  const [mintUrl, setMintUrl] = useState('');
-  const [_alias, setAlias] = useState('');
+export function CashuWalletCard() {
+  const { user } = useCurrentUser();
+  const { wallet, isLoading, createWallet } = useCashuWallet();
+  const cashuStore = useCashuStore();
+  const { cleanSpentProofs } = useCashuToken();
+  const { data: btcPrice } = useBitcoinPrice();
+  const { showSats } = useCurrencyDisplayStore();
+  const walletUiStore = useWalletUiStore();
+  const isExpanded = walletUiStore.expandedCards.mints;
+  const [newMint, setNewMint] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [showMintForm, setShowMintForm] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [connectionMethod, setConnectionMethod] = useState<'well-known' | 'custom'>('well-known');
-  const [selectedWellKnownMint, setSelectedWellKnownMint] = useState<keyof typeof CASHU_MINTS>('MINIBITS');
+  const [expandedMint, setExpandedMint] = useState<string | null>(null);
+  const [flashingMints, setFlashingMints] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  // Calculate total balance across all mints
+  const balances = calculateBalance(cashuStore.proofs) as Record<string, number>;
+  const prevBalances = useRef<Record<string, string>>({});
+
+  // Track balance changes for flash effect
+  useEffect(() => {
+    if (!showSats && btcPrice) {
+      Object.keys(balances).forEach((mint) => {
+        const amount = balances[mint] || 0;
+        const currentValue = formatUSD(satsToUSD(amount, btcPrice.USD));
+
+        if (
+          prevBalances.current[mint] &&
+          prevBalances.current[mint] !== currentValue
+        ) {
+          setFlashingMints((prev) => ({ ...prev, [mint]: true }));
+          setTimeout(() => {
+            setFlashingMints((prev) => ({ ...prev, [mint]: false }));
+          }, 300);
+        }
+
+        prevBalances.current[mint] = currentValue;
+      });
+    }
+  }, [balances, btcPrice, showSats]);
+
+  // Use useEffect to set active mint when wallet changes
+  useEffect(() => {
+    if (
+      wallet &&
+      wallet.mints &&
+      wallet.mints.length > 0 &&
+      !cashuStore.activeMintUrl
+    ) {
+      cashuStore.setActiveMintUrl(wallet.mints[0]);
+    }
+  }, [wallet, cashuStore]);
 
   const {
-    wallets,
-    currentWallet: _currentWallet,
-    createWallet,
-    addWellKnownMint,
-    setActiveWallet: _setActiveWallet,
-    isLoading,
-    error: hookError,
-    refreshWallet,
-    testConnection
-  } = useNIP60Cashu();
+    mutate: handleCreateWallet,
+    isPending: isCreatingWallet,
+    error: createWalletError,
+  } = useCreateCashuWallet();
 
-  const {
-    publishNutzapInfo,
-    isNutzapInfoPublished,
-    sendNutzap: _sendNutzap,
-    receivedNutzaps,
-    claimNutzap,
-    isLoading: nutzapLoading,
-    error: nutzapError,
-    totalReceived,
-    totalSent
-  } = useNutzaps();
+  // Update error state when createWalletError changes
+  useEffect(() => {
+    if (createWalletError) {
+      setError(createWalletError.message);
+    }
+  }, [createWalletError]);
 
-  const handleConnect = async () => {
-    setError(null);
-
-    console.log('CashuWalletCard: handleConnect called', { connectionMethod, selectedWellKnownMint, mintUrl });
+  const handleAddMint = () => {
+    if (!wallet || !wallet.mints) return;
 
     try {
-      if (connectionMethod === 'well-known') {
-        console.log('CashuWalletCard: Creating wallet with well-known mint:', selectedWellKnownMint);
-        const walletId = await addWellKnownMint(selectedWellKnownMint);
-        console.log('CashuWalletCard: Wallet created successfully:', walletId);
-      } else {
-        if (!mintUrl.trim()) {
-          setError('Please enter a mint URL');
-          return;
-        }
+      // Validate URL
+      new URL(newMint);
 
-        if (!isValidMintUrl(mintUrl)) {
-          setError('Invalid mint URL format');
-          return;
-        }
+      // Add mint to wallet
+      handleCreateWallet({
+        ...wallet,
+        mints: [...wallet.mints, newMint],
+      });
 
-        console.log('CashuWalletCard: Creating wallet with custom mint:', mintUrl);
-        const walletId = await createWallet([mintUrl]);
-        console.log('CashuWalletCard: Wallet created successfully:', walletId);
-      }
-
-      setMintUrl('');
-      setAlias('');
-      setShowMintForm(false);
-
-      // Only call external handler if provided
-      if (externalOnConnect) {
-        externalOnConnect();
-      }
-    } catch (err) {
-      console.error('CashuWalletCard: Failed to connect Cashu mint:', err);
-      setError(err instanceof Error ? err.message : 'Failed to connect mint');
+      // Clear input
+      setNewMint("");
+      setError(null);
+    } catch {
+      setError("Invalid mint URL");
     }
   };
 
-  const handleRemove = async (_walletId: string) => {
-    // NIP-60 wallets can't be directly removed since they're Nostr events
-    // Instead, we could create a new wallet without the unwanted mints
-    console.warn('NIP-60 wallet removal not implemented - wallets are permanent Nostr events');
+  const handleRemoveMint = (mintUrl: string) => {
+    if (!wallet || !wallet.mints) {
+      setError("No mints found");
+      return;
+    }
+
+    // Don't allow removing the last mint
+    if (wallet.mints.length <= 1) {
+      setError("Cannot remove the last mint");
+      return;
+    }
+
+    try {
+      // Remove mint from wallet
+      handleCreateWallet({
+        ...wallet,
+        mints: wallet.mints.filter((m) => m !== mintUrl),
+      });
+    } catch {
+      setError("Failed to remove mint");
+    }
+
+    // If removing the active mint, set the first available mint as active
+    if (cashuStore.activeMintUrl === mintUrl) {
+      const remainingMints = wallet.mints.filter((m) => m !== mintUrl);
+      if (remainingMints.length > 0) {
+        cashuStore.setActiveMintUrl(remainingMints[0]);
+      }
+    }
+
+    // remove the mint from the cashuStore.mints array
+    cashuStore.mints = cashuStore.mints.filter((m) => m.url !== mintUrl);
+
+    // Close expanded view if open
+    if (expandedMint === mintUrl) {
+      setExpandedMint(null);
+    }
   };
 
-  const handleTest = async (walletId: string) => {
-    await testConnection(walletId);
+  const handleCleanSpentProofs = async (mintUrl: string) => {
+    if (!wallet || !wallet.mints) return;
+    if (!cashuStore.activeMintUrl) return;
+    const spentProofs = await cleanSpentProofs(mintUrl);
+    const proofSum = spentProofs.reduce((sum, proof) => sum + proof.amount, 0);
+    console.log(
+      `Removed ${spentProofs.length} spent proofs for ${proofSum} sats`
+    );
   };
 
-  const handleRefresh = async (walletId: string) => {
-    await refreshWallet(walletId);
+  // Set active mint when clicking on a mint
+  const handleSetActiveMint = (mintUrl: string) => {
+    cashuStore.setActiveMintUrl(mintUrl);
   };
 
-  // Display error from hook if present
-  const displayError = error || hookError || nutzapError;
+  const toggleExpandMint = (mintUrl: string) => {
+    if (expandedMint === mintUrl) {
+      setExpandedMint(null);
+    } else {
+      setExpandedMint(mintUrl);
+    }
+  };
 
-  if (wallets.length > 0) {
+  const cleanMintUrl = (mintUrl: string) => {
+    return mintUrl.replace("https://", "");
+  };
+
+  if (isLoading || isCreatingWallet) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Coins className="w-5 h-5 text-green-400" />
-            NIP-60 Cashu Wallets
-          </h3>
-          <Button
-            onClick={() => setShowCreateModal(true)}
-            variant="outline"
-            size="sm"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Wallet
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Mints</CardTitle>
+            <CardDescription>Loading wallet...</CardDescription>
+          </div>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (!wallet) {
+    return (
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Mints</CardTitle>
+            <CardDescription>You don't have a Cashu wallet yet</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={() => handleCreateWallet(undefined)} disabled={!user}>
+            Create Wallet
           </Button>
-        </div>
-
-        {wallets.map((wallet) => (
-          <div
-            key={wallet.id}
-            className="p-4 bg-gray-900 rounded-lg border border-gray-700"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <Wallet className="w-6 h-6 text-green-400" />
-                </div>
-                <div>
-                  <h4 className="font-medium text-white">
-                    NIP-60 Wallet ({wallet.mints.length} mint{wallet.mints.length !== 1 ? 's' : ''})
-                  </h4>
-                  <div className="flex items-center space-x-2">
-                    <Badge
-                      variant="default"
-                      className="text-xs"
-                    >
-                      On-chain
-                    </Badge>
-                    <span className="text-sm text-gray-400">
-                      {wallet.balance.toLocaleString()} sats
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      ({wallet.tokens.length} token events)
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Button
-                  onClick={() => handleTest(wallet.id)}
-                  variant="ghost"
-                  size="sm"
-                  disabled={isLoading}
-                >
-                  Test
-                </Button>
-                <Button
-                  onClick={() => handleRefresh(wallet.id)}
-                  variant="ghost"
-                  size="sm"
-                  disabled={isLoading}
-                >
-                  Refresh
-                </Button>
-                <Button
-                  onClick={() => handleRemove(wallet.id)}
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-500 hover:text-gray-400"
-                  disabled
-                  title="NIP-60 wallets are permanent Nostr events"
-                >
-                  Permanent
-                </Button>
-              </div>
-            </div>
-
-            <div className="mt-3 pt-3 border-t border-gray-700">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-400">Mints:</span>
-                  <div className="ml-2 text-white text-xs space-y-1">
-                    {wallet.mints.map((mint, index) => (
-                      <div key={index} className="truncate block">
-                        {mint.replace('https://', '').replace('http://', '')}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-400">Protocol:</span>
-                  <span className="ml-2 text-white block">
-                    NIP-60 Compliant
-                  </span>
-                </div>
-              </div>
-
-              {/* Nutzap Status Section */}
-              <div className="mt-3 pt-3 border-t border-gray-600">
-                <span className="text-gray-400">Nutzaps:</span>
-                <div className="flex items-center space-x-2 mt-1">
-                  {isNutzapInfoPublished ? (
-                    <Badge variant="secondary" className="text-xs bg-purple-500/20 text-purple-400">
-                      <Zap className="w-3 h-3 mr-1" />
-                      NIP-61 Ready
-                    </Badge>
-                  ) : (
-                    <Button
-                      onClick={publishNutzapInfo}
-                      variant="outline"
-                      size="sm"
-                      disabled={isLoading || nutzapLoading}
-                      className="text-xs"
-                    >
-                      Enable Nutzaps
-                    </Button>
-                  )}
-                  {receivedNutzaps.length > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      <Gift className="w-3 h-3 mr-1" />
-                      {receivedNutzaps.length} pending
-                    </Badge>
-                  )}
-                </div>
-                {(totalReceived > 0 || totalSent > 0) && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    Received: {totalReceived} sats • Sent: {totalSent} sats
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Pending Nutzaps Section */}
-        {receivedNutzaps.length > 0 && (
-          <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-600/30">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-medium text-white flex items-center gap-2">
-                <Gift className="w-4 h-4 text-purple-400" />
-                Pending Nutzaps ({receivedNutzaps.length})
-              </h4>
-            </div>
-            <div className="space-y-2">
-              {receivedNutzaps.slice(0, 3).map((nutzap) => {
-                const amount = getNutzapAmount(nutzap);
-                const mint = getNutzapMint(nutzap);
-                return (
-                  <div key={nutzap.id} className="flex items-center justify-between p-3 bg-gray-800 rounded">
-                    <div>
-                      <div className="text-sm text-white">{amount} sats</div>
-                      {nutzap.content && (
-                        <div className="text-xs text-gray-400 truncate max-w-48">
-                          "{nutzap.content}"
-                        </div>
-                      )}
-                      <div className="text-xs text-gray-500">
-                        {mint?.replace("https://", "").replace("http://", "")}
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => claimNutzap(nutzap)}
-                      size="sm"
-                      disabled={isLoading || nutzapLoading}
-                      className="bg-purple-500 hover:bg-purple-600 text-white"
-                    >
-                      {nutzapLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        "Claim"
-                      )}
-                    </Button>
-                  </div>
-                );
-              })}
-              {receivedNutzaps.length > 3 && (
-                <div className="text-center text-xs text-gray-400">
-                  +{receivedNutzaps.length - 3} more nutzaps pending
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {showMintForm && (
-          <div className="p-4 bg-gray-800 rounded-lg border border-gray-600 space-y-4">
-            <h4 className="font-medium text-white">Create NIP-60 Cashu Wallet</h4>
-
-            <div className="space-y-3">
-              <div>
-                <Label>Connection Method</Label>
-                <Select
-                  value={connectionMethod}
-                  onValueChange={(value) => setConnectionMethod(value as 'well-known' | 'custom')}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="well-known">Well-known Mints</SelectItem>
-                    <SelectItem value="custom">Custom Mint URL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {connectionMethod === 'well-known' ? (
-                <div>
-                  <Label>Select Mint</Label>
-                  <Select
-                    value={selectedWellKnownMint}
-                    onValueChange={(value) => setSelectedWellKnownMint(value as keyof typeof CASHU_MINTS)}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MINIBITS">Minibits (mint.minibits.cash)</SelectItem>
-                      <SelectItem value="LNBITS_LEGEND">LNbits Legend (legend.lnbits.com)</SelectItem>
-                      <SelectItem value="CASHU_ME">Cashu.me (cashu.me)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : (
-                <div>
-                  <Label htmlFor="mint-url">Mint URL</Label>
-                  <Input
-                    id="mint-url"
-                    value={mintUrl}
-                    onChange={(e) => setMintUrl(e.target.value)}
-                    placeholder="https://mint.example.com"
-                    className="mt-1"
-                  />
-                </div>
-              )}
-            </div>
-
-            {displayError && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{displayError}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex justify-end space-x-2">
-              <Button
-                onClick={() => {
-                  setShowMintForm(false);
-                  setError(null);
-                  setMintUrl('');
-                  setAlias('');
-                }}
-                variant="ghost"
-                size="sm"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleConnect}
-                disabled={isLoading}
-                size="sm"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create Wallet'
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        <CreateCashuWalletModal 
-          open={showCreateModal} 
-          onClose={() => {
-            setShowCreateModal(false);
-            // Call external handler if provided
-            if (externalOnConnect) {
-              externalOnConnect();
-            }
-          }}
-        />
-      </div>
+          {!user && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                You need to log in to create a wallet
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700">
-      <div className="flex items-center space-x-3">
-        <div className="p-2 bg-green-500/20 rounded-lg">
-          <Coins className="w-6 h-6 text-green-400" />
-        </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <h3 className="font-medium text-white">NIP-60 Cashu Wallet</h3>
-          <p className="text-sm text-gray-400">
-            Nostr-native eCash with NIP-61 Nutzaps support
-          </p>
+          <CardTitle>Mints</CardTitle>
+          <CardDescription>Manage your Cashu mints</CardDescription>
         </div>
-      </div>
-
-      <div className="flex items-center space-x-3">
-        <a
-          href="https://github.com/nostr-protocol/nips/blob/master/60.md"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-gray-400 hover:text-gray-300 flex items-center"
-        >
-          NIP-60 Spec <ExternalLink className="w-3 h-3 ml-1" />
-        </a>
-        <a
-          href="https://github.com/nostr-protocol/nips/blob/master/61.md"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-gray-400 hover:text-gray-300 flex items-center"
-        >
-          NIP-61 Spec <ExternalLink className="w-3 h-3 ml-1" />
-        </a>
         <Button
-          onClick={() => setShowCreateModal(true)}
-          disabled={isLoading}
-          className="bg-green-500 hover:bg-green-600 text-white px-6"
+          variant="ghost"
+          size="icon"
+          onClick={() => walletUiStore.toggleCardExpansion("mints")}
+          aria-label={isExpanded ? "Collapse" : "Expand"}
         >
-          {isLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Loading...
-            </>
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4" />
           ) : (
-            "Create Wallet"
+            <ChevronDown className="h-4 w-4" />
           )}
         </Button>
-      </div>
+      </CardHeader>
+      {isExpanded && (
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-medium">Mints</h3>
+            </div>
+            <div>
+              {wallet.mints && wallet.mints.length > 0 ? (
+                <div className="space-y-2">
+                  {wallet.mints.map((mint) => {
+                    const amount = balances[mint] || 0;
+                    const isActive = cashuStore.activeMintUrl === mint;
+                    const isExpanded = expandedMint === mint;
 
-      <CreateCashuWalletModal 
-        open={showCreateModal} 
-        onClose={() => {
-          setShowCreateModal(false);
-          // Call external handler if provided
-          if (externalOnConnect) {
-            externalOnConnect();
-          }
-        }}
-      />
-    </div>
+                    return (
+                      <div key={mint} className="space-y-1">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <button
+                              className="text-sm hover:text-primary text-left truncate max-w-[160px]"
+                              onClick={() => handleSetActiveMint(mint)}
+                            >
+                              {cleanMintUrl(mint)}
+                            </button>
+                            {isActive && (
+                              <Badge
+                                variant="secondary"
+                                className="h-5 px-1.5 bg-green-100 text-green-700 hover:bg-green-200"
+                              >
+                                Active
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`font-medium tabular-nums ${
+                                flashingMints[mint] ? "flash-update" : ""
+                              }`}
+                            >
+                              {showSats
+                                ? formatBalance(amount)
+                                : btcPrice
+                                ? formatUSD(satsToUSD(amount, btcPrice.USD))
+                                : formatBalance(amount)}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => toggleExpandMint(mint)}
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <div className="pl-4 flex justify-end gap-2 pt-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCleanSpentProofs(mint)}
+                              className="border-muted-foreground/20 hover:bg-muted"
+                            >
+                              <Eraser className="h-4 w-4 mr-1 text-amber-500" />
+                              Cleanup Wallet
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRemoveMint(mint)}
+                              className="border-muted-foreground/20 hover:bg-destructive/10"
+                            >
+                              <Trash className="h-4 w-4 mr-1 text-destructive" />
+                              Remove
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground mt-2">
+                  No mints added yet
+                </p>
+              )}
+            </div>
+
+            <Separator />
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex items-end gap-2">
+              <div className="grid w-full gap-1.5">
+                <Label htmlFor="mint">Add Mint</Label>
+                <Input
+                  id="mint"
+                  placeholder="https://mint.example.com"
+                  value={newMint}
+                  onChange={(e) => setNewMint(e.target.value)}
+                />
+              </div>
+              <Button onClick={handleAddMint}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      )}
+    </Card>
   );
-};
-
-export default CashuWalletCard;
+}

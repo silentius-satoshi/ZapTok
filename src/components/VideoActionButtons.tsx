@@ -1,14 +1,17 @@
+import { useState } from 'react';
 import { Heart, MessageCircle, Send, Bookmark, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useVideoReactions } from '@/hooks/useVideoReactions';
+import { useVideoComments } from '@/hooks/useVideoComments';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useFollowUser } from '@/hooks/useFollowUser';
 import { useBookmarkVideo } from '@/hooks/useBookmarks';
 import { genUserName } from '@/lib/genUserName';
 import { ZapButton } from '@/components/ZapButton';
+import { CommentsModal } from '@/components/CommentsModal';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
 
@@ -42,6 +45,7 @@ export function VideoActionButtons({
 }: VideoActionButtonsProps) {
   const { user } = useCurrentUser();
   const reactions = useVideoReactions(event.id);
+  const { data: commentsData } = useVideoComments(event.id);
   const author = useAuthor(event.pubkey);
   const following = useFollowing(user?.pubkey || '');
   // Bookmarks disabled in video feeds to prevent console spam
@@ -49,22 +53,24 @@ export function VideoActionButtons({
   const { mutate: bookmarkVideo, isPending: isBookmarkPending } = useBookmarkVideo();
   const navigate = useNavigate();
 
+  const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
+
   // Use author data if available, otherwise fall back to props
   const authorProfile = author.data?.metadata;
   const authorDisplayName = displayName || authorProfile?.display_name || authorProfile?.name || genUserName(event.pubkey);
   const authorProfilePicture = profilePicture || authorProfile?.picture;
-  
+
   // Check if currently following this user
   const followingList = following.data?.pubkeys || [];
   const isCurrentlyFollowing = followingList.includes(event.pubkey);
-  
+
   // Since bookmarks are disabled in feeds, always show as unbookmarked
   // This allows users to add bookmarks but doesn't fetch existing bookmark state
   const isCurrentlyBookmarked = false;
-  
+
   // Check if current user has liked this video
   const currentUserReaction = user?.pubkey ? reactions.data?.userReactions.get(user.pubkey) : null;
-  const isLiked = currentUserReaction && 
+  const isLiked = currentUserReaction &&
     ['+', '❤️', '👍', '🤙'].includes(currentUserReaction.content.trim());
 
   // Default handlers
@@ -74,13 +80,12 @@ export function VideoActionButtons({
   });
 
   const handleComment = onComment || (() => {
-    // TODO: Implement comment functionality
-    console.log('Comment clicked');
+    setIsCommentsModalOpen(true);
   });
 
   const handleBookmark = onBookmark || (() => {
     if (!user) return;
-    
+
     bookmarkVideo({
       eventId: event.id,
       isCurrentlyBookmarked: isCurrentlyBookmarked,
@@ -94,7 +99,7 @@ export function VideoActionButtons({
 
   const handleFollow = onFollow || (() => {
     if (!user) return;
-    
+
     followUser({
       pubkeyToFollow: event.pubkey,
       isCurrentlyFollowing: isCurrentlyFollowing,
@@ -128,15 +133,15 @@ export function VideoActionButtons({
               </AvatarFallback>
             </Avatar>
           </div>
-          
+
           {/* Follow Button */}
           {user && user.pubkey !== event.pubkey && (
             <Button
               variant="ghost"
               size="sm"
               className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 rounded-full h-5 w-5 ${
-                isCurrentlyFollowing 
-                  ? 'bg-gray-600 hover:bg-gray-700' 
+                isCurrentlyFollowing
+                  ? 'bg-gray-600 hover:bg-gray-700'
                   : 'bg-red-500 hover:bg-red-600'
               } text-white border border-white/20 shadow-md disabled:opacity-50`}
               onClick={handleFollow}
@@ -156,8 +161,8 @@ export function VideoActionButtons({
             onClick={handleLike}
           >
             <Heart className={`w-6 h-6 transition-all duration-200 ${
-              isLiked 
-                ? 'fill-red-500 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]' 
+              isLiked
+                ? 'fill-red-500 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]'
                 : 'text-red-400 drop-shadow-[0_0_4px_rgba(239,68,68,0.6)] group-hover:text-red-300 group-hover:drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] group-hover:scale-110'
             }`} />
           </Button>
@@ -190,7 +195,7 @@ export function VideoActionButtons({
             <MessageCircle className="w-6 h-6 text-blue-400 drop-shadow-[0_0_4px_rgba(59,130,246,0.6)] group-hover:text-blue-300 group-hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.8)] group-hover:scale-110 transition-all duration-200" />
           </Button>
           <span className="text-white text-xs font-bold">
-            0
+            {commentsData ? formatCount(commentsData.commentCount) : '0'}
           </span>
         </div>
 
@@ -204,8 +209,8 @@ export function VideoActionButtons({
             disabled={isBookmarkPending}
           >
             <Bookmark className={`w-6 h-6 transition-all duration-200 ${
-              isCurrentlyBookmarked 
-                ? 'fill-purple-500 text-purple-500 drop-shadow-[0_0_8px_rgba(147,51,234,0.8)]' 
+              isCurrentlyBookmarked
+                ? 'fill-purple-500 text-purple-500 drop-shadow-[0_0_8px_rgba(147,51,234,0.8)]'
                 : 'text-purple-400 drop-shadow-[0_0_4px_rgba(147,51,234,0.6)] group-hover:text-purple-300 group-hover:drop-shadow-[0_0_8px_rgba(147,51,234,0.8)] group-hover:scale-110'
             }`} />
           </Button>
@@ -249,6 +254,13 @@ export function VideoActionButtons({
           </span>
         </div>
       </div>
+
+      {/* Comments Modal */}
+      <CommentsModal
+        isOpen={isCommentsModalOpen}
+        onClose={() => setIsCommentsModalOpen(false)}
+        videoEvent={event}
+      />
     </>
   );
 }

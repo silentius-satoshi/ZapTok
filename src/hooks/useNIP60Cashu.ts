@@ -14,6 +14,7 @@ import {
 } from '@/lib/nip60-types';
 import { CASHU_MINTS } from '@/lib/cashu-types';
 import { CashuClient, isValidMintUrl } from '@/lib/cashu-client';
+import { useNIP87MintDiscovery, type DiscoveredMint } from './useNIP87MintDiscovery';
 
 interface UseNIP60CashuResult {
   // Wallet state
@@ -28,9 +29,17 @@ interface UseNIP60CashuResult {
   addMintToWallet: (walletId: string, mintUrl: string) => Promise<void>;
   setActiveWallet: (walletId: string) => void;
   refreshWallet: (walletId: string) => Promise<void>;
+  cleanupWallet: (walletId: string) => Promise<void>;
+  removeMintFromWallet: (walletId: string, mintUrl: string) => Promise<void>;
 
   // Well-known mints
   addWellKnownMint: (mintKey: keyof typeof CASHU_MINTS) => Promise<string>;
+
+  // NIP-87 dynamic mint discovery
+  discoveredMints: DiscoveredMint[];
+  recommendedMints: DiscoveredMint[];
+  addDiscoveredMint: (mint: DiscoveredMint) => Promise<string>;
+  refreshMintDiscovery: () => Promise<void>;
 
   // Token operations
   receiveTokens: (tokenString: string, walletId?: string) => Promise<void>;
@@ -55,6 +64,18 @@ export interface NIP60CashuWallet {
 export function useNIP60Cashu(): UseNIP60CashuResult {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+
+  // NIP-87 mint discovery
+  const {
+    cashuMints: discoveredMints,
+    recommendations,
+    refreshDiscovery
+  } = useNIP87MintDiscovery();
+
+  // Get recommended mints (mints that have recommendations from users we follow)
+  const recommendedMints = discoveredMints.filter(mint => 
+    recommendations.some(rec => rec.recommendedMint.pubkey === mint.pubkey)
+  );
 
   const [wallets, setWallets] = useState<NIP60CashuWallet[]>([]);
   const [activeWallet, setActiveWallet] = useState<string | null>(null);
@@ -139,12 +160,30 @@ export function useNIP60Cashu(): UseNIP60CashuResult {
     setError(null);
     try {
       console.log('useNIP60Cashu: Calling walletManager.createWallet...');
-      const walletId = await walletManager.createWallet(mints);
+      
+      // Add timeout to wallet creation
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Wallet creation timed out after 15 seconds')), 15000)
+      );
+
+      const walletId = await Promise.race([
+        walletManager.createWallet(mints),
+        timeoutPromise
+      ]);
+      
       console.log('useNIP60Cashu: Wallet created with ID:', walletId);
 
-      // Refresh wallets list
+      // Refresh wallets list with timeout
       console.log('useNIP60Cashu: Refreshing wallets list...');
-      const nip60Wallets = await walletManager.getWallets();
+      const refreshTimeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Wallet refresh timed out after 10 seconds')), 10000)
+      );
+
+      const nip60Wallets = await Promise.race([
+        walletManager.getWallets(),
+        refreshTimeoutPromise
+      ]);
+
       const convertedWallets: NIP60CashuWallet[] = nip60Wallets.map((w: NIP60Wallet) => ({
         id: w.id,
         mints: w.mints,
@@ -387,6 +426,102 @@ export function useNIP60Cashu(): UseNIP60CashuResult {
     return wallet ? groupProofsByMint(wallet.tokens) : {};
   }, [wallets, activeWallet]);
 
+  /**
+   * Cleanup wallet by removing spent tokens and consolidating data
+   */
+  const cleanupWallet = useCallback(async (walletId: string): Promise<void> => {
+    if (!user || !walletManager) {
+      throw new Error('User must be logged in to cleanup wallet');
+    }
+
+    const wallet = wallets.find(w => w.id === walletId);
+    if (!wallet) {
+      throw new Error('Wallet not found');
+    }
+
+    setError(null);
+    try {
+      // Mark wallet as loading
+      setWallets(prev => prev.map(w =>
+        w.id === walletId ? { ...w, isLoading: true } : w
+      ));
+
+      // Simply refresh the wallet data which will automatically filter out spent tokens
+      // due to the getCurrentTokens implementation in walletManager
+      await refreshWallet(walletId);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to cleanup wallet';
+      setError(errorMsg);
+      throw err;
+    }
+  }, [user, walletManager, wallets, refreshWallet]);
+
+  /**
+   * Remove a mint from the wallet by creating a new wallet without that mint
+   */
+  const removeMintFromWallet = useCallback(async (walletId: string, mintUrl: string): Promise<void> => {
+    if (!user || !walletManager) {
+      throw new Error('User must be logged in to modify wallets');
+    }
+
+    const wallet = wallets.find(w => w.id === walletId);
+    if (!wallet) {
+      throw new Error('Wallet not found');
+    }
+
+    if (!wallet.mints.includes(mintUrl)) {
+      throw new Error('Mint not found in wallet');
+    }
+
+    if (wallet.mints.length === 1) {
+      throw new Error('Cannot remove the last mint from a wallet');
+    }
+
+    setError(null);
+    try {
+      // Create new wallet without the specified mint
+      const newMints = wallet.mints.filter(mint => mint !== mintUrl);
+      
+      // Check if there are any tokens for this mint
+      const hasTokensForMint = wallet.tokens.some(token => token.mint === mintUrl);
+      
+      if (hasTokensForMint) {
+        throw new Error('Cannot remove mint with existing tokens. Spend or transfer tokens first.');
+      }
+
+      await createWallet(newMints);
+
+      // The createWallet function will refresh the wallets list
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to remove mint from wallet';
+      setError(errorMsg);
+      throw err;
+    }
+  }, [user, walletManager, wallets, createWallet]);
+
+  /**
+   * Add a discovered mint from NIP-87 to create a wallet
+   */
+  const addDiscoveredMint = useCallback(async (mint: DiscoveredMint): Promise<string> => {
+    if (mint.type !== 'cashu') {
+      throw new Error('Only Cashu mints are supported in this wallet');
+    }
+    return await createWallet([mint.url]);
+  }, [createWallet]);
+
+  /**
+   * Refresh NIP-87 mint discovery
+   */
+  const refreshMintDiscovery = useCallback(async (): Promise<void> => {
+    try {
+      await refreshDiscovery();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to refresh mint discovery';
+      setError(errorMsg);
+      throw err;
+    }
+  }, [refreshDiscovery]);
+
   return {
     // State
     wallets,
@@ -400,11 +535,19 @@ export function useNIP60Cashu(): UseNIP60CashuResult {
     addMintToWallet,
     setActiveWallet,
     refreshWallet,
+    cleanupWallet,
+    removeMintFromWallet,
     addWellKnownMint,
+    addDiscoveredMint,
+    refreshMintDiscovery,
     receiveTokens,
     sendTokens,
     testConnection,
     getBalance,
-    getProofsByMint
+    getProofsByMint,
+
+    // NIP-87 discovered mints
+    discoveredMints,
+    recommendedMints
   };
 }

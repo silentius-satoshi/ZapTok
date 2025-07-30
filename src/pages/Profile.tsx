@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { Navigation } from '@/components/Navigation';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { AuthGate } from '@/components/AuthGate';
+import { LogoHeader } from '@/components/LogoHeader';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
@@ -24,9 +25,10 @@ import { EditProfileForm } from '@/components/EditProfileForm';
 import { QRModal } from '@/components/QRModal';
 import { ZapButton } from '@/components/ZapButton';
 import { useToast } from '@/hooks/useToast';
+import { nip19 } from 'nostr-tools';
 
 const Profile = () => {
-  const { pubkey } = useParams();
+  const { pubkey: paramPubkey } = useParams();
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'bookmarks'>('posts');
@@ -34,8 +36,37 @@ const Profile = () => {
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   
-  const targetPubkey = pubkey || user?.pubkey || '';
-  const isOwnProfile = !pubkey || pubkey === user?.pubkey;
+  // Prevent body scrolling when edit form is shown
+  useEffect(() => {
+    if (showEditForm) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, [showEditForm]);
+  
+  // Handle both hex pubkeys and npub identifiers
+  const targetPubkey = (() => {
+    if (!paramPubkey) return user?.pubkey || '';
+    
+    // If it looks like an npub, decode it
+    if (paramPubkey.startsWith('npub1')) {
+      try {
+        const decoded = nip19.decode(paramPubkey);
+        if (decoded.type === 'npub') {
+          return decoded.data;
+        }
+      } catch (error) {
+        console.error('Failed to decode npub:', error);
+      }
+    }
+    
+    // Otherwise assume it's a hex pubkey
+    return paramPubkey;
+  })();
+  
+  const isOwnProfile = !paramPubkey || targetPubkey === user?.pubkey;
 
   const author = useAuthor(targetPubkey);
   const following = useFollowing(targetPubkey);
@@ -60,9 +91,18 @@ const Profile = () => {
   const website = metadata?.website;
   const nip05 = metadata?.nip05;
 
+  // Generate NIP-19 identifiers for meta tags
+  const npub = targetPubkey ? nip19.npubEncode(targetPubkey) : '';
+  const nprofile = targetPubkey ? nip19.nprofileEncode({ pubkey: targetPubkey }) : '';
+
   useSeoMeta({
     title: isOwnProfile ? 'My Profile - ZapTok' : `${displayName} - ZapTok`,
     description: bio || `View ${displayName}'s profile on ZapTok`,
+    // NIP-21 meta tags for profile attribution
+    ...(targetPubkey && {
+      'link:me': `nostr:${npub}`,
+      'link:author': `nostr:${nprofile}`,
+    }),
   });
 
   const handleFollowingClick = () => {
@@ -101,31 +141,20 @@ const Profile = () => {
   if (showEditForm && isOwnProfile) {
     return (
       <AuthGate>
-        <div className="min-h-screen bg-black text-white">
-          <main className="h-screen">
-            <div className="flex h-full">
+        <div className="h-screen bg-black text-white overflow-hidden">
+          <main className="h-full flex">
+            <div className="flex">
               {/* Left Sidebar - Logo and Navigation */}
               <div className="flex flex-col bg-black">
-                <div className="p-4">
-                  <div className="flex items-center space-x-3">
-                    <img 
-                      src="/images/ZapTok-v2.png" 
-                      alt="ZapTok Logo" 
-                      className="w-8 h-8 rounded-lg"
-                    />
-                    <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-                      ZapTok
-                    </h1>
-                  </div>
-                </div>
+                <LogoHeader />
                 <div className="flex-1">
                   <Navigation />
                 </div>
               </div>
               
               {/* Edit Profile Content */}
-              <div className="flex-1 overflow-y-auto scrollbar-hide">
-                <div className="max-w-2xl mx-auto p-6">
+              <div className="flex-1 h-full overflow-y-auto scrollbar-hide">
+                <div className="max-w-2xl mx-auto p-6 min-h-full">
                   <div className="mb-6">
                     <Button 
                       variant="ghost" 
@@ -165,18 +194,7 @@ const Profile = () => {
             <div className="flex h-full">
               {/* Left Sidebar - Logo and Navigation */}
               <div className="flex flex-col bg-black">
-                <div className="p-4">
-                  <div className="flex items-center space-x-3">
-                    <img 
-                      src="/images/ZapTok-v2.png" 
-                      alt="ZapTok Logo" 
-                      className="w-8 h-8 rounded-lg"
-                    />
-                    <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-                      ZapTok
-                    </h1>
-                  </div>
-                </div>
+                <LogoHeader />
                 <div className="flex-1">
                   <Navigation />
                 </div>

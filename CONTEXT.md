@@ -24,6 +24,8 @@ This project is a Nostr client application built with React 18.x, TailwindCSS 3.
   - `useCurrentUser`: Get currently logged-in user
   - `useNostrPublish`: Publish events to Nostr
   - `useUploadFile`: Upload files via Blossom servers
+  - `useComments`: Fetch and manage threaded comments for events or URLs
+  - `usePostComment`: Post new comments and replies using NIP-22
   - `useAppContext`: Access global app configuration
   - `useTheme`: Theme management
   - `useToast`: Toast notifications
@@ -507,15 +509,79 @@ Users can either save their custom profile information or skip the setup to use 
 
 ### `npub`, `naddr`, and other Nostr addresses
 
-Nostr defines a set identifiers in NIP-19. Their prefixes:
+Nostr defines a set of bech32-encoded identifiers in NIP-19. Their prefixes and purposes:
 
-- `npub`: public keys
-- `nsec`: private keys
-- `note`: note ids
-- `nprofile`: a nostr profile
-- `nevent`: a nostr event
-- `naddr`: a nostr replaceable event coordinate
-- `nrelay`: a nostr relay (deprecated)
+- `npub1`: **public keys** - Just the 32-byte public key, no additional metadata
+- `nsec1`: **private keys** - Secret keys (should never be displayed publicly)
+- `note1`: **event IDs** - Just the 32-byte event ID (hex), no additional metadata
+- `nevent1`: **event pointers** - Event ID plus optional relay hints and author pubkey
+- `nprofile1`: **profile pointers** - Public key plus optional relay hints and petname
+- `naddr1`: **addressable event coordinates** - For parameterized replaceable events (kind 30000-39999)
+- `nrelay1`: **relay references** - Relay URLs (deprecated)
+
+#### Key Differences Between Similar Identifiers
+
+**`note1` vs `nevent1`:**
+- `note1`: Contains only the event ID (32 bytes) - specifically for kind:1 events (Short Text Notes) as defined in NIP-10
+- `nevent1`: Contains event ID plus optional relay hints and author pubkey - for any event kind
+- Use `note1` for simple references to text notes and threads
+- Use `nevent1` when you need to include relay hints or author context for any event type
+
+**`npub1` vs `nprofile1`:**
+- `npub1`: Contains only the public key (32 bytes)
+- `nprofile1`: Contains public key plus optional relay hints and petname
+- Use `npub1` for simple user references
+- Use `nprofile1` when you need to include relay hints or display name context
+
+#### NIP-19 Routing Implementation
+
+**Critical**: NIP-19 identifiers should be handled at the **root level** of URLs (e.g., `/note1...`, `/npub1...`, `/naddr1...`), NOT nested under paths like `/note/note1...` or `/profile/npub1...`.
+
+This project includes a boilerplate `NIP19Page` component that provides the foundation for handling all NIP-19 identifier types at the root level. The component is configured in the routing system and ready for AI agents to populate with specific functionality.
+
+**How it works:**
+
+1. **Root-Level Route**: The route `/:nip19` in `AppRouter.tsx` catches all NIP-19 identifiers
+2. **Automatic Decoding**: The `NIP19Page` component automatically decodes the identifier using `nip19.decode()`
+3. **Type-Specific Sections**: Different sections are rendered based on the identifier type:
+   - `npub1`/`nprofile1`: Profile section with placeholder for profile view
+   - `naddr1`: Addressable event section with placeholder for articles, marketplace items, etc.
+4. **Error Handling**: Invalid, vacant, or unsupported identifiers show 404 NotFound page
+5. **Ready for Population**: Each section includes comments indicating where AI agents should implement specific functionality
+
+**Example URLs that work automatically:**
+- `/npub1abc123...` - User profile (needs implementation)
+- `/note1def456...` - Kind:1 text note (needs implementation)
+- `/nevent1ghi789...` - Any event with relay hints (needs implementation)
+- `/naddr1jkl012...` - Addressable event (needs implementation)
+
+**Features included:**
+- Basic NIP-19 identifier decoding and routing
+- Type-specific sections for different identifier types
+- Error handling for invalid identifiers
+- Responsive container structure
+- Comments indicating where to implement specific views
+
+**Error handling:**
+- Invalid NIP-19 format → 404 NotFound
+- Unsupported identifier types (like `nsec1`) → 404 NotFound
+- Empty or missing identifiers → 404 NotFound
+
+To implement NIP-19 routing in your Nostr application:
+
+1. **The NIP19Page boilerplate is already created** - populate sections with specific functionality
+2. **The route is already configured** in `AppRouter.tsx`
+3. **Error handling is built-in** - all edge cases show appropriate 404 responses
+4. **Add specific components** for profile views, event displays, etc. as needed
+
+#### Event Type Distinctions
+
+**`note1` identifiers** are specifically for **kind:1 events** (Short Text Notes) as defined in NIP-10: "Text Notes and Threads". These are the basic social media posts in Nostr.
+
+**`nevent1` identifiers** can reference any event kind and include additional metadata like relay hints and author pubkey. Use `nevent1` when:
+- The event is not a kind:1 text note
+- You need to include relay hints for better discoverability
+- You want to include author context
 
 NIP-19 identifiers include a prefix, the number "1", then a base32-encoded data string.
 
@@ -566,15 +632,17 @@ For URL routing, use NIP-19 identifiers as path parameters (e.g., `/:nip19`) to 
 - Regular events: Use `/nevent1...` paths
 - Replaceable/addressable events: Use `/naddr1...` paths
 
-Always use `naddr` identifiers for addressable events instead of just the `d` tag value, as `naddr` contains the author pubkey needed to create secure filters. This prevents security issues where malicious actors could publish events with the same `d` tag to override content.
+#### Implementation Guidelines
 
-```ts
-// Secure routing with naddr
-const decoded = nip19.decode(params.nip19);
-if (decoded.type === 'naddr' && decoded.data.kind === 30024) {
-  // Render ArticlePage component
-}
-```
+1. **Always decode NIP-19 identifiers** before using them in queries
+2. **Use the appropriate identifier type** based on your needs:
+   - Use `note1` for kind:1 text notes specifically
+   - Use `naddr1` for addressable events (always includes author pubkey for security)
+3. **Handle different identifier types** appropriately:
+   - `npub1`/`nprofile1`: Display user profiles
+   - `naddr1`: Display addressable events (articles, marketplace items, etc.)
+4. **Security considerations**: Always use `naddr1` for addressable events instead of just the `d` tag value, as `naddr1` contains the author pubkey needed to create secure filters
+5. **Error handling**: Gracefully handle invalid or unsupported NIP-19 identifiers with 404 responses
 
 ### Nostr Edit Profile
 
@@ -661,6 +729,124 @@ export function Post(/* ...props */) {
   );
 }
 ```
+
+### Adding Comments Sections
+
+The project includes a complete commenting system using NIP-22 (kind 1111) comments that can be added to any Nostr event or URL. The `CommentsSection` component provides a full-featured commenting interface with threaded replies, user authentication, and real-time updates.
+
+#### Basic Usage
+
+```tsx
+import { CommentsSection } from "@/components/comments/CommentsSection";
+
+function ArticlePage({ article }: { article: NostrEvent }) {
+  return (
+    <div>
+      {/* article content */}
+      
+      <CommentsSection
+        root={article}
+        title="Comments"
+        emptyStateMessage="No comments yet"
+        emptyStateSubtitle="Be the first to share your thoughts!"
+      />
+    </div>
+  );
+}
+```
+
+#### Props and Customization
+
+The `CommentsSection` component accepts the following props:
+
+- **`root`** (required): The root event or URL to comment on. Can be a `NostrEvent` or `URL` object.
+- **`title`**: Custom title for the comments section (default: "Comments")
+- **`emptyStateMessage`**: Message shown when no comments exist (default: "No comments yet")
+- **`emptyStateSubtitle`**: Subtitle for empty state (default: "Be the first to share your thoughts!")
+- **`className`**: Additional CSS classes for styling
+- **`limit`**: Maximum number of comments to load (default: 500)
+
+```tsx
+<CommentsSection
+  root={event}
+  title="Discussion"
+  emptyStateMessage="Start the conversation"
+  emptyStateSubtitle="Share your thoughts about this post"
+  className="mt-8"
+  limit={100}
+/>
+```
+
+#### Commenting on URLs
+
+The comments system also supports commenting on external URLs, making it useful for web pages, articles, or any online content:
+
+```tsx
+<CommentsSection
+  root={new URL("https://example.com/article")}
+  title="Comments on this article"
+  emptyStateMessage="No discussion yet"
+  emptyStateSubtitle="What do you think about this article?"
+/>
+```
+
+#### Comment System Hooks
+
+The commenting system relies on two main hooks that handle NIP-22 comment functionality:
+
+**`useComments` Hook**
+
+Fetches and manages threaded comments for any Nostr event or URL. Returns structured comment data with threading support.
+
+```typescript
+import { useComments } from '@/hooks/useComments';
+
+function MyComponent({ event }: { event: NostrEvent }) {
+  const { data: commentsData, isLoading, error } = useComments(event, 500);
+  
+  // Access structured comment data
+  const topLevelComments = commentsData?.topLevelComments || [];
+  const directReplies = commentsData?.getDirectReplies(commentId) || [];
+  
+  // ...render comments
+}
+```
+
+**`usePostComment` Hook**
+
+Handles posting new comments and replies using NIP-22 (kind 1111). Automatically manages threading and root references.
+
+```typescript
+import { usePostComment } from '@/hooks/usePostComment';
+
+function CommentForm({ root, reply }: { root: NostrEvent | URL; reply?: NostrEvent }) {
+  const { mutate: postComment, isPending } = usePostComment();
+  
+  const handleSubmit = (content: string) => {
+    postComment(
+      { content, root, reply },
+      {
+        onSuccess: () => {
+          // Comment posted successfully
+        },
+      }
+    );
+  };
+  
+  // ...render form
+}
+```
+
+#### Comment Threading Features
+
+The comment system includes advanced threading capabilities:
+
+- **Threaded Replies**: Comments can reply to other comments, creating nested conversation threads
+- **Collapsible Threads**: Users can expand/collapse reply threads to manage complex discussions
+- **Auto-expansion**: First 2 levels of replies are automatically expanded for better UX
+- **Direct Reply Access**: Easy access to direct replies for any comment via `getDirectReplies()`
+- **User Interaction**: Reply buttons, thread counters, and user profile integration
+- **Depth Control**: Configurable maximum depth to prevent overly nested threads
 
 ## App Configuration
 

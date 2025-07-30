@@ -86,10 +86,14 @@ export function CreateCashuWalletModal({ open, onClose }: CreateCashuWalletModal
     try {
       setIsCreating(true);
       
+      console.log('CreateCashuWalletModal: Starting wallet creation with URL:', data.mintUrl);
+      
       // Create the wallet using the NIP-60 Cashu hook
       // Note: NIP-60 createWallet expects array of mint URLs
       const walletId = await createWallet([data.mintUrl]);
 
+      console.log('CreateCashuWalletModal: Wallet created successfully with ID:', walletId);
+      
       setCreatedWallet(walletId);
       toast({
         title: "Wallet Created",
@@ -99,10 +103,25 @@ export function CreateCashuWalletModal({ open, onClose }: CreateCashuWalletModal
       // Reset form for next use
       form.reset();
     } catch (error) {
-      console.error('Failed to create Cashu wallet:', error);
+      console.error('CreateCashuWalletModal: Failed to create Cashu wallet:', error);
+      
+      let errorMessage = "Failed to create Cashu wallet. Please try again.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          errorMessage = "Wallet creation timed out. Please check your internet connection and try again.";
+        } else if (error.message.includes('encrypt')) {
+          errorMessage = "Encryption failed. Please ensure you have a compatible Nostr extension.";
+        } else if (error.message.includes('sign')) {
+          errorMessage = "Failed to sign wallet event. Please check your Nostr extension.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Creation Failed",
-        description: "Failed to create Cashu wallet. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

@@ -45,36 +45,54 @@ export class NIP60WalletManager {
       throw new Error("Please upgrade your signer extension to a version that supports NIP-44 encryption");
     }
 
-    // Generate a new P2PK private key for receiving nutzaps
-    const privkey = bytesToHex(generateSecretKey());
+    try {
+      // Generate a new P2PK private key for receiving nutzaps
+      const privkey = bytesToHex(generateSecretKey());
 
-    const walletContent: WalletEventContent = {
-      privkey,
-      mint: mints
-    };
+      const walletContent: WalletEventContent = {
+        privkey,
+        mint: mints
+      };
 
-    // Validate wallet content
-    if (!validateWalletEvent(walletContent)) {
-      throw new Error('Invalid wallet configuration');
+      // Validate wallet content
+      if (!validateWalletEvent(walletContent)) {
+        throw new Error('Invalid wallet configuration');
+      }
+
+      // Encrypt content using NIP-44
+      console.log('NIP60WalletManager: Encrypting wallet content...');
+      const encryptedContent = await this.user.signer.nip44.encrypt(
+        this.user.pubkey,
+        JSON.stringify(walletContent)
+      );
+
+      const walletEvent = {
+        kind: NIP60_KINDS.WALLET,
+        content: encryptedContent,
+        tags: mints.map(mint => ['mint', mint]),
+        created_at: Math.floor(Date.now() / 1000),
+      };
+
+      console.log('NIP60WalletManager: Signing wallet event...');
+      const signedEvent = await this.user.signer.signEvent(walletEvent);
+      
+      console.log('NIP60WalletManager: Publishing wallet event...');
+      // Add timeout to event publishing
+      const publishTimeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Event publishing timed out after 10 seconds')), 10000)
+      );
+
+      await Promise.race([
+        this.nostr.event(signedEvent),
+        publishTimeoutPromise
+      ]);
+
+      console.log('NIP60WalletManager: Wallet created successfully with ID:', signedEvent.id);
+      return signedEvent.id;
+    } catch (err) {
+      console.error('NIP60WalletManager: Failed to create wallet:', err);
+      throw err;
     }
-
-    // Encrypt content using NIP-44
-    const encryptedContent = await this.user.signer.nip44.encrypt(
-      this.user.pubkey,
-      JSON.stringify(walletContent)
-    );
-
-    const walletEvent = {
-      kind: NIP60_KINDS.WALLET,
-      content: encryptedContent,
-      tags: mints.map(mint => ['mint', mint]),
-      created_at: Math.floor(Date.now() / 1000),
-    };
-
-    const signedEvent = await this.user.signer.signEvent(walletEvent);
-    await this.nostr.event(signedEvent);
-
-    return signedEvent.id;
   }
 
   /**
@@ -87,8 +105,8 @@ export class NIP60WalletManager {
 
     // Add timeout to prevent hanging queries
     const queryWithTimeout = async (filters: object[]) => {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Query timeout after 5 seconds')), 5000)
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Query timeout after 8 seconds')), 8000)
       );
 
       const queryPromise = this.nostr.query(filters);
@@ -96,6 +114,7 @@ export class NIP60WalletManager {
     };
 
     try {
+      console.log('NIP60WalletManager: Fetching wallet events...');
       // Fetch wallet events
       const walletEvents = await queryWithTimeout([
         {
@@ -104,31 +123,52 @@ export class NIP60WalletManager {
         }
       ]);
 
+      console.log('NIP60WalletManager: Found', walletEvents.length, 'wallet events');
+
+      if (walletEvents.length === 0) {
+        console.log('NIP60WalletManager: No wallet events found, returning empty array');
+        return [];
+      }
+
       // Fetch token and history events
+      console.log('NIP60WalletManager: Fetching token and history events...');
       const [tokenEvents, historyEvents] = await Promise.all([
         queryWithTimeout([
           {
             kinds: [NIP60_KINDS.TOKEN],
             authors: [this.user.pubkey]
           }
-        ]),
+        ]).catch((err) => {
+          console.warn('Failed to fetch token events:', err);
+          return [];
+        }),
         queryWithTimeout([
           {
             kinds: [NIP60_KINDS.HISTORY],
             authors: [this.user.pubkey]
           }
-        ])
+        ]).catch((err) => {
+          console.warn('Failed to fetch history events:', err);
+          return [];
+        })
       ]);
+
+      console.log('NIP60WalletManager: Found', tokenEvents.length, 'token events and', historyEvents.length, 'history events');
 
       const wallets: NIP60Wallet[] = [];
 
       for (const walletEvent of walletEvents) {
         try {
-          // Decrypt wallet content
-          const decryptedContent = await this.user.signer.nip44.decrypt(
-            this.user.pubkey,
-            walletEvent.content
+          console.log('NIP60WalletManager: Processing wallet event:', walletEvent.id);
+          // Decrypt wallet content with timeout
+          const decryptTimeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Decryption timeout after 5 seconds')), 5000)
           );
+
+          const decryptedContent = await Promise.race([
+            this.user.signer.nip44.decrypt(this.user.pubkey, walletEvent.content),
+            decryptTimeoutPromise
+          ]);
 
           const walletContent: WalletEventContent = JSON.parse(decryptedContent);
 

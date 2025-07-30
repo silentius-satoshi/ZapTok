@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { useWallet } from '@/hooks/useWallet';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Send, Receipt } from 'lucide-react';
+import { Copy, ArrowDownLeft, ArrowUpRight, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 
 export function SendReceivePanel() {
   const { sendPayment, makeInvoice, isConnected } = useWallet();
   const { toast } = useToast();
+  
+  // Toggle state for receive/send mode
+  const [mode, setMode] = useState<'receive' | 'send'>('receive');
   
   // Send state
   const [invoice, setInvoice] = useState('');
@@ -19,7 +21,6 @@ export function SendReceivePanel() {
   
   // Receive state
   const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
   const [generatedInvoice, setGeneratedInvoice] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -50,7 +51,7 @@ export function SendReceivePanel() {
     
     setIsGenerating(true);
     try {
-      const invoice = await makeInvoice(parseInt(amount), description || undefined);
+      const invoice = await makeInvoice(parseInt(amount));
       setGeneratedInvoice(invoice);
       toast({
         title: "Invoice Generated",
@@ -75,6 +76,10 @@ export function SendReceivePanel() {
     });
   };
 
+  const handleCancel = () => {
+    setInvoice('');
+  };
+
   if (!isConnected) {
     return (
       <Card>
@@ -86,99 +91,130 @@ export function SendReceivePanel() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Send & Receive</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="send" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="send">Send</TabsTrigger>
-            <TabsTrigger value="receive">Receive</TabsTrigger>
-          </TabsList>
+    <div className="bg-gray-900 text-white p-6 rounded-lg space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold">Lightning</h2>
+        <p className="text-gray-400 text-sm">Withdraw or deposit Bitcoin</p>
+      </div>
+
+      {/* Toggle Button */}
+      <div className="flex rounded-lg bg-gray-800 p-1">
+        <Button
+          variant={mode === 'receive' ? 'default' : 'ghost'}
+          className={`flex-1 ${
+            mode === 'receive' 
+              ? 'bg-gray-700 text-white' 
+              : 'bg-transparent text-gray-400 hover:text-white hover:bg-gray-700'
+          }`}
+          onClick={() => setMode('receive')}
+        >
+          <ArrowDownLeft className="w-4 h-4 mr-2" />
+          Receive
+        </Button>
+        <Button
+          variant={mode === 'send' ? 'default' : 'ghost'}
+          className={`flex-1 ${
+            mode === 'send' 
+              ? 'bg-gray-700 text-white' 
+              : 'bg-transparent text-gray-400 hover:text-white hover:bg-gray-700'
+          }`}
+          onClick={() => setMode('send')}
+        >
+          <ArrowUpRight className="w-4 h-4 mr-2" />
+          Send
+        </Button>
+      </div>
+
+      {/* Receive Mode */}
+      {mode === 'receive' && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="amount" className="text-white">Amount (sats)</Label>
+            <Input
+              id="amount"
+              type="number"
+              placeholder="100"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              min="1"
+              className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
+            />
+          </div>
+          <Button
+            onClick={handleGenerateInvoice}
+            disabled={!amount || parseInt(amount) <= 0 || isGenerating}
+            className="w-full bg-gray-600 hover:bg-gray-500 text-white"
+          >
+            ⚡ {isGenerating ? 'Creating...' : 'Create Lightning Invoice'}
+          </Button>
           
-          <TabsContent value="send" className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="invoice">Lightning Invoice</Label>
-              <Textarea
+          {generatedInvoice && (
+            <div className="space-y-4 mt-6">
+              <div className="space-y-2">
+                <Label className="text-white">Lightning Invoice</Label>
+                <div className="flex gap-2">
+                  <Textarea
+                    value={generatedInvoice}
+                    readOnly
+                    className="text-xs bg-gray-800 border-gray-700 text-white"
+                    rows={3}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(generatedInvoice, 'Invoice')}
+                    className="border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Send Mode */}
+      {mode === 'send' && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="invoice" className="text-white">Invoice</Label>
+            <div className="relative">
+              <Input
                 id="invoice"
-                placeholder="Paste Lightning invoice here..."
+                placeholder="Lightning invoice"
                 value={invoice}
                 onChange={(e) => setInvoice(e.target.value)}
-                className="min-h-[100px]"
+                className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 pr-12"
               />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-gray-700 rounded"
+              >
+                <QrCode className="w-4 h-4" />
+              </Button>
             </div>
+          </div>
+          
+          <div className="flex gap-3">
+            <Button
+              onClick={handleCancel}
+              variant="outline"
+              className="flex-1 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+            >
+              Cancel
+            </Button>
             <Button
               onClick={handleSendPayment}
               disabled={!invoice.trim() || isSending}
-              className="w-full"
+              className="flex-1 bg-gray-600 hover:bg-gray-500 text-white"
             >
-              <Send className="h-4 w-4 mr-2" />
-              {isSending ? 'Sending...' : 'Send Payment'}
+              {isSending ? 'Paying...' : 'Pay Invoice'}
             </Button>
-          </TabsContent>
-          
-          <TabsContent value="receive" className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount (sats)</Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder="Enter amount in sats"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                min="1"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Input
-                id="description"
-                placeholder="What is this payment for?"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-            <Button
-              onClick={handleGenerateInvoice}
-              disabled={!amount || parseInt(amount) <= 0 || isGenerating}
-              className="w-full"
-            >
-              <Receipt className="h-4 w-4 mr-2" />
-              {isGenerating ? 'Generating...' : 'Generate Invoice'}
-            </Button>
-            
-            {generatedInvoice && (
-              <div className="space-y-4 mt-6">
-                <div className="space-y-2">
-                  <Label>Lightning Invoice</Label>
-                  <div className="flex gap-2">
-                    <Textarea
-                      value={generatedInvoice}
-                      readOnly
-                      className="text-xs"
-                      rows={3}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToClipboard(generatedInvoice, 'Invoice')}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    💡 Tip: Share this invoice with others to receive Lightning payments. 
-                    QR codes will be available once the qrcode.react package is installed.
-                  </p>
-                </div>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

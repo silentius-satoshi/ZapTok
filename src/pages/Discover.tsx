@@ -3,6 +3,7 @@ import { useSeoMeta } from '@unhead/react';
 import { Navigation } from '@/components/Navigation';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { AuthGate } from '@/components/AuthGate';
+import { LogoHeader } from '@/components/LogoHeader';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -112,18 +113,7 @@ const Discover = () => {
           <div className="flex h-full">
             {/* Left Sidebar - Logo and Navigation */}
             <div className="flex flex-col bg-black">
-              <div className="p-4">
-                <div className="flex items-center space-x-3">
-                  <img 
-                    src="/images/ZapTok-v2.png" 
-                    alt="ZapTok Logo" 
-                    className="w-8 h-8 rounded-lg"
-                  />
-                  <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-                    ZapTok
-                  </h1>
-                </div>
-              </div>
+              <LogoHeader />
               <div className="flex-1">
                 <Navigation />
               </div>

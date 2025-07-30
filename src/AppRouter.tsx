@@ -7,8 +7,11 @@ import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Global from "./pages/Global";
 import Discover from "./pages/Discover";
+import Notifications from "./pages/Notifications";
 import { Settings } from "./pages/Settings";
+import { LightningWallet } from "./pages/LightningWallet";
 import { Stream } from "./components/stream/Stream";
+import { NostrEntity } from "./pages/NostrEntity";
 import NotFound from "./pages/NotFound";
 
 function RouteHandler() {
@@ -29,8 +32,12 @@ function RouteHandler() {
       <Route path="/profile" element={<Profile />} />
       <Route path="/profile/:pubkey" element={<Profile />} />
       <Route path="/global" element={<Global />} />
+      <Route path="/notifications" element={<Notifications />} />
       <Route path="/settings" element={<Settings />} />
+      <Route path="/wallet" element={<LightningWallet />} />
       <Route path="/stream" element={<Stream />} />
+      {/* Nostr entity handler - must be after specific routes */}
+      <Route path="/:nip19Id" element={<NostrEntity />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

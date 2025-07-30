@@ -20,23 +20,30 @@ export function AuthFilter({ children }: { children: React.ReactNode }) {
 
     // Small delay to ensure auth state is properly initialized
     const checkTimer = setTimeout(() => {
-      console.log('AuthFilter check:', {
-        logins: logins.length,
-        hasManuallyLoggedOut,
-        allowAutoExtensionLogin,
-        extensionLogins: logins.filter(l => l.type === 'extension').length
-      });
+      // Debug logging - only in development
+      if (import.meta.env.DEV) {
+        console.debug('AuthFilter check:', {
+          logins: logins.length,
+          hasManuallyLoggedOut,
+          allowAutoExtensionLogin,
+          extensionLogins: logins.filter(l => l.type === 'extension').length
+        });
+      }
 
       logins.forEach(login => {
         if (login.type === 'extension') {
           // Only remove if user has manually logged out AND hasn't manually logged in with extension
           if (hasManuallyLoggedOut && !allowAutoExtensionLogin) {
-            console.log('Removing automatic extension login - user previously logged out');
+            if (import.meta.env.DEV) {
+              console.debug('Removing automatic extension login - user previously logged out');
+            }
             removeLogin(login.id);
           }
           // If no manual action has been taken, allow the login (this handles page refresh scenarios)
           else if (!hasManuallyLoggedOut && !allowAutoExtensionLogin) {
-            console.log('Allowing existing extension login on page load');
+            if (import.meta.env.DEV) {
+              console.debug('Allowing existing extension login on page load');
+            }
           }
         }
       });

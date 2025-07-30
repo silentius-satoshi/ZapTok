@@ -114,7 +114,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                   <TooltipContent className="max-w-xs">
                     <p className="text-sm">
                       <strong>What is Nostr?</strong><br />
-                      Nostr is decentralized social media where you own your identity and can earn Bitcoin (sats) for your content. No company controls your account - just you and your keys. Create, share, and get rewarded in lightning fast Bitcoin! ⚡
+                      Nostr is decentralized social media where you own your identity and can earn Bitcoin (sats) for your content. No company controls your account - just you and your keys. Create, share, and get value for value in lightning fast Bitcoin! ⚡
                     </p>
                   </TooltipContent>
                 </Tooltip>

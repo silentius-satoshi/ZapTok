@@ -10,7 +10,7 @@ interface NostrProviderProps {
 
 const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const { children } = props;
-  const { config, presetRelays } = useAppContext();
+  const { config, presetRelays: _presetRelays } = useAppContext();
 
   const queryClient = useQueryClient();
 
@@ -32,6 +32,16 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       open(url: string) {
         console.log(`[NostrProvider] Connecting to relay: ${url}`);
         const relay = new NRelay1(url);
+        
+        // Simple connection status check after a delay
+        setTimeout(() => {
+          if (relay.socket && relay.socket.readyState === 1) {
+            console.log(`✅ [NostrProvider] Successfully connected to: ${url}`);
+          } else {
+            console.warn(`⚠️ [NostrProvider] Connection pending or failed for: ${url}`);
+          }
+        }, 2000);
+        
         return relay;
       },
       reqRouter(filters) {
@@ -43,19 +53,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return relayMap;
       },
       eventRouter(_event: NostrEvent) {
-        // Publish to all selected relays
-        const allRelays = new Set<string>(relayUrls.current);
-
-        // Also publish to the preset relays, capped to 5 total
-        for (const { url } of (presetRelays ?? [])) {
-          allRelays.add(url);
-
-          if (allRelays.size >= 5) {
-            break;
-          }
-        }
-
-        return [...allRelays];
+        // Publish only to the configured relays - don't auto-add preset relays
+        return [...relayUrls.current];
       },
     });
   }
