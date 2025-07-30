@@ -67,21 +67,21 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
   if (showEditForm && isCurrentUser) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center space-x-2">
               <Edit className="w-5 h-5" />
               <span>Edit Profile</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
+          <div className="flex-1 overflow-y-auto scrollbar-hide py-4">
             <EditProfileForm />
             <div className="flex justify-end mt-6">
-              <Button variant="outline" onClick={handleCloseEdit}>
-                Done
-              </Button>
+                <Button variant="outline" onClick={handleCloseEdit}>
+                  Done
+                </Button>
+              </div>
             </div>
-          </div>
         </DialogContent>
       </Dialog>
     );

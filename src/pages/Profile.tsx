@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { Navigation } from '@/components/Navigation';
@@ -35,6 +35,16 @@ const Profile = () => {
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  
+  // Prevent body scrolling when edit form is shown
+  useEffect(() => {
+    if (showEditForm) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, [showEditForm]);
   
   // Handle both hex pubkeys and npub identifiers
   const targetPubkey = (() => {
@@ -131,9 +141,9 @@ const Profile = () => {
   if (showEditForm && isOwnProfile) {
     return (
       <AuthGate>
-        <div className="min-h-screen bg-black text-white">
-          <main className="h-screen">
-            <div className="flex h-full">
+        <div className="h-screen bg-black text-white overflow-hidden">
+          <main className="h-full flex">
+            <div className="flex">
               {/* Left Sidebar - Logo and Navigation */}
               <div className="flex flex-col bg-black">
                 <LogoHeader />
@@ -143,8 +153,8 @@ const Profile = () => {
               </div>
               
               {/* Edit Profile Content */}
-              <div className="flex-1 overflow-y-auto scrollbar-hide">
-                <div className="max-w-2xl mx-auto p-6">
+              <div className="flex-1 h-full overflow-y-auto scrollbar-hide">
+                <div className="max-w-2xl mx-auto p-6 min-h-full">
                   <div className="mb-6">
                     <Button 
                       variant="ghost" 
