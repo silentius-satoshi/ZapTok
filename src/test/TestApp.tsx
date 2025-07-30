@@ -25,7 +25,12 @@ export function TestApp({ children }: TestAppProps) {
 
   const defaultConfig: AppConfig = {
     theme: 'light',
-    relayUrls: ['wss://relay.nostr.band'],
+    relayUrls: [
+      'wss://relay.nostr.band',
+      'wss://ditto.pub/relay', 
+      'wss://relay.damus.io',
+      'wss://relay.primal.net'
+    ],
   };
 
   return (
