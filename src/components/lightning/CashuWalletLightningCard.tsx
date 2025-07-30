@@ -19,7 +19,15 @@ import type { PendingTransaction } from '@/stores/transactionHistoryStore';
 
 export function CashuWalletLightningCard() {
   const { user } = useCurrentUser();
-  const { wallet, isLoading, updateProofs } = useCashuWallet();
+  const { 
+    wallet, 
+    isLoading, 
+    isWalletLoading, 
+    isTokensLoading, 
+    walletError, 
+    tokensError, 
+    updateProofs 
+  } = useCashuWallet();
   const { createHistory } = useCashuHistory();
   const cashuStore = useCashuStore();
   const transactionHistoryStore = useTransactionHistoryStore();
@@ -297,11 +305,26 @@ export function CashuWalletLightningCard() {
   };
 
   if (isLoading) {
+    const loadingMessage = isWalletLoading && isTokensLoading 
+      ? "Loading wallet and tokens..."
+      : isWalletLoading 
+      ? "Loading wallet..."
+      : isTokensLoading 
+      ? "Loading tokens..."
+      : "Loading...";
+    
     return (
       <Card>
         <CardHeader>
           <CardTitle>Lightning</CardTitle>
-          <CardDescription>Loading...</CardDescription>
+          <CardDescription>{loadingMessage}</CardDescription>
+          {(walletError || tokensError) && (
+            <Alert className="mt-2">
+              <AlertDescription>
+                {walletError?.message || tokensError?.message}
+              </AlertDescription>
+            </Alert>
+          )}
         </CardHeader>
       </Card>
     );

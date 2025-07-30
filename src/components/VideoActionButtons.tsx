@@ -176,7 +176,6 @@ export function VideoActionButtons({
           <ZapButton
             recipientPubkey={event.pubkey}
             eventId={event.id}
-            amount={21}
             className="rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg p-0"
           />
           <span className="text-white text-xs font-bold">

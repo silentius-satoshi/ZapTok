@@ -1,9 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
-import { useAppContext } from '@/hooks/useAppContext';
 import { Button } from '@/components/ui/button';
-import { CustomZap } from '@/components/CustomZap';
 import { QuickZap } from '@/components/QuickZap';
 import { Zap } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
@@ -12,7 +10,6 @@ import { getLightningAddress } from '@/lib/lightning';
 interface ZapButtonProps {
   recipientPubkey: string;
   eventId?: string;
-  amount?: number;
   className?: string;
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   size?: "default" | "sm" | "lg" | "icon";
@@ -29,34 +26,10 @@ export function ZapButton({
   const { data: authorData } = useAuthor(recipientPubkey);
   const { toast } = useToast();
   
-  const [isCustomZapOpen, setIsCustomZapOpen] = useState(false);
   const [isQuickZapOpen, setIsQuickZapOpen] = useState(false);
   const [showSparks, setShowSparks] = useState(false);
-  
-  // Touch/mouse tracking for tap vs long press
-  const touchStartTime = useRef<number>(0);
-  const isLongPress = useRef<boolean>(false);
-  const longPressThreshold = 500; // 500ms threshold for long press
 
-  // Touch/mouse event handlers for tap vs long press detection
-  const handleTouchStart = () => {
-    touchStartTime.current = Date.now();
-    isLongPress.current = false;
-  };
-
-  const handleTouchEnd = () => {
-    const touchDuration = Date.now() - touchStartTime.current;
-    
-    if (touchDuration >= longPressThreshold) {
-      isLongPress.current = true;
-      handleLongPress();
-    } else {
-      handleTap();
-    }
-  };
-
-  // Handle tap (quick zap)
-  const handleTap = () => {
+  const handleClick = () => {
     if (!user) {
       toast({
         title: "Login Required",
@@ -77,34 +50,18 @@ export function ZapButton({
       return;
     }
 
-    // Open quick zap modal
+    // Check if WebLN is available
+    if (!window.webln) {
+      toast({
+        title: "WebLN Not Available",
+        description: "Please install the Alby browser extension to send Lightning payments",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Open QuickZap modal
     setIsQuickZapOpen(true);
-  };
-
-  // Handle long press (custom zap)
-  const handleLongPress = () => {
-    if (!user) {
-      toast({
-        title: "Login Required",
-        description: "Please log in to send zaps",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if recipient has a Lightning address
-    const lightningAddress = getLightningAddress(authorData?.metadata);
-    if (!lightningAddress) {
-      toast({
-        title: "Zap Not Available",
-        description: "This user hasn't set up Lightning payments in their profile. They need to add a Lightning address (lud16) or LNURL (lud06) to their Nostr profile.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Open custom zap modal
-    setIsCustomZapOpen(true);
   };
 
   // Callback when zap is successfully sent
@@ -116,20 +73,17 @@ export function ZapButton({
 
   // Check if Lightning address is available
   const lightningAddress = getLightningAddress(authorData?.metadata);
-  const canZap = user && lightningAddress;
+  const canZap = user && lightningAddress && window.webln;
 
   return (
     <>
       <Button
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleTouchStart}
-        onMouseUp={handleTouchEnd}
+        onClick={handleClick}
         variant={variant}
         size={size}
         className={`group relative transition-all duration-200 hover:bg-orange-500/10 ${className} ${showSparks ? 'animate-pulse' : ''}`}
         disabled={!canZap}
-        title={!lightningAddress ? 'User has no Lightning address' : !user ? 'Login to zap' : 'Tap for quick zap, hold for custom zap'}
+        title={!lightningAddress ? 'User has no Lightning address' : !user ? 'Login to zap' : !window.webln ? 'Install Alby extension' : 'Click to send zap'}
       >
         <Zap className={`h-4 w-4 transition-all duration-200 ${
           !canZap 
@@ -160,15 +114,6 @@ export function ZapButton({
       <QuickZap
         isOpen={isQuickZapOpen}
         onClose={() => setIsQuickZapOpen(false)}
-        recipientPubkey={recipientPubkey}
-        eventId={eventId}
-        onZapSuccess={handleZapSuccess}
-      />
-
-      {/* Custom Zap Modal */}
-      <CustomZap
-        isOpen={isCustomZapOpen}
-        onClose={() => setIsCustomZapOpen(false)}
         recipientPubkey={recipientPubkey}
         eventId={eventId}
         onZapSuccess={handleZapSuccess}

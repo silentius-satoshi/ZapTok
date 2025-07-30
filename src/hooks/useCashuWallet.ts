@@ -29,9 +29,13 @@ export function useCashuWallet() {
 
       if (!user) throw new Error('User not logged in');
 
+      // Add timeout to prevent hanging
+      const timeoutSignal = AbortSignal.timeout(30000); // 30 second timeout
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+
       const events = await nostr.query([
         { kinds: [CASHU_EVENT_KINDS.WALLET], authors: [user.pubkey], limit: 1 }
-      ], { signal });
+      ], { signal: combinedSignal });
 
       console.log('useCashuWallet: Found wallet events:', events.length);
 
@@ -190,7 +194,13 @@ export function useCashuWallet() {
   const getNip60TokensQuery = useQuery({
     queryKey: ['cashu', 'tokens', user?.pubkey],
     queryFn: async ({ signal }) => {
+      console.log('useCashuWallet: Starting NIP60 tokens query', { userPubkey: user?.pubkey });
+      
       if (!user) throw new Error('User not logged in');
+
+      // Add timeout to prevent hanging
+      const timeoutSignal = AbortSignal.timeout(30000); // 30 second timeout
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
 
       // Get the last stored timestamp for the TOKEN event kind
       const lastTimestamp = getLastEventTimestamp(user.pubkey, CASHU_EVENT_KINDS.TOKEN);
@@ -207,9 +217,14 @@ export function useCashuWallet() {
         Object.assign(filter, { since: lastTimestamp + 1 });
       }
 
-      const events = await nostr.query([filter], { signal });
+      console.log('useCashuWallet: Querying for NIP60 tokens with filter:', filter);
+
+      const events = await nostr.query([filter], { signal: combinedSignal });
+
+      console.log('useCashuWallet: Found NIP60 token events:', events.length);
 
       if (events.length === 0) {
+        console.log('useCashuWallet: No token events found, returning empty array');
         return [];
       }
 
@@ -237,6 +252,7 @@ export function useCashuWallet() {
         }
       }
 
+      console.log('useCashuWallet: Successfully processed NIP60 token events:', nip60TokenEvents.length);
       return nip60TokenEvents;
     },
     enabled: !!user
@@ -338,6 +354,10 @@ export function useCashuWallet() {
     walletId: walletQuery.data?.id,
     tokens: getNip60TokensQuery.data || [],
     isLoading: walletQuery.isFetching || getNip60TokensQuery.isFetching,
+    isWalletLoading: walletQuery.isFetching,
+    isTokensLoading: getNip60TokensQuery.isFetching,
+    walletError: walletQuery.error,
+    tokensError: getNip60TokensQuery.error,
     createWallet: createWalletMutation.mutate,
     updateProofs: updateProofsMutation.mutateAsync,
   };
