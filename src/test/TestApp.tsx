@@ -7,6 +7,7 @@ import { AppProvider } from '@/components/AppProvider';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
+import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
 
 interface TestAppProps {
@@ -31,6 +32,8 @@ export function TestApp({ children }: TestAppProps) {
       'wss://relay.damus.io',
       'wss://relay.primal.net'
     ],
+    defaultZap,
+    availableZapOptions: defaultZapOptions,
   };
 
   return (

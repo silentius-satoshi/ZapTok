@@ -2,6 +2,8 @@ import { ReactNode, useEffect } from 'react';
 import { z } from 'zod';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { AppContext, type AppConfig, type AppContextType, type Theme } from '@/contexts/AppContext';
+import type { ZapOption } from '@/types/zap';
+import { defaultZap, defaultZapOptions } from '@/types/zap';
 
 interface AppProviderProps {
   children: ReactNode;
@@ -13,10 +15,19 @@ interface AppProviderProps {
   presetRelays?: { name: string; url: string }[];
 }
 
+// Zod schema for ZapOption validation
+const ZapOptionSchema = z.object({
+  amount: z.number().min(1),
+  emoji: z.string().min(1),
+  message: z.string(),
+});
+
 // Zod schema for AppConfig validation
 const AppConfigSchema: z.ZodType<AppConfig, z.ZodTypeDef, unknown> = z.object({
   theme: z.enum(['dark', 'light', 'system']),
   relayUrls: z.array(z.string().url()).min(1),
+  defaultZap: ZapOptionSchema,
+  availableZapOptions: z.array(ZapOptionSchema).min(1),
 });
 
 // Migration schema for old single relay configs
@@ -54,6 +65,8 @@ export function AppProvider(props: AppProviderProps) {
           return {
             theme: legacyConfigResult.data.theme,
             relayUrls: [legacyConfigResult.data.relayUrl],
+            defaultZap,
+            availableZapOptions: defaultZapOptions,
           };
         }
         
@@ -84,11 +97,41 @@ export function AppProvider(props: AppProviderProps) {
     }));
   };
 
+  // Set default zap function
+  const setDefaultZap = (zapOption: ZapOption) => {
+    updateConfig((current) => ({
+      ...current,
+      defaultZap: zapOption
+    }));
+  };
+
+  // Set zap option at specific index
+  const setZapOption = (zapOption: Partial<ZapOption>, index: number) => {
+    updateConfig((current) => ({
+      ...current,
+      availableZapOptions: current.availableZapOptions.map((option, i) => 
+        i === index ? { ...option, ...zapOption } : option
+      )
+    }));
+  };
+
+  // Reset zap options to default
+  const resetZapOptionsToDefault = () => {
+    updateConfig((current) => ({
+      ...current,
+      defaultZap,
+      availableZapOptions: [...defaultZapOptions]
+    }));
+  };
+
   const appContextValue: AppContextType = {
     config,
     updateConfig,
     addRelay,
     removeRelay,
+    setDefaultZap,
+    setZapOption,
+    resetZapOptionsToDefault,
     presetRelays,
   };
 

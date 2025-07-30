@@ -13,6 +13,7 @@ import { WalletProvider } from '@/contexts/WalletContext';
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
 import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
+import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { WalletLoader } from '@/components/WalletLoader';
 import AppRouter from './AppRouter';
@@ -41,6 +42,8 @@ const defaultConfig: AppConfig = {
     "wss://relay.damus.io",
     "wss://relay.primal.net"
   ],
+  defaultZap,
+  availableZapOptions: defaultZapOptions,
 };
 
 const presetRelays = [
