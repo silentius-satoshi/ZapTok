@@ -7,35 +7,36 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useToast } from '@/hooks/useToast';
-import { zapNote, zapProfile } from '@/lib/zap';
+import { useUnifiedWallet } from '@/contexts/UnifiedWalletContext';
+import { zapNote } from '@/lib/zap';
+import { getLightningAddress } from '@/lib/lightning';
+import { genUserName } from '@/lib/genUserName';
 import type { NostrEvent } from '@nostrify/nostrify';
 import type { ZapOption } from '@/types/zap';
 
 interface CustomZapProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  note?: NostrEvent;
-  profile?: { pubkey: string };
-  onSuccess?: (zapOption?: ZapOption) => void;
-  onFail?: (zapOption?: ZapOption) => void;
+  isOpen: boolean;
+  onClose: () => void;
+  recipientPubkey: string;
+  eventId?: string;
+  onZapSuccess?: () => void;
 }
 
 export function CustomZap({
-  open,
-  onOpenChange,
-  note,
-  profile,
-  onSuccess,
-  onFail,
+  isOpen,
+  onClose,
+  recipientPubkey,
+  eventId,
+  onZapSuccess,
 }: CustomZapProps) {
   const { user } = useCurrentUser();
   const { config } = useAppContext();
   const { toast } = useToast();
+  const { sendPayment, activeWalletType } = useUnifiedWallet();
   const [selectedValue, setSelectedValue] = useState<ZapOption>(config.availableZapOptions[0] || config.defaultZap);
   const [isZapping, setIsZapping] = useState(false);
 
   // Get recipient info for display
-  const recipientPubkey = note?.pubkey || profile?.pubkey || '';
   const { data: authorData } = useAuthor(recipientPubkey);
 
   // Update selected value when options change
@@ -50,7 +51,7 @@ export function CustomZap({
 
   const updateCustomAmount = (value: string) => {
     const amount = parseInt(value.replace(/,/g, ''));
-    
+
     if (isNaN(amount)) {
       setSelectedValue((v) => ({ ...v, amount: 0 }));
       return;
@@ -110,38 +111,44 @@ export function CustomZap({
       return;
     }
 
+    // Check if recipient has a Lightning address
+    const lightningAddress = getLightningAddress(authorData?.metadata);
+    if (!lightningAddress) {
+      toast({
+        title: "Zap Not Available",
+        description: "This user hasn't set up Lightning payments in their profile. They need to add a Lightning address (lud16) or LNURL (lud06) to their Nostr profile.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsZapping(true);
 
     try {
-      let success = false;
-
-      if (note) {
-        // Zap a note - you'll need to implement zapNote function
-        success = await zapNote(
-          note,
-          user.pubkey,
-          selectedValue.amount,
-          selectedValue.message
-        );
-      } else if (profile) {
-        // Zap a profile - you'll need to implement zapProfile function  
-        success = await zapProfile(
-          profile,
-          user.pubkey,
-          selectedValue.amount,
-          selectedValue.message
-        );
-      }
+      // Use zapNote for both note zaps and profile zaps
+      // The eventId parameter determines if it's a note zap (eventId provided) or profile zap (no eventId)
+      const success = await zapNote(
+        { pubkey: recipientPubkey, id: eventId || '' } as NostrEvent,
+        user.pubkey,
+        selectedValue.amount,
+        selectedValue.message,
+        authorData?.metadata,
+        activeWalletType ? sendPayment : undefined
+      );
 
       if (success) {
         toast({
-          title: "Zap Sent!",
-          description: `Successfully sent ${selectedValue.amount} sats`,
+          title: "Zap Sent! ⚡",
+          description: `Successfully sent ${selectedValue.amount} sats to ${lightningAddress}`,
         });
-        onSuccess?.(selectedValue);
-        onOpenChange(false);
+        onZapSuccess?.();
+        onClose();
       } else {
-        throw new Error("Zap failed");
+        toast({
+          title: "Zap Implementation Required",
+          description: "Lightning wallet integration is required to send zaps. This feature will be available soon!",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Zap error:', error);
@@ -150,32 +157,50 @@ export function CustomZap({
         description: "Failed to send zap. Please try again.",
         variant: "destructive",
       });
-      onFail?.(selectedValue);
     } finally {
       setIsZapping(false);
     }
   };
 
   const handleCancel = () => {
-    onOpenChange(false);
+    onClose();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gray-900 border-gray-700 max-w-md">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="bg-gray-900 border-gray-700 max-w-lg w-full mx-4">
         <DialogHeader>
           <DialogTitle className="text-white text-center">
-            Zap
+            Custom Zap
           </DialogTitle>
+          {/* Show Lightning address if available, otherwise show truncated pubkey */}
+          {getLightningAddress(authorData?.metadata) ? (
+            <p className="text-sm text-muted-foreground text-center px-4">
+              To: <span className="font-mono text-orange-500 break-all">
+                {getLightningAddress(authorData?.metadata)}
+              </span>
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center px-4">
+              To: <span className="font-mono text-orange-500 break-all">
+                {genUserName(recipientPubkey)}
+              </span>
+            </p>
+          )}
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Custom Zap Section */}
+          <div className="px-4">
+            <h3 className="text-white font-medium mb-3">Custom Zap</h3>
+          </div>
+
           {/* Description */}
-          <div className="text-center text-gray-300">
-            <p>
+          <div className="text-center text-gray-300 px-4">
+            <p className="break-words">
               Zap{" "}
-              <span className="text-white font-medium">
-                {getUserName(recipientPubkey)}
+              <span className="text-white font-medium break-all">
+                {genUserName(recipientPubkey)}
               </span>{" "}
               <span className="text-pink-500 font-bold text-xl">
                 {truncateNumber(selectedValue.amount || 0)}
@@ -185,7 +210,7 @@ export function CustomZap({
           </div>
 
           {/* Zap options */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3 px-4">
             {config.availableZapOptions.map((value, index) => (
               <button
                 key={index}
@@ -208,7 +233,7 @@ export function CustomZap({
           </div>
 
           {/* Custom amount input */}
-          <div className="space-y-2">
+          <div className="space-y-2 px-4">
             <Label htmlFor="customAmount" className="text-gray-300">
               Custom amount (sats)
             </Label>
@@ -223,7 +248,7 @@ export function CustomZap({
           </div>
 
           {/* Comment input */}
-          <div className="space-y-2">
+          <div className="space-y-2 px-4">
             <Label htmlFor="comment" className="text-gray-300">
               Message (optional)
             </Label>
@@ -238,7 +263,7 @@ export function CustomZap({
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-4 px-4">
             <Button
               variant="outline"
               onClick={handleCancel}
@@ -252,7 +277,7 @@ export function CustomZap({
               disabled={isZapping || !selectedValue.amount}
               className="flex-1 bg-pink-600 hover:bg-pink-700 text-white"
             >
-              {isZapping ? 'Zapping...' : 'Zap'}
+              {isZapping ? 'Sending...' : 'Send Custom Zap'}
             </Button>
           </div>
         </div>

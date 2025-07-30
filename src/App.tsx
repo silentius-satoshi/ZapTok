@@ -10,6 +10,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AuthFilter } from '@/components/auth/AuthFilter';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { UnifiedWalletProvider } from '@/contexts/UnifiedWalletContext';
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
 import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
@@ -38,7 +39,7 @@ const defaultConfig: AppConfig = {
   theme: "dark", // Changed to dark theme for ZapTok
   relayUrls: [
     "wss://relay.nostr.band",
-    "wss://ditto.pub/relay", 
+    "wss://ditto.pub/relay",
     "wss://relay.damus.io",
     "wss://relay.primal.net"
   ],
@@ -83,14 +84,16 @@ export function App() {
               <NostrProvider>
                 <CachingProvider>
                   <WalletProvider>
-                    <VideoPlaybackProvider>
-                      <TooltipProvider>
-                        <WalletLoader />
-                        <Toaster />
-                        <Sonner />
-                        <AppContent />
-                      </TooltipProvider>
-                    </VideoPlaybackProvider>
+                    <UnifiedWalletProvider>
+                      <VideoPlaybackProvider>
+                        <TooltipProvider>
+                          <WalletLoader />
+                          <Toaster />
+                          <Sonner />
+                          <AppContent />
+                        </TooltipProvider>
+                      </VideoPlaybackProvider>
+                    </UnifiedWalletProvider>
                   </WalletProvider>
                 </CachingProvider>
               </NostrProvider>

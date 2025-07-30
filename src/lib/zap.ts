@@ -1,4 +1,4 @@
-import type { NostrEvent } from '@nostrify/nostrify';
+import type { NostrEvent, NostrMetadata } from '@nostrify/nostrify';
 
 export interface ZapTarget {
   pubkey: string;
@@ -11,7 +11,9 @@ export async function zapNote(
   note: NostrEvent,
   senderPubkey: string,
   amount: number,
-  comment: string = ''
+  comment: string = '',
+  recipientMetadata?: NostrMetadata,
+  sendPayment?: (invoice: string) => Promise<{ preimage: string; walletType: string }>
 ): Promise<boolean> {
   // TODO: Implement actual zapping logic using NIP-57
   // This is a placeholder that integrates with your existing ZapButton functionality
@@ -20,19 +22,25 @@ export async function zapNote(
     recipient: note.pubkey,
     sender: senderPubkey,
     amount,
-    comment
+    comment,
+    hasMetadata: !!recipientMetadata,
+    hasPaymentMethod: !!sendPayment
   });
 
   try {
     // For now, we'll simulate a successful zap
     // In a real implementation, this would:
-    // 1. Get the recipient's Lightning address from their profile
+    // 1. Get the recipient's Lightning address from their profile (recipientMetadata)
     // 2. Create a zap request according to NIP-57
-    // 3. Send the Lightning payment
+    // 3. Send the Lightning payment (sendPayment function)
     // 4. Publish the zap receipt
-    
+
+    // If sendPayment is provided, we could theoretically process the payment
+    // But for now, we'll just simulate the delay
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-    return true;
+
+    // Return false for now to indicate zap implementation is pending
+    return false;
   } catch (error) {
     console.error('Failed to zap note:', error);
     return false;
@@ -63,7 +71,7 @@ export async function zapProfile(
     // 2. Create a zap request according to NIP-57
     // 3. Send the Lightning payment
     // 4. Publish the zap receipt
-    
+
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
     return true;
   } catch (error) {

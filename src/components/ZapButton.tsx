@@ -1,15 +1,13 @@
-import { useState } from 'react';
-import { useWallet } from '@/hooks/useWallet';
+import { useState, useRef } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useAppContext } from '@/hooks/useAppContext';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { CustomZap } from '@/components/CustomZap';
+import { QuickZap } from '@/components/QuickZap';
 import { Zap } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
-import { getLightningAddress, getLNURLPayEndpoint, createZapRequest } from '@/lib/lightning';
+import { getLightningAddress } from '@/lib/lightning';
 
 interface ZapButtonProps {
   recipientPubkey: string;
@@ -20,24 +18,49 @@ interface ZapButtonProps {
   size?: "default" | "sm" | "lg" | "icon";
 }
 
-export function ZapButton({ recipientPubkey, eventId, amount = 21, className, variant = "ghost", size = "sm" }: ZapButtonProps) {
-  const { isConnected, sendPayment } = useWallet();
+export function ZapButton({ 
+  recipientPubkey, 
+  eventId, 
+  className, 
+  variant = "ghost", 
+  size = "sm" 
+}: ZapButtonProps) {
   const { user } = useCurrentUser();
   const { data: authorData } = useAuthor(recipientPubkey);
-  const { mutate: publishEvent } = useNostrPublish();
   const { toast } = useToast();
   
-  const [isOpen, setIsOpen] = useState(false);
-  const [zapAmount, setZapAmount] = useState(amount);
-  const [comment, setComment] = useState('');
-  const [isZapping, setIsZapping] = useState(false);
+  const [isCustomZapOpen, setIsCustomZapOpen] = useState(false);
+  const [isQuickZapOpen, setIsQuickZapOpen] = useState(false);
   const [showSparks, setShowSparks] = useState(false);
+  
+  // Touch/mouse tracking for tap vs long press
+  const touchStartTime = useRef<number>(0);
+  const isLongPress = useRef<boolean>(false);
+  const longPressThreshold = 500; // 500ms threshold for long press
 
-  const handleZap = async () => {
-    if (!isConnected || !user) {
+  // Touch/mouse event handlers for tap vs long press detection
+  const handleTouchStart = () => {
+    touchStartTime.current = Date.now();
+    isLongPress.current = false;
+  };
+
+  const handleTouchEnd = () => {
+    const touchDuration = Date.now() - touchStartTime.current;
+    
+    if (touchDuration >= longPressThreshold) {
+      isLongPress.current = true;
+      handleLongPress();
+    } else {
+      handleTap();
+    }
+  };
+
+  // Handle tap (quick zap)
+  const handleTap = () => {
+    if (!user) {
       toast({
-        title: "Wallet Required",
-        description: "Please connect your Lightning wallet to send zaps",
+        title: "Login Required",
+        description: "Please log in to send zaps",
         variant: "destructive",
       });
       return;
@@ -54,169 +77,59 @@ export function ZapButton({ recipientPubkey, eventId, amount = 21, className, va
       return;
     }
 
-    setIsZapping(true);
-    
-    try {
-      console.log('⚡ Starting zap process for:', { recipientPubkey, lightningAddress, zapAmount });
-      
-      // Get LNURL-pay endpoint from Lightning address
-      const zapEndpoint = await getLNURLPayEndpoint(lightningAddress);
-      
-      if (!zapEndpoint) {
-        throw new Error(`Failed to get payment endpoint from Lightning address: ${lightningAddress}`);
-      }
+    // Open quick zap modal
+    setIsQuickZapOpen(true);
+  };
 
-      console.log('🎯 Using zap endpoint:', zapEndpoint);
-
-      // Create zap request using utility function
-      const zapRequest = createZapRequest(recipientPubkey, zapAmount, comment, eventId);
-      console.log('📝 Created zap request:', zapRequest);
-
-      // Prepare the request payload
-      const requestPayload = {
-        amount: zapAmount * 1000, // Convert to millisats
-        nostr: JSON.stringify(zapRequest),
-        ...(comment && { comment }),
-      };
-      console.log('📡 Sending invoice request:', requestPayload);
-
-      // Get invoice from zap endpoint with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-      const response = await fetch(zapEndpoint, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestPayload),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-      console.log('📨 Invoice response status:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Invoice request failed:', errorText);
-        
-        // Provide more specific error messages based on status codes
-        if (response.status === 400) {
-          throw new Error(`Invalid zap request: ${errorText}`);
-        } else if (response.status === 404) {
-          throw new Error(`Lightning service not found. The user's Lightning address (${lightningAddress}) may be outdated or inactive.`);
-        } else if (response.status === 500) {
-          throw new Error(`Lightning service internal error: ${errorText}`);
-        } else if (response.status === 429) {
-          throw new Error(`Too many requests to Lightning service. Please try again later.`);
-        } else {
-          throw new Error(`Lightning service returned error ${response.status}: ${errorText}`);
-        }
-      }
-
-      const data = await response.json();
-      console.log('💰 Invoice response data:', data);
-      const invoice = data.pr;
-
-      if (!invoice) {
-        console.error('❌ No invoice found in response:', data);
-        // Check if there's an error message in the response
-        const errorMsg = data.reason || data.error || data.message || 'Unknown error';
-        throw new Error(`Lightning service couldn't generate invoice: ${errorMsg}`);
-      }
-
-      console.log('📄 Got invoice:', invoice.substring(0, 50) + '...');
-
-      // Send payment using Bitcoin Connect/WebLN
-      const paymentResult = await sendPayment(invoice);
-
-      // Publish zap receipt
-      const zapReceipt = {
-        kind: 9735,
-        content: '',
-        tags: [
-          ['p', recipientPubkey],
-          ['bolt11', invoice],
-        ],
-        created_at: Math.floor(Date.now() / 1000),
-      };
-
-      // Add preimage if available
-      if (paymentResult.preimage) {
-        zapReceipt.tags.push(['preimage', paymentResult.preimage]);
-      }
-
-      if (eventId) {
-        zapReceipt.tags.push(['e', eventId]);
-      }
-
-      publishEvent(zapReceipt);
-
-      // Trigger sparks animation
-      setShowSparks(true);
-      setTimeout(() => setShowSparks(false), 1000);
-
+  // Handle long press (custom zap)
+  const handleLongPress = () => {
+    if (!user) {
       toast({
-        title: "Zap Sent! ⚡",
-        description: `Successfully sent ${zapAmount} sats to ${lightningAddress}`,
-      });
-
-      setIsOpen(false);
-      setComment('');
-    } catch (error) {
-      console.error('Zap error:', error);
-      
-      let errorMessage = "Failed to send zap";
-      let title = "Zap Failed";
-      
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          title = "Request Timeout";
-          errorMessage = "The Lightning service took too long to respond. Please try again.";
-        } else if (error.message.includes('Failed to get payment endpoint')) {
-          title = "Lightning Address Issue";
-          errorMessage = `Could not resolve Lightning address: ${lightningAddress}. The Lightning service may be down or not configured correctly.`;
-        } else if (error.message.includes('Failed to fetch')) {
-          title = "Network Error";
-          errorMessage = "Could not connect to Lightning service. This might be a CORS or network issue.";
-        } else if (error.message.includes("couldn't generate invoice")) {
-          title = "Invoice Generation Failed";
-          errorMessage = `The Lightning service couldn't generate an invoice. ${error.message}`;
-        } else if (error.message.includes('Lightning service not found')) {
-          title = "Lightning Address Inactive";
-          errorMessage = error.message + " The user may need to update their Lightning address in their profile.";
-        } else if (error.message.includes('Lightning service returned error')) {
-          title = "Lightning Service Error";
-          errorMessage = error.message;
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
-      toast({
-        title,
-        description: errorMessage,
+        title: "Login Required",
+        description: "Please log in to send zaps",
         variant: "destructive",
       });
-    } finally {
-      setIsZapping(false);
+      return;
     }
+
+    // Check if recipient has a Lightning address
+    const lightningAddress = getLightningAddress(authorData?.metadata);
+    if (!lightningAddress) {
+      toast({
+        title: "Zap Not Available",
+        description: "This user hasn't set up Lightning payments in their profile. They need to add a Lightning address (lud16) or LNURL (lud06) to their Nostr profile.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Open custom zap modal
+    setIsCustomZapOpen(true);
+  };
+
+  // Callback when zap is successfully sent
+  const handleZapSuccess = () => {
+    // Trigger sparks animation
+    setShowSparks(true);
+    setTimeout(() => setShowSparks(false), 1000);
   };
 
   // Check if Lightning address is available
   const lightningAddress = getLightningAddress(authorData?.metadata);
-  const canZap = isConnected && lightningAddress;
+  const canZap = user && lightningAddress;
 
   return (
     <>
       <Button
-        onClick={() => setIsOpen(true)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleTouchStart}
+        onMouseUp={handleTouchEnd}
         variant={variant}
         size={size}
         className={`group relative transition-all duration-200 hover:bg-orange-500/10 ${className} ${showSparks ? 'animate-pulse' : ''}`}
         disabled={!canZap}
-        title={!lightningAddress ? 'User has no Lightning address' : !isConnected ? 'Connect wallet to zap' : 'Send zap'}
+        title={!lightningAddress ? 'User has no Lightning address' : !user ? 'Login to zap' : 'Tap for quick zap, hold for custom zap'}
       >
         <Zap className={`h-4 w-4 transition-all duration-200 ${
           !canZap 
@@ -243,56 +156,23 @@ export function ZapButton({ recipientPubkey, eventId, amount = 21, className, va
         )}
       </Button>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Send Zap ⚡</DialogTitle>
-            {lightningAddress && (
-              <p className="text-sm text-muted-foreground">
-                To: <span className="font-mono text-orange-500">{lightningAddress}</span>
-              </p>
-            )}
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="zap-amount">Amount (sats)</Label>
-              <Input
-                id="zap-amount"
-                type="number"
-                value={zapAmount}
-                onChange={(e) => setZapAmount(Number(e.target.value))}
-                min="1"
-                step="1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="zap-comment">Comment (Optional)</Label>
-              <Input
-                id="zap-comment"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Great content!"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleZap}
-                disabled={isZapping || !canZap}
-                className="flex-1"
-              >
-                {isZapping ? 'Sending...' : `Zap ${zapAmount} sats`}
-              </Button>
-              <Button
-                onClick={() => setIsOpen(false)}
-                variant="outline"
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Quick Zap Modal */}
+      <QuickZap
+        isOpen={isQuickZapOpen}
+        onClose={() => setIsQuickZapOpen(false)}
+        recipientPubkey={recipientPubkey}
+        eventId={eventId}
+        onZapSuccess={handleZapSuccess}
+      />
+
+      {/* Custom Zap Modal */}
+      <CustomZap
+        isOpen={isCustomZapOpen}
+        onClose={() => setIsCustomZapOpen(false)}
+        recipientPubkey={recipientPubkey}
+        eventId={eventId}
+        onZapSuccess={handleZapSuccess}
+      />
     </>
   );
 }
