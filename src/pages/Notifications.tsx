@@ -12,11 +12,18 @@ import {
   CheckCheck,
   Trash2,
   Settings,
-  ArrowLeft
+  ArrowLeft,
+  Zap,
+  Heart,
+  MessageCircle,
+  Repeat,
+  UserPlus,
+  AtSign
 } from 'lucide-react';
 import NotificationItem from '@/components/NotificationItem';
 import { Navigation } from '@/components/Navigation';
 import { LogoHeader } from '@/components/LogoHeader';
+import { truncateNumber, truncateName, formatRelativeTime } from '@/lib/notificationUtils';
 
 export default function Notifications() {
   const { user } = useCurrentUser();
@@ -51,47 +58,92 @@ export default function Notifications() {
   }, [notifications, selectedTab]);
 
   const unreadCount = useMemo(() => {
+    // Count notifications that are explicitly marked as unread (read: false or undefined)
     return notifications.filter(n => !n.read).length;
+  }, [notifications]);
+
+  const hasNewActivity = useMemo(() => {
+    // Check if there are any notifications at all, regardless of read status
+    return notifications.length > 0;
+  }, [notifications]);
+
+  // Get notifications from the last 24 hours
+  const recentNotifications = useMemo(() => {
+    const twentyFourHoursAgo = Math.floor(Date.now() / 1000) - (24 * 60 * 60);
+    return notifications.filter(notification => notification.createdAt > twentyFourHoursAgo);
   }, [notifications]);
 
   const handleBack = () => {
     navigate(-1); // Go back to previous page
   };
 
-  const markAllAsRead = () => {
-    // Implementation for marking all as read
-    refetch();
-  };
-
-  const clearAllNotifications = () => {
-    // Implementation for clearing all notifications
-    refetch();
-  };
-
   const handleSettingsClick = () => {
     navigate('/settings?section=notifications');
   };
 
-  // Get notification counts by type
-  const notificationCounts = useMemo(() => {
-    const counts = {
+  // Get enhanced notification statistics
+  const notificationStats = useMemo(() => {
+    const stats = {
+      // Basic counts
       all: notifications.length,
       mentions: 0,
-      zaps: 0,
+      zaps: { count: 0, totalSats: 0 },
       likes: 0,
       reposts: 0,
-      follows: 0,
+      follows: { gained: 0, lost: 0 },
+      replies: 0,
+      
+      // Secondary notifications (activity on posts you were mentioned in)
+      mentionActivity: {
+        zapped: 0,
+        liked: 0,
+        reposted: 0,
+        replied: 0,
+      },
+      
+      // Activity on posts your posts were mentioned in
+      postMentionActivity: {
+        zapped: 0,
+        liked: 0,
+        reposted: 0,
+        replied: 0,
+      }
     };
 
     notifications.forEach(notification => {
-      if (notification.type.includes('MENTIONED')) counts.mentions++;
-      if (notification.type.includes('ZAPPED')) counts.zaps++;
-      if (notification.type.includes('LIKED')) counts.likes++;
-      if (notification.type.includes('REPOSTED')) counts.reposts++;
-      if (notification.type.includes('FOLLOWED')) counts.follows++;
+      // Direct mentions
+      if (notification.type.includes('YOU_WERE_MENTIONED_IN_POST')) stats.mentions++;
+      if (notification.type.includes('YOUR_POST_WAS_MENTIONED_IN_POST')) stats.mentions++;
+      
+      // Zaps
+      if (notification.type.includes('YOUR_POST_WAS_ZAPPED')) {
+        stats.zaps.count++;
+        stats.zaps.totalSats += notification.sats || 0;
+      }
+      
+      // Basic interactions
+      if (notification.type.includes('YOUR_POST_WAS_LIKED')) stats.likes++;
+      if (notification.type.includes('YOUR_POST_WAS_REPOSTED')) stats.reposts++;
+      if (notification.type.includes('YOUR_POST_WAS_REPLIED_TO')) stats.replies++;
+      
+      // Follows
+      if (notification.type.includes('NEW_USER_FOLLOWED_YOU')) stats.follows.gained++;
+      if (notification.type.includes('USER_UNFOLLOWED_YOU')) stats.follows.lost++;
+      
+      // Secondary activity - posts you were mentioned in
+      if (notification.type.includes('POST_YOU_WERE_MENTIONED_IN_WAS_ZAPPED')) stats.mentionActivity.zapped++;
+      if (notification.type.includes('POST_YOU_WERE_MENTIONED_IN_WAS_LIKED')) stats.mentionActivity.liked++;
+      if (notification.type.includes('POST_YOU_WERE_MENTIONED_IN_WAS_REPOSTED')) stats.mentionActivity.reposted++;
+      if (notification.type.includes('POST_YOU_WERE_MENTIONED_IN_WAS_REPLIED_TO')) stats.mentionActivity.replied++;
+      
+      // Activity on posts your posts were mentioned in
+      if (notification.type.includes('POST_YOUR_POST_WAS_MENTIONED_IN_WAS_ZAPPED')) stats.postMentionActivity.zapped++;
+      if (notification.type.includes('POST_YOUR_POST_WAS_MENTIONED_IN_WAS_LIKED')) stats.postMentionActivity.liked++;
+      if (notification.type.includes('POST_YOUR_POST_WAS_MENTIONED_IN_WAS_REPOSTED')) stats.postMentionActivity.reposted++;
+      if (notification.type.includes('POST_YOUR_POST_WAS_MENTIONED_IN_WAS_REPLIED_TO')) stats.postMentionActivity.replied++;
     });
 
-    return counts;
+    return stats;
   }, [notifications]);
 
   if (isLoading) {
@@ -165,35 +217,14 @@ export default function Notifications() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h1 className="text-2xl font-semibold text-white flex items-center gap-2">
+              <button
+                onClick={handleBack}
+                className="text-2xl font-semibold text-gray-400 hover:text-white hover:underline transition-colors cursor-pointer"
+              >
                 notifications
-                {unreadCount > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {unreadCount}
-                  </Badge>
-                )}
-              </h1>
+              </button>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={markAllAsRead}
-                disabled={unreadCount === 0}
-                className="text-gray-400 hover:text-white"
-              >
-                <CheckCheck className="h-4 w-4 mr-1" />
-                Mark all read
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearAllNotifications}
-                className="text-gray-400 hover:text-white"
-              >
-                <Trash2 className="h-4 w-4 mr-1" />
-                Clear all
-              </Button>
               <Button 
                 variant="ghost" 
                 size="sm"
@@ -248,7 +279,7 @@ export default function Notifications() {
                       : 'text-gray-400 hover:text-gray-300'
                   }`}
                 >
-                  REPLIES
+                  LIKES
                 </button>
                 <button
                   onClick={() => setSelectedTab('mentions')}
@@ -293,9 +324,9 @@ export default function Notifications() {
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-800">
-                    {filteredNotifications.map((notification) => (
-                      <div key={notification.id} className="py-4">
+                  <div className="border-t border-gray-800">
+                    {filteredNotifications.map((notification, index) => (
+                      <div key={notification.id}>
                         <NotificationItem
                           id={notification.id}
                           type={notification.type}
@@ -303,6 +334,9 @@ export default function Notifications() {
                           notification={notification}
                           sats={notification.sats}
                         />
+                        {index < filteredNotifications.length - 1 && (
+                          <div className="border-b border-gray-800" />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -320,47 +354,81 @@ export default function Notifications() {
           <div>
             <h3 className="text-2xl font-semibold mb-6 text-white">SUMMARY</h3>
             <div className="space-y-3">
-              {unreadCount === 0 ? (
-                <p className="text-gray-400 text-lg">no new notifications</p>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-white text-lg">{unreadCount} new notification{unreadCount !== 1 ? 's' : ''}</p>
-                  <div className="space-y-1 text-sm text-gray-400">
-                    {notificationCounts.mentions > 0 && (
-                      <p>{notificationCounts.mentions} mention{notificationCounts.mentions !== 1 ? 's' : ''}</p>
-                    )}
-                    {notificationCounts.zaps > 0 && (
-                      <p>{notificationCounts.zaps} zap{notificationCounts.zaps !== 1 ? 's' : ''}</p>
-                    )}
-                    {notificationCounts.likes > 0 && (
-                      <p>{notificationCounts.likes} like{notificationCounts.likes !== 1 ? 's' : ''}</p>
-                    )}
-                    {notificationCounts.reposts > 0 && (
-                      <p>{notificationCounts.reposts} repost{notificationCounts.reposts !== 1 ? 's' : ''}</p>
-                    )}
-                    {notificationCounts.follows > 0 && (
-                      <p>{notificationCounts.follows} follow{notificationCounts.follows !== 1 ? 's' : ''}</p>
-                    )}
-                  </div>
-                </div>
-              )}
+              <p className="text-white text-lg">{notifications.length} total notification{notifications.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
 
-          {/* Recent Activity Section */}
+          {/* Activity Categories */}
+          <div className="space-y-6">
+            {notificationStats.zaps.count > 0 && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Zap className="w-5 h-5 text-yellow-400" />
+                  <span className="text-gray-300">{truncateNumber(notificationStats.zaps.count)} zap{notificationStats.zaps.count !== 1 ? 's' : ''}</span>
+                </div>
+                {notificationStats.zaps.totalSats > 0 && (
+                  <span className="text-orange-400 text-sm">⚡{truncateNumber(notificationStats.zaps.totalSats)}</span>
+                )}
+              </div>
+            )}
+
+            {notificationStats.likes > 0 && (
+              <div className="flex items-center gap-3">
+                <Heart className="w-5 h-5 text-pink-400" />
+                <span className="text-gray-300">{truncateNumber(notificationStats.likes)} like{notificationStats.likes !== 1 ? 's' : ''}</span>
+              </div>
+            )}
+
+            {notificationStats.mentions > 0 && (
+              <div className="flex items-center gap-3">
+                <AtSign className="w-5 h-5 text-cyan-400" />
+                <span className="text-gray-300">{truncateNumber(notificationStats.mentions)} mention{notificationStats.mentions !== 1 ? 's' : ''}</span>
+              </div>
+            )}
+
+            {notificationStats.reposts > 0 && (
+              <div className="flex items-center gap-3">
+                <Repeat className="w-5 h-5 text-green-400" />
+                <span className="text-gray-300">{truncateNumber(notificationStats.reposts)} repost{notificationStats.reposts !== 1 ? 's' : ''}</span>
+              </div>
+            )}
+
+            {(notificationStats.follows.gained + notificationStats.follows.lost) > 0 && (
+              <div className="flex items-center gap-3">
+                <UserPlus className="w-5 h-5 text-blue-400" />
+                <span className="text-gray-300">{truncateNumber(notificationStats.follows.gained + notificationStats.follows.lost)} follow{(notificationStats.follows.gained + notificationStats.follows.lost) !== 1 ? 's' : ''}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Recent Activity Section - Last 24 Hours */}
           <div>
             <h3 className="text-2xl font-semibold mb-6 text-white">Recent Activity</h3>
             <div className="space-y-4">
-              {notifications.slice(0, 3).map((notification, index) => {
-                const timeAgo = new Date(notification.createdAt * 1000).toLocaleDateString();
+              {recentNotifications.slice(0, 5).map((notification, index) => {
+                const timeAgo = formatRelativeTime(notification.createdAt);
                 const userName = notification.users?.[0]?.name || 'Unknown User';
+                const displayName = truncateName(userName, 15);
+                
+                // Get icon based on notification type
+                const getNotificationIcon = () => {
+                  if (notification.type.includes('ZAPPED')) return <Zap className="w-3 h-3 text-yellow-400" />;
+                  if (notification.type.includes('LIKED')) return <Heart className="w-3 h-3 text-pink-400" />;
+                  if (notification.type.includes('REPOSTED')) return <Repeat className="w-3 h-3 text-green-400" />;
+                  if (notification.type.includes('REPLIED')) return <MessageCircle className="w-3 h-3 text-blue-400" />;
+                  if (notification.type.includes('FOLLOWED')) return <UserPlus className="w-3 h-3 text-blue-400" />;
+                  if (notification.type.includes('MENTIONED')) return <AtSign className="w-3 h-3 text-cyan-400" />;
+                  return <div className="w-3 h-3 rounded-full bg-purple-500" />;
+                };
                 
                 return (
                   <div key={index} className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full bg-purple-500 mt-2 flex-shrink-0" />
+                    <div className="mt-1 flex-shrink-0">
+                      {getNotificationIcon()}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-gray-300 text-sm truncate">
-                        {userName}
+                        {displayName}
                       </p>
                       <p className="text-gray-500 text-xs">
                         {timeAgo}
@@ -370,8 +438,8 @@ export default function Notifications() {
                 );
               })}
               
-              {notifications.length === 0 && (
-                <p className="text-gray-500 text-sm">No recent activity</p>
+              {recentNotifications.length === 0 && (
+                <p className="text-gray-500 text-sm">No activity in the last 24 hours</p>
               )}
             </div>
           </div>

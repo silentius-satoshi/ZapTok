@@ -1,7 +1,7 @@
 import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/useAuthor';
-import { formatDistanceToNow } from 'date-fns';
+import { formatRelativeTime } from '@/lib/notificationUtils';
 import { Zap, Heart, Repeat, MessageCircle, UserPlus, UserMinus, AtSign, Bell } from 'lucide-react';
 import NotificationAvatar from './NotificationAvatar';
 import type { Notification, NotificationUser } from '@/hooks/useNotifications';
@@ -93,11 +93,11 @@ const NotificationItem: React.FC<NotificationItemProps> = (props) => {
 
   const time = () => {
     if (!props.notification?.createdAt) return '';
-    return formatDistanceToNow(props.notification.createdAt * 1000, { addSuffix: true });
+    return formatRelativeTime(props.notification.createdAt);
   };
 
   return (
-    <div className="grid grid-cols-[44px_1fr_12px] py-3 px-0 border-b border-border">
+    <div className="grid grid-cols-[44px_1fr_12px] py-3 px-0">
       {/* Icon/Avatar Column */}
       <div className="flex flex-col items-center justify-start py-1.5">
         <div className="w-6 h-6 flex items-center justify-center text-orange-400">
