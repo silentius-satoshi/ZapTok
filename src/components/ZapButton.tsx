@@ -6,6 +6,8 @@ import { QuickZap } from '@/components/QuickZap';
 import { Zap } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { getLightningAddress } from '@/lib/lightning';
+import { useUnifiedWallet } from '@/contexts/UnifiedWalletContext';
+import { getPaymentSuggestion } from '@/lib/lightning-providers';
 
 interface ZapButtonProps {
   recipientPubkey: string;
@@ -25,6 +27,7 @@ export function ZapButton({
   const { user } = useCurrentUser();
   const { data: authorData } = useAuthor(recipientPubkey);
   const { toast } = useToast();
+  const { isConnected: walletConnected } = useUnifiedWallet();
   
   const [isQuickZapOpen, setIsQuickZapOpen] = useState(false);
   const [showSparks, setShowSparks] = useState(false);
@@ -50,17 +53,31 @@ export function ZapButton({
       return;
     }
 
-    // Check if WebLN is available
-    if (!window.webln) {
+    // Check if the provider is supported
+    const suggestion = getPaymentSuggestion(lightningAddress);
+    if (suggestion.isBlocked) {
       toast({
-        title: "WebLN Not Available",
-        description: "Please install the Alby browser extension to send Lightning payments",
+        title: "Provider Not Supported",
+        description: `${suggestion.message} This app works best with Alby, Stacker News, or ZBD Lightning addresses.`,
         variant: "destructive",
       });
       return;
     }
 
-    // Open QuickZap modal
+    // Check if any payment method is available
+    const hasWebLN = !!window.webln;
+    const hasWallet = walletConnected;
+    
+    if (!hasWebLN && !hasWallet) {
+      toast({
+        title: "No Payment Method Available",
+        description: "Please install the Alby browser extension or connect a wallet to send Lightning payments",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Open QuickZap modal - it will handle payment method selection
     setIsQuickZapOpen(true);
   };
 
@@ -71,9 +88,21 @@ export function ZapButton({
     setTimeout(() => setShowSparks(false), 1000);
   };
 
-  // Check if Lightning address is available
+  // Check if Lightning address is available and at least one payment method is available
   const lightningAddress = getLightningAddress(authorData?.metadata);
-  const canZap = user && lightningAddress && window.webln;
+  const hasWebLN = !!window.webln;
+  const hasWallet = walletConnected;
+  const suggestion = lightningAddress ? getPaymentSuggestion(lightningAddress) : null;
+  const canZap = user && lightningAddress && (hasWebLN || hasWallet) && !suggestion?.isBlocked;
+
+  // Create tooltip message
+  const getTooltipMessage = () => {
+    if (!lightningAddress) return 'User has no Lightning address';
+    if (!user) return 'Login to zap';
+    if (suggestion?.isBlocked) return `${suggestion.message}`;
+    if (!hasWebLN && !hasWallet) return 'Install Alby extension or connect wallet';
+    return 'Click to send zap';
+  };
 
   return (
     <>
@@ -83,7 +112,7 @@ export function ZapButton({
         size={size}
         className={`group relative transition-all duration-200 hover:bg-orange-500/10 ${className} ${showSparks ? 'animate-pulse' : ''}`}
         disabled={!canZap}
-        title={!lightningAddress ? 'User has no Lightning address' : !user ? 'Login to zap' : !window.webln ? 'Install Alby extension' : 'Click to send zap'}
+        title={getTooltipMessage()}
       >
         <Zap className={`h-4 w-4 transition-all duration-200 ${
           !canZap 

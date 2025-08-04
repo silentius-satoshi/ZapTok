@@ -1,5 +1,5 @@
 import type { NostrEvent, NostrMetadata } from '@nostrify/nostrify';
-import { getLNURLPayEndpoint, createZapRequest } from './lightning';
+import { getLNURLPayEndpoint, createZapRequest, corsAwareFetch } from './lightning';
 
 export interface ZapTarget {
   pubkey: string;
@@ -23,8 +23,7 @@ export async function zapNote(
     amount,
     comment,
     hasMetadata: !!recipientMetadata,
-    hasPaymentMethod: !!sendPayment,
-    stackTrace: new Error().stack
+    hasPaymentMethod: !!sendPayment
   });
 
   try {
@@ -69,7 +68,7 @@ export async function zapNote(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-    const response = await fetch(zapEndpoint, {
+    const response = await corsAwareFetch(zapEndpoint, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -124,8 +123,7 @@ export async function zapProfile(
     recipient: profile.pubkey,
     sender: senderPubkey,
     amount,
-    comment,
-    stackTrace: new Error().stack
+    comment
   });
 
   try {

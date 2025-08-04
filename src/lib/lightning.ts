@@ -1,6 +1,35 @@
 import type { NostrMetadata } from '@nostrify/nostrify';
 
 /**
+ * Utility function to make CORS-safe requests
+ */
+export async function corsAwareFetch(url: string, options?: RequestInit): Promise<Response> {
+  try {
+    // Try direct request first
+    const response = await fetch(url, options);
+    return response;
+  } catch (error) {
+    // If it fails due to CORS, provide helpful error
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      console.log('❌ CORS request failed for:', url);
+      
+      // Check if this is a known problematic provider
+      if (url.includes('primal.net')) {
+        throw new Error('Primal Lightning addresses are not compatible with browser-based payments. Please ask the recipient to add a Lightning address from Alby (@getalby.com), Stacker News (@stacker.news), or ZBD (@zbd.gg) to their Nostr profile for zaps to work.');
+      }
+      
+      if (url.includes('walletofsatoshi.com')) {
+        throw new Error('Wallet of Satoshi addresses are not compatible with browser-based payments. Please ask the recipient to add a Lightning address from Alby (@getalby.com), Stacker News (@stacker.news), or ZBD (@zbd.gg) to their Nostr profile for zaps to work.');
+      }
+      
+      // Generic CORS error
+      throw new Error('This Lightning address provider does not support browser payments. Please ask the recipient to use a browser-compatible Lightning address provider like Alby, Stacker News, or ZBD.');
+    }
+    throw error;
+  }
+}
+
+/**
  * Extracts Lightning address from Nostr profile metadata
  * Returns the Lightning address or LNURL-pay endpoint
  */
@@ -53,8 +82,14 @@ export async function getLNURLPayEndpoint(lightningAddress: string): Promise<str
       const wellKnownUrl = `https://${domain}/.well-known/lnurlp/${username}`;
       console.log('📡 Fetching from:', wellKnownUrl);
       
-      // Fetch the LNURL-pay endpoint info
-      const response = await fetch(wellKnownUrl);
+      // Use CORS-aware fetch to handle potential CORS issues
+      const response = await corsAwareFetch(wellKnownUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        }
+      });
+      
       if (!response.ok) {
         console.error('❌ Failed to fetch LNURL-pay info:', response.status, response.statusText);
         throw new Error(`Failed to fetch LNURL-pay endpoint: ${response.status} ${response.statusText}`);
