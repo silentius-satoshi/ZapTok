@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
-import { useCashuStore } from '@/stores/cashuStore';
-import { defaultMints, CashuWalletStruct } from '@/lib/cashu';
+import { useCashuStore, CashuWalletStruct } from '@/stores/cashuStore';
+import { defaultMints } from '@/lib/cashu';
 import { generateSecretKey } from 'nostr-tools';
 import { bytesToHex } from "@noble/hashes/utils";
 
@@ -39,10 +39,20 @@ export function useCreateCashuWallet() {
         mints.push(...defaultMints);
 
         console.log('useCreateCashuWallet: About to call createWallet with mints:', mints);
-        await createWallet({
-          privkey,
+        
+        // Create full wallet structure
+        const newWallet: CashuWalletStruct = {
+          id: crypto.randomUUID(),
+          name: 'My Wallet',
+          unit: 'sat',
           mints,
-        });
+          balance: 0,
+          proofs: [],
+          lastUpdated: Date.now(),
+          privkey,
+        };
+        
+        await createWallet(newWallet);
 
         console.log('useCreateCashuWallet: Wallet creation completed successfully');
         return { success: true };

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { useCashuWallet } from "@/hooks/useCashuWallet";
-import { calculateBalance, formatBalance } from "@/lib/cashu";
+import { formatBalance } from "@/lib/cashu";
 import { useBitcoinPrice, satsToUSD, formatUSD } from "@/hooks/useBitcoinPrice";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
@@ -22,8 +22,9 @@ import {
   Plus,
   Trash,
   Eraser,
+  RefreshCw,
 } from "lucide-react";
-import { useCashuStore } from "@/stores/cashuStore";
+import { useCashuStore, CashuWalletStruct } from "@/stores/cashuStore";
 import { Badge } from "@/components/ui/badge";
 import { useCashuToken } from "@/hooks/useCashuToken";
 import { useCreateCashuWallet } from "@/hooks/useCreateCashuWallet";
@@ -33,11 +34,10 @@ import { useWalletUiStore } from "@/stores/walletUiStore";
 
 export function CashuWalletCard() {
   const { user } = useCurrentUser();
-  const { wallet, isLoading, createWallet } = useCashuWallet();
+  const { wallet, isLoading, createWallet, walletError, tokensError } = useCashuWallet();
   const cashuStore = useCashuStore();
   const { cleanSpentProofs } = useCashuToken();
   const { data: btcPrice } = useBitcoinPrice();
-  const { showSats } = useCurrencyDisplayStore();
   const walletUiStore = useWalletUiStore();
   const isExpanded = walletUiStore.expandedCards.mints;
   const [newMint, setNewMint] = useState("");
@@ -45,31 +45,30 @@ export function CashuWalletCard() {
   const [expandedMint, setExpandedMint] = useState<string | null>(null);
   const [flashingMints, setFlashingMints] = useState<Record<string, boolean>>({});
 
-  // Calculate total balance across all mints
-  const balances = calculateBalance(cashuStore.proofs);
+  // Get wallet total balance (not per-mint, since balance is total across all mints)
+  const totalBalance = cashuStore.wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0);
+  
   const prevBalances = useRef<Record<string, string>>({});
+  const { showSats } = useCurrencyDisplayStore();
 
   // Track balance changes for flash effect
   useEffect(() => {
     if (!showSats && btcPrice) {
-      Object.keys(balances).forEach((mint) => {
-        const amount = balances[mint] || 0;
-        const currentValue = formatUSD(satsToUSD(amount, btcPrice.USD));
+      const currentValue = formatUSD(satsToUSD(totalBalance, btcPrice.USD));
 
-        if (
-          prevBalances.current[mint] &&
-          prevBalances.current[mint] !== currentValue
-        ) {
-          setFlashingMints((prev) => ({ ...prev, [mint]: true }));
-          setTimeout(() => {
-            setFlashingMints((prev) => ({ ...prev, [mint]: false }));
-          }, 300);
-        }
+      if (
+        prevBalances.current['total'] &&
+        prevBalances.current['total'] !== currentValue
+      ) {
+        setFlashingMints((prev) => ({ ...prev, 'total': true }));
+        setTimeout(() => {
+          setFlashingMints((prev) => ({ ...prev, 'total': false }));
+        }, 300);
+      }
 
-        prevBalances.current[mint] = currentValue;
-      });
+      prevBalances.current['total'] = currentValue;
     }
-  }, [balances, btcPrice, showSats]);
+  }, [totalBalance, btcPrice, showSats]);
 
   // Use useEffect to set active mint when wallet changes
   useEffect(() => {
@@ -104,10 +103,18 @@ export function CashuWalletCard() {
       new URL(newMint);
 
       // Add mint to wallet
-      createWallet({
-        ...wallet,
+      const updatedWalletData: CashuWalletStruct = {
+        id: crypto.randomUUID(),
+        name: 'My Wallet',
+        unit: 'sat',
         mints: [...wallet.mints, newMint],
-      });
+        balance: 0,
+        proofs: [],
+        lastUpdated: Date.now(),
+        privkey: wallet.privkey,
+      };
+      
+      createWallet(updatedWalletData);
 
       // Clear input
       setNewMint("");
@@ -131,10 +138,18 @@ export function CashuWalletCard() {
 
     try {
       // Remove mint from wallet
-      createWallet({
-        ...wallet,
+      const updatedWalletData: CashuWalletStruct = {
+        id: crypto.randomUUID(),
+        name: 'My Wallet',
+        unit: 'sat',
         mints: wallet.mints.filter((m) => m !== mintUrl),
-      });
+        balance: 0,
+        proofs: [],
+        lastUpdated: Date.now(),
+        privkey: wallet.privkey,
+      };
+      
+      createWallet(updatedWalletData);
     } catch {
       setError("Failed to remove mint");
     }
@@ -242,6 +257,7 @@ export function CashuWalletCard() {
           )}
         </Button>
       </CardHeader>
+      
       {isExpanded && (
         <CardContent>
           <div className="space-y-4">
@@ -252,7 +268,7 @@ export function CashuWalletCard() {
               {wallet.mints && wallet.mints.length > 0 ? (
                 <div className="space-y-2">
                   {wallet.mints.map((mint) => {
-                    const amount = balances[mint] || 0;
+                    const amount = totalBalance; // Show total wallet balance for each mint
                     const isActive = cashuStore.activeMintUrl === mint;
                     const isExpanded = expandedMint === mint;
 
@@ -278,7 +294,7 @@ export function CashuWalletCard() {
                           <div className="flex items-center gap-2">
                             <span
                               className={`font-medium tabular-nums ${
-                                flashingMints[mint] ? "flash-update" : ""
+                                flashingMints[mint] || flashingMints['total'] ? "flash-update" : ""
                               }`}
                             >
                               {showSats

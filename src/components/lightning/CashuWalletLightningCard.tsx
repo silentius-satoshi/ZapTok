@@ -214,7 +214,7 @@ export function CashuWalletLightningCard() {
   // Handle QR scan result
   const handleQRScan = async (data: string) => {
     // Check if it's a Lightning invoice (starts with 'lightning:' or 'lnbc')
-    let cleanedData = data.replace(/^lightning:/i, "");
+    const cleanedData = data.replace(/^lightning:/i, "");
 
     // Basic validation for Lightning invoice format
     if (

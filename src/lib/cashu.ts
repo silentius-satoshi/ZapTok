@@ -56,21 +56,26 @@ export const defaultMints = [
 export function calculateBalance(proofs: Proof[]): Record<string, number> {
   const balances: { [mint: string]: number } = {};
   const mints = useCashuStore.getState().mints;
+  
   for (const mint of mints) {
     balances[mint.url] = 0;
     const keysets = mint.keysets;
     
     // Ensure keysets is an array and is iterable
-    if (!keysets || !Array.isArray(keysets)) continue;
+    if (!keysets || !Array.isArray(keysets)) {
+      continue;
+    }
     
     for (const keyset of keysets) {
       // select all proofs with id == keyset.id
       const proofsForKeyset = proofs.filter((proof) => proof.id === keyset.id);
       if (proofsForKeyset.length) {
-        balances[mint.url] += proofsForKeyset.reduce((acc, proof) => acc + proof.amount, 0);
+        const amount = proofsForKeyset.reduce((acc, proof) => acc + proof.amount, 0);
+        balances[mint.url] += amount;
       }
     }
   }
+  
   return balances;
 }
 

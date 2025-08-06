@@ -63,6 +63,10 @@ export interface CashuStore {
   // Proof-to-event mapping
   proofEventMap: Map<string, string>;
 
+  // Temporary proof storage for when no wallet exists yet
+  pendingProofs: Proof[];
+  pendingProofEvents: string[];
+
   // Quote storage maps
   mintQuotes: Map<string, MintQuoteResponse>;
   meltQuotes: Map<string, MeltQuoteResponse>;
@@ -144,6 +148,10 @@ export const useCashuStore = create<CashuStore>()(
       activeMintUrl: null,
       proofEventMap: new Map<string, string>(), // proof.secret -> eventId
 
+      // Temporary storage for proofs that arrive before a wallet is created
+      pendingProofs: [],
+      pendingProofEvents: [],
+
       // Quote storage maps
       mintQuotes: new Map<string, MintQuoteResponse>(),
       meltQuotes: new Map<string, MeltQuoteResponse>(),
@@ -151,7 +159,14 @@ export const useCashuStore = create<CashuStore>()(
       // Computed getter for all proofs across all wallets
       get proofs() {
         const state = get();
-        return state.wallets.flatMap(wallet => wallet.proofs || []);
+        const allProofs = state.wallets.flatMap(wallet => wallet.proofs || []);
+        // Include pending proofs in the total
+        const totalProofs = [...allProofs, ...state.pendingProofs];
+        console.log('cashuStore: Getting proofs, total:', totalProofs.length, '(wallet proofs:', allProofs.length, ', pending:', state.pendingProofs.length, ')');
+        if (totalProofs.length > 0) {
+          console.log('cashuStore: First proof:', totalProofs[0]);
+        }
+        return totalProofs;
       },
 
       addWallet: (wallet: CashuWalletStruct) => {
@@ -162,6 +177,20 @@ export const useCashuStore = create<CashuStore>()(
           } else {
             state.wallets.push(wallet);
           }
+          
+          // Transfer any pending proofs to this wallet
+          if (state.pendingProofs.length > 0) {
+            console.log('cashuStore: Transferring', state.pendingProofs.length, 'pending proofs to new wallet');
+            wallet.proofs.push(...state.pendingProofs);
+            wallet.balance = wallet.proofs.reduce((sum, p) => sum + p.amount, 0);
+            wallet.lastUpdated = Date.now();
+            
+            // Clear pending proofs
+            state.pendingProofs = [];
+            state.pendingProofEvents = [];
+            console.log('cashuStore: Wallet balance after transfer:', wallet.balance);
+          }
+          
           // Set as active if no active wallet
           if (!state.activeWalletId) {
             state.activeWalletId = wallet.id;
@@ -270,18 +299,56 @@ export const useCashuStore = create<CashuStore>()(
       },
 
       addProofs: (proofs: Proof[], eventId: string) => {
+        console.log('cashuStore: Adding proofs:', proofs.length, 'with eventId:', eventId);
         set((state) => {
-          // Map each proof to its event ID
-          proofs.forEach(proof => {
+          // Check if we've already processed this event
+          const existingEventProofs = Array.from(state.proofEventMap.entries())
+            .filter(([_, eid]) => eid === eventId)
+            .map(([secret, _]) => secret);
+          
+          if (existingEventProofs.length > 0) {
+            console.log('cashuStore: Event', eventId, 'already processed, skipping duplicate proofs');
+            return;
+          }
+          
+          // Filter out proofs that already exist in any wallet
+          const newProofs = proofs.filter(proof => {
+            // Check if this proof secret already exists
+            const alreadyExists = state.wallets.some(wallet => 
+              wallet.proofs.some(existingProof => existingProof.secret === proof.secret)
+            ) || state.pendingProofs.some(pendingProof => pendingProof.secret === proof.secret);
+            
+            if (alreadyExists) {
+              console.log('cashuStore: Proof already exists, skipping:', proof.secret.substring(0, 8) + '...');
+            }
+            return !alreadyExists;
+          });
+          
+          if (newProofs.length === 0) {
+            console.log('cashuStore: All proofs already exist, nothing to add');
+            return;
+          }
+          
+          console.log('cashuStore: Adding', newProofs.length, 'new proofs out of', proofs.length, 'total');
+          
+          // Map each new proof to its event ID
+          newProofs.forEach(proof => {
             state.proofEventMap.set(proof.secret, eventId);
           });
           
           // Find wallet that can store these proofs (for now, use the first wallet)
           const wallet = state.wallets[0];
           if (wallet) {
-            wallet.proofs.push(...proofs);
+            console.log('cashuStore: Adding proofs to wallet:', wallet.id);
+            wallet.proofs.push(...newProofs);
             wallet.balance = wallet.proofs.reduce((sum, p) => sum + p.amount, 0);
             wallet.lastUpdated = Date.now();
+            console.log('cashuStore: Wallet balance updated to:', wallet.balance);
+          } else {
+            console.log('cashuStore: No wallet found, storing proofs as pending');
+            // Store proofs temporarily until a wallet is created
+            state.pendingProofs.push(...newProofs);
+            state.pendingProofEvents.push(...newProofs.map(() => eventId));
           }
         });
       },
@@ -462,6 +529,8 @@ export const useCashuStore = create<CashuStore>()(
         mints: state.mints,
         activeMintUrl: state.activeMintUrl,
         events: state.events,
+        pendingProofs: state.pendingProofs,
+        pendingProofEvents: state.pendingProofEvents,
       }),
     }
   )

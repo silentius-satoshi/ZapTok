@@ -1,13 +1,18 @@
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CASHU_EVENT_KINDS, CashuWalletStruct, CashuToken, activateMint, defaultMints } from '@/lib/cashu';
+import { CASHU_EVENT_KINDS, CashuToken, activateMint, defaultMints } from '@/lib/cashu';
 import { NostrEvent, getPublicKey } from 'nostr-tools';
-import { useCashuStore, Nip60TokenEvent } from '@/stores/cashuStore';
+import { useCashuStore, Nip60TokenEvent, CashuWalletStruct } from '@/stores/cashuStore';
 import { Proof } from '@cashu/cashu-ts';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
 import { NSchema as n } from '@nostrify/nostrify';
 import { z } from 'zod';
+
+interface WalletData {
+  privkey: string;
+  mints: string[];
+}
 import { useNutzaps } from '@/hooks/useNutzaps';
 import { hexToBytes } from '@noble/hashes/utils';
 
@@ -25,8 +30,6 @@ export function useCashuWallet() {
   const walletQuery = useQuery({
     queryKey: ['cashu', 'wallet', user?.pubkey],
     queryFn: async ({ signal }) => {
-      console.log('useCashuWallet: Starting wallet query', { userPubkey: user?.pubkey });
-
       if (!user) throw new Error('User not logged in');
 
       // Add timeout to prevent hanging
@@ -37,15 +40,11 @@ export function useCashuWallet() {
         { kinds: [CASHU_EVENT_KINDS.WALLET], authors: [user.pubkey], limit: 1 }
       ], { signal: combinedSignal });
 
-      console.log('useCashuWallet: Found wallet events:', events.length);
-
       if (events.length === 0) {
-        console.log('useCashuWallet: No wallet events found, returning null');
         return null;
       }
 
       const event = events[0];
-      console.log('useCashuWallet: Processing wallet event:', event.id);
 
       // Decrypt wallet content
       if (!user.signer.nip44) {
@@ -61,7 +60,7 @@ export function useCashuWallet() {
         throw new Error('Private key not found in wallet data');
       }
 
-      const walletData: CashuWalletStruct = {
+      const walletData: WalletData = {
         privkey,
         mints: data
           .filter(([key]) => key === 'mint')
@@ -84,15 +83,15 @@ export function useCashuWallet() {
       console.log('useCashuWallet: About to activate mints:', walletData.mints);
       try {
         await Promise.all(walletData.mints.map(async (mint) => {
-          console.log('useCashuWallet: Activating mint:', mint);
           const { mintInfo, keysets } = await activateMint(mint);
-          console.log('useCashuWallet: Received mintInfo:', mintInfo);
-          console.log('useCashuWallet: Received keysets:', keysets);
+          
           cashuStore.addMint(mint);
           cashuStore.setMintInfo(mint, mintInfo);
-          cashuStore.setKeysets(mint, Object.values(keysets));
-          // Don't pass keysets to setKeys - they are different things
-          console.log('useCashuWallet: Successfully activated mint:', mint);
+          
+          // The keysets object has a 'keysets' property that contains the actual keysets array
+          const actualKeysets = (keysets as any).keysets || [];
+          
+          cashuStore.setKeysets(mint, actualKeysets);
         }));
       } catch (error) {
         console.error('useCashuWallet: Error activating mints:', error);
@@ -101,6 +100,22 @@ export function useCashuWallet() {
 
       console.log('useCashuWallet: Setting privkey in store');
       cashuStore.setPrivkey(walletData.privkey);
+
+      // Create a complete wallet structure for the store
+      const walletForStore: CashuWalletStruct = {
+        id: event.id, // Use the event ID as wallet ID
+        name: 'Cashu Wallet',
+        unit: 'sat',
+        mints: walletData.mints,
+        balance: 0, // Will be calculated when proofs are added
+        proofs: [],
+        lastUpdated: Date.now(),
+        event: event,
+        privkey: walletData.privkey
+      };
+
+      console.log('useCashuWallet: Adding wallet to store:', walletForStore);
+      cashuStore.addWallet(walletForStore);
 
       // if no active mint is set, set the first mint as active
       if (!cashuStore.getActiveMintUrl()) {
@@ -114,8 +129,8 @@ export function useCashuWallet() {
       // call getNip60TokensQuery
       console.log('useCashuWallet: Refetching NIP60 tokens');
       try {
-        await getNip60TokensQuery.refetch();
-        console.log('useCashuWallet: Successfully refetched NIP60 tokens');
+        const tokenResults = await getNip60TokensQuery.refetch();
+        console.log('useCashuWallet: Successfully refetched NIP60 tokens, results:', tokenResults.data);
       } catch (error) {
         console.error('useCashuWallet: Error refetching NIP60 tokens:', error);
         // Don't throw here - we can still return the wallet even if token fetch fails
@@ -168,13 +183,15 @@ export function useCashuWallet() {
 
       // Also create or update the nutzap informational event
       try {
-        await createNutzapInfo({
-          mintOverrides: walletData.mints.map(mint => ({
-            url: mint,
-            units: ['sat']
-          })),
-          p2pkPubkey: "02" + getPublicKey(hexToBytes(walletData.privkey))
-        });
+        if (walletData.privkey) {
+          await createNutzapInfo({
+            mintOverrides: walletData.mints.map(mint => ({
+              url: mint,
+              units: ['sat']
+            })),
+            p2pkPubkey: "02" + getPublicKey(hexToBytes(walletData.privkey))
+          });
+        }
       } catch (error) {
         console.error('Failed to create nutzap informational event:', error);
         // Continue even if nutzap info creation fails
@@ -244,15 +261,17 @@ export function useCashuWallet() {
             token: tokenData,
             createdAt: event.created_at
           });
+          
           // add proofs to store
-          cashuStore.addProofs(tokenData.proofs, event.id);
+          if (tokenData.proofs && tokenData.proofs.length > 0) {
+            cashuStore.addProofs(tokenData.proofs, event.id);
+          }
 
         } catch (error) {
           console.error('Failed to decrypt token data:', error);
         }
       }
 
-      console.log('useCashuWallet: Successfully processed NIP60 token events:', nip60TokenEvents.length);
       return nip60TokenEvents;
     },
     enabled: !!user

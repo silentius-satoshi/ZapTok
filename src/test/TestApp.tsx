@@ -9,6 +9,7 @@ import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
+import { UnifiedWalletProvider } from '@/contexts/UnifiedWalletContext';
 
 interface TestAppProps {
   children: React.ReactNode;
@@ -44,11 +45,13 @@ export function TestApp({ children }: TestAppProps) {
             <NostrProvider>
               <CachingProvider>
                 <WalletProvider>
-                  <VideoPlaybackProvider>
-                    <BrowserRouter>
-                      {children}
-                    </BrowserRouter>
-                  </VideoPlaybackProvider>
+                  <UnifiedWalletProvider>
+                    <VideoPlaybackProvider>
+                      <BrowserRouter>
+                        {children}
+                      </BrowserRouter>
+                    </VideoPlaybackProvider>
+                  </UnifiedWalletProvider>
                 </WalletProvider>
               </CachingProvider>
             </NostrProvider>

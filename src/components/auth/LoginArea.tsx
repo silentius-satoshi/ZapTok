@@ -10,6 +10,7 @@ import { useLoggedInAccounts } from '@/hooks/useLoggedInAccounts';
 import { AccountSwitcher } from './AccountSwitcher';
 import { useWallet } from '@/hooks/useWallet';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
+import { useCashuStore } from '@/stores/cashuStore';
 import { cn } from '@/lib/utils';
 
 export interface LoginAreaProps {
@@ -20,6 +21,7 @@ export function LoginArea({ className }: LoginAreaProps) {
   const { currentUser } = useLoggedInAccounts();
   const { walletInfo, isConnected, getBalance, provider } = useWallet();
   const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
+  const cashuStore = useCashuStore();
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [currency, setCurrency] = useState<'BTC' | 'USD'>('BTC');
   const navigate = useNavigate();
@@ -46,20 +48,29 @@ export function LoginArea({ className }: LoginAreaProps) {
   }, [isConnected, provider, refreshBalance]);
 
   const formatBalance = () => {
-    const balance = walletInfo?.balance || 0;
+    const lightningBalance = walletInfo?.balance || 0;
+    const cashuBalance = cashuStore.wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0);
+    const totalBalance = lightningBalance + cashuBalance;
 
     // Debug logging
-    console.log('formatBalance called:', { balance, walletInfo, isConnected, btcPriceData });
+    console.log('formatBalance called:', { 
+      lightningBalance, 
+      cashuBalance, 
+      totalBalance, 
+      walletInfo, 
+      isConnected, 
+      btcPriceData 
+    });
 
     if (currency === 'BTC') {
-      return `${balance.toLocaleString()} sats`;
+      return `${totalBalance.toLocaleString()} sats`;
     } else {
       // Use the existing useBitcoinPrice hook utilities
       if (btcPriceData?.USD) {
-        const usdAmount = satsToUSD(balance, btcPriceData.USD);
+        const usdAmount = satsToUSD(totalBalance, btcPriceData.USD);
         return `$${usdAmount.toFixed(2)} USD`;
       } else {
-        return `$${balance.toLocaleString()} sats (price loading...)`;
+        return `$${totalBalance.toLocaleString()} sats (price loading...)`;
       }
     }
   };
@@ -111,8 +122,8 @@ export function LoginArea({ className }: LoginAreaProps) {
           {/* Lightning Wallet Button */}
           <LightningWalletButton />
 
-          {/* Currency Toggle Button - only show if wallet is connected */}
-          {isConnected && <CurrencyToggleButton />}
+          {/* Currency Toggle Button - show if wallet is connected OR if there's a Cashu balance */}
+          {(isConnected || cashuStore.wallets.some(wallet => (wallet.balance || 0) > 0)) && <CurrencyToggleButton />}
 
           {/* Account Switcher */}
           <div className="flex-shrink-0">
