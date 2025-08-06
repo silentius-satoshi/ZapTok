@@ -17,6 +17,7 @@ import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { WalletLoader } from '@/components/WalletLoader';
+import { useTransactionHistoryMonitor } from '@/hooks/useTransactionHistoryMonitor';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -38,6 +39,8 @@ const queryClient = new QueryClient({
 const defaultConfig: AppConfig = {
   theme: "dark", // Changed to dark theme for ZapTok
   relayUrls: [
+    // Start with Chorus relay first for better Cashu transaction discovery
+    "wss://relay.chorus.community",
     "wss://relay.nostr.band",
     "wss://ditto.pub/relay",
     "wss://relay.damus.io",
@@ -48,6 +51,7 @@ const defaultConfig: AppConfig = {
 };
 
 const presetRelays = [
+  { url: 'wss://relay.chorus.community', name: 'Chorus' },
   { url: 'wss://ditto.pub/relay', name: 'Ditto' },
   { url: 'wss://relay.nostr.band', name: 'Nostr.Band' },
   { url: 'wss://relay.damus.io', name: 'Damus' },
@@ -59,6 +63,9 @@ function AppContent() {
   useEffect(() => {
     document.documentElement.classList.add('dark');
   }, []);
+
+  // Monitor transaction history for potential issues
+  useTransactionHistoryMonitor();
 
   return (
     <Suspense fallback={

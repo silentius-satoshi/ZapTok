@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrConnection } from '@/components/NostrProvider';
 import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
 import type { NostrEvent } from 'nostr-tools';
@@ -38,6 +39,7 @@ interface UseCashuHistoryResult {
 export function useCashuHistory(): UseCashuHistoryResult {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const { isAnyRelayConnected, connectedRelayCount } = useNostrConnection();
   const historyStore = useTransactionHistoryStore();
   const queryClient = useQueryClient();
 
@@ -69,15 +71,20 @@ export function useCashuHistory(): UseCashuHistoryResult {
     error,
     refetch
   } = useQuery({
-    queryKey: ['cashu', 'history', user?.pubkey],
+    queryKey: ['cashu', 'history', user?.pubkey, connectedRelayCount],
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not authenticated');
+
+      console.log(`useCashuHistory: Starting query with ${connectedRelayCount} connected relays`);
 
       // Check if we have cached transactions
       const cachedTransactions = historyStore.getTransactions(user.pubkey);
       if (cachedTransactions.length > 0) {
+        console.log('useCashuHistory: Returning cached transactions');
         return cachedTransactions;
       }
+
+      console.log('useCashuHistory: Fetching fresh transaction history from relays');
 
       // Fetch transaction history from NIP-60 token events and history events
       const [tokenEvents, historyEvents] = await Promise.all([
@@ -255,9 +262,11 @@ export function useCashuHistory(): UseCashuHistoryResult {
       // Cache the transactions
       historyStore.setTransactions(user.pubkey, parsedTransactions);
 
+      console.log(`useCashuHistory: Parsed ${parsedTransactions.length} transactions from ${tokenEvents.length} token events and ${historyEvents.length} history events`);
+
       return parsedTransactions;
     },
-    enabled: !!user,
+    enabled: !!user && isAnyRelayConnected,
     staleTime: 30000, // Consider data stale after 30 seconds
     gcTime: 300000, // Keep in cache for 5 minutes
   });

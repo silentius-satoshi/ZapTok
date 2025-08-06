@@ -4,6 +4,7 @@ import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TransactionHistoryWarning } from '@/components/TransactionHistoryWarning';
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -103,6 +104,9 @@ export function CashuHistoryCard({
 
         {isExpanded && (
           <>
+            {/* Transaction History Warning */}
+            <TransactionHistoryWarning className="mb-4" />
+            
             {displayTransactions.length === 0 ? (
               <div className="py-8 text-center">
                 <p className="text-muted-foreground text-sm">No transactions yet</p>

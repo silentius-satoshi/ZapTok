@@ -1,5 +1,6 @@
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrConnection } from '@/components/NostrProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS, CashuToken, activateMint, defaultMints } from '@/lib/cashu';
 import { NostrEvent, getPublicKey } from 'nostr-tools';
@@ -22,15 +23,18 @@ import { hexToBytes } from '@noble/hashes/utils';
 export function useCashuWallet() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const { isAnyRelayConnected, connectedRelayCount } = useNostrConnection();
   const queryClient = useQueryClient();
   const cashuStore = useCashuStore();
   const { createNutzapInfo } = useNutzaps();
 
   // Fetch wallet information (kind 17375)
   const walletQuery = useQuery({
-    queryKey: ['cashu', 'wallet', user?.pubkey],
+    queryKey: ['cashu', 'wallet', user?.pubkey, connectedRelayCount],
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not logged in');
+
+      console.log(`useCashuWallet: Starting wallet query with ${connectedRelayCount} connected relays`);
 
       // Add timeout to prevent hanging
       const timeoutSignal = AbortSignal.timeout(30000); // 30 second timeout
@@ -39,6 +43,8 @@ export function useCashuWallet() {
       const events = await nostr.query([
         { kinds: [CASHU_EVENT_KINDS.WALLET], authors: [user.pubkey], limit: 1 }
       ], { signal: combinedSignal });
+
+      console.log(`useCashuWallet: Found ${events.length} wallet events`);
 
       if (events.length === 0) {
         return null;
@@ -143,7 +149,7 @@ export function useCashuWallet() {
         createdAt: event.created_at
       };
     },
-    enabled: !!user
+    enabled: !!user && isAnyRelayConnected
   });
 
   // Create or update wallet
@@ -209,9 +215,9 @@ export function useCashuWallet() {
 
   // Fetch token events (kind 7375)
   const getNip60TokensQuery = useQuery({
-    queryKey: ['cashu', 'tokens', user?.pubkey],
+    queryKey: ['cashu', 'tokens', user?.pubkey, connectedRelayCount],
     queryFn: async ({ signal }) => {
-      console.log('useCashuWallet: Starting NIP60 tokens query', { userPubkey: user?.pubkey });
+      console.log(`useCashuWallet: Starting NIP60 tokens query with ${connectedRelayCount} connected relays`, { userPubkey: user?.pubkey });
       
       if (!user) throw new Error('User not logged in');
 
@@ -272,9 +278,11 @@ export function useCashuWallet() {
         }
       }
 
+      console.log(`useCashuWallet: Found ${nip60TokenEvents.length} NIP60 token events`);
+
       return nip60TokenEvents;
     },
-    enabled: !!user
+    enabled: !!user && isAnyRelayConnected
   });
 
   const updateProofsMutation = useMutation({
