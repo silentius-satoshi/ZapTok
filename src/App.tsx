@@ -18,7 +18,6 @@ import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { WalletLoader } from '@/components/WalletLoader';
 import { useTransactionHistoryMonitor } from '@/hooks/useTransactionHistoryMonitor';
-import { PWAInstallBanner } from '@/components/PWAInstallButton';
 import { PWAUpdateNotification } from '@/components/PWAUpdateNotification';
 import AppRouter from './AppRouter';
 
@@ -83,9 +82,6 @@ function AppContent() {
       
       {/* Main App Router */}
       <AppRouter />
-      
-      {/* PWA Install Banner - shows at bottom for installable apps */}
-      <PWAInstallBanner position="bottom" />
     </Suspense>
   );
 }
