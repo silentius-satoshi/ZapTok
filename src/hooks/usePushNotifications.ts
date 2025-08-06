@@ -284,8 +284,8 @@ export function showLocalNotification(payload: NotificationPayload): void {
 
   const options: NotificationOptions = {
     body: payload.body,
-    icon: payload.icon || '/images/ZapTok-v2.png',
-    badge: payload.badge || '/images/zap.png',
+    icon: payload.icon || '/images/ZapTok-v3.png',
+    badge: payload.badge || '/images/ZapTok-v3.png',
     data: payload.data,
     requireInteraction: true,
     tag: payload.type,
