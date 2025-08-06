@@ -20,7 +20,7 @@ export function LogoHeader() {
         title={user ? "Go to Global Feed" : ""}
       >
         <img 
-          src="/images/ZapTok-v2.png" 
+          src="/images/ZapTok-v3.png" 
           alt="ZapTok Logo" 
           className="w-8 h-8 rounded-lg group-hover:scale-110 transition-transform duration-200"
         />

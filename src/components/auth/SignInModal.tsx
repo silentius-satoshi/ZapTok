@@ -96,7 +96,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
           <CardHeader className="text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <img 
-                src="/images/ZapTok-v2.png" 
+                src="/images/ZapTok-v3.png" 
                 alt="ZapTok Logo" 
                 className="w-8 h-8 rounded-lg"
               />
