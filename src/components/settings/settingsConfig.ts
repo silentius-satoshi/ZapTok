@@ -11,6 +11,7 @@ import { NotificationsSettings } from './NotificationsSettings';
 import { NetworkSettings } from './NetworkSettings';
 import { ZapsSettings } from './ZapsSettings';
 import { GenericSettings } from './GenericSettings';
+import { DeveloperSettings } from './DeveloperSettings';
 
 export interface SettingsSectionConfig {
   id: string;
@@ -89,6 +90,14 @@ export const settingsSections: SettingsSectionConfig[] = [
     component: NetworkSettings,
     category: 'network',
     requiresProps: true
+  },
+
+  // Developer Settings
+  {
+    id: 'developer',
+    title: 'Developer',
+    component: DeveloperSettings,
+    category: 'interface'
   },
 
   // Monetization Settings
