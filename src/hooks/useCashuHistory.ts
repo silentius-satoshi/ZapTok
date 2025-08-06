@@ -79,45 +79,173 @@ export function useCashuHistory(): UseCashuHistoryResult {
         return cachedTransactions;
       }
 
-      // Fetch transaction history events from Nostr
-      const events = await nostr.query([
-        {
-          kinds: [CASHU_EVENT_KINDS.TRANSACTION],
-          authors: [user.pubkey],
-          limit: 100
-        }
-      ], { signal });
+      // Fetch transaction history from NIP-60 token events and history events
+      const [tokenEvents, historyEvents] = await Promise.all([
+        nostr.query([
+          {
+            kinds: [CASHU_EVENT_KINDS.TOKEN], // NIP-60 token events (received transactions)
+            authors: [user.pubkey],
+            limit: 100
+          }
+        ], { signal }),
+        nostr.query([
+          {
+            kinds: [CASHU_EVENT_KINDS.HISTORY], // NIP-60 history events (sent transactions)
+            authors: [user.pubkey],
+            limit: 100
+          }
+        ], { signal })
+      ]);
 
-      // Parse transaction events
+      // Parse NIP-60 token events into transaction history (received transactions)
       const parsedTransactions: CashuTransaction[] = [];
 
-      for (const event of events) {
+      for (const event of tokenEvents) {
         try {
-          const content = JSON.parse(event.content);
+          // Decrypt the token content (NIP-60 token events are encrypted)
+          let tokenData;
+          try {
+            if (!user.signer.nip44) {
+              console.warn('NIP-44 encryption not supported by your signer');
+              continue;
+            }
+            
+            const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
+            tokenData = JSON.parse(decrypted);
+          } catch (decryptError) {
+            console.warn('Failed to decrypt token event:', event.id, decryptError);
+            // Try parsing as plain text (fallback for unencrypted events)
+            try {
+              tokenData = JSON.parse(event.content);
+            } catch (parseError) {
+              console.warn('Failed to parse token event as plain text:', event.id, parseError);
+              continue;
+            }
+          }
           
-          // Extract mint URL from tags
-          const mintTag = event.tags.find(tag => tag[0] === 'mint');
-          const mintUrl = mintTag?.[1] || '';
+          // Extract mint URL from token data or tags
+          const mintUrl = tokenData.mint || 
+                          event.tags.find(tag => tag[0] === 'mint')?.[1] || 
+                          'Unknown mint';
 
-          // Extract counterparty from tags (for nutzaps)
+          // Calculate total amount from proofs
+          let totalAmount = 0;
+          if (tokenData.token) {
+            // Multiple mint tokens
+            totalAmount = tokenData.token.reduce((sum: number, t: any) => {
+              return sum + (t.proofs?.reduce((pSum: number, proof: any) => pSum + proof.amount, 0) || 0);
+            }, 0);
+          } else if (tokenData.proofs) {
+            // Single mint token
+            totalAmount = tokenData.proofs.reduce((sum: number, proof: any) => sum + proof.amount, 0);
+          }
+
+          // Skip tokens with no value
+          if (totalAmount <= 0) {
+            console.warn('Skipping token event with no value:', { id: event.id, totalAmount });
+            continue;
+          }
+
+          // Check if this is a nutzap by looking for 'p' tag
           const pTag = event.tags.find(tag => tag[0] === 'p');
+          const isNutzap = !!pTag;
           const counterparty = pTag?.[1];
 
           const transaction: CashuTransaction = {
             id: event.id,
-            type: content.type || 'send',
-            amount: parseInt(content.amount) || 0,
+            type: isNutzap ? 'nutzap_receive' : 'receive',
+            amount: totalAmount,
             mintUrl,
             timestamp: event.created_at * 1000,
-            status: content.status || 'completed',
-            description: content.description,
+            status: 'completed',
+            description: isNutzap 
+              ? `Received nutzap of ${totalAmount} sats`
+              : `Received ${totalAmount} sats`,
             counterparty,
             originalEvent: event
           };
 
           parsedTransactions.push(transaction);
         } catch (err) {
-          console.warn('Failed to parse transaction event:', event.id, err);
+          console.warn('Failed to parse token event:', event.id, err);
+        }
+      }
+
+      // Parse history events (sent transactions, melts, mints)
+      for (const event of historyEvents) {
+        try {
+          // Decrypt the history content (NIP-60 history events may be encrypted)
+          let historyData;
+          try {
+            if (!user.signer.nip44) {
+              console.warn('NIP-44 encryption not supported by your signer');
+              continue;
+            }
+            
+            const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
+            historyData = JSON.parse(decrypted);
+          } catch (decryptError) {
+            console.warn('Failed to decrypt history event:', event.id, decryptError);
+            // Try parsing as plain text (fallback for unencrypted events)
+            try {
+              historyData = JSON.parse(event.content);
+            } catch (parseError) {
+              console.warn('Failed to parse history event as plain text:', event.id, parseError);
+              continue;
+            }
+          }
+          
+          // Extract details from history event
+          const direction = event.tags.find(tag => tag[0] === 'direction')?.[1] || historyData.direction;
+          const amountString = event.tags.find(tag => tag[0] === 'amount')?.[1] || historyData.amount;
+          const amount = parseInt(amountString) || 0;
+          const mintUrl = event.tags.find(tag => tag[0] === 'mint')?.[1] || 'Unknown mint';
+          
+          // Skip transactions with no amount
+          if (amount <= 0) {
+            console.warn('Skipping history event with invalid amount:', { id: event.id, amountString, amount });
+            continue;
+          }
+          
+          // Determine transaction type based on direction and data
+          let type: CashuTransaction['type'] = 'send';
+          let description = '';
+          
+          if (direction === 'out') {
+            if (historyData.type === 'melt') {
+              type = 'melt';
+              description = `Melted ${amount} sats to Lightning`;
+            } else if (historyData.type === 'nutzap') {
+              type = 'nutzap_send';
+              description = `Sent nutzap of ${amount} sats`;
+            } else {
+              type = 'send';
+              description = `Sent ${amount} sats`;
+            }
+          } else if (direction === 'in') {
+            if (historyData.type === 'mint') {
+              type = 'mint';
+              description = `Minted ${amount} sats from Lightning`;
+            } else {
+              // This would be a duplicate of token events, so skip
+              continue;
+            }
+          }
+
+          const transaction: CashuTransaction = {
+            id: event.id,
+            type,
+            amount,
+            mintUrl,
+            timestamp: event.created_at * 1000,
+            status: 'completed',
+            description,
+            originalEvent: event
+          };
+
+          parsedTransactions.push(transaction);
+        } catch (err) {
+          console.warn('Failed to parse history event:', event.id, err);
         }
       }
 

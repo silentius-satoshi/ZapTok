@@ -2,7 +2,7 @@ import { AuthGate } from '@/components/AuthGate';
 import { Navigation } from '@/components/Navigation';
 import { LogoHeader } from '@/components/LogoHeader';
 import { CashuWalletCard } from '@/components/CashuWalletCard';
-import { CashuHistoryCard } from '@/components/lightning/CashuHistoryCard';
+import { CashuHistoryCard } from '@/components/CashuHistoryCard';
 import { CashuTokenCard } from '@/components/lightning/CashuTokenCard';
 import { CashuWalletLightningCard } from '@/components/lightning/CashuWalletLightningCard';
 import { NutzapCard } from '@/components/lightning/NutzapCard';
