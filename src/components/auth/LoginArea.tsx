@@ -1,7 +1,7 @@
 // NOTE: This file is stable and usually should not be modified.
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
@@ -26,14 +26,39 @@ export function LoginArea({ className }: LoginAreaProps) {
   const [currency, setCurrency] = useState<'BTC' | 'USD'>('BTC');
   const navigate = useNavigate();
 
+  // Bundle balance logging to reduce console noise
+  const balanceLogRef = useRef({
+    lastLogTime: 0,
+    callCount: 0,
+    lastBalance: 0,
+  });
+
   // Function to refresh wallet balance
   const refreshBalance = useCallback(async () => {
     if (provider && isConnected) {
       try {
-        console.log('Refreshing wallet balance...');
         const newBalance = await getBalance();
-        console.log('New balance retrieved:', newBalance);
-        // The balance should be updated in the wallet context
+        
+        // Bundle balance refresh logging
+        if (import.meta.env.DEV) {
+          balanceLogRef.current.callCount++;
+          const now = Date.now();
+          
+          // Log summary every 5 seconds or if balance changed
+          const shouldLog = now - balanceLogRef.current.lastLogTime > 5000 || 
+                           newBalance !== balanceLogRef.current.lastBalance;
+          
+          if (shouldLog) {
+            console.log(`💰 Wallet Balance Update:`, {
+              refreshCount: balanceLogRef.current.callCount,
+              newBalance,
+              isConnected,
+              provider: provider ? 'connected' : 'disconnected',
+            });
+            balanceLogRef.current.lastLogTime = now;
+            balanceLogRef.current.lastBalance = newBalance || 0;
+          }
+        }
       } catch (error) {
         console.error('Failed to refresh balance:', error);
       }
@@ -52,15 +77,16 @@ export function LoginArea({ className }: LoginAreaProps) {
     const cashuBalance = cashuStore.wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0);
     const totalBalance = lightningBalance + cashuBalance;
 
-    // Debug logging
-    console.log('formatBalance called:', { 
-      lightningBalance, 
-      cashuBalance, 
-      totalBalance, 
-      walletInfo, 
-      isConnected, 
-      btcPriceData 
-    });
+    // Simplified balance format logging - only when balance changes significantly
+    if (import.meta.env.DEV) {
+      const now = Date.now();
+      if (Math.abs(totalBalance - balanceLogRef.current.lastBalance) > 100 || 
+          now - balanceLogRef.current.lastLogTime > 10000) {
+        console.log(`💳 Balance Display: ₿${totalBalance} sats (⚡${lightningBalance} + 🥜${cashuBalance})`);
+        balanceLogRef.current.lastBalance = totalBalance;
+        balanceLogRef.current.lastLogTime = now;
+      }
+    }
 
     if (currency === 'BTC') {
       return `${totalBalance.toLocaleString()} sats`;
@@ -91,8 +117,11 @@ export function LoginArea({ className }: LoginAreaProps) {
     <button
       className='group flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200 whitespace-nowrap min-w-fit'
       onClick={() => {
-        setCurrency(prev => prev === 'BTC' ? 'USD' : 'BTC');
-        console.log('Currency toggled to:', currency === 'BTC' ? 'USD' : 'BTC');
+        const newCurrency = currency === 'BTC' ? 'USD' : 'BTC';
+        setCurrency(newCurrency);
+        if (import.meta.env.DEV) {
+          console.log(`💱 Currency switched to: ${newCurrency}`);
+        }
       }}
       title={`Switch to ${currency === 'BTC' ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`}
     >

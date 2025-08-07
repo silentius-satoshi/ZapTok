@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Play, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +41,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   useEffect(() => {
     // Only auto-skip if the video is currently active and has finished testing URLs
     if (isActive && !isTestingUrls && !workingUrl && onVideoUnavailable) {
+    if (import.meta.env.DEV) {
       console.log('🚫 Auto-skipping unavailable video:', event.title || event.id);
+    }
       // Small delay to prevent jarring immediate skip
       const timeoutId = setTimeout(() => {
         onVideoUnavailable();
@@ -53,17 +55,29 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const authorMetadata = author.data?.metadata;
   const displayName = authorMetadata?.name || authorMetadata?.display_name || genUserName(event.pubkey);
 
-  // Debug logging
+  // Bundle video card debugging logs
+  const videoDebugRef = useRef({
+    lastPropsLog: 0,
+    loadEvents: 0,
+    lastLoadLog: 0,
+  });
+
+  // Bundled props logging - only when significant changes occur
   useEffect(() => {
-    console.log('VideoCard props:', {
-      eventId: event.id,
-      title: event.title,
-      originalVideoUrl: event.videoUrl,
-      workingUrl,
-      isTestingUrls,
-      hasHash: !!event.hash,
-      isActive
-    });
+    if (import.meta.env.DEV) {
+      const now = Date.now();
+      const significantChange = workingUrl !== event.videoUrl || isTestingUrls;
+      
+      if (significantChange && now - videoDebugRef.current.lastPropsLog > 5000) {
+        console.log(`📱 VideoCard [${event.title?.slice(0, 20) || 'Untitled'}]:`, {
+          status: isTestingUrls ? 'testing-urls' : 'ready',
+          videoUrl: workingUrl?.split('/').pop()?.slice(0, 12) + '...',
+          hasHash: !!event.hash,
+          isActive,
+        });
+        videoDebugRef.current.lastPropsLog = now;
+      }
+    }
   }, [event.id, event.title, event.videoUrl, workingUrl, isTestingUrls, event.hash, isActive]);
 
   useEffect(() => {
@@ -75,11 +89,24 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     };
 
     const handleLoadedData = () => {
-      console.log('Video loaded successfully:', workingUrl);
+      videoDebugRef.current.loadEvents++;
+      
+      if (import.meta.env.DEV) {
+        const now = Date.now();
+        // Bundle video load success logs - less frequent
+        if (now - videoDebugRef.current.lastLoadLog > 5000) {
+          console.log(`🎬 Video Load Summary: ${videoDebugRef.current.loadEvents} videos loaded successfully`);
+          videoDebugRef.current.lastLoadLog = now;
+          videoDebugRef.current.loadEvents = 0;
+        }
+      }
     };
 
     const handleLoadStart = () => {
-      console.log('Video load started:', workingUrl);
+      // Only log load start for active videos to reduce noise
+      if (import.meta.env.DEV && isActive) {
+        console.log(`▶️ Loading: ${event.title?.slice(0, 30) || 'Untitled video'}...`);
+      }
     };
 
     videoElement.addEventListener('error', handleError);
