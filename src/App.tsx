@@ -47,6 +47,7 @@ const defaultConfig: AppConfig = {
     "wss://relay.damus.io",
     "wss://relay.primal.net"
   ],
+  relayContext: 'all', // Start with all relays, will be optimized automatically
   defaultZap,
   availableZapOptions: defaultZapOptions,
 };

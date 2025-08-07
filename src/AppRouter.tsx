@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { useVideoPlayback } from "@/contexts/VideoPlaybackContext";
+import { useContextualRelays } from "@/hooks/useContextualRelays";
 import { useEffect } from "react";
 
 import Index from "./pages/Index";
@@ -17,6 +18,9 @@ import NotFound from "./pages/NotFound";
 function RouteHandler() {
   const location = useLocation();
   const { resumeAllVideos } = useVideoPlayback();
+  
+  // Automatically optimize relay connections based on current route
+  const { currentContext, isOptimized } = useContextualRelays();
 
   useEffect(() => {
     // Resume videos when navigating to video feed pages
@@ -24,6 +28,13 @@ function RouteHandler() {
       resumeAllVideos();
     }
   }, [location.pathname, resumeAllVideos]);
+
+  // Optional: Log relay optimization for debugging
+  useEffect(() => {
+    if (isOptimized) {
+      console.log(`[RouteHandler] Using ${currentContext} relay context for ${location.pathname}`);
+    }
+  }, [currentContext, isOptimized, location.pathname]);
 
   return (
     <Routes>
