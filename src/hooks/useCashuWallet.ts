@@ -44,7 +44,9 @@ export function useCashuWallet() {
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not logged in');
 
+    if (import.meta.env.DEV) {
       console.log(`useCashuWallet: Starting wallet query with Cashu relay: ${cashuRelayStore.activeRelay}`);
+    }
 
       // Add timeout to prevent hanging
       const timeoutSignal = AbortSignal.timeout(15000); // 15 second timeout
@@ -57,7 +59,9 @@ export function useCashuWallet() {
         relays: [cashuRelayStore.activeRelay]
       });
 
+    if (import.meta.env.DEV) {
       console.log(`useCashuWallet: Found ${events.length} wallet events`);
+    }
 
       if (events.length === 0) {
         return null;
@@ -99,7 +103,9 @@ export function useCashuWallet() {
       walletData.mints = [...new Set(walletData.mints)];
 
       // fetch the mint info and keysets for each mint
+    if (import.meta.env.DEV) {
       console.log('useCashuWallet: About to activate mints:', walletData.mints);
+    }
       try {
         await Promise.all(walletData.mints.map(async (mint) => {
           const { mintInfo, keysets } = await activateMint(mint);
@@ -117,7 +123,9 @@ export function useCashuWallet() {
         throw error;
       }
 
+    if (import.meta.env.DEV) {
       console.log('useCashuWallet: Setting privkey in store');
+    }
       cashuStore.setPrivkey(walletData.privkey);
 
       // Create a complete wallet structure for the store
@@ -133,12 +141,16 @@ export function useCashuWallet() {
         privkey: walletData.privkey
       };
 
+    if (import.meta.env.DEV) {
       console.log('useCashuWallet: Adding wallet to store:', walletForStore);
+    }
       cashuStore.addWallet(walletForStore);
 
       // if no active mint is set, set the first mint as active
       if (!cashuStore.getActiveMintUrl()) {
+      if (import.meta.env.DEV) {
         console.log('useCashuWallet: Setting active mint:', walletData.mints[0]);
+      }
         cashuStore.setActiveMintUrl(walletData.mints[0]);
       }
 

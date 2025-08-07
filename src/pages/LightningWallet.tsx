@@ -25,6 +25,7 @@ export function LightningWallet() {
   const totalBalance = allProofs.reduce((sum, proof) => sum + proof.amount, 0);
   
   // Debug logging
+  if (import.meta.env.DEV) {
   console.log('LightningWallet Debug:', {
     totalBalance,
     walletsCount: cashuStore.wallets.length,
@@ -34,6 +35,7 @@ export function LightningWallet() {
     showSats,
     btcPrice
   });
+  }
 
   return (
     <AuthGate>

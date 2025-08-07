@@ -44,14 +44,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
               // Check transaction support once during initial connection
               setTransactionSupport(!!window.webln.listTransactions);
             } catch {
+            if (import.meta.env.DEV) {
               console.log('Could not load initial wallet data');
             }
+            }
           } catch {
+          if (import.meta.env.DEV) {
             console.log('WebLN provider not enabled or user rejected');
+          }
           }
         }
       } catch {
+      if (import.meta.env.DEV) {
         console.log('No existing wallet connection');
+      }
       }
     };
 
@@ -214,26 +220,34 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setTransactionSupport(hasSupport);
         
         if (!hasSupport) {
+          if (import.meta.env.DEV) {
           console.log('listTransactions method not available on provider (browser extension limitation)');
+          }
           setTransactions([]);
           return [];
         }
       } else if (transactionSupport === false) {
         // Already confirmed no support, skip API call
+        if (import.meta.env.DEV) {
         console.log('Skipping transaction history call - provider does not support listTransactions');
+        }
         setTransactions([]);
         return [];
       }
 
       // Provider supports transactions, proceed with API call
       if (provider.listTransactions) {
-        console.log('Fetching transaction history with args:', args);
+        if (import.meta.env.DEV) {
+          console.log('Fetching transaction history with args:', args);
+        }
         
         try {
           // Call listTransactions with optional parameters
           const response = await provider.listTransactions(args || { limit: 50 });
           
+          if (import.meta.env.DEV) {
           console.log('Transaction response:', response);
+          }
           
           // Map the NWC/NIP-47 transaction format to our internal format
           transactions = response.transactions?.map((tx: Record<string, unknown>) => ({
@@ -247,9 +261,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             settled: tx.settled !== false,
           })) || [];
 
+          if (import.meta.env.DEV) {
           console.log('Mapped transactions:', transactions);
+          }
         } catch (error) {
+          if (import.meta.env.DEV) {
           console.log('Failed to fetch transactions from provider:', error);
+          }
           // Fall through to show unsupported message
         }
       }

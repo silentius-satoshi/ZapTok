@@ -162,9 +162,13 @@ export const useCashuStore = create<CashuStore>()(
         const allProofs = state.wallets.flatMap(wallet => wallet.proofs || []);
         // Include pending proofs in the total
         const totalProofs = [...allProofs, ...state.pendingProofs];
+      if (import.meta.env.DEV) {
         console.log('cashuStore: Getting proofs, total:', totalProofs.length, '(wallet proofs:', allProofs.length, ', pending:', state.pendingProofs.length, ')');
+      }
         if (totalProofs.length > 0) {
+        if (import.meta.env.DEV) {
           console.log('cashuStore: First proof:', totalProofs[0]);
+        }
         }
         return totalProofs;
       },
@@ -180,7 +184,9 @@ export const useCashuStore = create<CashuStore>()(
           
           // Transfer any pending proofs to this wallet
           if (state.pendingProofs.length > 0) {
+          if (import.meta.env.DEV) {
             console.log('cashuStore: Transferring', state.pendingProofs.length, 'pending proofs to new wallet');
+          }
             wallet.proofs.push(...state.pendingProofs);
             wallet.balance = wallet.proofs.reduce((sum, p) => sum + p.amount, 0);
             wallet.lastUpdated = Date.now();
@@ -299,7 +305,9 @@ export const useCashuStore = create<CashuStore>()(
       },
 
       addProofs: (proofs: Proof[], eventId: string) => {
+      if (import.meta.env.DEV) {
         console.log('cashuStore: Adding proofs:', proofs.length, 'with eventId:', eventId);
+      }
         set((state) => {
           // Check if we've already processed this event
           const existingEventProofs = Array.from(state.proofEventMap.entries())
