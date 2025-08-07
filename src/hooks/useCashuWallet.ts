@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS, CashuToken, activateMint, defaultMints } from '@/lib/cashu';
 import { NostrEvent, getPublicKey } from 'nostr-tools';
 import { useCashuStore, Nip60TokenEvent, CashuWalletStruct } from '@/stores/cashuStore';
+import { useCashuRelayStore } from '@/stores/cashuRelayStore';
 import { Proof } from '@cashu/cashu-ts';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
 import { NSchema as n } from '@nostrify/nostrify';
@@ -23,26 +24,30 @@ import { hexToBytes } from '@noble/hashes/utils';
 export function useCashuWallet() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const { isAnyRelayConnected, connectedRelayCount } = useNostrConnection();
+  const { isAnyRelayConnected } = useNostrConnection();
   const queryClient = useQueryClient();
   const cashuStore = useCashuStore();
+  const cashuRelayStore = useCashuRelayStore();
   const { createNutzapInfo } = useNutzaps();
 
   // Fetch wallet information (kind 17375)
   const walletQuery = useQuery({
-    queryKey: ['cashu', 'wallet', user?.pubkey, connectedRelayCount],
+    queryKey: ['cashu', 'wallet', user?.pubkey],
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not logged in');
 
-      console.log(`useCashuWallet: Starting wallet query with ${connectedRelayCount} connected relays`);
+      console.log(`useCashuWallet: Starting wallet query with Cashu relay: ${cashuRelayStore.activeRelay}`);
 
       // Add timeout to prevent hanging
-      const timeoutSignal = AbortSignal.timeout(30000); // 30 second timeout
+      const timeoutSignal = AbortSignal.timeout(15000); // 15 second timeout
       const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
 
       const events = await nostr.query([
         { kinds: [CASHU_EVENT_KINDS.WALLET], authors: [user.pubkey], limit: 1 }
-      ], { signal: combinedSignal });
+      ], { 
+        signal: combinedSignal,
+        relays: [cashuRelayStore.activeRelay]
+      });
 
       console.log(`useCashuWallet: Found ${events.length} wallet events`);
 
@@ -149,7 +154,12 @@ export function useCashuWallet() {
         createdAt: event.created_at
       };
     },
-    enabled: !!user && isAnyRelayConnected
+    enabled: !!user && isAnyRelayConnected,
+    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: false, // Don't refetch on reconnect
+    retry: 2, // Only retry twice on failure
   });
 
   // Create or update wallet
@@ -215,14 +225,14 @@ export function useCashuWallet() {
 
   // Fetch token events (kind 7375)
   const getNip60TokensQuery = useQuery({
-    queryKey: ['cashu', 'tokens', user?.pubkey, connectedRelayCount],
+    queryKey: ['cashu', 'tokens', user?.pubkey],
     queryFn: async ({ signal }) => {
-      console.log(`useCashuWallet: Starting NIP60 tokens query with ${connectedRelayCount} connected relays`, { userPubkey: user?.pubkey });
+      console.log(`useCashuWallet: Starting NIP60 tokens query with Cashu relay: ${cashuRelayStore.activeRelay}`, { userPubkey: user?.pubkey });
       
       if (!user) throw new Error('User not logged in');
 
       // Add timeout to prevent hanging
-      const timeoutSignal = AbortSignal.timeout(30000); // 30 second timeout
+      const timeoutSignal = AbortSignal.timeout(15000); // 15 second timeout
       const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
 
       // Get the last stored timestamp for the TOKEN event kind
@@ -242,7 +252,10 @@ export function useCashuWallet() {
 
       console.log('useCashuWallet: Querying for NIP60 tokens with filter:', filter);
 
-      const events = await nostr.query([filter], { signal: combinedSignal });
+      const events = await nostr.query([filter], { 
+        signal: combinedSignal,
+        relays: [cashuRelayStore.activeRelay]
+      });
 
       console.log('useCashuWallet: Found NIP60 token events:', events.length);
 
@@ -282,7 +295,12 @@ export function useCashuWallet() {
 
       return nip60TokenEvents;
     },
-    enabled: !!user && isAnyRelayConnected
+    enabled: !!user && isAnyRelayConnected,
+    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: false, // Don't refetch on reconnect
+    retry: 2, // Only retry twice on failure
   });
 
   const updateProofsMutation = useMutation({

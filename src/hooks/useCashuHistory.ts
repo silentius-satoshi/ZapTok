@@ -4,6 +4,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrConnection } from '@/components/NostrProvider';
 import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
+import { useCashuRelayStore } from '@/stores/cashuRelayStore';
 import type { NostrEvent } from 'nostr-tools';
 
 export interface SpendingHistoryEntry {
@@ -39,8 +40,9 @@ interface UseCashuHistoryResult {
 export function useCashuHistory(): UseCashuHistoryResult {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const { isAnyRelayConnected, connectedRelayCount } = useNostrConnection();
+  const { isAnyRelayConnected } = useNostrConnection();
   const historyStore = useTransactionHistoryStore();
+  const cashuRelayStore = useCashuRelayStore();
   const queryClient = useQueryClient();
 
   const createHistoryMutation = useMutation({
@@ -57,7 +59,8 @@ export function useCashuHistory(): UseCashuHistoryResult {
         created_at: Math.floor(Date.now() / 1000),
       });
 
-      await nostr.event(event);
+      // Publish to the dedicated Cashu relay
+      await nostr.event(event, { relays: [cashuRelayStore.activeRelay] });
       return event;
     },
     onSuccess: () => {
@@ -71,11 +74,11 @@ export function useCashuHistory(): UseCashuHistoryResult {
     error,
     refetch
   } = useQuery({
-    queryKey: ['cashu', 'history', user?.pubkey, connectedRelayCount],
+    queryKey: ['cashu', 'history', user?.pubkey],
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not authenticated');
 
-      console.log(`useCashuHistory: Starting query with ${connectedRelayCount} connected relays`);
+      console.log(`useCashuHistory: Starting query with Cashu relay: ${cashuRelayStore.activeRelay}`);
 
       // Check if we have cached transactions
       const cachedTransactions = historyStore.getTransactions(user.pubkey);
@@ -84,9 +87,13 @@ export function useCashuHistory(): UseCashuHistoryResult {
         return cachedTransactions;
       }
 
-      console.log('useCashuHistory: Fetching fresh transaction history from relays');
+      console.log('useCashuHistory: Fetching fresh transaction history from Cashu relay');
 
-      // Fetch transaction history from NIP-60 token events and history events
+      // Add timeout to prevent hanging
+      const timeoutSignal = AbortSignal.timeout(15000); // 15 second timeout
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+
+      // Fetch transaction history from NIP-60 token events and history events using dedicated Cashu relay
       const [tokenEvents, historyEvents] = await Promise.all([
         nostr.query([
           {
@@ -94,14 +101,20 @@ export function useCashuHistory(): UseCashuHistoryResult {
             authors: [user.pubkey],
             limit: 100
           }
-        ], { signal }),
+        ], { 
+          signal: combinedSignal,
+          relays: [cashuRelayStore.activeRelay] // Use dedicated Cashu relay
+        }),
         nostr.query([
           {
             kinds: [CASHU_EVENT_KINDS.HISTORY], // NIP-60 history events (sent transactions)
             authors: [user.pubkey],
             limit: 100
           }
-        ], { signal })
+        ], { 
+          signal: combinedSignal,
+          relays: [cashuRelayStore.activeRelay] // Use dedicated Cashu relay
+        })
       ]);
 
       // Parse NIP-60 token events into transaction history (received transactions)
@@ -203,14 +216,42 @@ export function useCashuHistory(): UseCashuHistoryResult {
           }
           
           // Extract details from history event
-          const direction = event.tags.find(tag => tag[0] === 'direction')?.[1] || historyData.direction;
-          const amountString = event.tags.find(tag => tag[0] === 'amount')?.[1] || historyData.amount;
-          const amount = parseInt(amountString) || 0;
+          // Handle both object format and tag array format
+          let direction: string | undefined;
+          let amountString: string | number | undefined;
+          
+          if (Array.isArray(historyData)) {
+            // historyData is an array of tag arrays: [["direction","out"],["amount","8"]]
+            direction = event.tags.find(tag => tag[0] === 'direction')?.[1] || 
+                       historyData.find(tag => tag[0] === 'direction')?.[1];
+            amountString = event.tags.find(tag => tag[0] === 'amount')?.[1] || 
+                          historyData.find(tag => tag[0] === 'amount')?.[1];
+          } else {
+            // historyData is an object format
+            direction = event.tags.find(tag => tag[0] === 'direction')?.[1] || historyData.direction;
+            amountString = event.tags.find(tag => tag[0] === 'amount')?.[1] || historyData.amount;
+          }
+          
+          // Parse amount from string or number
+          let amount = 0;
+          if (typeof amountString === 'number') {
+            amount = amountString;
+          } else if (typeof amountString === 'string') {
+            amount = parseInt(amountString, 10) || 0;
+          }
+          
           const mintUrl = event.tags.find(tag => tag[0] === 'mint')?.[1] || 'Unknown mint';
           
           // Skip transactions with no amount
           if (amount <= 0) {
-            console.warn('Skipping history event with invalid amount:', { id: event.id, amountString, amount });
+            console.warn('Skipping history event with invalid amount:', { 
+              id: event.id, 
+              amountString, 
+              amount, 
+              direction,
+              historyDataType: Array.isArray(historyData) ? 'Array' : typeof historyData,
+              historyDataLength: Array.isArray(historyData) ? historyData.length : 'N/A'
+            });
             continue;
           }
           
@@ -219,10 +260,18 @@ export function useCashuHistory(): UseCashuHistoryResult {
           let description = '';
           
           if (direction === 'out') {
-            if (historyData.type === 'melt') {
+            // Check historyData for transaction type (both object and array formats)
+            let historyType: string | undefined;
+            if (Array.isArray(historyData)) {
+              historyType = historyData.find(tag => tag[0] === 'type')?.[1];
+            } else {
+              historyType = historyData.type;
+            }
+            
+            if (historyType === 'melt') {
               type = 'melt';
               description = `Melted ${amount} sats to Lightning`;
-            } else if (historyData.type === 'nutzap') {
+            } else if (historyType === 'nutzap') {
               type = 'nutzap_send';
               description = `Sent nutzap of ${amount} sats`;
             } else {
@@ -230,7 +279,15 @@ export function useCashuHistory(): UseCashuHistoryResult {
               description = `Sent ${amount} sats`;
             }
           } else if (direction === 'in') {
-            if (historyData.type === 'mint') {
+            // Check historyData for transaction type (both object and array formats)
+            let historyType: string | undefined;
+            if (Array.isArray(historyData)) {
+              historyType = historyData.find(tag => tag[0] === 'type')?.[1];
+            } else {
+              historyType = historyData.type;
+            }
+            
+            if (historyType === 'mint') {
               type = 'mint';
               description = `Minted ${amount} sats from Lightning`;
             } else {
@@ -267,9 +324,21 @@ export function useCashuHistory(): UseCashuHistoryResult {
       return parsedTransactions;
     },
     enabled: !!user && isAnyRelayConnected,
-    staleTime: 30000, // Consider data stale after 30 seconds
-    gcTime: 300000, // Keep in cache for 5 minutes
+    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: false, // Don't refetch on reconnect
+    retry: 2, // Only retry twice on failure
   });
+
+  console.log(`useCashuHistory hook state: { 
+    isLoading: ${isLoading}, 
+    transactionsLength: ${transactions?.length || 0}, 
+    userPubkey: ${user?.pubkey || 'none'}, 
+    cashuRelay: ${cashuRelayStore.activeRelay},
+    isAnyRelayConnected: ${isAnyRelayConnected},
+    error: ${error ? error.message : 'none'}
+  }`);
 
   return {
     transactions,
