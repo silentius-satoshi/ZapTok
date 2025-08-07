@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, createContext, useContext } from 'react';
+import React, { createContext, useContext, useRef, useState, useEffect, useCallback } from 'react';
 import { NostrEvent, NPool, NRelay1 } from '@nostrify/nostrify';
 import { NostrContext } from '@nostrify/react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -41,6 +41,19 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   // Track relay connection states
   const [connectionState, setConnectionState] = useState<RelayConnectionState>({});
 
+  // Track connection summary for bundled logging
+  const connectionSummary = useRef<{
+    connecting: string[];
+    connected: string[];
+    failed: string[];
+    hasLoggedSummary: boolean;
+  }>({
+    connecting: [],
+    connected: [],
+    failed: [],
+    hasLoggedSummary: false,
+  });
+
   // Create NPool instance only once
   const pool = useRef<NPool | undefined>(undefined);
 
@@ -57,10 +70,40 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const isAnyRelayConnected = connectedRelayCount > 0;
   const areAllRelaysConnected = connectedRelayCount === totalRelayCount && totalRelayCount > 0;
 
+  // Log connection summary once all attempts are complete
+  const logConnectionSummary = useCallback(() => {
+    const { connecting, connected, failed } = connectionSummary.current;
+    const totalAttempted = connecting.length;
+    
+    if (totalAttempted === 0 || connectionSummary.current.hasLoggedSummary) return;
+    
+    // Check if we have results for all connection attempts
+    const totalResults = connected.length + failed.length;
+    if (totalResults < totalAttempted) return; // Still waiting for some results
+    
+    if (connected.length > 0) {
+      console.log(`✅ [NostrProvider] Connected to ${connected.length}/${totalAttempted} relays: ${connected.map(url => new URL(url).hostname).join(', ')}`);
+    }
+    
+    if (failed.length > 0) {
+      console.warn(`❌ [NostrProvider] Failed to connect to ${failed.length} relays: ${failed.map(url => new URL(url).hostname).join(', ')}`);
+    }
+    
+    connectionSummary.current.hasLoggedSummary = true;
+  }, []);
+
   // Update refs and connection state when config changes
   useEffect(() => {
     const newActiveRelays = getOptimalRelays(relayContext, config.relayUrls);
     relayUrls.current = newActiveRelays;
+    
+    // Reset connection summary for new relay set
+    connectionSummary.current = {
+      connecting: [...newActiveRelays],
+      connected: [],
+      failed: [],
+      hasLoggedSummary: false,
+    };
     
     // Initialize connection state for active relays only
     const newConnectionState: RelayConnectionState = {};
@@ -69,31 +112,51 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     });
     setConnectionState(newConnectionState);
     
-    console.log(`[NostrProvider] Switching to ${relayContext} context with relays:`, newActiveRelays);
+    if (newActiveRelays.length > 0) {
+      console.log(`[NostrProvider] Switching to ${relayContext} context with ${newActiveRelays.length} relays`);
+    } else {
+      console.log(`[NostrProvider] Switching to ${relayContext} context with no relays`);
+    }
     
-    queryClient.resetQueries();
+    // Only reset queries if we're switching to a context that needs fresh data
+    if (relayContext === 'wallet' || relayContext === 'cashu-only') {
+      queryClient.resetQueries({ queryKey: ['cashu'] });
+    } else if (relayContext === 'feed') {
+      queryClient.resetQueries({ queryKey: ['posts'] });
+      queryClient.resetQueries({ queryKey: ['events'] });
+    }
+    // Don't reset queries for 'none' context or minor changes
   }, [config.relayUrls, relayContext, queryClient]);
 
   // Initialize NPool only once
   if (!pool.current) {
     pool.current = new NPool({
       open(url: string) {
-        console.log(`[NostrProvider] Connecting to relay: ${url}`);
-        
         // Set initial connecting state
         setConnectionState(prev => ({ ...prev, [url]: 'connecting' }));
         
         const relay = new NRelay1(url);
         
-        // Monitor connection status
+        // Monitor connection status with bundled logging
+        let hasLogged = false;
         const checkConnection = () => {
-          if (relay.socket) {
+          if (relay.socket && !hasLogged) {
             if (relay.socket.readyState === 1) {
-              console.log(`✅ [NostrProvider] Successfully connected to: ${url}`);
+              // Success - add to connected list
               setConnectionState(prev => ({ ...prev, [url]: 'connected' }));
+              connectionSummary.current.connected.push(url);
+              hasLogged = true;
+              
+              // Try to log summary after a delay to collect other connections
+              setTimeout(logConnectionSummary, 500);
             } else if (relay.socket.readyState === 3) {
-              console.warn(`❌ [NostrProvider] Failed to connect to: ${url}`);
+              // Failed - add to failed list
               setConnectionState(prev => ({ ...prev, [url]: 'failed' }));
+              connectionSummary.current.failed.push(url);
+              hasLogged = true;
+              
+              // Try to log summary after a delay to collect other connections
+              setTimeout(logConnectionSummary, 500);
             }
           }
         };
