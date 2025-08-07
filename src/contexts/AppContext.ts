@@ -3,6 +3,14 @@ import type { ZapOption } from "@/types/zap";
 
 export type Theme = "dark" | "light" | "system";
 
+export type RelayContext = 
+  | 'all'            // All relays (default)
+  | 'wallet'         // Only wallet-optimized relays  
+  | 'feed'           // Only feed-optimized relays
+  | 'cashu-only'     // Only Cashu relay
+  | 'settings-cashu' // Cashu relay for settings
+  | 'none';          // No relays active
+
 export interface AppConfig {
   /** Current theme */
   theme: Theme;
@@ -12,6 +20,8 @@ export interface AppConfig {
   defaultZap: ZapOption;
   /** Available zap options for quick selection */
   availableZapOptions: ZapOption[];
+  /** Current relay context */
+  relayContext?: RelayContext;
 }
 
 export interface AppContextType {
@@ -29,6 +39,8 @@ export interface AppContextType {
   setZapOption: (zapOption: Partial<ZapOption>, index: number) => void;
   /** Reset zap options to default */
   resetZapOptionsToDefault: () => void;
+  /** Set relay context for optimized relay selection */
+  setRelayContext: (context: RelayContext) => void;
   /** Optional list of preset relays to display in the RelaySelector */
   presetRelays?: { name: string; url: string }[];
 }
