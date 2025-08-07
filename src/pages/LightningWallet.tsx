@@ -6,6 +6,7 @@ import { CashuHistoryCard } from '@/components/CashuHistoryCard';
 import { CashuTokenCard } from '@/components/lightning/CashuTokenCard';
 import { CashuWalletLightningCard } from '@/components/lightning/CashuWalletLightningCard';
 import { NutzapCard } from '@/components/lightning/NutzapCard';
+import { RelayContextIndicator } from '@/components/RelayContextIndicator';
 import { Button } from '@/components/ui/button';
 import { Bitcoin } from 'lucide-react';
 import { useCashuStore } from '@/stores/cashuStore';
@@ -18,8 +19,21 @@ export function LightningWallet() {
   const { data: btcPrice } = useBitcoinPrice();
   const { showSats, toggleCurrency } = useCurrencyDisplayStore();
   
-  // Calculate total balance across all mints using wallet balances directly
-  const totalBalance = cashuStore.wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0);
+  // Calculate total balance manually from wallets and pending proofs
+  const walletProofs = cashuStore.wallets.flatMap(wallet => wallet.proofs || []);
+  const allProofs = [...walletProofs, ...cashuStore.pendingProofs];
+  const totalBalance = allProofs.reduce((sum, proof) => sum + proof.amount, 0);
+  
+  // Debug logging
+  console.log('LightningWallet Debug:', {
+    totalBalance,
+    walletsCount: cashuStore.wallets.length,
+    walletProofs: walletProofs.length,
+    pendingProofs: cashuStore.pendingProofs.length,
+    allProofs: allProofs.length,
+    showSats,
+    btcPrice
+  });
 
   return (
     <AuthGate>
@@ -38,12 +52,17 @@ export function LightningWallet() {
             <div className="flex-1 overflow-y-auto scrollbar-hide">
               <div className="max-w-7xl mx-auto p-6">
                 <div className="mb-6">
-                  <h1 className="text-3xl font-bold text-white">Lightning Wallet</h1>
-                  <p className="text-gray-400 mt-2">Manage your Bitcoin Lightning and Cashu wallets</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-3xl font-bold text-white">Lightning Wallet</h1>
+                      <p className="text-gray-400 mt-2">Manage your Bitcoin Lightning and Cashu wallets</p>
+                    </div>
+                    <RelayContextIndicator className="text-right" />
+                  </div>
                 </div>
                 
-                {/* Total Balance Display */}
-                {totalBalance > 0 && (
+                {/* Total Balance Display - Show if balance >= 0 for debugging */}
+                {totalBalance >= 0 && (
                   <div className="text-center space-y-2 mb-8">
                     <div className="text-4xl font-bold text-white">
                       {showSats
@@ -52,7 +71,7 @@ export function LightningWallet() {
                         ? formatUSD(satsToUSD(totalBalance, btcPrice.USD))
                         : formatBalance(totalBalance)}
                     </div>
-                    <div className="text-sm text-gray-400">Total Balance</div>
+                    <div className="text-sm text-gray-400">Total Balance ({totalBalance} sats, W:{walletProofs.length} + P:{cashuStore.pendingProofs.length} proofs)</div>
                     <Button
                       variant="outline"
                       size="sm"

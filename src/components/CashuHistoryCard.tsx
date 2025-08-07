@@ -9,7 +9,8 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  AlertTriangle
 } from 'lucide-react';
 interface CashuHistoryCardProps {
   limit?: number;
@@ -24,6 +25,21 @@ export function CashuHistoryCard({
   const [visibleEntries, setVisibleEntries] = useState(limit);
   const [isExpanded, setIsExpanded] = useState(true);
   const { data: btcPrice } = useBitcoinPrice();
+
+  // Check if we should show the warning icon
+  const hasOnlyReceiveTransactions = transactions.length > 0 && 
+    transactions.every(t => ['receive', 'nutzap_receive', 'mint'].includes(t.type));
+  
+  const hasOnlySendTransactions = transactions.length > 0 && 
+    transactions.every(t => ['send', 'nutzap_send', 'melt'].includes(t.type));
+  
+  const hasVeryFewTransactions = transactions.length > 0 && transactions.length < 3;
+  const hasNoTransactions = transactions.length === 0;
+
+  const shouldShowWarning = hasNoTransactions || 
+    hasOnlyReceiveTransactions || 
+    hasOnlySendTransactions || 
+    hasVeryFewTransactions;
 
   const displayTransactions = transactions.slice(0, visibleEntries);
 
@@ -87,7 +103,23 @@ export function CashuHistoryCard({
       <CardContent className="p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">Transaction History</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold">Transaction History</h2>
+            {shouldShowWarning && (
+              <TransactionHistoryWarning 
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-yellow-500 hover:text-yellow-400"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                  </Button>
+                }
+                compact={true}
+              />
+            )}
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -103,10 +135,7 @@ export function CashuHistoryCard({
         </div>
 
         {isExpanded && (
-          <>
-            {/* Transaction History Warning */}
-            <TransactionHistoryWarning className="mb-4" />
-            
+          <>            
             {displayTransactions.length === 0 ? (
               <div className="py-8 text-center">
                 <p className="text-muted-foreground text-sm">No transactions yet</p>
