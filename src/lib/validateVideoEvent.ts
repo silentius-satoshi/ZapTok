@@ -36,16 +36,19 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
     description: event.content
   };
 
-  console.log('🔍 Validating NIP-71 video event:', {
-    id: event.id,
+  // Bundle validation logs for cleaner console output
+  const validationInfo = {
+    id: event.id.slice(0, 8),
     kind: event.kind,
-    content: event.content.substring(0, 100),
-    tags: tags.map(tag => `${tag[0]}: ${tag[1] || ''}`),
-  });
+    title: event.content.substring(0, 30),
+    imetaCount: 0,
+    videoUrl: null as string | null,
+    hash: null as string | null,
+  };
 
   // Parse imeta tags first (primary video source in NIP-71)
   const imetaTags = tags.filter(tag => tag[0] === 'imeta');
-  console.log('📋 Found imeta tags:', imetaTags.length, imetaTags);
+  validationInfo.imetaCount = imetaTags.length;
   
   for (const imetaTag of imetaTags) {
     // Parse imeta tag properties
@@ -61,12 +64,10 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
       }
     }
 
-    console.log('🏷️ Parsed imeta props:', imetaProps);
-
     // Extract video URL (prefer primary url over fallback)
     if (imetaProps.url && !videoData.videoUrl) {
       videoData.videoUrl = imetaProps.url;
-      console.log('📹 Found video URL in imeta:', imetaProps.url);
+      validationInfo.videoUrl = imetaProps.url;
     }
     
     // Extract thumbnail from image property
@@ -77,7 +78,7 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
     // Extract hash from x property
     if (imetaProps.x && !videoData.hash) {
       videoData.hash = imetaProps.x;
-      console.log('🔗 Found video hash in imeta:', imetaProps.x);
+      validationInfo.hash = imetaProps.x;
     }
   }
 
@@ -112,14 +113,14 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
       case 'url': {
         if (!videoData.videoUrl) {
           videoData.videoUrl = tag[1];
-          console.log('📹 Found video URL in url tag:', tag[1]);
+          validationInfo.videoUrl = tag[1];
         }
         break;
       }
       case 'x': {
         if (!videoData.hash) {
           videoData.hash = tag[1];
-          console.log('🔗 Found video hash in x tag:', tag[1]);
+          validationInfo.hash = tag[1];
         }
         break;
       }
@@ -136,7 +137,7 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
           potentialUrl.includes('satellite.earth') ||
           potentialUrl.includes('nostr.build')) {
         videoData.videoUrl = potentialUrl;
-        console.log('📹 Found video URL in content:', potentialUrl);
+        validationInfo.videoUrl = potentialUrl;
       }
     }
   }
@@ -149,7 +150,9 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
 
   // NIP-71 events should have either a video URL from imeta or a hash
   if (!videoData.videoUrl && !videoData.hash) {
-    console.log('❌ No video URL or hash found in NIP-71 event');
+    if (import.meta.env.DEV) {
+      console.log(`❌ NIP-71 [${validationInfo.id}]: No video URL or hash found`);
+    }
     return null;
   }
 
@@ -157,28 +160,17 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
   if (!videoData.videoUrl && videoData.hash) {
     // Try multiple Blossom servers for better reliability
     videoData.videoUrl = `https://cdn.satellite.earth/${videoData.hash}`;
-    console.log('🌸 Constructed Blossom URL from hash:', videoData.videoUrl);
-    
-    // Also try testing the URL accessibility
-    fetch(videoData.videoUrl, { method: 'HEAD' }).then(response => {
-      if (response.ok) {
-        console.log('✅ Blossom URL is accessible:', videoData.videoUrl);
-      } else {
-        console.log('❌ Blossom URL failed:', response.status, videoData.videoUrl);
-        // Try alternative server
-        const altUrl = `https://blossom.primal.net/${videoData.hash}`;
-        console.log('🔄 Trying alternative server:', altUrl);
-      }
-    }).catch(error => {
-      console.log('🚫 Network error testing Blossom URL:', error);
-    });
+    validationInfo.videoUrl = videoData.videoUrl;
   }
 
-  console.log('✅ NIP-71 validation complete:', {
-    hasVideoUrl: !!videoData.videoUrl,
-    hasHash: !!videoData.hash,
-    title: videoData.title
-  });
+  // Log bundled validation summary
+  if (import.meta.env.DEV) {
+    console.log(`✅ NIP-71 [${validationInfo.id}]: ${validationInfo.title}`, {
+      imeta: validationInfo.imetaCount,
+      hasUrl: !!validationInfo.videoUrl,
+      hasHash: !!validationInfo.hash,
+    });
+  }
 
   return videoData;
 }

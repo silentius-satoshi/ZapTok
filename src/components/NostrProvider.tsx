@@ -82,7 +82,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     if (totalResults < totalAttempted) return; // Still waiting for some results
     
     if (connected.length > 0) {
+      if (import.meta.env.DEV) {
       console.log(`✅ [NostrProvider] Connected to ${connected.length}/${totalAttempted} relays: ${connected.map(url => new URL(url).hostname).join(', ')}`);
+      }
     }
     
     if (failed.length > 0) {
@@ -114,9 +116,13 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     
     if (import.meta.env.DEV) {
       if (newActiveRelays.length > 0) {
+        if (import.meta.env.DEV) {
         console.log(`[NostrProvider] Switching to ${relayContext} context with ${newActiveRelays.length} relays`);
+        }
       } else {
+        if (import.meta.env.DEV) {
         console.log(`[NostrProvider] Switching to ${relayContext} context with no relays`);
+        }
       }
     }
     

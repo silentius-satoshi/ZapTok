@@ -41,13 +41,19 @@ export function useVideoUrlFallback({ originalUrl, hash, title }: VideoUrlFallba
         });
       }
 
-      console.log(`🧪 Testing ${urlsToTest.length} video URLs for "${title || 'video'}"`);
+      // Bundle URL testing logs
+      const urlTestingStats = {
+        title: title?.slice(0, 20) || 'video',
+        totalUrls: urlsToTest.length,
+        testedUrls: 0,
+        workingUrl: null as string | null,
+      };
 
       // Test URLs concurrently with timeout
       let foundWorkingUrl = false;
       for (const url of urlsToTest.slice(0, 3)) { // Limit to first 3 to avoid overwhelming
         try {
-          console.log('🔍 Testing URL:', url);
+          urlTestingStats.testedUrls++;
           
           const response = await Promise.race([
             fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(2000) }),
@@ -57,7 +63,12 @@ export function useVideoUrlFallback({ originalUrl, hash, title }: VideoUrlFallba
           ]);
           
           if (response.ok) {
-            console.log('✅ Working URL found:', url);
+            urlTestingStats.workingUrl = url.split('/').pop()?.slice(0, 12) + '...';
+            
+            if (import.meta.env.DEV) {
+              console.log(`🎬 URL Test [${urlTestingStats.title}]: Found working URL (${urlTestingStats.testedUrls}/${urlTestingStats.totalUrls} tested)`);
+            }
+            
             setWorkingUrl(url);
             setTestedUrls(prev => new Set([...prev, url]));
             foundWorkingUrl = true;
@@ -74,6 +85,9 @@ export function useVideoUrlFallback({ originalUrl, hash, title }: VideoUrlFallba
       
       // If no working URL was found after testing all URLs, set to null
       if (!foundWorkingUrl && urlsToTest.length > 0) {
+        if (import.meta.env.DEV) {
+          console.log(`❌ URL Test [${urlTestingStats.title}]: No working URLs found (${urlTestingStats.testedUrls}/${urlTestingStats.totalUrls} tested)`);
+        }
         setWorkingUrl(null);
       }
       
