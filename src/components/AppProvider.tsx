@@ -28,6 +28,7 @@ const AppConfigSchema: z.ZodType<AppConfig, z.ZodTypeDef, unknown> = z.object({
   relayUrls: z.array(z.string().url()).min(1),
   defaultZap: ZapOptionSchema,
   availableZapOptions: z.array(ZapOptionSchema).min(1),
+  relayContext: z.enum(['all', 'wallet', 'feed']).optional(),
 });
 
 // Migration schema for old single relay configs
@@ -67,6 +68,7 @@ export function AppProvider(props: AppProviderProps) {
             relayUrls: [legacyConfigResult.data.relayUrl],
             defaultZap,
             availableZapOptions: defaultZapOptions,
+            relayContext: 'all',
           };
         }
         
@@ -124,6 +126,14 @@ export function AppProvider(props: AppProviderProps) {
     }));
   };
 
+  // Set relay context function
+  const setRelayContext = (relayContext: 'all' | 'wallet' | 'feed') => {
+    updateConfig((current) => ({
+      ...current,
+      relayContext
+    }));
+  };
+
   const appContextValue: AppContextType = {
     config,
     updateConfig,
@@ -132,6 +142,7 @@ export function AppProvider(props: AppProviderProps) {
     setDefaultZap,
     setZapOption,
     resetZapOptionsToDefault,
+    setRelayContext,
     presetRelays,
   };
 

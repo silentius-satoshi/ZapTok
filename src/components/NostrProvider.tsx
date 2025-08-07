@@ -3,6 +3,7 @@ import { NostrEvent, NPool, NRelay1 } from '@nostrify/nostrify';
 import { NostrContext } from '@nostrify/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
+import { getOptimalRelays, type RelayContext } from '@/lib/relayOptimization';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -18,6 +19,8 @@ interface NostrConnectionContextValue {
   areAllRelaysConnected: boolean;
   connectedRelayCount: number;
   totalRelayCount: number;
+  activeRelays: string[];
+  relayContext: RelayContext;
 }
 
 const NostrConnectionContext = createContext<NostrConnectionContextValue>({
@@ -26,6 +29,8 @@ const NostrConnectionContext = createContext<NostrConnectionContextValue>({
   areAllRelaysConnected: false,
   connectedRelayCount: 0,
   totalRelayCount: 0,
+  activeRelays: [],
+  relayContext: 'all',
 });
 
 const NostrProvider: React.FC<NostrProviderProps> = (props) => {
@@ -39,28 +44,35 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   // Create NPool instance only once
   const pool = useRef<NPool | undefined>(undefined);
 
+  // Get active relays based on context
+  const relayContext = config.relayContext || 'all';
+  const activeRelays = getOptimalRelays(relayContext, config.relayUrls);
+
   // Use refs so the pool always has the latest data
-  const relayUrls = useRef<string[]>(config.relayUrls);
+  const relayUrls = useRef<string[]>(activeRelays);
 
   // Calculate connection stats
   const connectedRelayCount = Object.values(connectionState).filter(state => state === 'connected').length;
-  const totalRelayCount = config.relayUrls.length;
+  const totalRelayCount = activeRelays.length;
   const isAnyRelayConnected = connectedRelayCount > 0;
   const areAllRelaysConnected = connectedRelayCount === totalRelayCount && totalRelayCount > 0;
 
   // Update refs and connection state when config changes
   useEffect(() => {
-    relayUrls.current = config.relayUrls;
+    const newActiveRelays = getOptimalRelays(relayContext, config.relayUrls);
+    relayUrls.current = newActiveRelays;
     
-    // Initialize connection state for all relays
+    // Initialize connection state for active relays only
     const newConnectionState: RelayConnectionState = {};
-    config.relayUrls.forEach(url => {
+    newActiveRelays.forEach(url => {
       newConnectionState[url] = 'connecting';
     });
     setConnectionState(newConnectionState);
     
+    console.log(`[NostrProvider] Switching to ${relayContext} context with relays:`, newActiveRelays);
+    
     queryClient.resetQueries();
-  }, [config.relayUrls, queryClient]);
+  }, [config.relayUrls, relayContext, queryClient]);
 
   // Initialize NPool only once
   if (!pool.current) {
@@ -115,6 +127,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       areAllRelaysConnected,
       connectedRelayCount,
       totalRelayCount,
+      activeRelays,
+      relayContext,
     }}>
       <NostrContext.Provider value={{ nostr: pool.current }}>
         {children}
