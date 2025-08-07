@@ -1,6 +1,6 @@
 import BitcoinConnectCard from '@/components/lightning/wallet-connections/BitcoinConnectCard';
 import NostrWalletConnectCard from '@/components/lightning/wallet-connections/NostrWalletConnectCard';
-import { CashuWalletCard } from '@/components/lightning/wallet-connections/CashuWalletCard';
+import { CashuRelaySettings } from './CashuRelaySettings';
 import { SettingsSection } from './SettingsSection';
 
 interface ConnectedWalletsSettingsProps {
@@ -37,7 +37,7 @@ export function ConnectedWalletsSettings({
           disabledReason="Browser extension wallet is connected"
         />
 
-        <CashuWalletCard />
+        <CashuRelaySettings />
       </div>
     </SettingsSection>
   );
