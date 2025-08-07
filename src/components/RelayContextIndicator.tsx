@@ -12,14 +12,22 @@ interface RelayContextIndicatorProps {
 export function RelayContextIndicator({ className, showDescription = false }: RelayContextIndicatorProps) {
   const { context } = useRelayContext();
   const { connectedRelayCount, activeRelays, connectionState } = useNostrConnection();
+  
+  // Always call the hook but use the store conditionally
   const cashuRelayStore = useCashuRelayStore();
+  const shouldUseCashuStore = context === 'wallet' || context === 'cashu-only' || context === 'settings-cashu';
 
   const getContextColor = (ctx: typeof context) => {
     switch (ctx) {
       case 'wallet':
+      case 'cashu-only':
         return 'bg-green-500/20 text-green-400 border-green-500/30';
       case 'feed':
         return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'settings-cashu':
+        return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      case 'none':
+        return 'bg-red-500/20 text-red-400 border-red-500/30';
       case 'all':
       default:
         return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
@@ -29,9 +37,14 @@ export function RelayContextIndicator({ className, showDescription = false }: Re
   const getContextIcon = (ctx: typeof context) => {
     switch (ctx) {
       case 'wallet':
+      case 'cashu-only':
         return '⚡';
       case 'feed':
         return '📺';
+      case 'settings-cashu':
+        return '⚙️';
+      case 'none':
+        return '⏸️';
       case 'all':
       default:
         return '🌐';
@@ -40,11 +53,21 @@ export function RelayContextIndicator({ className, showDescription = false }: Re
 
   // For wallet context, check if the Cashu relay is connected
   // For other contexts, show regular relay status
-  const isCashuRelayConnected = connectionState[cashuRelayStore.activeRelay] === 'connected';
-  const displayConnectedCount = context === 'wallet' 
-    ? (isCashuRelayConnected ? 2 : 0)
-    : connectedRelayCount;
-  const displayTotalCount = context === 'wallet' ? 2 : activeRelays.length;
+  const isCashuRelayConnected = cashuRelayStore ? connectionState[cashuRelayStore.activeRelay] === 'connected' : false;
+  
+  let displayConnectedCount: number;
+  let displayTotalCount: number;
+  
+  if (context === 'wallet' || context === 'cashu-only') {
+    displayConnectedCount = isCashuRelayConnected ? 1 : 0;
+    displayTotalCount = 1;
+  } else if (context === 'none') {
+    displayConnectedCount = 0;
+    displayTotalCount = 0;
+  } else {
+    displayConnectedCount = connectedRelayCount;
+    displayTotalCount = activeRelays.length;
+  }
   
   return (
     <div className={`flex items-center gap-2 ${className}`}>

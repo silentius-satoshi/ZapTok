@@ -5,35 +5,36 @@ import { type RelayContext } from '@/lib/relayOptimization';
 
 /**
  * Map of route patterns to optimal relay contexts
+ * Order matters - more specific routes should come first
  */
 const routeContextMap: Record<string, RelayContext> = {
+  // Settings routes - no relays (except Cashu-related) - MUST come before '/'
+  '/settings/connected-wallets': 'settings-cashu', // Has Cashu relay settings
+  '/settings/profile': 'none',
+  '/settings/relays': 'none', 
+  '/settings/appearance': 'none',
+  '/settings/about': 'none',
+  '/settings': 'none',
+  
   // Lightning wallet - only Cashu relay
   '/wallet': 'cashu-only',
   '/lightning': 'cashu-only',
   
-  // Feed-related routes - use feed-optimized relays  
-  '/': 'feed',
-  '/feed': 'feed',
-  '/following': 'feed',
-  '/discover': 'feed',
+  // Legacy Cashu routes
+  '/cashu': 'cashu-only',
   
-  // Profile and social routes - use feed-optimized relays
+  // Profile and social routes - use feed-optimized relays  
   '/profile': 'feed',
   '/npub': 'feed',
   '/note': 'feed',
   '/nevent': 'feed',
   '/naddr': 'feed',
+  '/following': 'feed',
+  '/discover': 'feed',
+  '/feed': 'feed',
   
-  // Settings routes - no relays (except Cashu-related)
-  '/settings': 'none',
-  '/settings/profile': 'none',
-  '/settings/relays': 'none',
-  '/settings/appearance': 'none',
-  '/settings/connected-wallets': 'settings-cashu', // Has Cashu relay settings
-  '/settings/about': 'none',
-  
-  // Legacy Cashu routes
-  '/cashu': 'cashu-only',
+  // Home route - MUST come last as it matches everything starting with '/'
+  '/': 'feed',
 };
 
 /**

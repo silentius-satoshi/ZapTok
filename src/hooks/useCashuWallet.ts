@@ -10,6 +10,7 @@ import { Proof } from '@cashu/cashu-ts';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
 import { NSchema as n } from '@nostrify/nostrify';
 import { z } from 'zod';
+import { useAppContext } from '@/hooks/useAppContext';
 
 interface WalletData {
   privkey: string;
@@ -29,6 +30,13 @@ export function useCashuWallet() {
   const cashuStore = useCashuStore();
   const cashuRelayStore = useCashuRelayStore();
   const { createNutzapInfo } = useNutzaps();
+  const { config } = useAppContext();
+
+  // Check if Cashu operations should run in the current context
+  const shouldRunCashuOperations = config.relayContext === 'all' || 
+    config.relayContext === 'wallet' || 
+    config.relayContext === 'cashu-only' || 
+    config.relayContext === 'settings-cashu';
 
   // Fetch wallet information (kind 17375)
   const walletQuery = useQuery({
@@ -154,7 +162,7 @@ export function useCashuWallet() {
         createdAt: event.created_at
       };
     },
-    enabled: !!user && isAnyRelayConnected,
+    enabled: !!user && isAnyRelayConnected && shouldRunCashuOperations,
     staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     refetchOnWindowFocus: false, // Don't refetch on window focus
@@ -295,7 +303,7 @@ export function useCashuWallet() {
 
       return nip60TokenEvents;
     },
-    enabled: !!user && isAnyRelayConnected,
+    enabled: !!user && isAnyRelayConnected && shouldRunCashuOperations,
     staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     refetchOnWindowFocus: false, // Don't refetch on window focus

@@ -10,6 +10,7 @@ import { useWalletUiStore } from '@/stores/walletUiStore';
 import { formatBalance } from '@/lib/cashu';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
+import { useAppContext } from '@/hooks/useAppContext';
 import { toast } from 'sonner';
 
 /**
@@ -25,10 +26,29 @@ export function useAutoReceiveNutzaps() {
   const walletUiStore = useWalletUiStore();
   const { showSats } = useCurrencyDisplayStore();
   const { data: btcPrice } = useBitcoinPrice();
+  const { config } = useAppContext();
   
   // Keep track of processed event IDs to avoid duplicates
   const processedEventIds = useRef<Set<string>>(new Set());
   const subscriptionController = useRef<AbortController | null>(null);
+
+  // Check if Cashu operations should run in the current context
+  const shouldRunCashuOperations = config.relayContext === 'all' || 
+    config.relayContext === 'wallet' || 
+    config.relayContext === 'cashu-only' || 
+    config.relayContext === 'settings-cashu';
+
+  // Early return if Cashu operations shouldn't run
+  useEffect(() => {
+    if (!shouldRunCashuOperations) {
+      // Clean up any existing subscriptions
+      if (subscriptionController.current) {
+        subscriptionController.current.abort();
+        subscriptionController.current = null;
+      }
+      return;
+    }
+  }, [shouldRunCashuOperations]);
 
   // Format amount based on user preference
   const formatAmount = useCallback((sats: number) => {
@@ -87,7 +107,7 @@ export function useAutoReceiveNutzaps() {
 
   // Process initial nutzaps on load
   useEffect(() => {
-    if (!fetchedNutzaps || fetchedNutzaps.length === 0) return;
+    if (!shouldRunCashuOperations || !fetchedNutzaps || fetchedNutzaps.length === 0) return;
 
     // Process any unredeemed nutzaps
     const unredeemedNutzaps = fetchedNutzaps.filter(n => n.status === 'pending');
@@ -98,11 +118,11 @@ export function useAutoReceiveNutzaps() {
 
     // Add all fetched nutzap IDs to processed set
     fetchedNutzaps.forEach(n => processedEventIds.current.add(n.id));
-  }, [fetchedNutzaps, processNutzap]);
+  }, [shouldRunCashuOperations, fetchedNutzaps, processNutzap]);
 
   // Set up real-time subscription
   useEffect(() => {
-    if (!user || !nutzapInfoQuery.data) return;
+    if (!shouldRunCashuOperations || !user || !nutzapInfoQuery.data) return;
 
     // Get trusted mints from nutzap info
     const trustedMints = nutzapInfoQuery.data.mints.map((mint) => mint.url);
@@ -220,7 +240,7 @@ export function useAutoReceiveNutzaps() {
         subscriptionController.current = null;
       }
     };
-  }, [user, nutzapInfoQuery.data, nostr, processNutzap, refetchNutzaps]);
+  }, [shouldRunCashuOperations, user, nutzapInfoQuery.data, nostr, processNutzap, refetchNutzaps]);
 
   return {
     // Expose refetch in case manual refresh is needed

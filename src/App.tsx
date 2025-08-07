@@ -17,8 +17,6 @@ import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { WalletLoader } from '@/components/WalletLoader';
-import { useTransactionHistoryMonitor } from '@/hooks/useTransactionHistoryMonitor';
-import { PWAUpdateNotification } from '@/components/PWAUpdateNotification';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -27,6 +25,7 @@ const head = createHead({
   ],
 });
 
+// Create QueryClient instance outside of component to prevent recreation
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -66,9 +65,6 @@ function AppContent() {
     document.documentElement.classList.add('dark');
   }, []);
 
-  // Monitor transaction history for potential issues
-  useTransactionHistoryMonitor();
-
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -78,9 +74,6 @@ function AppContent() {
         </div>
       </div>
     }>
-      {/* PWA Update Notification - shows at top when update is available */}
-      <PWAUpdateNotification variant="banner" />
-      
       {/* Main App Router */}
       <AppRouter />
     </Suspense>
