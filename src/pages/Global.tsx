@@ -46,12 +46,12 @@ const Global = () => {
         </main>
         
         {/* Bottom attribution */}
-        <div className="fixed bottom-4 right-4 text-xs text-gray-500">
+        <div className="fixed bottom-4 right-4 text-sm text-gray-300">
           <a 
             href="https://soapbox.pub/mkstack" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="hover:text-gray-300 transition-colors"
+            className="hover:text-gray-100 transition-colors font-medium"
           >
             Vibed with MKStack
           </a>

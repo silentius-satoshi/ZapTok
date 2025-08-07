@@ -110,9 +110,9 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             href="https://soapbox.pub/mkstack/" 
             target="_blank" 
             rel="noopener noreferrer" 
-            className="text-xs text-gray-500 hover:text-gray-400 transition-colors opacity-60 hover:opacity-80"
+            className="text-sm text-gray-300 hover:text-gray-100 transition-colors font-medium"
           >
-            vibed by mkstack
+            vibed by MKStack
           </a>
         </div>
       </div>
