@@ -29,9 +29,9 @@ function RouteHandler() {
     }
   }, [location.pathname, resumeAllVideos]);
 
-  // Optional: Log relay optimization for debugging
+  // Optional: Log relay optimization for debugging (only in development)
   useEffect(() => {
-    if (isOptimized) {
+    if (isOptimized && import.meta.env.DEV) {
       console.log(`[RouteHandler] Using ${currentContext} relay context for ${location.pathname}`);
     }
   }, [currentContext, isOptimized, location.pathname]);
@@ -57,7 +57,12 @@ function RouteHandler() {
 
 export function AppRouter() {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <ScrollToTop />
       <RouteHandler />
     </BrowserRouter>

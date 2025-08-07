@@ -60,7 +60,9 @@ export function useContextualRelays() {
     
     // Only switch context if it's different from current
     if (config.relayContext !== optimalContext) {
-      console.log(`[ContextualRelays] Switching from ${config.relayContext} to ${optimalContext} context for route: ${currentPath}`);
+      if (import.meta.env.DEV) {
+        console.log(`[ContextualRelays] Switching from ${config.relayContext} to ${optimalContext} context for route: ${currentPath}`);
+      }
       setRelayContext(optimalContext);
     }
   }, [location.pathname, config.relayContext, setRelayContext]);

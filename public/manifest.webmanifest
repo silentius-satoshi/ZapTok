@@ -117,11 +117,11 @@
   },
   "protocol_handlers": [
     {
-      "protocol": "lightning",
+      "protocol": "web+lightning",
       "url": "/pay?invoice=%s"
     },
     {
-      "protocol": "nostr",
+      "protocol": "web+nostr",
       "url": "/%s"
     }
   ],

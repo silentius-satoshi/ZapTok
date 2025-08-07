@@ -112,10 +112,12 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     });
     setConnectionState(newConnectionState);
     
-    if (newActiveRelays.length > 0) {
-      console.log(`[NostrProvider] Switching to ${relayContext} context with ${newActiveRelays.length} relays`);
-    } else {
-      console.log(`[NostrProvider] Switching to ${relayContext} context with no relays`);
+    if (import.meta.env.DEV) {
+      if (newActiveRelays.length > 0) {
+        console.log(`[NostrProvider] Switching to ${relayContext} context with ${newActiveRelays.length} relays`);
+      } else {
+        console.log(`[NostrProvider] Switching to ${relayContext} context with no relays`);
+      }
     }
     
     // Only reset queries if we're switching to a context that needs fresh data

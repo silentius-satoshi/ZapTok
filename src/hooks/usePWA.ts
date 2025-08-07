@@ -89,7 +89,9 @@ export function usePWA(): PWAState & PWAActions {
   // Handle beforeinstallprompt event
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
-      console.log('[PWA] Install prompt available');
+      if (import.meta.env.DEV) {
+        console.log('[PWA] Install prompt available');
+      }
       e.preventDefault();
       
       const deferredPrompt = e as any;
@@ -98,7 +100,7 @@ export function usePWA(): PWAState & PWAActions {
     };
 
     const handleAppInstalled = () => {
-      console.log('[PWA] App installed');
+      console.log('[PWA] App installed successfully');
       setIsInstalled(true);
       setIsInstallable(false);
       setInstallPrompt(null);
@@ -119,7 +121,9 @@ export function usePWA(): PWAState & PWAActions {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => {
-          console.log('[PWA] Service Worker registered:', registration);
+          if (import.meta.env.DEV) {
+            console.log('[PWA] Service Worker registered successfully');
+          }
           
           const swRegistration: ServiceWorkerRegistration = {
             installing: registration.installing,
@@ -133,7 +137,9 @@ export function usePWA(): PWAState & PWAActions {
 
           // Check for updates
           registration.addEventListener('updatefound', () => {
-            console.log('[PWA] Service Worker update found');
+            if (import.meta.env.DEV) {
+              console.log('[PWA] Service Worker update found');
+            }
             setHasUpdate(true);
           });
 

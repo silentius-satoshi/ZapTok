@@ -31,16 +31,12 @@ const CACHE_FIRST_PATTERNS = [
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing ZapTok Service Worker');
-  
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => {
-        console.log('[SW] Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
+        return cache.addAll(STATIC_FILES);
       })
       .then(() => {
-        console.log('[SW] Static assets cached successfully');
         return self.skipWaiting();
       })
       .catch((error) => {
@@ -51,8 +47,6 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating ZapTok Service Worker');
-  
   event.waitUntil(
     caches.keys()
       .then((cacheNames) => {
@@ -63,13 +57,11 @@ self.addEventListener('activate', (event) => {
                      !cacheName.includes(CACHE_VERSION);
             })
             .map((cacheName) => {
-              console.log('[SW] Deleting old cache:', cacheName);
               return caches.delete(cacheName);
             })
         );
       })
       .then(() => {
-        console.log('[SW] Cache cleanup complete');
         return self.clients.claim();
       })
   );
@@ -402,4 +394,5 @@ async function notifyClients(message) {
   });
 }
 
+// Only log in development or keep the essential loaded message
 console.log('[SW] ZapTok Service Worker loaded');
