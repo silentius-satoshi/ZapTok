@@ -11,7 +11,9 @@ export async function corsAwareFetch(url: string, options?: RequestInit): Promis
   } catch (error) {
     // If it fails due to CORS, provide helpful error
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+    if (import.meta.env.DEV) {
       console.log('❌ CORS request failed for:', url);
+    }
       
       // Check if this is a known problematic provider
       if (url.includes('primal.net')) {
@@ -56,31 +58,43 @@ export function getLightningAddress(metadata: NostrMetadata | undefined): string
  */
 export async function getLNURLPayEndpoint(lightningAddress: string): Promise<string | null> {
   try {
+  if (import.meta.env.DEV) {
     console.log('🔍 Getting LNURL-pay endpoint for:', lightningAddress);
+  }
 
     // Development mode: For testing, we can use a known working Lightning address
     if (import.meta.env.DEV && lightningAddress === 'test@stacker.news') {
+    if (import.meta.env.DEV) {
       console.log('🧪 Using Stacker News test endpoint for development');
+    }
       // Stacker News has a well-known LNURL-pay endpoint that usually works
       return 'https://stacker.news/.well-known/lnurlp/test';
     }
 
     // If it's already an LNURL, we need to decode it
     if (lightningAddress.toLowerCase().startsWith('lnurl')) {
+    if (import.meta.env.DEV) {
       console.log('📡 Processing LNURL string');
+    }
       // For now, return null as LNURL decoding requires additional libraries
       // In production, you'd decode the bech32 LNURL and get the endpoint
+    if (import.meta.env.DEV) {
       console.log('⚠️ LNURL decoding not implemented yet');
+    }
       return null;
     }
 
     // If it's a Lightning address (user@domain.com), convert to LNURL-pay endpoint
     if (lightningAddress.includes('@')) {
       const [username, domain] = lightningAddress.split('@');
+    if (import.meta.env.DEV) {
       console.log('🌐 Converting Lightning address:', { username, domain });
+    }
       
       const wellKnownUrl = `https://${domain}/.well-known/lnurlp/${username}`;
+    if (import.meta.env.DEV) {
       console.log('📡 Fetching from:', wellKnownUrl);
+    }
       
       // Use CORS-aware fetch to handle potential CORS issues
       const response = await corsAwareFetch(wellKnownUrl, {
@@ -96,11 +110,15 @@ export async function getLNURLPayEndpoint(lightningAddress: string): Promise<str
       }
       
       const data = await response.json();
+    if (import.meta.env.DEV) {
       console.log('📊 LNURL-pay response:', data);
+    }
       
       // Return the callback URL which is the actual payment endpoint
       if (data.callback) {
+      if (import.meta.env.DEV) {
         console.log('✅ Found callback URL:', data.callback);
+      }
         return data.callback;
       } else {
         console.error('❌ No callback URL in response');
@@ -108,7 +126,9 @@ export async function getLNURLPayEndpoint(lightningAddress: string): Promise<str
       }
     }
 
+  if (import.meta.env.DEV) {
     console.log('❌ Invalid Lightning address format');
+  }
     return null;
   } catch (error) {
     console.error('💥 Error getting LNURL-pay endpoint:', error);

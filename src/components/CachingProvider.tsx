@@ -45,11 +45,15 @@ export function CachingProvider({ children }: CachingProviderProps) {
 
   const connectToCachingService = useCallback(async (url: string): Promise<boolean> => {
     if (isConnecting) {
+    if (import.meta.env.DEV) {
       console.log(`⏳ Connection already in progress for: ${url}`);
+    }
       return false;
     }
     
+  if (import.meta.env.DEV) {
     console.log(`🔌 Attempting to connect to caching service: ${url}`);
+  }
     setIsConnecting(true);
     
     try {
@@ -70,14 +74,18 @@ export function CachingProvider({ children }: CachingProviderProps) {
         }, 10000); // 10 second timeout (increased from 5)
 
         ws.onopen = () => {
+        if (import.meta.env.DEV) {
           console.log(`🎉 WebSocket opened for: ${url}`);
+        }
           clearTimeout(timeout);
           
           // Send initial ping using Primal's cache API format
           try {
             const pingMessage = JSON.stringify(['REQ', 'ping-' + Date.now(), {"cache": ["net_stats"]}]);
             ws.send(pingMessage);
+          if (import.meta.env.DEV) {
             console.log(`📤 Sent Primal cache ping to: ${url}`);
+          }
           } catch (error) {
             console.warn(`⚠️ Could not send ping to: ${url}`, error);
           }
@@ -106,7 +114,9 @@ export function CachingProvider({ children }: CachingProviderProps) {
             lastConnected: new Date().toISOString(),
           });
 
+        if (import.meta.env.DEV) {
           console.log(`✅ Successfully connected to caching service: ${url}`);
+        }
           setIsConnecting(false);
           resolve(true);
         };
@@ -124,18 +134,26 @@ export function CachingProvider({ children }: CachingProviderProps) {
             
             // Only log non-ping responses to avoid console spam
             if (data[1] && !data[1].startsWith('ping-')) {
+            if (import.meta.env.DEV) {
               console.log(`📨 Primal cache response:`, data[0], data[1] ? `(${data[1]})` : '');
+            }
               
               // Handle different Primal cache message types
               if (data[0] === 'EVENT') {
                 const event = data[2];
                 if (event?.kind === 1 || event?.kind === 1063) {
+                if (import.meta.env.DEV) {
                   console.log(`🎬 Got video-related event from cache: kind ${event.kind}`);
                 }
+                }
               } else if (data[0] === 'EOSE') {
+              if (import.meta.env.DEV) {
                 console.log(`✅ End of subscription: ${data[1]}`);
+              }
               } else if (data[0] === 'NOTICE') {
+              if (import.meta.env.DEV) {
                 console.log(`ℹ️ Cache notice: ${data[1]}`);
+              }
               }
             }
           } catch {
@@ -144,7 +162,9 @@ export function CachingProvider({ children }: CachingProviderProps) {
         };
 
         ws.onclose = (event) => {
+        if (import.meta.env.DEV) {
           console.log(`🔌 WebSocket closed for ${url}. Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}`);
+        }
           setIsConnecting(false);
           if (currentService?.url === url) {
             setCurrentService(null);
@@ -159,18 +179,16 @@ export function CachingProvider({ children }: CachingProviderProps) {
     }
   }, [availableServices, currentService, setConfig, isConnecting]);
 
-  const disconnectCachingService = useCallback(() => {
-    if (cachingWebSocket.current) {
-      cachingWebSocket.current.close();
-      cachingWebSocket.current = null;
-    }
-    setCurrentService(null);
-    setServices(prev => prev.map(s => ({ ...s, isConnected: false })));
-    setConfig({});
+  const disconnect = useCallback(() => {
+  if (cachingWebSocket.current) {
+    cachingWebSocket.current.close();
+    cachingWebSocket.current = null;
+  }
+  setConfig(prev => ({ ...prev, isConnected: false }));
+  if (import.meta.env.DEV) {
     console.log('🔌 Disconnected from caching service');
-  }, [setConfig]);
-
-  const isCachingAvailable = useCallback(() => {
+  }
+  }, [setConfig]);  const isCachingAvailable = useCallback(() => {
     return currentService?.isConnected === true && cachingWebSocket.current?.readyState === WebSocket.OPEN;
   }, [currentService]);
 
@@ -181,7 +199,9 @@ export function CachingProvider({ children }: CachingProviderProps) {
     // If caching is available and stable, supplement with Primal cache data
     if (isCachingAvailable() && cachingWebSocket.current?.readyState === WebSocket.OPEN) {
       try {
+      if (import.meta.env.DEV) {
         console.log('📡 Querying Primal cache for additional video content...');
+      }
         
         // Extract author pubkeys from filters for Primal cache queries
         const authorsFromFilters = filters
@@ -221,7 +241,9 @@ export function CachingProvider({ children }: CachingProviderProps) {
                     
                     if (hasVideoUrl || hasVideoTags) {
                       collectedEvents.push(eventData);
+                    if (import.meta.env.DEV) {
                       console.log(`🎬 Collected video event from cache: ${eventData.id?.slice(0, 8)}...`);
+                    }
                     }
                   }
                 } else if (data[0] === 'EOSE' && data[1] === subscriptionId) {
@@ -259,7 +281,9 @@ export function CachingProvider({ children }: CachingProviderProps) {
             }, 5000);
           });
           
+        if (import.meta.env.DEV) {
           console.log(`📦 Got ${batchedVideoEvents.length} video events from Primal cache`);
+        }
           
           // Combine and deduplicate with relay results
           const allEvents = [...relayResults, ...batchedVideoEvents];
@@ -272,7 +296,9 @@ export function CachingProvider({ children }: CachingProviderProps) {
           });
           
           const finalResults = Array.from(uniqueEvents.values());
+        if (import.meta.env.DEV) {
           console.log(`🎯 Final result: ${relayResults.length} from relays + ${batchedVideoEvents.length} from cache = ${finalResults.length} total unique events`);
+        }
           
           return finalResults;
         }
@@ -291,7 +317,7 @@ export function CachingProvider({ children }: CachingProviderProps) {
     currentService,
     availableServices: services,
     connectToCachingService,
-    disconnectCachingService,
+    disconnectCachingService: disconnect,
     isCachingAvailable,
     queryWithCaching,
   };
