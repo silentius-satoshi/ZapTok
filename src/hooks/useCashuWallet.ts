@@ -3,7 +3,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrConnection } from '@/components/NostrProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS, CashuToken, activateMint, defaultMints } from '@/lib/cashu';
-import { NostrEvent, getPublicKey } from 'nostr-tools';
+import { NostrEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { useCashuStore, Nip60TokenEvent, CashuWalletStruct } from '@/stores/cashuStore';
 import { useCashuRelayStore } from '@/stores/cashuRelayStore';
 import { Proof } from '@cashu/cashu-ts';
@@ -40,38 +40,106 @@ export function useCashuWallet() {
 
   // Fetch wallet information (kind 17375)
   const walletQuery = useQuery({
-    queryKey: ['cashu', 'wallet', user?.pubkey],
+    queryKey: ['cashu', 'wallet', user?.pubkey, cashuRelayStore.activeRelay],
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not logged in');
 
     if (import.meta.env.DEV) {
       console.log(`useCashuWallet: Starting wallet query with Cashu relay: ${cashuRelayStore.activeRelay}`);
+      console.log('useCashuWallet: Query details:', {
+        userPubkey: user.pubkey,
+        activeRelay: cashuRelayStore.activeRelay,
+        kinds: [CASHU_EVENT_KINDS.WALLET],
+      });
     }
 
       // Add timeout to prevent hanging
       const timeoutSignal = AbortSignal.timeout(15000); // 15 second timeout
       const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
 
-      const events = await nostr.query([
-        { kinds: [CASHU_EVENT_KINDS.WALLET], authors: [user.pubkey], limit: 1 }
-      ], { 
+      // Enhanced wallet detection: check for both wallet events AND history events
+      const queryFilter = { 
+        kinds: [CASHU_EVENT_KINDS.WALLET, CASHU_EVENT_KINDS.HISTORY], 
+        authors: [user.pubkey], 
+        limit: 10 
+      };
+      const queryOptions = { 
         signal: combinedSignal,
         relays: [cashuRelayStore.activeRelay]
-      });
+      };
+
+      if (import.meta.env.DEV) {
+        console.log('useCashuWallet: Query filter:', queryFilter);
+        console.log('useCashuWallet: Query options:', queryOptions);
+        console.log('useCashuWallet: CASHU_EVENT_KINDS.WALLET:', CASHU_EVENT_KINDS.WALLET);
+        console.log('useCashuWallet: CASHU_EVENT_KINDS.HISTORY:', CASHU_EVENT_KINDS.HISTORY);
+      }
+
+      const events = await nostr.query([queryFilter], queryOptions);
 
     if (import.meta.env.DEV) {
-      console.log(`useCashuWallet: Found ${events.length} wallet events`);
+      console.log(`useCashuWallet: Found ${events.length} wallet/history events`);
+      if (events.length === 0) {
+        console.log('useCashuWallet: No wallet or history events found - this might be why "Create Wallet" is showing');
+        console.log('useCashuWallet: Checking if this is a relay connectivity issue...');
+        
+        // DEBUG: Also try a broader query to see if ANY events exist for this pubkey
+        console.log('useCashuWallet: Trying broader query to check for ANY events by this pubkey...');
+        try {
+          const broadEvents = await nostr.query([
+            { authors: [user.pubkey], limit: 10 }
+          ], { 
+            signal: AbortSignal.timeout(5000),
+            relays: [cashuRelayStore.activeRelay]
+          });
+          console.log(`useCashuWallet: Found ${broadEvents.length} total events by this pubkey on relay`);
+          if (broadEvents.length > 0) {
+            console.log('useCashuWallet: Sample event kinds found:', broadEvents.map(e => e.kind));
+          }
+        } catch (error) {
+          console.log('useCashuWallet: Broader query failed:', error);
+        }
+      } else {
+        events.forEach((event, index) => {
+          console.log(`useCashuWallet: Event ${index}:`, {
+            id: event.id,
+            kind: event.kind,
+            pubkey: event.pubkey,
+            created_at: event.created_at,
+            content: event.content.substring(0, 100) + '...',
+            tags: event.tags
+          });
+        });
+      }
     }
 
-      if (events.length === 0) {
+      // Check if we have either wallet events or history events
+      const walletEvents = events.filter(e => e.kind === CASHU_EVENT_KINDS.WALLET);
+      const historyEvents = events.filter(e => e.kind === CASHU_EVENT_KINDS.HISTORY);
+      
+      if (import.meta.env.DEV) {
+        console.log(`useCashuWallet: Found ${walletEvents.length} wallet events and ${historyEvents.length} history events`);
+      }
+
+      // If we have history events but no wallet events, return null to trigger UI flow
+      if (walletEvents.length === 0 && historyEvents.length > 0) {
+        if (import.meta.env.DEV) {
+          console.log('useCashuWallet: No wallet config but history exists - allowing UI to handle wallet creation');
+        }
+        
+        // Return null so the UI can detect this condition and show the "Recreate Wallet Configuration" flow
         return null;
       }
 
-      const event = events[0];
+      if (walletEvents.length === 0) {
+        return null;
+      }
+
+      const event = walletEvents[0];
 
       // Decrypt wallet content
       if (!user.signer.nip44) {
-        throw new Error('NIP-44 encryption not supported by your signer');
+        throw new Error('Cashu wallet requires NIP-44 encryption support. Please ensure your Nostr extension has ENCRYPT and DECRYPT permissions enabled, or try reconnecting with a compatible extension like Alby.');
       }
 
       const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
@@ -156,16 +224,6 @@ export function useCashuWallet() {
 
       // log wallet data
       console.log('useCashuWallet: Final wallet data:', walletData);
-
-      // call getNip60TokensQuery
-      console.log('useCashuWallet: Refetching NIP60 tokens');
-      try {
-        const tokenResults = await getNip60TokensQuery.refetch();
-        console.log('useCashuWallet: Successfully refetched NIP60 tokens, results:', tokenResults.data);
-      } catch (error) {
-        console.error('useCashuWallet: Error refetching NIP60 tokens:', error);
-        // Don't throw here - we can still return the wallet even if token fetch fails
-      }
       
       console.log('useCashuWallet: Returning wallet data successfully');
       return {
@@ -175,11 +233,12 @@ export function useCashuWallet() {
       };
     },
     enabled: !!user && isAnyRelayConnected && shouldRunCashuOperations,
-    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    staleTime: 30 * 60 * 1000, // Consider data stale after 30 minutes
+    gcTime: 60 * 60 * 1000, // Keep in cache for 1 hour
     refetchOnWindowFocus: false, // Don't refetch on window focus
     refetchOnReconnect: false, // Don't refetch on reconnect
-    retry: 2, // Only retry twice on failure
+    refetchInterval: false, // Disable automatic refetching
+    retry: 1, // Only retry once on failure
   });
 
   // Create or update wallet
@@ -187,7 +246,7 @@ export function useCashuWallet() {
     mutationFn: async (walletData: CashuWalletStruct) => {
       if (!user) throw new Error('User not logged in');
       if (!user.signer.nip44) {
-        throw new Error('NIP-44 encryption not supported by your signer');
+        throw new Error('Cashu wallet creation requires NIP-44 encryption support. Please ensure your Nostr extension has ENCRYPT and DECRYPT permissions enabled.');
       }
 
       // remove trailing slashes from mints
@@ -238,14 +297,14 @@ export function useCashuWallet() {
       return event;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cashu', 'wallet', user?.pubkey] });
+      queryClient.invalidateQueries({ queryKey: ['cashu', 'wallet', user?.pubkey, cashuRelayStore.activeRelay] });
       queryClient.invalidateQueries({ queryKey: ['nutzap', 'info', user?.pubkey] });
     }
   });
 
   // Fetch token events (kind 7375)
   const getNip60TokensQuery = useQuery({
-    queryKey: ['cashu', 'tokens', user?.pubkey],
+    queryKey: ['cashu', 'tokens', user?.pubkey, cashuRelayStore.activeRelay],
     queryFn: async ({ signal }) => {
       console.log(`useCashuWallet: Starting NIP60 tokens query with Cashu relay: ${cashuRelayStore.activeRelay}`, { userPubkey: user?.pubkey });
       
@@ -316,11 +375,12 @@ export function useCashuWallet() {
       return nip60TokenEvents;
     },
     enabled: !!user && isAnyRelayConnected && shouldRunCashuOperations,
-    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    staleTime: 30 * 60 * 1000, // Consider data stale after 30 minutes
+    gcTime: 60 * 60 * 1000, // Keep in cache for 1 hour  
     refetchOnWindowFocus: false, // Don't refetch on window focus
     refetchOnReconnect: false, // Don't refetch on reconnect
-    retry: 2, // Only retry twice on failure
+    refetchInterval: false, // Disable automatic refetching
+    retry: 1, // Only retry once on failure
   });
 
   const updateProofsMutation = useMutation({
@@ -410,7 +470,7 @@ export function useCashuWallet() {
       return eventToReturn;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cashu', 'tokens', user?.pubkey] });
+      queryClient.invalidateQueries({ queryKey: ['cashu', 'tokens', user?.pubkey, cashuRelayStore.activeRelay] });
     }
   });
 
@@ -418,9 +478,9 @@ export function useCashuWallet() {
     wallet: walletQuery.data?.wallet,
     walletId: walletQuery.data?.id,
     tokens: getNip60TokensQuery.data || [],
-    isLoading: walletQuery.isFetching || getNip60TokensQuery.isFetching,
-    isWalletLoading: walletQuery.isFetching,
-    isTokensLoading: getNip60TokensQuery.isFetching,
+    isLoading: walletQuery.isLoading || getNip60TokensQuery.isLoading,
+    isWalletLoading: walletQuery.isLoading,
+    isTokensLoading: getNip60TokensQuery.isLoading,
     walletError: walletQuery.error,
     tokensError: getNip60TokensQuery.error,
     createWallet: createWalletMutation.mutate,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -30,20 +30,25 @@ import { useCashuToken } from "@/hooks/useCashuToken";
 import { useCreateCashuWallet } from "@/hooks/useCreateCashuWallet";
 import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
 import { useWalletUiStore } from "@/stores/walletUiStore";
+import { useCashuHistory } from "@/hooks/useCashuHistory";
+import { useCashuPermissions } from "@/hooks/useCashuPermissions";
 
 
 export function CashuWalletCard() {
   const { user } = useCurrentUser();
   const { wallet, isLoading, createWallet, walletError, tokensError } = useCashuWallet();
+  const { history: transactionHistory, isLoading: isHistoryLoading } = useCashuHistory();
   const cashuStore = useCashuStore();
   const { cleanSpentProofs } = useCashuToken();
   const { data: btcPrice } = useBitcoinPrice();
   const walletUiStore = useWalletUiStore();
+  const { requestCashuPermissions, hasCashuSupport } = useCashuPermissions();
   const isExpanded = walletUiStore.expandedCards.mints;
   const [newMint, setNewMint] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [expandedMint, setExpandedMint] = useState<string | null>(null);
   const [flashingMints, setFlashingMints] = useState<Record<string, boolean>>({});
+  const [autoCreationAttempted, setAutoCreationAttempted] = useState(false);
 
   // Get wallet total balance (not per-mint, since balance is total across all mints)
   const totalBalance = cashuStore.wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0);
@@ -88,12 +93,54 @@ export function CashuWalletCard() {
     error: createWalletError,
   } = useCreateCashuWallet();
 
+  // Wrapper function to request permissions before creating wallet
+  const handleCreateWalletWithPermissions = useCallback(async (walletData?: CashuWalletStruct) => {
+    try {
+      // Request Cashu permissions if not already available
+      if (!hasCashuSupport) {
+        console.log('CashuWalletCard: Requesting Cashu permissions before wallet creation');
+        await requestCashuPermissions();
+      }
+      
+      // Proceed with wallet creation
+      handleCreateWallet(walletData);
+    } catch (error) {
+      console.error('CashuWalletCard: Failed to get permissions for wallet creation:', error);
+      setError(error instanceof Error ? error.message : 'Failed to get required permissions');
+    }
+  }, [hasCashuSupport, requestCashuPermissions, handleCreateWallet]);
+
   // Update error state when createWalletError changes
   useEffect(() => {
     if (createWalletError) {
       setError(createWalletError.message);
     }
   }, [createWalletError]);
+
+  // Auto-create wallet configuration when history is detected but no wallet exists
+  useEffect(() => {
+    const hasTransactionHistory = transactionHistory && transactionHistory.length > 0;
+    
+    // Only attempt auto-creation once and when all conditions are met
+    if (!wallet && hasTransactionHistory && !isLoading && !isHistoryLoading && !isCreatingWallet && user && !autoCreationAttempted) {
+      console.log('CashuWalletCard: Auto-creating wallet configuration for detected transaction history');
+      setAutoCreationAttempted(true); // Mark that we've attempted creation
+      
+      // Auto-trigger wallet creation after a short delay
+      const timer = setTimeout(() => {
+        handleCreateWalletWithPermissions(undefined);
+      }, 2000); // 2 second delay so user can see the message
+
+      return () => clearTimeout(timer);
+    }
+  }, [wallet, transactionHistory, isLoading, isHistoryLoading, isCreatingWallet, user, autoCreationAttempted, handleCreateWalletWithPermissions]);
+
+  // Reset auto-creation flag when user changes or wallet is successfully created
+  useEffect(() => {
+    if (!user || wallet) {
+      setAutoCreationAttempted(false);
+    }
+  }, [user, wallet]);
 
   const handleAddMint = () => {
     if (!wallet || !wallet.mints) return;
@@ -200,7 +247,7 @@ export function CashuWalletCard() {
     return mintUrl.replace("https://", "");
   };
 
-  if (isLoading || isCreatingWallet) {
+  if (isLoading || isCreatingWallet || isHistoryLoading) {
     return (
       <Card>
         <CardHeader>
@@ -213,7 +260,10 @@ export function CashuWalletCard() {
     );
   }
 
-  if (!wallet) {
+  // Check if user has transaction history even if no wallet event is found
+  const hasTransactionHistory = transactionHistory && transactionHistory.length > 0;
+
+  if (!wallet && !hasTransactionHistory) {
     return (
       <Card>
         <CardHeader>
@@ -223,7 +273,7 @@ export function CashuWalletCard() {
           </div>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => handleCreateWallet(undefined)} disabled={!user}>
+          <Button onClick={() => handleCreateWalletWithPermissions(undefined)} disabled={!user}>
             Create Wallet
           </Button>
           {!user && (
@@ -235,6 +285,57 @@ export function CashuWalletCard() {
             </Alert>
           )}
         </CardContent>
+      </Card>
+    );
+  }
+
+  // Handle case where there's transaction history but no wallet event found
+  if (!wallet && hasTransactionHistory) {
+    return (
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Mints</CardTitle>
+            <CardDescription>Wallet detected from transaction history</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Alert className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {isCreatingWallet 
+                ? "Creating wallet configuration from your transaction history..." 
+                : "You have transaction history but no wallet configuration found. This can happen if your wallet was created on a different relay."
+              }
+            </AlertDescription>
+          </Alert>
+          <Button 
+            onClick={() => handleCreateWalletWithPermissions(undefined)} 
+            disabled={!user || isCreatingWallet}
+          >
+            {isCreatingWallet ? "Creating..." : "Recreate Wallet Configuration"}
+          </Button>
+          <p className="text-sm text-muted-foreground mt-2">
+            {isCreatingWallet 
+              ? "Please wait while we set up your wallet configuration..."
+              : "This will create a new wallet configuration while preserving your transaction history."
+            }
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // At this point, we know wallet exists
+  if (!wallet) {
+    return (
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Mints</CardTitle>
+            <CardDescription>Unexpected error loading wallet</CardDescription>
+          </div>
+        </CardHeader>
       </Card>
     );
   }
