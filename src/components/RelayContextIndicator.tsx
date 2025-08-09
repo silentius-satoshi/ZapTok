@@ -3,6 +3,8 @@ import { useRelayContext } from '@/hooks/useContextualRelays';
 import { useNostrConnection } from '@/components/NostrProvider';
 import { useCashuRelayStore } from '@/stores/cashuRelayStore';
 import { getRelayContextDescription } from '@/lib/relayOptimization';
+import { useNavigate } from 'react-router-dom';
+import { Wifi } from 'lucide-react';
 
 interface RelayContextIndicatorProps {
   className?: string;
@@ -12,6 +14,7 @@ interface RelayContextIndicatorProps {
 export function RelayContextIndicator({ className, showDescription = false }: RelayContextIndicatorProps) {
   const { context } = useRelayContext();
   const { connectedRelayCount, activeRelays, connectionState } = useNostrConnection();
+  const navigate = useNavigate();
   
   // Always call the hook but use the store conditionally
   const cashuRelayStore = useCashuRelayStore();
@@ -65,6 +68,12 @@ export function RelayContextIndicator({ className, showDescription = false }: Re
     displayConnectedCount = isCashuRelayConnected ? 1 : 0;
     displayTotalCount = 1;
     isConnecting = isCashuRelayConnecting;
+    
+    // Fallback: If we're in cashu-only context but connection state is empty,
+    // this likely means we're in a transition period - show optimistic state
+    if (!cashuRelayState && cashuRelayStore && cashuRelayStore.activeRelay) {
+      isConnecting = true; // Show connecting state during transition
+    }
   } else if (context === 'none') {
     displayConnectedCount = 0;
     displayTotalCount = 0;
@@ -77,12 +86,25 @@ export function RelayContextIndicator({ className, showDescription = false }: Re
   
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <Badge 
-        variant="outline" 
-        className={`${getContextColor(context)} text-xs font-medium`}
-      >
-        {getContextIcon(context)} {context.toUpperCase()}
-      </Badge>
+      {context === 'cashu-only' ? (
+        // Show active Cashu relay with click functionality for cashu-only context
+        <Badge 
+          variant="outline" 
+          className="bg-green-500/20 text-green-400 border-green-500/30 text-xs font-medium cursor-pointer hover:bg-green-500/30 transition-colors"
+          onClick={() => navigate('/settings?section=connected-wallets')}
+        >
+          <Wifi className="h-3 w-3 mr-1" />
+          {cashuRelayStore.getActiveRelayName()}
+        </Badge>
+      ) : (
+        // Show context badge for other contexts
+        <Badge 
+          variant="outline" 
+          className={`${getContextColor(context)} text-xs font-medium`}
+        >
+          {getContextIcon(context)} {context.toUpperCase()}
+        </Badge>
+      )}
       
       <Badge 
         variant="outline" 
