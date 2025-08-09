@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, memo, useCallback } from 'react';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
 import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
 import { useCashuStore } from '@/stores/cashuStore';
@@ -6,9 +6,10 @@ import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useWalletUiStore } from '@/stores/walletUiStore';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
+import { ManualRecoveryModal } from './ManualRecoveryModal';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { ChevronDown, ChevronUp, ArrowDownLeft, ArrowUpRight, Clock, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CashuHistoryCardProps {
@@ -16,29 +17,33 @@ interface CashuHistoryCardProps {
 }
 
 export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
-  const { transactions: queryHistory, isLoading, createHistory } = useCashuHistory();
+  const { isLoading, history } = useCashuHistory();
   const transactionHistoryStore = useTransactionHistoryStore();
   const cashuStore = useCashuStore();
   const { updateProofs } = useCashuWallet();
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isManualRecoveryOpen, setIsManualRecoveryOpen] = useState(false);
   const walletUiStore = useWalletUiStore();
   const isExpanded = walletUiStore.expandedCards.history;
   const [visibleEntries, setVisibleEntries] = useState(5);
   const { showSats } = useCurrencyDisplayStore();
   const { data: btcPrice } = useBitcoinPrice();
 
-  // Format amount in USD like Chorus
+  // Convert sats to display string honoring user preference
   const formatAmount = (sats: number) => {
-    if (!btcPrice) {
+    if (showSats || !btcPrice) {
       return `${sats.toLocaleString()} sats`;
     }
     const usdAmount = (sats * btcPrice.USD) / 100000000;
-    return `${usdAmount.toFixed(2)} usd`;
+    return `$${usdAmount.toFixed(2)}`;
   };
 
-  // Format timestamp like Chorus
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
+  // Robust timestamp formatter (seconds or ms)
+  const formatTimestamp = (raw: number | string | undefined) => {
+    if (raw == null) return '';
+    let n = typeof raw === 'string' ? parseInt(raw, 10) : raw;
+    if (n < 2_000_000_000) n *= 1000; // treat as seconds
+    const date = new Date(n);
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -54,9 +59,136 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
     walletUiStore.toggleCardExpansion('history');
   };
 
-  const loadMore = () => {
-    setVisibleEntries(prev => prev + 5);
+  const loadMore = () => setVisibleEntries(prev => prev + 5);
+
+  // Obtain combined history (includes pending) and memoize slice; prefer store entries enriched by hook
+  const combined = history.length ? history : transactionHistoryStore.getCombinedHistory();
+  const visible = useMemo(() => combined.slice(0, visibleEntries), [combined, visibleEntries]);
+
+  interface HistoryLike { id: string; direction: 'in' | 'out'; amount: string | number; timestamp?: number; amountSats?: number; }
+
+  const formatType = (t: HistoryLike) => t.direction === 'in' ? 'Received' : 'Sent';
+
+  const isReceive = (t: HistoryLike) => t.direction === 'in';
+
+  const extractSats = (t: HistoryLike): number => {
+    if (typeof t.amount === 'number') return t.amount;
+    const fromField = parseInt(String(t.amount || t.amountSats), 10);
+    return isNaN(fromField) ? 0 : fromField;
   };
+
+  const checkPendingTransaction = async (pendingTx: any) => {
+    setProcessingId(pendingTx.id);
+    
+    try {
+      const activeMintUrl = cashuStore.activeMintUrl;
+      if (!activeMintUrl) {
+        throw new Error('No active mint found');
+      }
+
+      // Use the recovery function to check this specific pending transaction
+      const mintTokensFromPaidInvoice = (await import('@/lib/cashuLightning')).mintTokensFromPaidInvoice;
+      const proofs = await mintTokensFromPaidInvoice(
+        activeMintUrl,
+        pendingTx.quoteId,
+        parseInt(pendingTx.amount)
+      );
+
+      if (proofs && proofs.length > 0) {
+        const totalAmount = proofs.reduce((sum: number, proof: any) => sum + proof.amount, 0);
+        
+        // Update wallet with recovered proofs
+        await updateProofs({ 
+          mintUrl: activeMintUrl, 
+          proofsToAdd: proofs, 
+          proofsToRemove: [] 
+        });
+
+        // Remove the pending transaction
+        transactionHistoryStore.removePendingTransaction(pendingTx.id);
+
+        console.log(`Successfully recovered ${totalAmount} sats from pending transaction`);
+      } else {
+        console.log('Payment not yet received - still pending');
+      }
+    } catch (error: any) {
+      console.error('Failed to check pending transaction:', error);
+      // Don't show error for expected "not paid yet" cases
+      if (!error.message?.includes('not been paid yet')) {
+        console.error('Unexpected error checking pending transaction:', error.message);
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const Row = useCallback(({ tx }: { tx: HistoryLike }) => {
+    const sats = extractSats(tx);
+    const isPending = (tx as any).status === 'pending';
+    
+    return (
+      <div className="flex items-center justify-between py-3">
+        <div className="flex items-center gap-4">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+            isPending 
+              ? 'bg-yellow-100 text-yellow-600' 
+              : isReceive(tx) 
+                ? 'bg-green-100 text-green-600' 
+                : 'bg-red-100 text-red-600'
+          }`}>
+            {isPending ? (
+              <Clock className="w-5 h-5" />
+            ) : isReceive(tx) ? (
+              <ArrowDownLeft className="w-5 h-5" />
+            ) : (
+              <ArrowUpRight className="w-5 h-5" />
+            )}
+          </div>
+          <div className="flex-1">
+            <p className="font-medium text-white">
+              {isPending ? 'Pending' : formatType(tx)}
+            </p>
+            {tx.timestamp && (
+              <p className="text-sm text-gray-400">{formatTimestamp(tx.timestamp)}</p>
+            )}
+            {isPending && (
+              <div className="flex gap-2 mt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => checkPendingTransaction(tx)}
+                  disabled={processingId === tx.id}
+                  className="h-7 px-2 text-xs"
+                >
+                  {processingId === tx.id ? (
+                    <>
+                      <Clock className="w-3 h-3 mr-1 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    'Check Pending'
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="text-right">
+          <p className={`font-medium ${
+            isPending 
+              ? 'text-yellow-500' 
+              : isReceive(tx) 
+                ? 'text-green-500' 
+                : 'text-red-500'
+          }`}>
+            {isPending ? '+' : (isReceive(tx) ? '+' : '-')}{formatAmount(sats)}
+          </p>
+        </div>
+      </div>
+    );
+  }, [formatAmount, processingId, checkPendingTransaction]);
+
+  const MemoRow = memo(Row);
 
   return (
     <Card className={cn("", className)}>
@@ -64,18 +196,29 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Transaction History</h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleExpanded}
-            className="h-8 w-8 p-0"
-          >
-            {isExpanded ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsManualRecoveryOpen(true)}
+              className="h-8 px-3"
+            >
+              <Search className="w-3 h-3 mr-1" />
+              Manual Recovery
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleExpanded}
+              className="h-8 w-8 p-0"
+            >
+              {isExpanded ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
         </div>
 
         {isExpanded && (
@@ -84,50 +227,12 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
               <div className="py-8 text-center">
                 <p className="text-muted-foreground text-sm">Loading transactions...</p>
               </div>
-            ) : queryHistory && queryHistory.length > 0 ? (
+      ) : combined && combined.length > 0 ? (
               <div className="space-y-4">
-                {queryHistory.slice(0, visibleEntries).map((transaction: any, index: number) => (
-                  <div
-                    key={transaction.id || index}
-                    className="flex items-center justify-between py-3"
-                  >
-                    <div className="flex items-center gap-4">
-                      {/* Circular icon with arrow */}
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        transaction.type === 'received' 
-                          ? 'bg-green-100 text-green-600' 
-                          : 'bg-red-100 text-red-600'
-                      }`}>
-                        {transaction.type === 'received' ? (
-                          <ArrowDownLeft className="w-5 h-5" />
-                        ) : (
-                          <ArrowUpRight className="w-5 h-5" />
-                        )}
-                      </div>
-                      
-                      {/* Transaction details */}
-                      <div>
-                        <p className="font-medium text-white">
-                          {transaction.type === 'received' ? 'Received' : 'Sent'}
-                        </p>
-                        <p className="text-sm text-gray-400">
-                          {formatTimestamp(transaction.timestamp)}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* Amount */}
-                    <div className="text-right">
-                      <p className={`font-medium ${
-                        transaction.type === 'received' ? 'text-green-500' : 'text-red-500'
-                      }`}>
-                        {transaction.type === 'received' ? '+' : '-'}{formatAmount(transaction.amount)}
-                      </p>
-                    </div>
-                  </div>
+                {visible.map((tx: any) => (
+                  <MemoRow key={tx.id} tx={tx} />
                 ))}
-                
-                {queryHistory.length > visibleEntries && (
+        {combined.length > visibleEntries && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -146,6 +251,11 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
           </>
         )}
       </CardContent>
+
+      <ManualRecoveryModal 
+        isOpen={isManualRecoveryOpen} 
+        onClose={() => setIsManualRecoveryOpen(false)} 
+      />
     </Card>
   );
 }
