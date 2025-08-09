@@ -35,7 +35,7 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
       return `${sats.toLocaleString()} sats`;
     }
     const usdAmount = (sats * btcPrice.USD) / 100000000;
-    return `$${usdAmount.toFixed(2)}`;
+    return `${usdAmount.toFixed(2)} usd`;
   };
 
   // Robust timestamp formatter (seconds or ms)
@@ -186,7 +186,7 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
         </div>
       </div>
     );
-  }, [formatAmount, processingId, checkPendingTransaction]);
+  }, [formatAmount, processingId, checkPendingTransaction, showSats, btcPrice]);
 
   const MemoRow = memo(Row);
 

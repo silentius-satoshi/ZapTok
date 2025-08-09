@@ -23,19 +23,6 @@ export function LightningWallet() {
   const walletProofs = cashuStore.wallets.flatMap(wallet => wallet.proofs || []);
   const allProofs = [...walletProofs, ...cashuStore.pendingProofs];
   const totalBalance = allProofs.reduce((sum, proof) => sum + proof.amount, 0);
-  
-  // Debug logging
-  if (import.meta.env.DEV) {
-  console.log('LightningWallet Debug:', {
-    totalBalance,
-    walletsCount: cashuStore.wallets.length,
-    walletProofs: walletProofs.length,
-    pendingProofs: cashuStore.pendingProofs.length,
-    allProofs: allProofs.length,
-    showSats,
-    btcPrice
-  });
-  }
 
   return (
     <AuthGate>
@@ -63,7 +50,7 @@ export function LightningWallet() {
                   </div>
                 </div>
                 
-                {/* Total Balance Display - Show if balance >= 0 for debugging */}
+                {/* Total Balance Display */}
                 {totalBalance >= 0 && (
                   <div className="text-center space-y-2 mb-8">
                     <div className="text-4xl font-bold text-white">
@@ -73,7 +60,7 @@ export function LightningWallet() {
                         ? formatUSD(satsToUSD(totalBalance, btcPrice.USD))
                         : formatBalance(totalBalance)}
                     </div>
-                    <div className="text-sm text-gray-400">Total Balance ({totalBalance} sats, W:{walletProofs.length} + P:{cashuStore.pendingProofs.length} proofs)</div>
+                    <div className="text-sm text-gray-400">Total Balance</div>
                     <Button
                       variant="outline"
                       size="sm"

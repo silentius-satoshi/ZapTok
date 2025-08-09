@@ -44,15 +44,6 @@ export function useCashuWallet() {
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not logged in');
 
-    if (import.meta.env.DEV) {
-      console.log(`useCashuWallet: Starting wallet query with Cashu relay: ${cashuRelayStore.activeRelay}`);
-      console.log('useCashuWallet: Query details:', {
-        userPubkey: user.pubkey,
-        activeRelay: cashuRelayStore.activeRelay,
-        kinds: [CASHU_EVENT_KINDS.WALLET],
-      });
-    }
-
       // Add timeout to prevent hanging
       const timeoutSignal = AbortSignal.timeout(15000); // 15 second timeout
       const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
@@ -68,65 +59,14 @@ export function useCashuWallet() {
         relays: [cashuRelayStore.activeRelay]
       };
 
-      if (import.meta.env.DEV) {
-        console.log('useCashuWallet: Query filter:', queryFilter);
-        console.log('useCashuWallet: Query options:', queryOptions);
-        console.log('useCashuWallet: CASHU_EVENT_KINDS.WALLET:', CASHU_EVENT_KINDS.WALLET);
-        console.log('useCashuWallet: CASHU_EVENT_KINDS.HISTORY:', CASHU_EVENT_KINDS.HISTORY);
-      }
-
       const events = await nostr.query([queryFilter], queryOptions);
-
-    if (import.meta.env.DEV) {
-      console.log(`useCashuWallet: Found ${events.length} wallet/history events`);
-      if (events.length === 0) {
-        console.log('useCashuWallet: No wallet or history events found - this might be why "Create Wallet" is showing');
-        console.log('useCashuWallet: Checking if this is a relay connectivity issue...');
-        
-        // DEBUG: Also try a broader query to see if ANY events exist for this pubkey
-        console.log('useCashuWallet: Trying broader query to check for ANY events by this pubkey...');
-        try {
-          const broadEvents = await nostr.query([
-            { authors: [user.pubkey], limit: 10 }
-          ], { 
-            signal: AbortSignal.timeout(5000),
-            relays: [cashuRelayStore.activeRelay]
-          });
-          console.log(`useCashuWallet: Found ${broadEvents.length} total events by this pubkey on relay`);
-          if (broadEvents.length > 0) {
-            console.log('useCashuWallet: Sample event kinds found:', broadEvents.map(e => e.kind));
-          }
-        } catch (error) {
-          console.log('useCashuWallet: Broader query failed:', error);
-        }
-      } else {
-        events.forEach((event, index) => {
-          console.log(`useCashuWallet: Event ${index}:`, {
-            id: event.id,
-            kind: event.kind,
-            pubkey: event.pubkey,
-            created_at: event.created_at,
-            content: event.content.substring(0, 100) + '...',
-            tags: event.tags
-          });
-        });
-      }
-    }
 
       // Check if we have either wallet events or history events
       const walletEvents = events.filter(e => e.kind === CASHU_EVENT_KINDS.WALLET);
       const historyEvents = events.filter(e => e.kind === CASHU_EVENT_KINDS.HISTORY);
-      
-      if (import.meta.env.DEV) {
-        console.log(`useCashuWallet: Found ${walletEvents.length} wallet events and ${historyEvents.length} history events`);
-      }
 
       // If we have history events but no wallet events, return null to trigger UI flow
       if (walletEvents.length === 0 && historyEvents.length > 0) {
-        if (import.meta.env.DEV) {
-          console.log('useCashuWallet: No wallet config but history exists - allowing UI to handle wallet creation');
-        }
-        
         // Return null so the UI can detect this condition and show the "Recreate Wallet Configuration" flow
         return null;
       }
@@ -171,9 +111,6 @@ export function useCashuWallet() {
       walletData.mints = [...new Set(walletData.mints)];
 
       // fetch the mint info and keysets for each mint
-    if (import.meta.env.DEV) {
-      console.log('useCashuWallet: About to activate mints:', walletData.mints);
-    }
       try {
         await Promise.all(walletData.mints.map(async (mint) => {
           const { mintInfo, keysets } = await activateMint(mint);
@@ -191,9 +128,6 @@ export function useCashuWallet() {
         throw error;
       }
 
-    if (import.meta.env.DEV) {
-      console.log('useCashuWallet: Setting privkey in store');
-    }
       cashuStore.setPrivkey(walletData.privkey);
 
       // Create a complete wallet structure for the store
@@ -209,23 +143,13 @@ export function useCashuWallet() {
         privkey: walletData.privkey
       };
 
-    if (import.meta.env.DEV) {
-      console.log('useCashuWallet: Adding wallet to store:', walletForStore);
-    }
       cashuStore.addWallet(walletForStore);
 
       // if no active mint is set, set the first mint as active
       if (!cashuStore.getActiveMintUrl()) {
-      if (import.meta.env.DEV) {
-        console.log('useCashuWallet: Setting active mint:', walletData.mints[0]);
-      }
         cashuStore.setActiveMintUrl(walletData.mints[0]);
       }
 
-      // log wallet data
-      console.log('useCashuWallet: Final wallet data:', walletData);
-      
-      console.log('useCashuWallet: Returning wallet data successfully');
       return {
         id: event.id,
         wallet: walletData,
@@ -306,8 +230,6 @@ export function useCashuWallet() {
   const getNip60TokensQuery = useQuery({
     queryKey: ['cashu', 'tokens', user?.pubkey, cashuRelayStore.activeRelay],
     queryFn: async ({ signal }) => {
-      console.log(`useCashuWallet: Starting NIP60 tokens query with Cashu relay: ${cashuRelayStore.activeRelay}`, { userPubkey: user?.pubkey });
-      
       if (!user) throw new Error('User not logged in');
 
       // Add timeout to prevent hanging
@@ -329,17 +251,12 @@ export function useCashuWallet() {
         Object.assign(filter, { since: lastTimestamp + 1 });
       }
 
-      console.log('useCashuWallet: Querying for NIP60 tokens with filter:', filter);
-
       const events = await nostr.query([filter], { 
         signal: combinedSignal,
         relays: [cashuRelayStore.activeRelay]
       });
 
-      console.log('useCashuWallet: Found NIP60 token events:', events.length);
-
       if (events.length === 0) {
-        console.log('useCashuWallet: No token events found, returning empty array');
         return [];
       }
 
@@ -369,8 +286,6 @@ export function useCashuWallet() {
           console.error('Failed to decrypt token data:', error);
         }
       }
-
-      console.log(`useCashuWallet: Found ${nip60TokenEvents.length} NIP60 token events`);
 
       return nip60TokenEvents;
     },
