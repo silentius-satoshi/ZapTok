@@ -53,20 +53,26 @@ export function RelayContextIndicator({ className, showDescription = false }: Re
 
   // For wallet context, check if the Cashu relay is connected
   // For other contexts, show regular relay status
-  const isCashuRelayConnected = cashuRelayStore ? connectionState[cashuRelayStore.activeRelay] === 'connected' : false;
+  const cashuRelayState = cashuRelayStore ? connectionState[cashuRelayStore.activeRelay] : undefined;
+  const isCashuRelayConnected = cashuRelayState === 'connected';
+  const isCashuRelayConnecting = cashuRelayState === 'connecting';
   
   let displayConnectedCount: number;
   let displayTotalCount: number;
+  let isConnecting = false;
   
   if (context === 'wallet' || context === 'cashu-only') {
     displayConnectedCount = isCashuRelayConnected ? 1 : 0;
     displayTotalCount = 1;
+    isConnecting = isCashuRelayConnecting;
   } else if (context === 'none') {
     displayConnectedCount = 0;
     displayTotalCount = 0;
   } else {
     displayConnectedCount = connectedRelayCount;
     displayTotalCount = activeRelays.length;
+    // Check if any relay is connecting
+    isConnecting = Object.values(connectionState).some(state => state === 'connecting');
   }
   
   return (
@@ -78,8 +84,14 @@ export function RelayContextIndicator({ className, showDescription = false }: Re
         {getContextIcon(context)} {context.toUpperCase()}
       </Badge>
       
-      <Badge variant="outline" className="text-xs">
+      <Badge 
+        variant="outline" 
+        className={`text-xs ${isConnecting ? 'animate-pulse' : ''}`}
+      >
         {displayConnectedCount}/{displayTotalCount} relays
+        {isConnecting && displayConnectedCount < displayTotalCount && (
+          <span className="ml-1 text-yellow-500">⟳</span>
+        )}
       </Badge>
       
       {showDescription && (

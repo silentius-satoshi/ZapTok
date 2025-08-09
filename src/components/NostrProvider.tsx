@@ -107,10 +107,16 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       hasLoggedSummary: false,
     };
     
-    // Initialize connection state for active relays only
+    // Initialize connection state for active relays, preserving existing connections
     const newConnectionState: RelayConnectionState = {};
     newActiveRelays.forEach(url => {
-      newConnectionState[url] = 'connecting';
+      // Preserve existing connection state if the relay is still active
+      const existingState = connectionState[url];
+      if (existingState === 'connected' || existingState === 'failed') {
+        newConnectionState[url] = existingState;
+      } else {
+        newConnectionState[url] = 'connecting';
+      }
     });
     setConnectionState(newConnectionState);
     
@@ -134,6 +140,33 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       queryClient.resetQueries({ queryKey: ['events'] });
     }
     // Don't reset queries for 'none' context or minor changes
+    
+    // Trigger relay connections when context changes
+    if (pool.current && newActiveRelays.length > 0) {
+      // Use a simple subscription to trigger relay connections
+      setTimeout(() => {
+        if (pool.current && relayUrls.current.length > 0) {
+          // Create a minimal subscription that will trigger connections
+          const controller = new AbortController();
+          
+          // Start a query with immediate timeout to just trigger connections
+          (async () => {
+            try {
+              const iter = pool.current!.req([{ kinds: [1], limit: 1 }], { 
+                signal: controller.signal 
+              });
+              
+              // Take one result to trigger connections, then abort
+              const iterator = iter[Symbol.asyncIterator]();
+              setTimeout(() => controller.abort(), 50); // Quick abort
+              await iterator.next().catch(() => {}); // Ignore errors
+            } catch (error) {
+              // Ignore all errors - this is just to trigger connections
+            }
+          })();
+        }
+      }, 10);
+    }
   }, [config.relayUrls, relayContext, queryClient]);
 
   // Initialize NPool only once
