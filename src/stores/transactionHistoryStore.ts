@@ -21,6 +21,8 @@ interface TransactionHistoryStore {
 
   // Add a new history entry to the store
   addHistoryEntry: (entry: SpendingHistoryEntry & { id: string }) => void;
+  // Add multiple history entries in one batch (skips duplicates)
+  addHistoryEntries: (entries: (SpendingHistoryEntry & { id: string })[]) => void;
 
   // Add a pending transaction
   addPendingTransaction: (transaction: PendingTransaction) => void;
@@ -60,6 +62,16 @@ export const useTransactionHistoryStore = create<TransactionHistoryStore>()(
             history: [entry, ...state.history]
           }));
         }
+      },
+
+      addHistoryEntries(entries) {
+        if (!entries.length) return;
+        const existingIds = new Set(get().history.map(h => h.id));
+        const deduped = entries.filter(e => !existingIds.has(e.id));
+        if (!deduped.length) return;
+        set(state => ({
+          history: [...deduped, ...state.history]
+        }));
       },
 
       addPendingTransaction(transaction) {

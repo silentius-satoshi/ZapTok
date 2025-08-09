@@ -2,10 +2,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrConnection } from '@/components/NostrProvider';
-import { CASHU_EVENT_KINDS } from '@/lib/cashu';
+import { CASHU_EVENT_KINDS, SpendingHistoryEntry as CashuSpendingHistoryEntry } from '@/lib/cashu';
 import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
 import { useCashuRelayStore } from '@/stores/cashuRelayStore';
 import type { NostrEvent } from 'nostr-tools';
+import { useEffect, useRef } from 'react';
+
+// Local interface for older usage
+export interface SpendingHistoryEntry {
+  direction: 'in' | 'out';
+  amount: string;
+  timestamp?: number;
+}
 
 export interface SpendingHistoryEntry {
   direction: 'in' | 'out';
@@ -25,18 +33,50 @@ export interface CashuTransaction {
   originalEvent?: NostrEvent;
 }
 
+interface CreateHistoryArgs {
+  direction: 'in' | 'out';
+  amount: string; // sats
+  createdTokens?: string[];    // token event ids created (encrypted markers: created)
+  destroyedTokens?: string[];  // token event ids destroyed (encrypted markers: destroyed)
+  redeemedTokens?: string[];   // token event ids redeemed (unencrypted tags: redeemed)
+}
+
 interface UseCashuHistoryResult {
-  transactions: CashuTransaction[];
+  history: (CashuSpendingHistoryEntry & { id: string })[];
   isLoading: boolean;
   error: Error | null;
   refetch: () => void;
-  createHistory: (historyEntry: SpendingHistoryEntry) => Promise<NostrEvent>;
+  createHistory: (args: CreateHistoryArgs) => Promise<NostrEvent>;
   isCreating: boolean;
+  fetchedNewCount: number;
 }
 
 /**
  * Hook to fetch and manage Cashu transaction history
  */
+const QUERY_DEBOUNCE_MS = 400;
+const FETCH_TIMEOUT_MS = 1500;
+
+function loadProcessedIds(pubkey: string) {
+  try {
+    const raw = sessionStorage.getItem(`cashu_history_ids:${pubkey}`);
+    return raw ? new Set<string>(JSON.parse(raw)) : new Set<string>();
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function persistProcessedIds(pubkey: string, setIds: Set<string>) {
+  try {
+    sessionStorage.setItem(
+      `cashu_history_ids:${pubkey}`,
+      JSON.stringify(Array.from(setIds))
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 export function useCashuHistory(): UseCashuHistoryResult {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
@@ -44,309 +84,189 @@ export function useCashuHistory(): UseCashuHistoryResult {
   const historyStore = useTransactionHistoryStore();
   const cashuRelayStore = useCashuRelayStore();
   const queryClient = useQueryClient();
+  const processedIdsRef = useRef<Set<string>>(new Set());
+  const lastContextChangeRef = useRef<number>(Date.now());
+  const lastStableStartRef = useRef<number>(0);
+
+  // Load previously processed IDs when user changes
+  useEffect(() => {
+    if (user?.pubkey) {
+      processedIdsRef.current = loadProcessedIds(user.pubkey);
+    }
+  }, [user?.pubkey]);
+
+  // Track relay context stabilization
+  useEffect(() => {
+    if (!isAnyRelayConnected) return;
+    lastContextChangeRef.current = Date.now();
+  }, [isAnyRelayConnected]);
+
+  const waitForStableContext = () => {
+    if (!isAnyRelayConnected) return false;
+    const msSince = Date.now() - lastContextChangeRef.current;
+    return msSince >= QUERY_DEBOUNCE_MS;
+  };
 
   const createHistoryMutation = useMutation({
-    mutationFn: async (historyEntry: SpendingHistoryEntry) => {
+    mutationFn: async ({
+      direction,
+      amount,
+      createdTokens = [],
+      destroyedTokens = [],
+      redeemedTokens = []
+    }: CreateHistoryArgs) => {
       if (!user) throw new Error('User not authenticated');
+      if (!user.signer.nip44) throw new Error('Cashu history requires NIP-44 encryption support. Please ensure your Nostr extension has ENCRYPT and DECRYPT permissions enabled.');
+
+      // Build encrypted content data (array form for forward compatibility)
+      const contentData: Array<string[]> = [
+        ['direction', direction],
+        ['amount', amount],
+        ...createdTokens.map(id => ['e', id, '', 'created']),
+        ...destroyedTokens.map(id => ['e', id, '', 'destroyed'])
+      ];
+
+      const encrypted = await user.signer.nip44.encrypt(user.pubkey, JSON.stringify(contentData));
 
       const event = await user.signer.signEvent({
         kind: CASHU_EVENT_KINDS.HISTORY,
-        content: JSON.stringify(historyEntry),
-        tags: [
-          ['direction', historyEntry.direction],
-          ['amount', historyEntry.amount],
-        ],
-        created_at: Math.floor(Date.now() / 1000),
+        content: encrypted,
+        tags: redeemedTokens.map(id => ['e', id, '', 'redeemed']),
+        created_at: Math.floor(Date.now() / 1000)
       });
 
-      // Publish to the dedicated Cashu relay
       await nostr.event(event, { relays: [cashuRelayStore.activeRelay] });
+
+      // Optimistic add (store timestamp in seconds like chorus)
+      historyStore.addHistoryEntries([
+        {
+          id: event.id,
+          direction,
+          amount,
+          timestamp: event.created_at,
+          createdTokens,
+            destroyedTokens,
+            redeemedTokens
+        } as any
+      ]);
+      processedIdsRef.current.add(event.id);
+      if (user?.pubkey) persistProcessedIds(user.pubkey, processedIdsRef.current);
       return event;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cashu', 'history'] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cashu', 'history', user?.pubkey] })
   });
 
   const {
-    data: transactions = [],
+    data: fetchedNewCount = 0,
     isLoading,
     error,
     refetch
-  } = useQuery({
+  } = useQuery<number>({
     queryKey: ['cashu', 'history', user?.pubkey],
+    enabled: !!user && waitForStableContext(),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    retry: 1,
+    notifyOnChangeProps: ['status', 'data', 'error'],
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not authenticated');
 
-      console.log(`useCashuHistory: Starting query with Cashu relay: ${cashuRelayStore.activeRelay}`);
-
-      // Check if we have cached transactions
-      const cachedTransactions = historyStore.getTransactions(user.pubkey);
-      if (cachedTransactions.length > 0) {
-        console.log('useCashuHistory: Returning cached transactions');
-        return cachedTransactions;
+      const now = Date.now();
+      if (now - lastStableStartRef.current < QUERY_DEBOUNCE_MS) {
+        return 0;
       }
+      lastStableStartRef.current = now;
 
-      console.log('useCashuHistory: Fetching fresh transaction history from Cashu relay');
+      // Timeout wrapper
+      const abortController = new AbortController();
+      const timeout = setTimeout(() => abortController.abort(), FETCH_TIMEOUT_MS);
+      const combinedSignal = (AbortSignal as any).any
+        ? (AbortSignal as any).any([signal, abortController.signal])
+        : abortController.signal;
 
-      // Add timeout to prevent hanging
-      const timeoutSignal = AbortSignal.timeout(15000); // 15 second timeout
-      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
-
-      // Fetch transaction history from NIP-60 token events and history events using dedicated Cashu relay
-      const [tokenEvents, historyEvents] = await Promise.all([
-        nostr.query([
-          {
-            kinds: [CASHU_EVENT_KINDS.TOKEN], // NIP-60 token events (received transactions)
-            authors: [user.pubkey],
-            limit: 100
-          }
-        ], { 
-          signal: combinedSignal,
-          relays: [cashuRelayStore.activeRelay] // Use dedicated Cashu relay
-        }),
-        nostr.query([
-          {
-            kinds: [CASHU_EVENT_KINDS.HISTORY], // NIP-60 history events (sent transactions)
-            authors: [user.pubkey],
-            limit: 100
-          }
-        ], { 
-          signal: combinedSignal,
-          relays: [cashuRelayStore.activeRelay] // Use dedicated Cashu relay
-        })
-      ]);
-
-      // Parse NIP-60 token events into transaction history (received transactions)
-      const parsedTransactions: CashuTransaction[] = [];
-
-      for (const event of tokenEvents) {
-        try {
-          // Decrypt the token content (NIP-60 token events are encrypted)
-          let tokenData;
-          try {
-            if (!user.signer.nip44) {
-              console.warn('NIP-44 encryption not supported by your signer');
-              continue;
-            }
-            
-            const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
-            tokenData = JSON.parse(decrypted);
-          } catch (decryptError) {
-            console.warn('Failed to decrypt token event:', event.id, decryptError);
-            // Try parsing as plain text (fallback for unencrypted events)
-            try {
-              tokenData = JSON.parse(event.content);
-            } catch (parseError) {
-              console.warn('Failed to parse token event as plain text:', event.id, parseError);
-              continue;
-            }
-          }
-          
-          // Extract mint URL from token data or tags
-          const mintUrl = tokenData.mint || 
-                          event.tags.find(tag => tag[0] === 'mint')?.[1] || 
-                          'Unknown mint';
-
-          // Calculate total amount from proofs
-          let totalAmount = 0;
-          if (tokenData.token) {
-            // Multiple mint tokens
-            totalAmount = tokenData.token.reduce((sum: number, t: any) => {
-              return sum + (t.proofs?.reduce((pSum: number, proof: any) => pSum + proof.amount, 0) || 0);
-            }, 0);
-          } else if (tokenData.proofs) {
-            // Single mint token
-            totalAmount = tokenData.proofs.reduce((sum: number, proof: any) => sum + proof.amount, 0);
-          }
-
-          // Skip tokens with no value
-          if (totalAmount <= 0) {
-            console.warn('Skipping token event with no value:', { id: event.id, totalAmount });
-            continue;
-          }
-
-          // Check if this is a nutzap by looking for 'p' tag
-          const pTag = event.tags.find(tag => tag[0] === 'p');
-          const isNutzap = !!pTag;
-          const counterparty = pTag?.[1];
-
-          const transaction: CashuTransaction = {
-            id: event.id,
-            type: isNutzap ? 'nutzap_receive' : 'receive',
-            amount: totalAmount,
-            mintUrl,
-            timestamp: event.created_at * 1000,
-            status: 'completed',
-            description: isNutzap 
-              ? `Received nutzap of ${totalAmount} sats`
-              : `Received ${totalAmount} sats`,
-            counterparty,
-            originalEvent: event
-          };
-
-          parsedTransactions.push(transaction);
-        } catch (err) {
-          console.warn('Failed to parse token event:', event.id, err);
+      // Fetch only HISTORY events (chorus parity)
+      let historyEvents: NostrEvent[] = [];
+      try {
+        historyEvents = await nostr.query([
+          { kinds: [CASHU_EVENT_KINDS.HISTORY], authors: [user.pubkey], limit: 100 }
+        ], { signal: combinedSignal, relays: [cashuRelayStore.activeRelay] });
+      } catch (e: any) {
+        if (e?.name === 'AbortError') {
+          clearTimeout(timeout);
+          return 0;
         }
+        clearTimeout(timeout);
+        throw e;
       }
+      clearTimeout(timeout);
 
-      // Parse history events (sent transactions, melts, mints)
+      const batch: (CashuSpendingHistoryEntry & { id: string })[] = [];
+
       for (const event of historyEvents) {
+        if (processedIdsRef.current.has(event.id)) continue;
         try {
-          // Decrypt the history content (NIP-60 history events may be encrypted)
-          let historyData;
-          try {
-            if (!user.signer.nip44) {
-              console.warn('NIP-44 encryption not supported by your signer');
-              continue;
-            }
-            
-            const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
-            historyData = JSON.parse(decrypted);
-          } catch (decryptError) {
-            console.warn('Failed to decrypt history event:', event.id, decryptError);
-            // Try parsing as plain text (fallback for unencrypted events)
-            try {
-              historyData = JSON.parse(event.content);
-            } catch (parseError) {
-              console.warn('Failed to parse history event as plain text:', event.id, parseError);
-              continue;
-            }
-          }
-          
-          // Extract details from history event
-          // Handle both object format and tag array format
-          let direction: string | undefined;
-          let amountString: string | number | undefined;
-          
-          if (Array.isArray(historyData)) {
-            // historyData is an array of tag arrays: [["direction","out"],["amount","8"]]
-            direction = event.tags.find(tag => tag[0] === 'direction')?.[1] || 
-                       historyData.find(tag => tag[0] === 'direction')?.[1];
-            amountString = event.tags.find(tag => tag[0] === 'amount')?.[1] || 
-                          historyData.find(tag => tag[0] === 'amount')?.[1];
-          } else {
-            // historyData is an object format
-            direction = event.tags.find(tag => tag[0] === 'direction')?.[1] || historyData.direction;
-            amountString = event.tags.find(tag => tag[0] === 'amount')?.[1] || historyData.amount;
-          }
-          
-          // Parse amount from string or number
-          let amount = 0;
-          if (typeof amountString === 'number') {
-            amount = amountString;
-          } else if (typeof amountString === 'string') {
-            amount = parseInt(amountString, 10) || 0;
-          }
-          
-          const mintUrl = event.tags.find(tag => tag[0] === 'mint')?.[1] || 'Unknown mint';
-          
-          // Skip transactions with no amount
-          if (amount <= 0) {
-            console.warn('Skipping history event with invalid amount:', { 
-              id: event.id, 
-              amountString, 
-              amount, 
-              direction,
-              historyDataType: Array.isArray(historyData) ? 'Array' : typeof historyData,
-              historyDataLength: Array.isArray(historyData) ? historyData.length : 'N/A'
-            });
-            continue;
-          }
-          
-          // Determine transaction type based on direction and data
-          let type: CashuTransaction['type'] = 'send';
-          let description = '';
-          
-          if (direction === 'out') {
-            // Check historyData for transaction type (both object and array formats)
-            let historyType: string | undefined;
-            if (Array.isArray(historyData)) {
-              historyType = historyData.find(tag => tag[0] === 'type')?.[1];
-            } else {
-              historyType = historyData.type;
-            }
-            
-            if (historyType === 'melt') {
-              type = 'melt';
-              description = `Melted ${amount} sats to Lightning`;
-            } else if (historyType === 'nutzap') {
-              type = 'nutzap_send';
-              description = `Sent nutzap of ${amount} sats`;
-            } else {
-              type = 'send';
-              description = `Sent ${amount} sats`;
-            }
-          } else if (direction === 'in') {
-            // Check historyData for transaction type (both object and array formats)
-            let historyType: string | undefined;
-            if (Array.isArray(historyData)) {
-              historyType = historyData.find(tag => tag[0] === 'type')?.[1];
-            } else {
-              historyType = historyData.type;
-            }
-            
-            if (historyType === 'mint') {
-              type = 'mint';
-              description = `Minted ${amount} sats from Lightning`;
-            } else {
-              // This would be a duplicate of token events, so skip
-              continue;
-            }
-          }
+          if (!user.signer.nip44) continue;
+          const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
+          const contentData = JSON.parse(decrypted) as Array<string[]>;
 
-          const transaction: CashuTransaction = {
+          const entry: CashuSpendingHistoryEntry & { id: string } = {
             id: event.id,
-            type,
-            amount,
-            mintUrl,
-            timestamp: event.created_at * 1000,
-            status: 'completed',
-            description,
-            originalEvent: event
-          };
+            direction: 'out',
+            amount: '0',
+            timestamp: event.created_at, // seconds
+            createdTokens: [],
+            destroyedTokens: [],
+            redeemedTokens: []
+          } as any;
 
-          parsedTransactions.push(transaction);
-        } catch (err) {
-          console.warn('Failed to parse history event:', event.id, err);
+          for (const item of contentData) {
+            const [k, v, , marker] = item;
+            if (k === 'direction') entry.direction = v as 'in' | 'out';
+            else if (k === 'amount') entry.amount = String(v);
+            else if (k === 'e' && marker === 'created') entry.createdTokens?.push(v);
+            else if (k === 'e' && marker === 'destroyed') entry.destroyedTokens?.push(v);
+          }
+
+          // unencrypted redeemed tags
+          for (const tag of event.tags) {
+            if (tag[0] === 'e' && tag[3] === 'redeemed') {
+              entry.redeemedTokens?.push(tag[1]);
+            }
+          }
+
+          const amountNum = parseInt(entry.amount, 10) || 0;
+          if (amountNum <= 0) continue;
+
+          batch.push(entry);
+          processedIdsRef.current.add(event.id);
+        } catch {
+          // ignore
         }
       }
 
-      // Sort by timestamp (newest first)
-      parsedTransactions.sort((a, b) => b.timestamp - a.timestamp);
+      if (batch.length) {
+        historyStore.addHistoryEntries(batch as any);
+        if (user?.pubkey) persistProcessedIds(user.pubkey, processedIdsRef.current);
+      }
 
-      // Cache the transactions
-      historyStore.setTransactions(user.pubkey, parsedTransactions);
-
-      console.log(`useCashuHistory: Parsed ${parsedTransactions.length} transactions from ${tokenEvents.length} token events and ${historyEvents.length} history events`);
-
-      return parsedTransactions;
+      return batch.length;
     },
-    enabled: !!user && isAnyRelayConnected,
-    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnReconnect: false, // Don't refetch on reconnect
-    retry: 2, // Only retry twice on failure
+    select: (count) => count,
   });
 
-  console.log(`useCashuHistory hook state: { 
-    isLoading: ${isLoading}, 
-    transactionsLength: ${transactions?.length || 0}, 
-    userPubkey: ${user?.pubkey || 'none'}, 
-    cashuRelay: ${cashuRelayStore.activeRelay},
-    isAnyRelayConnected: ${isAnyRelayConnected},
-    error: ${error ? error.message : 'none'}
-  }`);
+  const history = historyStore.getHistoryEntries();
 
   return {
-    transactions,
+    history,
     isLoading,
-    error,
+    error: (error as any) ?? null,
     refetch,
     createHistory: createHistoryMutation.mutateAsync,
     isCreating: createHistoryMutation.isPending,
+    fetchedNewCount,
   };
 }
 
@@ -354,28 +274,21 @@ export function useCashuHistory(): UseCashuHistoryResult {
  * Hook to get transaction statistics
  */
 export function useCashuStats() {
-  const { transactions } = useCashuHistory();
+  const { history } = useCashuHistory();
 
   const stats = {
-    totalSent: transactions
-      .filter(t => ['send', 'nutzap_send'].includes(t.type) && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0),
-    
-    totalReceived: transactions
-      .filter(t => ['receive', 'nutzap_receive'].includes(t.type) && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0),
-    
-    totalMinted: transactions
-      .filter(t => t.type === 'mint' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0),
-    
-    totalMelted: transactions
-      .filter(t => t.type === 'melt' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0),
-    
-    transactionCount: transactions.filter(t => t.status === 'completed').length,
-    
-    recentTransactions: transactions.slice(0, 5),
+    totalSent: history
+      .filter(t => t.direction === 'out')
+      .reduce((sum, t) => sum + (parseInt(t.amount, 10) || 0), 0),
+
+    totalReceived: history
+      .filter(t => t.direction === 'in')
+      .reduce((sum, t) => sum + (parseInt(t.amount, 10) || 0), 0),
+
+    totalMinted: 0,
+    totalMelted: 0,
+    transactionCount: history.length,
+    recentTransactions: history.slice(0, 5),
   };
 
   return stats;
