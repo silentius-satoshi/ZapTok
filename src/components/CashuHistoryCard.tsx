@@ -21,27 +21,27 @@ export function CashuHistoryCard({
   limit = 10,
   className
 }: CashuHistoryCardProps) {
-  const { transactions, isLoading } = useCashuHistory();
+  const { history, isLoading } = useCashuHistory();
   const [visibleEntries, setVisibleEntries] = useState(limit);
   const [isExpanded, setIsExpanded] = useState(true);
   const { data: btcPrice } = useBitcoinPrice();
 
   // Check if we should show the warning icon
-  const hasOnlyReceiveTransactions = transactions.length > 0 && 
-    transactions.every(t => ['receive', 'nutzap_receive', 'mint'].includes(t.type));
+  const hasOnlyReceiveTransactions = history.length > 0 && 
+    history.every(t => t.direction === 'in');
   
-  const hasOnlySendTransactions = transactions.length > 0 && 
-    transactions.every(t => ['send', 'nutzap_send', 'melt'].includes(t.type));
+  const hasOnlySendTransactions = history.length > 0 && 
+    history.every(t => t.direction === 'out');
   
-  const hasVeryFewTransactions = transactions.length > 0 && transactions.length < 3;
-  const hasNoTransactions = transactions.length === 0;
+  const hasVeryFewTransactions = history.length > 0 && history.length < 3;
+  const hasNoTransactions = history.length === 0;
 
   const shouldShowWarning = hasNoTransactions || 
     hasOnlyReceiveTransactions || 
     hasOnlySendTransactions || 
     hasVeryFewTransactions;
 
-  const displayTransactions = transactions.slice(0, visibleEntries);
+  const displayTransactions = history.slice(0, visibleEntries);
 
   // Format amount in USD like Chorus
   const formatAmount = (sats: number) => {
@@ -53,8 +53,10 @@ export function CashuHistoryCard({
   };
 
   // Format timestamp like Chorus
-  const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp);
+  const formatTimestamp = (timestamp?: number) => {
+    if (!timestamp) return '';
+    const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp; // support seconds
+    const date = new Date(ms);
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -150,11 +152,11 @@ export function CashuHistoryCard({
                     <div className="flex items-center gap-4">
                       {/* Circular icon with arrow */}
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        ['receive', 'nutzap_receive', 'mint'].includes(transaction.type)
+                        transaction.direction === 'in'
                           ? 'bg-green-100 text-green-600'
                           : 'bg-red-100 text-red-600'
                       }`}>
-                        {['receive', 'nutzap_receive', 'mint'].includes(transaction.type) ? (
+                        {transaction.direction === 'in' ? (
                           <ArrowDownLeft className="w-5 h-5" />
                         ) : (
                           <ArrowUpRight className="w-5 h-5" />
@@ -164,12 +166,7 @@ export function CashuHistoryCard({
                       {/* Transaction details */}
                       <div>
                         <p className="font-medium text-white">
-                          {transaction.type === 'nutzap_send' && 'Nutzap Sent'}
-                          {transaction.type === 'nutzap_receive' && 'Nutzap Received'}
-                          {transaction.type === 'send' && 'Sent'}
-                          {transaction.type === 'receive' && 'Received'}
-                          {transaction.type === 'mint' && 'Minted'}
-                          {transaction.type === 'melt' && 'Melted'}
+                          {transaction.direction === 'in' ? 'Received' : 'Sent'}
                         </p>
                         <p className="text-sm text-gray-400">
                           {formatTimestamp(transaction.timestamp)}
@@ -180,17 +177,17 @@ export function CashuHistoryCard({
                     {/* Amount */}
                     <div className="text-right">
                       <p className={`font-medium ${
-                        ['receive', 'nutzap_receive', 'mint'].includes(transaction.type)
+                        transaction.direction === 'in'
                           ? 'text-green-500'
                           : 'text-red-500'
                       }`}>
-                        {['receive', 'nutzap_receive', 'mint'].includes(transaction.type) ? '+' : '-'}{formatAmount(transaction.amount)}
+                        {transaction.direction === 'in' ? '+' : '-'}{formatAmount(parseInt(transaction.amount as any, 10) || 0)}
                       </p>
                     </div>
                   </div>
                 ))}
 
-                {transactions.length > visibleEntries && (
+                {history.length > visibleEntries && (
                   <Button
                     variant="ghost"
                     size="sm"

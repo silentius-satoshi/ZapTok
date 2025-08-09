@@ -19,7 +19,7 @@ interface TransactionHistoryWarningProps {
 
 export function TransactionHistoryWarning({ className, trigger, compact = false }: TransactionHistoryWarningProps) {
   const { config } = useAppContext();
-  const { transactions, refetch } = useCashuHistory();
+  const { history, refetch } = useCashuHistory();
   const { nostr } = useNostr();
   const [isExpanded, setIsExpanded] = useState(false);
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
@@ -39,14 +39,14 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
   const missingPopularRelays = popularRelays.filter(relay => !configuredRelays.includes(relay));
 
   // Detect potential issues with transaction history
-  const hasOnlyReceiveTransactions = transactions.length > 0 && 
-    transactions.every(t => ['receive', 'nutzap_receive', 'mint'].includes(t.type));
+  const hasOnlyReceiveTransactions = history.length > 0 && 
+    history.every(t => t.direction === 'in');
   
-  const hasOnlySendTransactions = transactions.length > 0 && 
-    transactions.every(t => ['send', 'nutzap_send', 'melt'].includes(t.type));
+  const hasOnlySendTransactions = history.length > 0 && 
+    history.every(t => t.direction === 'out');
   
-  const hasVeryFewTransactions = transactions.length > 0 && transactions.length < 3;
-  const hasNoTransactions = transactions.length === 0;
+  const hasVeryFewTransactions = history.length > 0 && history.length < 3;
+  const hasNoTransactions = history.length === 0;
 
   // Check relay coverage
   useEffect(() => {
@@ -124,7 +124,7 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
         <h4 className="font-semibold text-sm mb-1">{getWarningTitle()}</h4>
         <p className="text-sm text-muted-foreground">{getWarningDescription()}</p>
         <Badge variant="outline" className="text-xs mt-2">
-          {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+          {history.length} transaction{history.length !== 1 ? 's' : ''}
         </Badge>
       </div>
       
@@ -251,7 +251,7 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
         <AlertTitle className="flex items-center gap-2">
           {getWarningTitle()}
           <Badge variant="outline" className="text-xs">
-            {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+            {history.length} transaction{history.length !== 1 ? 's' : ''}
           </Badge>
         </AlertTitle>
         <AlertDescription className="mt-2">
