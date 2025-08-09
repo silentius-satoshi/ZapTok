@@ -4,6 +4,7 @@ import { NostrContext } from '@nostrify/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
 import { getOptimalRelays, type RelayContext } from '@/lib/relayOptimization';
+import { useCashuRelayStore } from '@/stores/cashuRelayStore';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -37,6 +38,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const { children } = props;
   const { config, presetRelays: _presetRelays } = useAppContext();
   const queryClient = useQueryClient();
+  const cashuRelayStore = useCashuRelayStore();
 
   // Track relay connection states
   const [connectionState, setConnectionState] = useState<RelayConnectionState>({});
@@ -57,15 +59,23 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   // Create NPool instance only once
   const pool = useRef<NPool | undefined>(undefined);
 
-  // Get active relays based on context
+  // Get active relays based on context - with Cashu relay integration
   const relayContext = config.relayContext || 'all';
-  const activeRelays = getOptimalRelays(relayContext, config.relayUrls);
+  const getActiveRelays = useCallback(() => {
+    if (relayContext === 'cashu-only' || relayContext === 'settings-cashu') {
+      // Use the active Cashu relay from the store instead of hardcoded relay
+      return [cashuRelayStore.activeRelay];
+    }
+    return getOptimalRelays(relayContext, config.relayUrls);
+  }, [relayContext, config.relayUrls, cashuRelayStore.activeRelay]);
+
+  const activeRelays = getActiveRelays();
 
   // Use refs so the pool always has the latest data
   const relayUrls = useRef<string[]>(activeRelays);
 
-  // Calculate connection stats
-  const connectedRelayCount = Object.values(connectionState).filter(state => state === 'connected').length;
+  // Calculate connection stats - only count relays that are currently active
+  const connectedRelayCount = activeRelays.filter(url => connectionState[url] === 'connected').length;
   const totalRelayCount = activeRelays.length;
   const isAnyRelayConnected = connectedRelayCount > 0;
   const areAllRelaysConnected = connectedRelayCount === totalRelayCount && totalRelayCount > 0;
@@ -96,7 +106,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
   // Update refs and connection state when config changes
   useEffect(() => {
-    const newActiveRelays = getOptimalRelays(relayContext, config.relayUrls);
+    const newActiveRelays = getActiveRelays();
     relayUrls.current = newActiveRelays;
     
     // Reset connection summary for new relay set
@@ -167,7 +177,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         }
       }, 10);
     }
-  }, [config.relayUrls, relayContext, queryClient]);
+  }, [getActiveRelays, queryClient]);
 
   // Initialize NPool only once
   if (!pool.current) {
