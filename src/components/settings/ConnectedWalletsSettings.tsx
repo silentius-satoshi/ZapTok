@@ -37,7 +37,7 @@ export function ConnectedWalletsSettings({
           disabledReason="Browser extension wallet is connected"
         />
 
-        <CashuRelaySettings />
+        <CashuRelaySettings alwaysExpanded={true} />
       </div>
     </SettingsSection>
   );

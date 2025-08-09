@@ -20,9 +20,14 @@ import { SettingsSection } from './SettingsSection';
 import { useWalletUiStore } from "@/stores/walletUiStore";
 import { useCashuRelayStore } from "@/stores/cashuRelayStore";
 
-export function CashuRelaySettings() {
+interface CashuRelaySettingsProps {
+  /** Force the component to always be expanded, ignoring store state */
+  alwaysExpanded?: boolean;
+}
+
+export function CashuRelaySettings({ alwaysExpanded = false }: CashuRelaySettingsProps = {}) {
   const walletUiStore = useWalletUiStore();
-  const isExpanded = walletUiStore.expandedCards.cashuRelay;
+  const isExpanded = alwaysExpanded || walletUiStore.expandedCards.cashuRelay;
   
   const cashuRelayStore = useCashuRelayStore();
   const [customRelayUrl, setCustomRelayUrl] = useState('');
@@ -87,6 +92,7 @@ export function CashuRelaySettings() {
             size="icon"
             onClick={() => walletUiStore.toggleCardExpansion("cashuRelay")}
             aria-label={isExpanded ? "Collapse" : "Expand"}
+            style={{ display: alwaysExpanded ? 'none' : 'flex' }}
           >
             {isExpanded ? (
               <ChevronUp className="h-4 w-4" />
