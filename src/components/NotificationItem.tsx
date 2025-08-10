@@ -76,8 +76,6 @@ const NotificationItem: React.FC<NotificationItemProps> = (props) => {
     switch (props.type) {
       case 'NEW_USER_FOLLOWED_YOU':
         return numberOfUsers > 1 ? 'and others followed you' : 'followed you';
-      case 'YOUR_POST_WAS_LIKED':
-        return numberOfUsers > 1 ? 'and others liked your post' : 'liked your post';
       case 'YOUR_POST_WAS_ZAPPED':
         return numberOfUsers > 1 ? 'and others zapped your post' : 'zapped your post';
       case 'YOUR_POST_WAS_REPOSTED':

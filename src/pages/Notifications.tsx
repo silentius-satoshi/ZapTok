@@ -9,7 +9,6 @@ import {
   Settings,
   ArrowLeft,
   Zap,
-  Heart,
   MessageCircle,
   Repeat,
   UserPlus,
@@ -40,8 +39,6 @@ export default function Notifications() {
           return notification.type.includes('MENTIONED');
         case 'zaps':
           return notification.type.includes('ZAPPED');
-        case 'likes':
-          return notification.type.includes('LIKED');
         case 'reposts':
           return notification.type.includes('REPOSTED');
         case 'follows':
@@ -83,7 +80,6 @@ export default function Notifications() {
       all: notifications.length,
       mentions: 0,
       zaps: { count: 0, totalSats: 0 },
-      likes: 0,
       reposts: 0,
       follows: { gained: 0, lost: 0 },
       replies: 0,
@@ -117,7 +113,6 @@ export default function Notifications() {
       }
 
       // Basic interactions
-      if (notification.type.includes('YOUR_POST_WAS_LIKED')) stats.likes++;
       if (notification.type.includes('YOUR_POST_WAS_REPOSTED')) stats.reposts++;
       if (notification.type.includes('YOUR_POST_WAS_REPLIED_TO')) stats.replies++;
 
@@ -241,8 +236,8 @@ export default function Notifications() {
                 <div
                   className="absolute bottom-0 h-0.5 bg-gradient-to-r from-orange-500 to-purple-600 transition-all duration-300 ease-out"
                   style={{
-                    width: '16.666%', // 1/6 of the width since we have 6 tabs
-                    left: `${['all', 'zaps', 'likes', 'mentions', 'reposts', 'follows'].indexOf(selectedTab) * 16.666}%`,
+                    width: '20%', // 1/5 of the width since we have 5 tabs
+                    left: `${['all', 'zaps', 'mentions', 'reposts', 'follows'].indexOf(selectedTab) * 20}%`,
                   }}
                 />
 
@@ -265,16 +260,6 @@ export default function Notifications() {
                   }`}
                 >
                   ZAPS
-                </button>
-                <button
-                  onClick={() => setSelectedTab('likes')}
-                  className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
-                    selectedTab === 'likes'
-                      ? 'text-white'
-                      : 'text-gray-400 hover:text-gray-300'
-                  }`}
-                >
-                  LIKES
                 </button>
                 <button
                   onClick={() => setSelectedTab('mentions')}
@@ -367,13 +352,6 @@ export default function Notifications() {
               </div>
             )}
 
-            {notificationStats.likes > 0 && (
-              <div className="flex items-center gap-3">
-                <Heart className="w-5 h-5 text-pink-400" />
-                <span className="text-gray-300">{truncateNumber(notificationStats.likes)} like{notificationStats.likes !== 1 ? 's' : ''}</span>
-              </div>
-            )}
-
             {notificationStats.mentions > 0 && (
               <div className="flex items-center gap-3">
                 <AtSign className="w-5 h-5 text-cyan-400" />
@@ -408,7 +386,6 @@ export default function Notifications() {
                 // Get icon based on notification type
                 const getNotificationIcon = () => {
                   if (notification.type.includes('ZAPPED')) return <Zap className="w-3 h-3 text-yellow-400" />;
-                  if (notification.type.includes('LIKED')) return <Heart className="w-3 h-3 text-pink-400" />;
                   if (notification.type.includes('REPOSTED')) return <Repeat className="w-3 h-3 text-green-400" />;
                   if (notification.type.includes('REPLIED')) return <MessageCircle className="w-3 h-3 text-blue-400" />;
                   if (notification.type.includes('FOLLOWED')) return <UserPlus className="w-3 h-3 text-blue-400" />;

@@ -7,7 +7,7 @@ import { KINDS } from '@/lib/nostr-kinds';
 
 export interface Notification {
   id: string;
-  type: 'NEW_USER_FOLLOWED_YOU' | 'USER_UNFOLLOWED_YOU' | 'YOUR_POST_WAS_ZAPPED' | 'YOUR_POST_WAS_LIKED' | 'YOUR_POST_WAS_REPOSTED' | 'YOUR_POST_WAS_REPLIED_TO' | 'YOU_WERE_MENTIONED_IN_POST' | 'YOUR_POST_WAS_MENTIONED_IN_POST' | 'POST_YOU_WERE_MENTIONED_IN_WAS_ZAPPED' | 'POST_YOU_WERE_MENTIONED_IN_WAS_LIKED' | 'POST_YOU_WERE_MENTIONED_IN_WAS_REPOSTED' | 'POST_YOU_WERE_MENTIONED_IN_WAS_REPLIED_TO' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_ZAPPED' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_LIKED' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_REPOSTED' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_REPLIED_TO' | 'YOUR_POST_WAS_HIGHLIGHTED' | 'YOUR_POST_WAS_BOOKMARKED' | 'YOUR_POST_HAD_REACTION';
+  type: 'NEW_USER_FOLLOWED_YOU' | 'USER_UNFOLLOWED_YOU' | 'YOUR_POST_WAS_ZAPPED' | 'YOUR_POST_WAS_REPOSTED' | 'YOUR_POST_WAS_REPLIED_TO' | 'YOU_WERE_MENTIONED_IN_POST' | 'YOUR_POST_WAS_MENTIONED_IN_POST' | 'POST_YOU_WERE_MENTIONED_IN_WAS_ZAPPED' | 'POST_YOU_WERE_MENTIONED_IN_WAS_REPOSTED' | 'POST_YOU_WERE_MENTIONED_IN_WAS_REPLIED_TO' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_ZAPPED' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_REPOSTED' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_REPLIED_TO' | 'YOUR_POST_WAS_HIGHLIGHTED' | 'YOUR_POST_WAS_BOOKMARKED' | 'YOUR_POST_HAD_REACTION' | 'YOUR_POST_WAS_APPROVED' | 'YOUR_POST_WAS_REMOVED' | 'GROUP_WAS_UPDATED' | 'REPORT_SUBMITTED' | 'MODERATION_ACTION';
   message: string;
   createdAt: number;
   read: boolean;
@@ -53,7 +53,6 @@ export function useNotifications() {
 
       const kinds = [
         KINDS.GROUP_COMMENT,
-        KINDS.REACTION,
         KINDS.GROUP_POST_APPROVAL,
         KINDS.GROUP_POST_REMOVAL,
         KINDS.GROUP
@@ -93,22 +92,6 @@ export function useNotifications() {
             });
             break;
           }
-          case KINDS.REACTION: {
-            const targetEventId = event.tags.find(tag => tag[0] === 'e')?.[1];
-            
-            notifications.push({
-              id: event.id,
-              type: 'YOUR_POST_WAS_LIKED',
-              message: `liked your post`,
-              createdAt: event.created_at,
-              read: !!readNotifications[event.id],
-              eventId: targetEventId,
-              users: [{ id: event.pubkey, followers_count: 0 }],
-              pubkey: event.pubkey,
-              groupId
-            });
-            break;
-          }
           // Note: GROUP_POST_REPLY case removed since all comments are now kind 1111
           case KINDS.GROUP_POST_APPROVAL: {
             // For post approval events, we already have the full community reference in the 'a' tag
@@ -116,7 +99,7 @@ export function useNotifications() {
             
             notifications.push({
               id: event.id,
-              type: 'YOUR_POST_WAS_LIKED', // Post approval notification
+              type: 'YOUR_POST_WAS_APPROVED', // Post approval notification
               message: `approved your post to a group`,
               createdAt: event.created_at,
               read: !!readNotifications[event.id],
@@ -133,7 +116,7 @@ export function useNotifications() {
             
             notifications.push({
               id: event.id,
-              type: 'YOUR_POST_WAS_LIKED', // Post removal notification
+              type: 'YOUR_POST_WAS_REMOVED', // Post removal notification
               message: `removed your post from a group`,
               createdAt: event.created_at,
               read: !!readNotifications[event.id],
@@ -152,7 +135,7 @@ export function useNotifications() {
             
             notifications.push({
               id: event.id,
-              type: 'YOUR_POST_WAS_LIKED', // Group update notification
+              type: 'GROUP_WAS_UPDATED', // Group update notification
               message: `Your group "${groupName}" has been updated`,
               createdAt: event.created_at,
               read: !!readNotifications[event.id],
@@ -229,7 +212,7 @@ export function useNotifications() {
 
           notifications.push({
             id: event.id,
-            type: 'YOUR_POST_WAS_LIKED', // Report notification
+            type: 'REPORT_SUBMITTED', // Report notification
             message: `New ${reportType} report in group`,
             createdAt: event.created_at,
             read: !!readNotifications[event.id],
@@ -254,7 +237,7 @@ export function useNotifications() {
 
           notifications.push({
             id: event.id,
-            type: 'YOUR_POST_WAS_LIKED', // Moderation action notification
+            type: 'MODERATION_ACTION', // Moderation action notification
             message: `Moderator took action (${actionType}) on a report`,
             createdAt: event.created_at,
             read: !!readNotifications[event.id],
