@@ -7,7 +7,7 @@ import { User, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { LoginModal } from './LoginModal';
 import { useLoggedInAccounts } from '@/hooks/useLoggedInAccounts';
-import { AccountSwitcher } from './AccountSwitcher';
+import { DropdownList } from './DropdownList';
 import { useWallet } from '@/hooks/useWallet';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCashuStore } from '@/stores/cashuStore';
@@ -156,7 +156,7 @@ export function LoginArea({ className }: LoginAreaProps) {
 
           {/* Account Switcher */}
           <div className="flex-shrink-0">
-            <AccountSwitcher onAddAccountClick={() => setLoginModalOpen(true)} />
+            <DropdownList onAddAccountClick={() => setLoginModalOpen(true)} />
           </div>
         </div>
       ) : (
