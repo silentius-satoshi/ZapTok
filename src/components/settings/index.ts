@@ -12,6 +12,7 @@ export { NetworkSettings } from './NetworkSettings';
 export { ZapsSettings } from './ZapsSettings';
 export { GenericSettings } from './GenericSettings';
 export { DeveloperSettings } from './DeveloperSettings';
+export { KeysSettings } from './KeysSettings';
 
 // Settings Configuration
 export { 

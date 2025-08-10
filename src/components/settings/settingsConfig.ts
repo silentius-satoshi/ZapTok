@@ -12,6 +12,7 @@ import { NetworkSettings } from './NetworkSettings';
 import { ZapsSettings } from './ZapsSettings';
 import { GenericSettings } from './GenericSettings';
 import { DeveloperSettings } from './DeveloperSettings';
+import { KeysSettings } from './KeysSettings';
 
 export interface SettingsSectionConfig {
   id: string;
@@ -71,6 +72,12 @@ export const settingsSections: SettingsSectionConfig[] = [
   },
 
   // Network & Connection Settings
+  {
+    id: 'keys',
+    title: 'Keys',
+    component: KeysSettings,
+    category: 'network'
+  },
   {
     id: 'connected-wallets',
     title: 'Connected Wallets',

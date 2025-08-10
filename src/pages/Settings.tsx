@@ -9,6 +9,7 @@ import {
   getSettingSectionById,
   ConnectedWalletsSettings,
   NetworkSettings,
+  KeysSettings,
   GenericSettings
 } from '@/components/settings';
 
@@ -103,6 +104,10 @@ export function Settings() {
       );
     }
 
+    if (selectedSection === 'keys') {
+      return <KeysSettings />;
+    }
+
     // Handle generic sections
     if (sectionConfig.component === GenericSettings) {
       return <GenericSettings sectionId={selectedSection} title={sectionConfig.title} />;
@@ -123,6 +128,7 @@ export function Settings() {
     const sectionConfig = getSettingSectionById(selectedSection);
     const sectionTitle = selectedSection === 'connected-wallets' ? 'connected wallets' :
                         selectedSection === 'network' ? 'network' :
+                        selectedSection === 'keys' ? 'keys' :
                         selectedSection === 'media-uploads' ? 'media uploads' :
                         sectionConfig?.title?.toLowerCase() || selectedSection;
 
