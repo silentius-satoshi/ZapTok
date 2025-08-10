@@ -36,7 +36,7 @@ export default function Notifications() {
     return notifications.filter(notification => {
       switch (selectedTab) {
         case 'mentions':
-          return notification.type.includes('MENTIONED');
+          return notification.type.includes('MENTIONED') || notification.type.includes('REPLIED_TO');
         case 'zaps':
           return notification.type.includes('ZAPPED');
         case 'reposts':
