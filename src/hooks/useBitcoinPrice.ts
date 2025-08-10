@@ -29,15 +29,10 @@ export function satsToUSD(sats: number, bitcoinPrice: number | null): number {
 }
 
 export function formatUSD(amount: number): string {
-  const formatted = new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
-
-  // Remove the $ symbol from the formatted string
-  const withoutDollar = formatted.replace('$', '');
-
-  return `${withoutDollar} usd`;
 }
