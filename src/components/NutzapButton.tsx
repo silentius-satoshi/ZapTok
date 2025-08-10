@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { UserNutzapDialog } from '@/components/UserNutzapDialog';
 import { Button } from '@/components/ui/button';
 import {
-  Zap,
   Loader2
 } from 'lucide-react';
 import { formatBalance } from '@/lib/cashu';
@@ -42,7 +41,11 @@ export function NutzapButton({
         disabled={true}
         className={cn("text-muted-foreground", className)}
       >
-        <Zap className="h-4 w-4" />
+        <img 
+          src="/images/cashu-icon.png" 
+          alt="Nutzap" 
+          className="h-4 w-4" 
+        />
         {showAmount && (
           <span className="ml-1 text-xs">
             {formatBalance(amount)}
@@ -70,10 +73,12 @@ export function NutzapButton({
         {disabled ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          <Zap
+          <img 
+            src="/images/cashu-icon.png" 
+            alt="Nutzap" 
             className={cn(
               "h-4 w-4 transition-colors",
-              isHovered ? "text-orange-500" : ""
+              isHovered ? "opacity-80" : ""
             )}
           />
         )}
