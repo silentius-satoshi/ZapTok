@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAppContext } from '@/hooks/useAppContext';
 import { type RelayContext } from '@/lib/relayOptimization';
+import { logRoute } from '@/lib/devLogger';
 
 /**
  * Map of route patterns to optimal relay contexts
@@ -61,7 +62,7 @@ export function useContextualRelays() {
     // Only switch context if it's different from current
     if (config.relayContext !== optimalContext) {
       if (import.meta.env.DEV) {
-        console.log(`[ContextualRelays] Switching from ${config.relayContext} to ${optimalContext} context for route: ${currentPath}`);
+        logRoute('debug', `Switching from ${config.relayContext} to ${optimalContext} context for route: ${currentPath}`);
       }
       setRelayContext(optimalContext);
     }

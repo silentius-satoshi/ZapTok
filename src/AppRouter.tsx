@@ -3,6 +3,7 @@ import { ScrollToTop } from "./components/ScrollToTop";
 import { useVideoPlayback } from "@/contexts/VideoPlaybackContext";
 import { useContextualRelays } from "@/hooks/useContextualRelays";
 import { useEffect } from "react";
+import { logRoute } from "@/lib/devLogger";
 
 import Index from "./pages/Index";
 import Profile from "./pages/Profile";
@@ -32,7 +33,7 @@ function RouteHandler() {
   // Optional: Log relay optimization for debugging (only in development)
   useEffect(() => {
     if (isOptimized && import.meta.env.DEV) {
-      console.log(`[RouteHandler] Using ${currentContext} relay context for ${location.pathname}`);
+      logRoute('info', `Using ${currentContext} relay context for ${location.pathname}`);
     }
   }, [currentContext, isOptimized, location.pathname]);
 
