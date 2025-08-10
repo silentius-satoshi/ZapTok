@@ -30,11 +30,13 @@ const Index = () => {
             
             {/* Video Feed */}
             <div className="flex-1 flex items-center justify-center overflow-hidden">
-              <VideoFeed />
+              <div className="w-full max-w-3xl h-full flex items-center justify-center">
+                <VideoFeed />
+              </div>
             </div>
             
             {/* Right Sidebar - Login Area */}
-            <div className="hidden lg:block w-[28rem] p-4 overflow-hidden">
+            <div className="hidden lg:block w-[28rem] overflow-hidden">
               <div className="sticky top-4 space-y-6">
                 {/* Login Area */}
                 <div className="p-4 overflow-hidden">
