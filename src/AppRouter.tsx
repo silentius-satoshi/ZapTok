@@ -14,6 +14,7 @@ import { Settings } from "./pages/Settings";
 import { LightningWallet } from "./pages/LightningWallet";
 import { Stream } from "./components/stream/Stream";
 import { NostrEntity } from "./pages/NostrEntity";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
 function RouteHandler() {
@@ -46,6 +47,7 @@ function RouteHandler() {
       <Route path="/global" element={<Global />} />
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/settings" element={<Settings />} />
+      <Route path="/about" element={<About />} />
       <Route path="/wallet" element={<LightningWallet />} />
       <Route path="/stream" element={<Stream />} />
       {/* Nostr entity handler - must be after specific routes */}
