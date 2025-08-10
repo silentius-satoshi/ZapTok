@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,6 +15,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useFollowUser } from '@/hooks/useFollowUser';
 import { useToast } from '@/hooks/useToast';
+import { useAppContext } from '@/hooks/useAppContext';
 import { genUserName } from '@/lib/genUserName';
 
 interface UserSearchModalProps {
@@ -29,6 +30,14 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
   const { mutate: followUser } = useFollowUser();
   const following = useFollowing(user?.pubkey || '');
   const navigate = useNavigate();
+  const { config, setRelayContext } = useAppContext();
+  
+  // Temporarily switch to search-only context when modal is open for user search
+  useEffect(() => {
+    if (open && config.relayContext === 'none') {
+      setRelayContext('search-only');
+    }
+  }, [open, config.relayContext, setRelayContext]);
   
   // Use the useUserSearch hook with current query
   const { data: results = [], isLoading } = useUserSearch(query.trim());

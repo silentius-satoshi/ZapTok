@@ -3,12 +3,13 @@
  * Optimizes performance by using different relay sets for different use cases
  */
 
-export type RelayContext = 'all' | 'wallet' | 'feed' | 'cashu-only' | 'none' | 'settings-cashu';
+export type RelayContext = 'all' | 'wallet' | 'feed' | 'cashu-only' | 'none' | 'settings-cashu' | 'search-only';
 
 export interface RelayCategory {
   wallet: string[]; // Optimized for wallet/Cashu operations
   feed: string[];   // Optimized for social feed content
   general: string[]; // General purpose relays
+  search: string[]; // Lightweight relays good for user searches
 }
 
 /**
@@ -30,7 +31,11 @@ export const relayCategories: RelayCategory = {
   general: [
     'wss://relay.nostr.band',       // Works well for both
     'wss://relay.chorus.community', // Versatile relay
-  ]
+  ],
+  search: [
+    'wss://relay.nostr.band',       // Excellent for user metadata
+    'wss://relay.damus.io',         // Fast profile lookups
+  ],
 };
 
 /**
@@ -64,6 +69,15 @@ export function getOptimalRelays(
         relayCategories.feed.includes(url) || relayCategories.general.includes(url)
       );
       return feedRelays.length > 0 ? feedRelays : relayCategories.feed;
+    }
+    
+    case 'search-only': {
+      // For user search operations, use lightweight relays optimized for metadata
+      // Avoid heavy video/content relays to prevent unnecessary background fetching
+      const searchRelays = userRelays.filter(url => 
+        relayCategories.search.includes(url) || relayCategories.general.includes(url)
+      );
+      return searchRelays.length > 0 ? searchRelays : relayCategories.search;
     }
       
     case 'all':
@@ -109,6 +123,8 @@ export function getRelayContextDescription(context: RelayContext): string {
       return 'Optimized for wallet operations (faster loading)';
     case 'feed':
       return 'Optimized for social feeds (better content discovery)';
+    case 'search-only':
+      return 'Optimized for user searches (minimal network usage)';
     case 'none':
       return 'No relays active (settings mode)';
     case 'all':

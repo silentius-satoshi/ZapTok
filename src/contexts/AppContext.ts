@@ -9,6 +9,7 @@ export type RelayContext =
   | 'feed'           // Only feed-optimized relays
   | 'cashu-only'     // Only Cashu relay
   | 'settings-cashu' // Cashu relay for settings
+  | 'search-only'    // Only search-optimized relays
   | 'none';          // No relays active
 
 export interface AppConfig {
