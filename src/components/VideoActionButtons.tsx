@@ -11,6 +11,7 @@ import { useFollowUser } from '@/hooks/useFollowUser';
 import { useBookmarkVideo } from '@/hooks/useBookmarks';
 import { genUserName } from '@/lib/genUserName';
 import { ZapButton } from '@/components/ZapButton';
+import { NutzapButton } from '@/components/NutzapButton';
 import { CommentsModal } from '@/components/CommentsModal';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
@@ -151,7 +152,19 @@ export function VideoActionButtons({
           </span>
         </div>
 
-        {/* 3. Comment Button */}
+        {/* 3. Nutzap Button */}
+        <div className="flex flex-col items-center gap-1">
+          <NutzapButton
+            userPubkey={event.pubkey}
+            eventId={event.id}
+            className="rounded-full bg-gray-900/80 hover:bg-orange-500/10 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg p-0"
+          />
+          <span className="text-white text-xs font-bold">
+            nutzap!
+          </span>
+        </div>
+
+        {/* 4. Comment Button */}
         <div className="flex flex-col items-center gap-1">
           <Button
             variant="ghost"
@@ -166,7 +179,7 @@ export function VideoActionButtons({
           </span>
         </div>
 
-        {/* 4. Bookmark Button */}
+        {/* 5. Bookmark Button */}
         <div className="flex flex-col items-center gap-1">
           <Button
             variant="ghost"
@@ -186,7 +199,7 @@ export function VideoActionButtons({
           </span>
         </div>
 
-        {/* 5. Share Button */}
+        {/* 6. Share Button */}
         <div className="flex flex-col items-center gap-1">
           <Button
             variant="ghost"
