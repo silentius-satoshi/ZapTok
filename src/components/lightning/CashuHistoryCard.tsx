@@ -5,7 +5,7 @@ import { useCashuStore } from '@/stores/cashuStore';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useWalletUiStore } from '@/stores/walletUiStore';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
-import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
+import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { ManualRecoveryModal } from './ManualRecoveryModal';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,8 +34,7 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
     if (showSats || !btcPrice) {
       return `${sats.toLocaleString()} sats`;
     }
-    const usdAmount = (sats * btcPrice.USD) / 100000000;
-    return `${usdAmount.toFixed(2)} usd`;
+    return formatUSD(satsToUSD(sats, btcPrice.USD));
   };
 
   // Robust timestamp formatter (seconds or ms)
