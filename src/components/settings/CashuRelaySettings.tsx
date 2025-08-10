@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -15,6 +15,7 @@ import {
   ChevronUp,
   Wifi,
   Plus,
+  Trash2,
 } from "lucide-react";
 import { SettingsSection } from './SettingsSection';
 import { useWalletUiStore } from "@/stores/walletUiStore";
@@ -32,6 +33,22 @@ export function CashuRelaySettings({ alwaysExpanded = false }: CashuRelaySetting
   const cashuRelayStore = useCashuRelayStore();
   const [customRelayUrl, setCustomRelayUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isDropdownOpen]);
 
   const handleSetActiveRelay = (relayUrl: string) => {
     cashuRelayStore.setActiveRelay(relayUrl);
@@ -106,56 +123,64 @@ export function CashuRelaySettings({ alwaysExpanded = false }: CashuRelaySetting
           <CardContent>
             <div className="space-y-4">
               {/* Active Relay Section */}
-              <div>
+              <div className="relative" ref={dropdownRef}>
                 <h3 className="text-sm font-medium mb-3">Active Relay</h3>
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                <div 
+                  className="flex items-center justify-between p-3 border border-gray-700 rounded-lg bg-gray-800/50 cursor-pointer hover:bg-gray-800 transition-colors"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                >
                   <div className="flex items-center gap-2">
-                    <Wifi className="h-4 w-4 text-green-600" />
-                    <span className="font-medium">
+                    <Wifi className="h-4 w-4 text-green-500" />
+                    <span className="font-medium text-white">
                       {cashuRelayStore.getActiveRelayName()}
                     </span>
                   </div>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${
+                    isDropdownOpen ? 'rotate-180' : ''
+                  }`} />
                 </div>
+                
+                {/* Dropdown Options */}
+                {isDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-10">
+                    <div className="p-2">
+                      <Input
+                        placeholder="Search relays or enter custom URL..."
+                        value=""
+                        onChange={() => {}}
+                        className="mb-2 bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-gray-500 focus:ring-gray-500"
+                      />
+                      <div className="space-y-1 max-h-60 overflow-y-auto">
+                        {cashuRelayStore.availableRelays
+                          .filter(relay => relay.url !== cashuRelayStore.activeRelay)
+                          .map((relay) => {
+                            return (
+                              <div
+                                key={relay.url}
+                                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors"
+                                onClick={() => {
+                                  handleSetActiveRelay(relay.url);
+                                  setIsDropdownOpen(false);
+                                }}
+                              >
+                                <Wifi className="h-4 w-4 text-gray-300" />
+                                <div className="flex-1">
+                                  <div className="font-medium text-white">{relay.name}</div>
+                                  <div className="text-xs text-gray-400">{relay.url}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Description */}
               <p className="text-sm text-muted-foreground">
                 You can select from popular relays or add your own custom relay URL. Changes take effect immediately.
               </p>
-
-              {/* Available Relays */}
-              <div className="space-y-2">
-                {cashuRelayStore.availableRelays.map((relay) => {
-                  const isActive = relay.url === cashuRelayStore.activeRelay;
-                  
-                  return (
-                    <div 
-                      key={relay.url}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => handleSetActiveRelay(relay.url)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Wifi className={`h-4 w-4 ${isActive ? 'text-green-600' : 'text-muted-foreground'}`} />
-                        <div>
-                          <div className="font-medium">{relay.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {cleanRelayUrl(relay.url)}
-                          </div>
-                        </div>
-                      </div>
-                      {isActive && (
-                        <Badge 
-                          variant="secondary" 
-                          className="bg-green-100 text-green-700 hover:bg-green-200"
-                        >
-                          Active
-                        </Badge>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
 
               {/* Error Display */}
               {error && (
@@ -165,26 +190,39 @@ export function CashuRelaySettings({ alwaysExpanded = false }: CashuRelaySetting
               )}
 
               {/* Add Custom Relay */}
-              <div className="border-t pt-4">
-                <h4 className="text-sm font-medium mb-2">Add Custom Relay</h4>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="wss://relay.example.com"
-                    value={customRelayUrl}
-                    onChange={(e) => setCustomRelayUrl(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleAddCustomRelay();
-                      }
-                    }}
-                  />
-                  <Button 
-                    onClick={handleAddCustomRelay}
-                    disabled={!customRelayUrl.trim()}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add
-                  </Button>
+              <div>
+                <p className="text-sm text-gray-400 mb-3">Add Custom Relay</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 relative">
+                      <Input
+                        type="text"
+                        placeholder="wss://relay.example.com"
+                        value={customRelayUrl}
+                        onChange={(e) => setCustomRelayUrl(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleAddCustomRelay();
+                          } else if (e.key === 'Escape') {
+                            setCustomRelayUrl('');
+                          }
+                        }}
+                        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500"
+                        autoFocus={false}
+                      />
+                      <Wifi className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 hover:text-gray-300 transition-colors cursor-pointer" />
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      onClick={handleAddCustomRelay}
+                      disabled={!customRelayUrl.trim()}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

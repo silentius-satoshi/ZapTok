@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Heart, MessageCircle, Send, Bookmark, Plus } from 'lucide-react';
+import { MessageCircle, Send, Bookmark, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -19,10 +19,8 @@ interface VideoActionButtonsProps {
   event: NostrEvent;
   displayName?: string;
   profilePicture?: string;
-  isLiked?: boolean;
   isBookmarked?: boolean;
   isFollowing?: boolean;
-  onLike?: () => void;
   onZap?: () => void;
   onComment?: () => void;
   onBookmark?: () => void;
@@ -35,7 +33,6 @@ export function VideoActionButtons({
   event,
   displayName,
   profilePicture,
-  onLike,
   onZap: _onZap,
   onComment,
   onBookmark,
@@ -68,17 +65,7 @@ export function VideoActionButtons({
   // This allows users to add bookmarks but doesn't fetch existing bookmark state
   const isCurrentlyBookmarked = false;
 
-  // Check if current user has liked this video
-  const currentUserReaction = user?.pubkey ? reactions.data?.userReactions.get(user.pubkey) : null;
-  const isLiked = currentUserReaction &&
-    ['+', '❤️', '👍', '🤙'].includes(currentUserReaction.content.trim());
-
   // Default handlers
-  const handleLike = onLike || (() => {
-    // TODO: Implement like functionality
-    console.log('Like clicked');
-  });
-
   const handleComment = onComment || (() => {
     setIsCommentsModalOpen(true);
   });
@@ -152,26 +139,7 @@ export function VideoActionButtons({
           )}
         </div>
 
-        {/* 2. Like Button */}
-        <div className="flex flex-col items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="group rounded-full bg-gray-900/80 hover:bg-red-500/10 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg transition-all duration-200"
-            onClick={handleLike}
-          >
-            <Heart className={`w-6 h-6 transition-all duration-200 ${
-              isLiked
-                ? 'fill-red-500 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]'
-                : 'text-red-400 drop-shadow-[0_0_4px_rgba(239,68,68,0.6)] group-hover:text-red-300 group-hover:drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] group-hover:scale-110'
-            }`} />
-          </Button>
-          <span className="text-white text-xs font-bold">
-            {reactions.data ? formatCount(reactions.data.likes) : '0'}
-          </span>
-        </div>
-
-        {/* 3. Zap Button */}
+        {/* 2. Zap Button */}
         <div className="flex flex-col items-center gap-1">
           <ZapButton
             recipientPubkey={event.pubkey}
@@ -183,7 +151,7 @@ export function VideoActionButtons({
           </span>
         </div>
 
-        {/* 4. Comment Button */}
+        {/* 3. Comment Button */}
         <div className="flex flex-col items-center gap-1">
           <Button
             variant="ghost"
@@ -198,7 +166,7 @@ export function VideoActionButtons({
           </span>
         </div>
 
-        {/* 5. Bookmark Button */}
+        {/* 4. Bookmark Button */}
         <div className="flex flex-col items-center gap-1">
           <Button
             variant="ghost"
@@ -218,7 +186,7 @@ export function VideoActionButtons({
           </span>
         </div>
 
-        {/* 6. Share Button */}
+        {/* 5. Share Button */}
         <div className="flex flex-col items-center gap-1">
           <Button
             variant="ghost"
@@ -233,7 +201,7 @@ export function VideoActionButtons({
           </span>
         </div>
 
-        {/* 7. Profile Picture Button (clickable for profile page) */}
+        {/* 6. Profile Picture Button (clickable for profile page) */}
         <div className="flex flex-col items-center gap-1">
           <Button
             variant="ghost"
