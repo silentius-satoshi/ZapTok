@@ -73,12 +73,6 @@ export const settingsSections: SettingsSectionConfig[] = [
 
   // Network & Connection Settings
   {
-    id: 'keys',
-    title: 'Keys',
-    component: KeysSettings,
-    category: 'network'
-  },
-  {
     id: 'connected-wallets',
     title: 'Connected Wallets',
     component: ConnectedWalletsSettings,
@@ -112,6 +106,12 @@ export const settingsSections: SettingsSectionConfig[] = [
     id: 'zaps',
     title: 'Zaps',
     component: ZapsSettings,
+    category: 'monetization'
+  },
+  {
+    id: 'keys',
+    title: 'Keys',
+    component: KeysSettings,
     category: 'monetization'
   }
 ];
