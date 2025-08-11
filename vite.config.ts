@@ -10,6 +10,9 @@ export default defineConfig(() => ({
     host: "::",
     port: 5173,
   },
+  optimizeDeps: {
+    include: ['react', 'react-dom', '@tanstack/react-query'],
+  },
   plugins: [
     react(),
     VitePWA({
