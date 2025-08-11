@@ -2,6 +2,7 @@ import BitcoinConnectCard from '@/components/lightning/wallet-connections/Bitcoi
 import NostrWalletConnectCard from '@/components/lightning/wallet-connections/NostrWalletConnectCard';
 import { CashuRelaySettings } from './CashuRelaySettings';
 import { SettingsSection } from './SettingsSection';
+import { useWallet } from '@/hooks/useWallet';
 
 interface ConnectedWalletsSettingsProps {
   isConnecting: string | null;
@@ -9,6 +10,7 @@ interface ConnectedWalletsSettingsProps {
   onNostrWalletConnect: () => Promise<void>;
   isConnected: boolean;
   onDisconnect: () => Promise<void>;
+  onEnableNWC?: () => void;
 }
 
 export function ConnectedWalletsSettings({
@@ -16,10 +18,12 @@ export function ConnectedWalletsSettings({
   onBitcoinConnect,
   onNostrWalletConnect,
   isConnected,
-  onDisconnect
+  onDisconnect,
+  onEnableNWC
 }: ConnectedWalletsSettingsProps) {
+  const { userHasLightningAccess } = useWallet();
   return (
-    <SettingsSection 
+    <SettingsSection
       description="To enable zapping from the ZapTok web app, connect a wallet:"
     >
       <div className="space-y-3">
@@ -28,6 +32,8 @@ export function ConnectedWalletsSettings({
           onConnect={onBitcoinConnect}
           isConnected={isConnected}
           onDisconnect={onDisconnect}
+          userHasLightningAccess={userHasLightningAccess}
+          onEnableNWC={onEnableNWC}
         />
 
         <NostrWalletConnectCard
