@@ -162,7 +162,10 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
         <DropdownMenuSeparator />
         
         <DropdownMenuItem
-          onClick={onAddAccountClick}
+          onClick={() => {
+            console.log('Add another account clicked');
+            onAddAccountClick();
+          }}
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
           <UserPlus className='w-4 h-4' />

@@ -41,6 +41,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   if (!isOpen) return null;
 
+  // Original full-screen layout for initial login
   return (
     <>
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center relative overflow-hidden">

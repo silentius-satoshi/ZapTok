@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { LoginModal } from './LoginModal';
+import { AddAccountDialog } from './AddAccountDialog';
 import { useLoggedInAccounts } from '@/hooks/useLoggedInAccounts';
 import { DropdownList } from './DropdownList';
 import { useWallet } from '@/hooks/useWallet';
@@ -23,6 +24,7 @@ export function LoginArea({ className }: LoginAreaProps) {
   const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
   const cashuStore = useCashuStore();
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [addAccountDialogOpen, setAddAccountDialogOpen] = useState(false);
   const [currency, setCurrency] = useState<'BTC' | 'USD'>('BTC');
   const navigate = useNavigate();
 
@@ -156,7 +158,7 @@ export function LoginArea({ className }: LoginAreaProps) {
 
           {/* Account Switcher */}
           <div className="flex-shrink-0">
-            <DropdownList onAddAccountClick={() => setLoginModalOpen(true)} />
+            <DropdownList onAddAccountClick={() => setAddAccountDialogOpen(true)} />
           </div>
         </div>
       ) : (
@@ -169,9 +171,14 @@ export function LoginArea({ className }: LoginAreaProps) {
         </Button>
       )}
 
-      <LoginModal
+            <LoginModal
         isOpen={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
+      />
+      
+      <AddAccountDialog
+        isOpen={addAccountDialogOpen}
+        onClose={() => setAddAccountDialogOpen(false)}
       />
     </div>
   );
