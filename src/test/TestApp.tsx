@@ -29,7 +29,7 @@ export function TestApp({ children }: TestAppProps) {
     theme: 'light',
     relayUrls: [
       'wss://relay.nostr.band',
-      'wss://ditto.pub/relay', 
+      'wss://ditto.pub/relay',
       'wss://relay.damus.io',
       'wss://relay.primal.net'
     ],
@@ -42,19 +42,19 @@ export function TestApp({ children }: TestAppProps) {
       <AppProvider storageKey='test-app-config' defaultConfig={defaultConfig}>
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='test-login'>
-            <NostrProvider>
-              <CachingProvider>
-                <WalletProvider>
-                  <UnifiedWalletProvider>
-                    <VideoPlaybackProvider>
-                      <BrowserRouter>
+            <BrowserRouter>
+              <NostrProvider>
+                <CachingProvider>
+                  <WalletProvider>
+                    <UnifiedWalletProvider>
+                      <VideoPlaybackProvider>
                         {children}
-                      </BrowserRouter>
-                    </VideoPlaybackProvider>
-                  </UnifiedWalletProvider>
-                </WalletProvider>
-              </CachingProvider>
-            </NostrProvider>
+                      </VideoPlaybackProvider>
+                    </UnifiedWalletProvider>
+                  </WalletProvider>
+                </CachingProvider>
+              </NostrProvider>
+            </BrowserRouter>
           </NostrLoginProvider>
         </QueryClientProvider>
       </AppProvider>

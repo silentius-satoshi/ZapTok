@@ -3,7 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrConnection } from '@/components/NostrProvider';
 import { CASHU_EVENT_KINDS, SpendingHistoryEntry as CashuSpendingHistoryEntry } from '@/lib/cashu';
-import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
+import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
 import { useCashuRelayStore } from '@/stores/cashuRelayStore';
 import type { NostrEvent } from 'nostr-tools';
 import { useEffect, useRef } from 'react';
@@ -81,7 +81,7 @@ export function useCashuHistory(): UseCashuHistoryResult {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { isAnyRelayConnected } = useNostrConnection();
-  const historyStore = useTransactionHistoryStore();
+  const historyStore = useUserTransactionHistoryStore(user?.pubkey);
   const cashuRelayStore = useCashuRelayStore();
   const queryClient = useQueryClient();
   const processedIdsRef = useRef<Set<string>>(new Set());
@@ -91,7 +91,14 @@ export function useCashuHistory(): UseCashuHistoryResult {
   // Load previously processed IDs when user changes
   useEffect(() => {
     if (user?.pubkey) {
-      processedIdsRef.current = loadProcessedIds(user.pubkey);
+      // Clear processed IDs to force a fresh load for account switching
+      processedIdsRef.current = new Set<string>();
+      // Remove the sessionStorage entry to start fresh
+      try {
+        sessionStorage.removeItem(`cashu_history_ids:${user.pubkey}`);
+      } catch {
+        /* ignore */
+      }
     }
   }, [user?.pubkey]);
 
@@ -102,9 +109,12 @@ export function useCashuHistory(): UseCashuHistoryResult {
   }, [isAnyRelayConnected]);
 
   const waitForStableContext = () => {
-    if (!isAnyRelayConnected) return false;
+    if (!isAnyRelayConnected) {
+      return false;
+    }
     const msSince = Date.now() - lastContextChangeRef.current;
-    return msSince >= QUERY_DEBOUNCE_MS;
+    const isStable = msSince >= QUERY_DEBOUNCE_MS;
+    return isStable;
   };
 
   const createHistoryMutation = useMutation({
@@ -153,8 +163,10 @@ export function useCashuHistory(): UseCashuHistoryResult {
       if (user?.pubkey) persistProcessedIds(user.pubkey, processedIdsRef.current);
       return event;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cashu', 'history', user?.pubkey] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cashu', 'history', user?.pubkey, cashuRelayStore.activeRelay] })
   });
+
+  const isStableContext = waitForStableContext();
 
   const {
     data: fetchedNewCount = 0,
@@ -162,13 +174,13 @@ export function useCashuHistory(): UseCashuHistoryResult {
     error,
     refetch
   } = useQuery<number>({
-    queryKey: ['cashu', 'history', user?.pubkey],
-    enabled: !!user && waitForStableContext(),
+    queryKey: ['cashu', 'history', user?.pubkey, cashuRelayStore.activeRelay],
+    enabled: !!user && isStableContext,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    refetchOnMount: false,
+    refetchOnMount: true, // Enable refetch on mount for account switching
     retry: 1,
     notifyOnChangeProps: ['status', 'data', 'error'],
     queryFn: async ({ signal }) => {
@@ -206,9 +218,15 @@ export function useCashuHistory(): UseCashuHistoryResult {
       const batch: (CashuSpendingHistoryEntry & { id: string })[] = [];
 
       for (const event of historyEvents) {
-        if (processedIdsRef.current.has(event.id)) continue;
+        if (processedIdsRef.current.has(event.id)) {
+          continue;
+        }
+
         try {
-          if (!user.signer.nip44) continue;
+          if (!user.signer.nip44) {
+            continue;
+          }
+
           const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
           const contentData = JSON.parse(decrypted) as Array<string[]>;
 
@@ -238,11 +256,14 @@ export function useCashuHistory(): UseCashuHistoryResult {
           }
 
           const amountNum = parseInt(entry.amount, 10) || 0;
-          if (amountNum <= 0) continue;
+
+          if (amountNum <= 0) {
+            continue;
+          }
 
           batch.push(entry);
           processedIdsRef.current.add(event.id);
-        } catch {
+        } catch (error) {
           // ignore
         }
       }
