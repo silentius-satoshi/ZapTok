@@ -2,21 +2,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createHead, UnheadProvider } from '@unhead/react/client';
 import { InferSeoMetaPlugin } from '@unhead/addons';
 import { Suspense, useEffect } from 'react';
-import NostrProvider from '@/components/NostrProvider';
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AuthFilter } from '@/components/auth/AuthFilter';
-import { WalletProvider } from '@/contexts/WalletContext';
-import { UnifiedWalletProvider } from '@/contexts/UnifiedWalletContext';
-import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
-import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
-import { WalletLoader } from '@/components/WalletLoader';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -87,22 +78,7 @@ export function App() {
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
             <AuthFilter>
-              <NostrProvider>
-                <CachingProvider>
-                  <WalletProvider>
-                    <UnifiedWalletProvider>
-                      <VideoPlaybackProvider>
-                        <TooltipProvider>
-                          <WalletLoader />
-                          <Toaster />
-                          <Sonner />
-                          <AppContent />
-                        </TooltipProvider>
-                      </VideoPlaybackProvider>
-                    </UnifiedWalletProvider>
-                  </WalletProvider>
-                </CachingProvider>
-              </NostrProvider>
+              <AppContent />
             </AuthFilter>
           </NostrLoginProvider>
         </QueryClientProvider>

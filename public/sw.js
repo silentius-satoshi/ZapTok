@@ -41,6 +41,8 @@ self.addEventListener('install', (event) => {
       })
       .catch((error) => {
         console.error('[SW] Failed to cache static assets:', error);
+        // Don't prevent installation due to cache failures
+        return self.skipWaiting();
       })
   );
 });
@@ -50,10 +52,10 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
       .then((cacheNames) => {
-        return Promise.all(
+        return Promise.allSettled(
           cacheNames
             .filter((cacheName) => {
-              return cacheName.startsWith('zaptok-') && 
+              return cacheName.startsWith('zaptok-') &&
                      !cacheName.includes(CACHE_VERSION);
             })
             .map((cacheName) => {
@@ -64,13 +66,16 @@ self.addEventListener('activate', (event) => {
       .then(() => {
         return self.clients.claim();
       })
+      .catch((error) => {
+        console.error('[SW] Cache cleanup failed:', error);
+        return self.clients.claim();
+      })
   );
 });
 
 // Fetch event - handle requests with appropriate caching strategy
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
 
   // Skip non-HTTP requests
   if (!request.url.startsWith('http')) {
@@ -82,21 +87,58 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip HEAD requests to avoid cache errors
+  if (request.method === 'HEAD') {
+    return;
+  }
+
+  let url;
+  try {
+    url = new URL(request.url);
+  } catch (error) {
+    console.error('[SW] Invalid URL, letting browser handle:', request.url);
+    return;
+  }
+
+  // Skip malformed URLs that contain metadata mixed into the URL path
+  // These appear to be video URLs with metadata appended incorrectly
+  if (url.pathname.includes(' x ') || url.pathname.includes(' m ') ||
+      url.pathname.includes(' image ') || url.pathname.includes(' fallback ') ||
+      url.pathname.includes(' service ')) {
+    console.log('[SW] Skipping malformed media URL:', request.url);
+    return;
+  }
+
   // Determine caching strategy
-  const shouldNetworkFirst = NETWORK_FIRST_PATTERNS.some(pattern => 
+  const shouldNetworkFirst = NETWORK_FIRST_PATTERNS.some(pattern =>
     pattern.test(request.url)
   );
-  
-  const shouldCacheFirst = CACHE_FIRST_PATTERNS.some(pattern => 
+
+  const shouldCacheFirst = CACHE_FIRST_PATTERNS.some(pattern =>
     pattern.test(request.url)
   );
 
   if (shouldNetworkFirst) {
-    event.respondWith(networkFirst(request));
+    event.respondWith(
+      networkFirst(request).catch(error => {
+        console.error('[SW] Network-first strategy failed:', error);
+        return new Response('Network error', { status: 408 });
+      })
+    );
   } else if (shouldCacheFirst) {
-    event.respondWith(cacheFirst(request));
+    event.respondWith(
+      cacheFirst(request).catch(error => {
+        console.error('[SW] Cache-first strategy failed:', error);
+        return new Response('Cache error', { status: 500 });
+      })
+    );
   } else {
-    event.respondWith(staleWhileRevalidate(request));
+    event.respondWith(
+      staleWhileRevalidate(request).catch(error => {
+        console.error('[SW] Stale-while-revalidate strategy failed:', error);
+        return new Response('Service error', { status: 500 });
+      })
+    );
   }
 });
 
@@ -104,77 +146,136 @@ self.addEventListener('fetch', (event) => {
 async function networkFirst(request) {
   try {
     const networkResponse = await fetch(request);
-    
-    if (networkResponse.ok) {
-      const cache = await caches.open(DYNAMIC_CACHE);
-      cache.put(request, networkResponse.clone());
+
+    if (networkResponse && networkResponse.ok && networkResponse.status < 400) {
+      try {
+        const cache = await caches.open(DYNAMIC_CACHE);
+        // Only cache GET requests with valid responses
+        if (request.method === 'GET') {
+          await cache.put(request, networkResponse.clone());
+        }
+      } catch (cacheError) {
+        console.log('[SW] Failed to cache response:', cacheError);
+      }
     }
-    
+
     return networkResponse;
   } catch (error) {
     console.log('[SW] Network failed, trying cache:', request.url);
-    const cachedResponse = await caches.match(request);
-    
-    if (cachedResponse) {
-      return cachedResponse;
+
+    try {
+      const cachedResponse = await caches.match(request);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+    } catch (cacheError) {
+      console.log('[SW] Cache lookup failed:', cacheError);
     }
-    
+
     // Return offline page for navigation requests
     if (request.mode === 'navigate') {
-      return caches.match('/');
+      try {
+        const offlineResponse = await caches.match('/');
+        if (offlineResponse) {
+          return offlineResponse;
+        }
+      } catch (offlineError) {
+        console.log('[SW] Failed to get offline page:', offlineError);
+      }
     }
-    
-    throw error;
+
+    // Create a minimal error response
+    return new Response('Network error', {
+      status: 408,
+      statusText: 'Request Timeout'
+    });
   }
 }
 
 // Cache-first strategy (for static assets)
 async function cacheFirst(request) {
-  const cachedResponse = await caches.match(request);
-  
-  if (cachedResponse) {
-    return cachedResponse;
+  try {
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+  } catch (cacheError) {
+    console.log('[SW] Cache lookup failed:', cacheError);
   }
-  
+
   try {
     const networkResponse = await fetch(request);
-    
-    if (networkResponse.ok) {
-      const cache = await caches.open(STATIC_CACHE);
-      cache.put(request, networkResponse.clone());
+
+    if (networkResponse && networkResponse.ok && networkResponse.status < 400) {
+      try {
+        const cache = await caches.open(STATIC_CACHE);
+        // Only cache GET requests with valid responses
+        if (request.method === 'GET') {
+          await cache.put(request, networkResponse.clone());
+        }
+      } catch (cacheError) {
+        console.log('[SW] Failed to cache static response:', cacheError);
+      }
     }
-    
+
     return networkResponse;
   } catch (error) {
     console.error('[SW] Failed to fetch:', request.url, error);
-    throw error;
+
+    // Return a minimal error response
+    return new Response('Resource not available', {
+      status: 404,
+      statusText: 'Not Found'
+    });
   }
 }
 
 // Stale-while-revalidate strategy (for general content)
 async function staleWhileRevalidate(request) {
-  const cache = await caches.open(DYNAMIC_CACHE);
-  const cachedResponse = await cache.match(request);
-  
-  const fetchPromise = fetch(request)
-    .then((networkResponse) => {
-      if (networkResponse.ok) {
-        cache.put(request, networkResponse.clone());
-      }
-      return networkResponse;
-    })
-    .catch((error) => {
-      console.log('[SW] Network request failed:', request.url);
-      return null;
+  try {
+    const cache = await caches.open(DYNAMIC_CACHE);
+    const cachedResponse = await cache.match(request);
+
+    const fetchPromise = fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.ok && networkResponse.status < 400) {
+          try {
+            // Only cache GET requests with valid responses
+            if (request.method === 'GET') {
+              cache.put(request, networkResponse.clone()).catch(cacheError => {
+                console.log('[SW] Background cache update failed:', cacheError);
+              });
+            }
+          } catch (cacheError) {
+            console.log('[SW] Failed to update cache:', cacheError);
+          }
+        }
+        return networkResponse;
+      })
+      .catch((error) => {
+        console.log('[SW] Network request failed:', request.url);
+        return null;
+      });
+
+    return cachedResponse || (await fetchPromise) || new Response('Service unavailable', {
+      status: 503,
+      statusText: 'Service Unavailable'
     });
-  
-  return cachedResponse || fetchPromise;
+  } catch (error) {
+    console.error('[SW] Stale-while-revalidate failed:', error);
+
+    // Return a minimal error response
+    return new Response('Service error', {
+      status: 500,
+      statusText: 'Internal Server Error'
+    });
+  }
 }
 
 // Background sync for failed Lightning/Cashu transactions
 self.addEventListener('sync', (event) => {
   console.log('[SW] Background sync triggered:', event.tag);
-  
+
   if (event.tag === 'cashu-transaction-sync') {
     event.waitUntil(syncCashuTransactions());
   } else if (event.tag === 'lightning-payment-sync') {
@@ -186,19 +287,19 @@ self.addEventListener('sync', (event) => {
 async function syncCashuTransactions() {
   try {
     console.log('[SW] Syncing failed Cashu transactions');
-    
+
     // Get pending transactions from IndexedDB
     const pendingTransactions = await getPendingCashuTransactions();
-    
+
     for (const transaction of pendingTransactions) {
       try {
         // Retry the transaction
         await retryTransaction(transaction);
         console.log('[SW] Successfully synced Cashu transaction:', transaction.id);
-        
+
         // Remove from pending queue
         await removePendingTransaction(transaction.id);
-        
+
         // Notify the app
         await notifyClients({
           type: 'cashu-transaction-synced',
@@ -217,10 +318,10 @@ async function syncCashuTransactions() {
 async function syncLightningPayments() {
   try {
     console.log('[SW] Syncing failed Lightning payments');
-    
+
     // Implementation for Lightning payment sync
     // This would integrate with your Lightning infrastructure
-    
+
   } catch (error) {
     console.error('[SW] Lightning payment sync failed:', error);
   }
@@ -229,14 +330,14 @@ async function syncLightningPayments() {
 // Push notification handling for Lightning/Cashu events
 self.addEventListener('push', (event) => {
   console.log('[SW] Push notification received');
-  
+
   let data = {};
   try {
     data = event.data ? event.data.json() : {};
   } catch (error) {
     console.error('[SW] Failed to parse push data:', error);
   }
-  
+
   const options = {
     badge: '/images/ZapTok-v3.png',
     icon: '/images/ZapTok-v3.png',
@@ -244,10 +345,10 @@ self.addEventListener('push', (event) => {
     data: data,
     actions: []
   };
-  
+
   let title = 'ZapTok';
   let body = 'You have a new notification';
-  
+
   // Handle different notification types
   switch (data.type) {
     case 'lightning-payment':
@@ -258,7 +359,7 @@ self.addEventListener('push', (event) => {
         { action: 'dismiss', title: 'Dismiss' }
       ];
       break;
-      
+
     case 'cashu-token':
       title = '🥜 Cashu Token';
       body = `New ${data.amount} sat token${data.from ? ` from ${data.from}` : ''}`;
@@ -267,7 +368,7 @@ self.addEventListener('push', (event) => {
         { action: 'view', title: 'View Details' }
       ];
       break;
-      
+
     case 'zap':
       title = '⚡ Zap Received';
       body = `${data.amount} sats zapped to your content!`;
@@ -276,7 +377,7 @@ self.addEventListener('push', (event) => {
         { action: 'thank', title: 'Send Thanks' }
       ];
       break;
-      
+
     case 'comment':
       title = '💬 New Comment';
       body = data.preview || 'Someone commented on your video';
@@ -285,15 +386,15 @@ self.addEventListener('push', (event) => {
         { action: 'view', title: 'View Video' }
       ];
       break;
-      
+
     default:
       title = data.title || title;
       body = data.body || body;
   }
-  
+
   options.title = title;
   options.body = body;
-  
+
   event.waitUntil(
     self.registration.showNotification(title, options)
   );
@@ -302,12 +403,12 @@ self.addEventListener('push', (event) => {
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked:', event.action, event.notification.data);
-  
+
   event.notification.close();
-  
+
   const data = event.notification.data || {};
   let url = '/';
-  
+
   // Handle different actions
   switch (event.action) {
     case 'view':
@@ -321,32 +422,32 @@ self.addEventListener('notificationclick', (event) => {
         url = `/video/${data.videoId}`;
       }
       break;
-      
+
     case 'redeem':
       if (data.type === 'cashu-token') {
         url = `/wallet?redeem=${data.token}`;
       }
       break;
-      
+
     case 'reply':
       if (data.videoId) {
         url = `/video/${data.videoId}?reply=true`;
       }
       break;
-      
+
     case 'thank':
       if (data.zapperPubkey) {
         url = `/profile/${data.zapperPubkey}?thank=true`;
       }
       break;
-      
+
     default:
       // Default click action
       if (data.url) {
         url = data.url;
       }
   }
-  
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
@@ -363,7 +464,7 @@ self.addEventListener('notificationclick', (event) => {
             return;
           }
         }
-        
+
         // Open new window if app is not open
         if (clients.openWindow) {
           return clients.openWindow(url);

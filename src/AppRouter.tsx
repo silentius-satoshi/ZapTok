@@ -4,6 +4,15 @@ import { useVideoPlayback } from "@/contexts/VideoPlaybackContext";
 import { useContextualRelays } from "@/hooks/useContextualRelays";
 import { useEffect } from "react";
 import { logRoute } from "@/lib/devLogger";
+import NostrProvider from "@/components/NostrProvider";
+import { CachingProvider } from "@/components/CachingProvider";
+import { WalletProvider } from "@/contexts/WalletContext";
+import { UnifiedWalletProvider } from "@/contexts/UnifiedWalletContext";
+import { VideoPlaybackProvider } from "@/contexts/VideoPlaybackContext";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { WalletLoader } from "@/components/WalletLoader";
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 
 import Index from "./pages/Index";
 import Profile from "./pages/Profile";
@@ -20,7 +29,7 @@ import NotFound from "./pages/NotFound";
 function RouteHandler() {
   const location = useLocation();
   const { resumeAllVideos } = useVideoPlayback();
-  
+
   // Automatically optimize relay connections based on current route
   const { currentContext, isOptimized } = useContextualRelays();
 
@@ -67,7 +76,22 @@ export function AppRouter() {
       }}
     >
       <ScrollToTop />
-      <RouteHandler />
+      <NostrProvider>
+        <CachingProvider>
+          <WalletProvider>
+            <UnifiedWalletProvider>
+              <VideoPlaybackProvider>
+                <TooltipProvider>
+                  <WalletLoader />
+                  <Toaster />
+                  <Sonner />
+                  <RouteHandler />
+                </TooltipProvider>
+              </VideoPlaybackProvider>
+            </UnifiedWalletProvider>
+          </WalletProvider>
+        </CachingProvider>
+      </NostrProvider>
     </BrowserRouter>
   );
 }
