@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Copy, Eye, EyeOff } from 'lucide-react';
+import { Copy, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '@nostrify/react/login';
-import { nip19 } from 'nostr-tools';
+import { nip19, getPublicKey as derivePublicKeyFromSecret } from 'nostr-tools';
 
 export function KeysSettings() {
   const { user } = useCurrentUser();
@@ -38,8 +38,28 @@ export function KeysSettings() {
   };
 
   const getPrivateKey = (): string => {
-    // For security reasons, we typically cannot access private keys
-    // This would only work for direct nsec string logins
+    // Check if it's an nsec login and look for private key in data
+    if (currentLogin?.type === 'nsec' && currentLogin.data) {
+      try {
+        // The private key might be in the data object
+        const data = currentLogin.data as any;
+        
+        // Try different possible property names for the private key
+        if ('nsec' in data && typeof data.nsec === 'string') {
+          // The nsec is already encoded as a string, just return it
+          return data.nsec;
+        } else if ('secretKey' in data) {
+          const nsecBytes = data.secretKey as Uint8Array;
+          return nip19.nsecEncode(nsecBytes);
+        } else if ('privateKey' in data) {
+          const nsecBytes = data.privateKey as Uint8Array;
+          return nip19.nsecEncode(nsecBytes);
+        }
+      } catch (error) {
+        console.error('Error accessing private key:', error);
+        return '';
+      }
+    }
     return '';
   };
 
@@ -47,7 +67,24 @@ export function KeysSettings() {
   const publicKey = getPublicKey();
   const privateKey = getPrivateKey();
   const isExtensionLogin = currentLogin?.type === 'extension';
-  const canShowPrivateKey = false; // Always false for security
+  const canShowPrivateKey = currentLogin?.type === 'nsec' && privateKey.length > 0;
+
+  // Verify that the private key generates the correct public key
+  const verifyKeyPair = (): boolean => {
+    if (!privateKey || !user?.pubkey) return false;
+    try {
+      // Decode the nsec to get the secret key bytes
+      const { data: secretKey } = nip19.decode(privateKey);
+      // Generate the public key from the secret key using Schnorr signatures for secp256k1 (NIP-01)
+      const derivedPubkey = derivePublicKeyFromSecret(secretKey as Uint8Array);
+      // Compare with the current user's public key
+      return derivedPubkey === user.pubkey;
+    } catch {
+      return false;
+    }
+  };
+
+  const isKeyPairValid = privateKey ? verifyKeyPair() : null;
 
   return (
     <div className="p-6 space-y-8 text-white">
@@ -83,7 +120,21 @@ export function KeysSettings() {
 
       {/* Private Key Section */}
       <div className="space-y-3">
-        <h3 className="text-xl font-medium">Private Key (nsec)</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-xl font-medium">Private Key (nsec)</h3>
+          {isKeyPairValid === true && (
+            <div className="flex items-center gap-1 text-green-400 text-sm">
+              <CheckCircle className="w-4 h-4" />
+              <span>Verified</span>
+            </div>
+          )}
+          {isKeyPairValid === false && (
+            <div className="flex items-center gap-1 text-red-400 text-sm">
+              <AlertCircle className="w-4 h-4" />
+              <span>Invalid</span>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <div className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg p-4 font-mono text-sm break-all">
             {canShowPrivateKey ? (
@@ -113,7 +164,14 @@ export function KeysSettings() {
           </div>
         </div>
         <p className="text-gray-500 text-sm">
-          This app cannot access your private key directly if using an extension. This is for your security.
+          {isExtensionLogin 
+            ? "This app cannot access your private key directly when using an extension. This is for your security."
+            : isKeyPairValid === true
+            ? "✅ This private key is authentic and matches your public key. Keep it safe - anyone with this key can post as you."
+            : isKeyPairValid === false
+            ? "⚠️ Warning: This private key does not match your public key. There may be an issue with your account."
+            : "Keep your private key safe! It's like a password to your Nostr identity. Anyone with this key can post as you."
+          }
         </p>
       </div>
     </div>
