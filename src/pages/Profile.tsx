@@ -24,6 +24,7 @@ import { FollowingListModal } from '@/components/FollowingListModal';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { QRModal } from '@/components/QRModal';
 import { ZapButton } from '@/components/ZapButton';
+import { NutzapButton } from '@/components/NutzapButton';
 import { useToast } from '@/hooks/useToast';
 import { nip19 } from 'nostr-tools';
 
@@ -264,6 +265,14 @@ const Profile = () => {
                             {/* 3. Zap Button */}
                             <ZapButton
                               recipientPubkey={targetPubkey}
+                              variant="outline"
+                              size="icon"
+                              className="w-10 h-10"
+                            />
+
+                            {/* 3b. Nutzap Button */}
+                            <NutzapButton
+                              userPubkey={targetPubkey}
                               variant="outline"
                               size="icon"
                               className="w-10 h-10"

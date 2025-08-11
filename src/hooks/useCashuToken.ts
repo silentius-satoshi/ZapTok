@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCashuStore } from '@/stores/cashuStore';
+import { useCashuStore, CashuWalletStruct } from '@/stores/cashuStore';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
 import { CashuMint, CashuWallet, Proof, getDecodedToken, CheckStateEnum } from '@cashu/cashu-ts';
@@ -133,10 +133,18 @@ export function useCashuToken() {
       throw new Error('Wallet not found');
     }
     // Add mint to wallet
-    createWallet({
-      ...wallet,
+    const updatedWalletData: CashuWalletStruct = {
+      id: crypto.randomUUID(),
+      name: 'My Wallet',
+      unit: 'sat',
       mints: [...wallet.mints, mintUrl],
-    });
+      balance: 0,
+      proofs: [],
+      lastUpdated: Date.now(),
+      privkey: wallet.privkey,
+    };
+    
+    createWallet(updatedWalletData);
   }
 
   /**

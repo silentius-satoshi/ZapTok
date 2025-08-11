@@ -174,7 +174,9 @@ export async function payMeltQuote(mintUrl: string, quoteId: string, proofs: Pro
 
       // Check if error is "Token already spent"
       if (message.includes("Token already spent")) {
+      if (import.meta.env.DEV) {
         console.log("Detected spent tokens, cleaning up and retrying...");
+      }
         error.message = "Token already spent. Please go to your wallet and press Cleanup Wallet for this mint.";
         throw error;
       }

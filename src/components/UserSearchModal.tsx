@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,6 +15,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useFollowUser } from '@/hooks/useFollowUser';
 import { useToast } from '@/hooks/useToast';
+import { useAppContext } from '@/hooks/useAppContext';
 import { genUserName } from '@/lib/genUserName';
 
 interface UserSearchModalProps {
@@ -27,6 +29,15 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
   const { toast } = useToast();
   const { mutate: followUser } = useFollowUser();
   const following = useFollowing(user?.pubkey || '');
+  const navigate = useNavigate();
+  const { config, setRelayContext } = useAppContext();
+  
+  // Temporarily switch to search-only context when modal is open for user search
+  useEffect(() => {
+    if (open && config.relayContext === 'none') {
+      setRelayContext('search-only');
+    }
+  }, [open, config.relayContext, setRelayContext]);
   
   // Use the useUserSearch hook with current query
   const { data: results = [], isLoading } = useUserSearch(query.trim());
@@ -69,6 +80,13 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
         });
       },
     });
+  };
+
+  const handleUserClick = (pubkey: string) => {
+    // Close the modal first
+    onOpenChange(false);
+    // Navigate to the user's profile
+    navigate(`/profile/${pubkey}`);
   };
 
   return (
@@ -136,14 +154,22 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
                   <Card key={result.pubkey} className="hover:bg-muted/50 transition-colors">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-12 w-12">
+                        <Avatar 
+                          className="h-12 w-12 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                          onClick={() => handleUserClick(result.pubkey)}
+                        >
                           <AvatarImage src={avatar} alt={displayName} />
                           <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-sm truncate">{displayName}</h3>
+                            <h3 
+                              className="font-semibold text-sm truncate cursor-pointer hover:text-primary transition-colors"
+                              onClick={() => handleUserClick(result.pubkey)}
+                            >
+                              {displayName}
+                            </h3>
                             {nip05 && (
                               <Badge variant="secondary" className="text-xs">
                                 {nip05}
@@ -152,7 +178,10 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
                           </div>
                           
                           {userName !== displayName && (
-                            <p className="text-xs text-muted-foreground truncate mb-1">
+                            <p 
+                              className="text-xs text-muted-foreground truncate mb-1 cursor-pointer hover:text-primary transition-colors"
+                              onClick={() => handleUserClick(result.pubkey)}
+                            >
                               @{userName}
                             </p>
                           )}

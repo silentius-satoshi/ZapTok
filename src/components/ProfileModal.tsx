@@ -12,8 +12,11 @@ import { genUserName } from '@/lib/genUserName';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { QRModal } from '@/components/QRModal';
-import { User, Edit, LogOut, Users, QrCode } from 'lucide-react';
+import { User, Edit, LogOut, Users, QrCode, Zap } from 'lucide-react';
 import { useLoginActions } from '@/hooks/useLoginActions';
+import { useToast } from '@/hooks/useToast';
+import { getLightningAddress } from '@/lib/lightning';
+import { QuickZap } from '@/components/QuickZap';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -30,9 +33,11 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
   const following = useFollowing(targetPubkey);
   const metadata = author.data?.metadata;
   const login = useLoginActions();
+  const { toast } = useToast();
   const [showEditForm, setShowEditForm] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showQuickZap, setShowQuickZap] = useState(false);
 
   if (!targetPubkey) return null;
 
@@ -64,24 +69,58 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
     setShowQRModal(true);
   };
 
+  const handleZapClick = () => {
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to send zaps",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const lightningAddress = getLightningAddress(metadata);
+    if (!lightningAddress) {
+      toast({
+        title: "Zap Not Available",
+        description: "This user hasn't set up Lightning payments in their profile. They need to add a Lightning address (lud16) or LNURL (lud06) to their Nostr profile.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if WebLN is available
+    if (!window.webln) {
+      toast({
+        title: "WebLN Not Available",
+        description: "Please install the Alby browser extension to send Lightning payments",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Open QuickZap modal instead of CustomZap
+    setShowQuickZap(true);
+  };
+
   if (showEditForm && isCurrentUser) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide">
+          <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Edit className="w-5 h-5" />
               <span>Edit Profile</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto scrollbar-hide py-4">
+          <div className="py-4">
             <EditProfileForm />
             <div className="flex justify-end mt-6">
-                <Button variant="outline" onClick={handleCloseEdit}>
-                  Done
-                </Button>
-              </div>
+              <Button variant="outline" onClick={handleCloseEdit}>
+                Done
+              </Button>
             </div>
+          </div>
         </DialogContent>
       </Dialog>
     );
@@ -181,6 +220,20 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
               </Button>
             </div>
 
+            {/* Zap Button - Only show for other users */}
+            {!isCurrentUser && (
+              <div className="space-y-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start" 
+                  onClick={handleZapClick}
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  Send Zap
+                </Button>
+              </div>
+            )}
+
             {/* Action Buttons - Only show for current user */}
             {isCurrentUser && (
               <div className="space-y-2">
@@ -222,6 +275,13 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
         pubkey={targetPubkey}
         metadata={metadata}
         displayName={displayName}
+      />
+
+      {/* Quick Zap Modal */}
+      <QuickZap
+        isOpen={showQuickZap}
+        onClose={() => setShowQuickZap(false)}
+        recipientPubkey={targetPubkey}
       />
     </>
   );

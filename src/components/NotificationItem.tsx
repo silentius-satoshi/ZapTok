@@ -4,6 +4,8 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { formatRelativeTime } from '@/lib/notificationUtils';
 import { Zap, Heart, Repeat, MessageCircle, UserPlus, UserMinus, AtSign, Bell } from 'lucide-react';
 import NotificationAvatar from './NotificationAvatar';
+import { ReferencedPost } from './ReferencedPost';
+import { QuickReply } from './QuickReply';
 import type { Notification, NotificationUser } from '@/hooks/useNotifications';
 
 interface NotificationItemProps {
@@ -76,8 +78,6 @@ const NotificationItem: React.FC<NotificationItemProps> = (props) => {
     switch (props.type) {
       case 'NEW_USER_FOLLOWED_YOU':
         return numberOfUsers > 1 ? 'and others followed you' : 'followed you';
-      case 'YOUR_POST_WAS_LIKED':
-        return numberOfUsers > 1 ? 'and others liked your post' : 'liked your post';
       case 'YOUR_POST_WAS_ZAPPED':
         return numberOfUsers > 1 ? 'and others zapped your post' : 'zapped your post';
       case 'YOUR_POST_WAS_REPOSTED':
@@ -94,6 +94,19 @@ const NotificationItem: React.FC<NotificationItemProps> = (props) => {
   const time = () => {
     if (!props.notification?.createdAt) return '';
     return formatRelativeTime(props.notification.createdAt);
+  };
+
+  // Determine if this notification should show a quick reply button
+  const shouldShowQuickReply = () => {
+    if (!props.notification?.eventId) return false;
+    
+    const replyableTypes = [
+      'YOUR_POST_WAS_REPLIED_TO',
+      'YOU_WERE_MENTIONED_IN_POST', 
+      'POST_YOU_WERE_MENTIONED_IN_WAS_REPLIED_TO',
+    ];
+    
+    return replyableTypes.includes(props.type);
   };
 
   return (
@@ -138,8 +151,18 @@ const NotificationItem: React.FC<NotificationItemProps> = (props) => {
 
         {/* Reference/Preview */}
         {props.notification?.eventId && (
-          <div className="font-normal text-base text-muted-foreground mt-1">
-            Referenced post content would go here...
+          <div className="mt-1">
+            <ReferencedPost eventId={props.notification.eventId} />
+          </div>
+        )}
+
+        {/* Quick Reply */}
+        {shouldShowQuickReply() && (
+          <div className="mt-2 flex justify-start w-full">
+            <QuickReply 
+              eventId={props.notification!.eventId!}
+              className="ml-0 w-full"
+            />
           </div>
         )}
       </div>

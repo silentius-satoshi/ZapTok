@@ -1,9 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { CASHU_EVENT_KINDS } from '@/lib/cashu';
-import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
+import { useNostrConnection } from '@/components/NostrProvider';
+import { CASHU_EVENT_KINDS, SpendingHistoryEntry as CashuSpendingHistoryEntry } from '@/lib/cashu';
+import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
+import { useCashuRelayStore } from '@/stores/cashuRelayStore';
 import type { NostrEvent } from 'nostr-tools';
+import { useEffect, useRef } from 'react';
+
+// Local interface for older usage
+export interface SpendingHistoryEntry {
+  direction: 'in' | 'out';
+  amount: string;
+  timestamp?: number;
+}
 
 export interface SpendingHistoryEntry {
   direction: 'in' | 'out';
@@ -23,124 +33,261 @@ export interface CashuTransaction {
   originalEvent?: NostrEvent;
 }
 
+interface CreateHistoryArgs {
+  direction: 'in' | 'out';
+  amount: string; // sats
+  createdTokens?: string[];    // token event ids created (encrypted markers: created)
+  destroyedTokens?: string[];  // token event ids destroyed (encrypted markers: destroyed)
+  redeemedTokens?: string[];   // token event ids redeemed (unencrypted tags: redeemed)
+}
+
 interface UseCashuHistoryResult {
-  transactions: CashuTransaction[];
+  history: (CashuSpendingHistoryEntry & { id: string })[];
   isLoading: boolean;
   error: Error | null;
   refetch: () => void;
-  createHistory: (historyEntry: SpendingHistoryEntry) => Promise<NostrEvent>;
+  createHistory: (args: CreateHistoryArgs) => Promise<NostrEvent>;
   isCreating: boolean;
+  fetchedNewCount: number;
 }
 
 /**
  * Hook to fetch and manage Cashu transaction history
  */
+const QUERY_DEBOUNCE_MS = 400;
+const FETCH_TIMEOUT_MS = 1500;
+
+function loadProcessedIds(pubkey: string) {
+  try {
+    const raw = sessionStorage.getItem(`cashu_history_ids:${pubkey}`);
+    return raw ? new Set<string>(JSON.parse(raw)) : new Set<string>();
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function persistProcessedIds(pubkey: string, setIds: Set<string>) {
+  try {
+    sessionStorage.setItem(
+      `cashu_history_ids:${pubkey}`,
+      JSON.stringify(Array.from(setIds))
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 export function useCashuHistory(): UseCashuHistoryResult {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const historyStore = useTransactionHistoryStore();
+  const { isAnyRelayConnected } = useNostrConnection();
+  const historyStore = useUserTransactionHistoryStore(user?.pubkey);
+  const cashuRelayStore = useCashuRelayStore();
   const queryClient = useQueryClient();
+  const processedIdsRef = useRef<Set<string>>(new Set());
+  const lastContextChangeRef = useRef<number>(Date.now());
+  const lastStableStartRef = useRef<number>(0);
+
+  // Load previously processed IDs when user changes
+  useEffect(() => {
+    if (user?.pubkey) {
+      // Clear processed IDs to force a fresh load for account switching
+      processedIdsRef.current = new Set<string>();
+      // Remove the sessionStorage entry to start fresh
+      try {
+        sessionStorage.removeItem(`cashu_history_ids:${user.pubkey}`);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [user?.pubkey]);
+
+  // Track relay context stabilization
+  useEffect(() => {
+    if (!isAnyRelayConnected) return;
+    lastContextChangeRef.current = Date.now();
+  }, [isAnyRelayConnected]);
+
+  const waitForStableContext = () => {
+    if (!isAnyRelayConnected) {
+      return false;
+    }
+    const msSince = Date.now() - lastContextChangeRef.current;
+    const isStable = msSince >= QUERY_DEBOUNCE_MS;
+    return isStable;
+  };
 
   const createHistoryMutation = useMutation({
-    mutationFn: async (historyEntry: SpendingHistoryEntry) => {
+    mutationFn: async ({
+      direction,
+      amount,
+      createdTokens = [],
+      destroyedTokens = [],
+      redeemedTokens = []
+    }: CreateHistoryArgs) => {
       if (!user) throw new Error('User not authenticated');
+      if (!user.signer.nip44) throw new Error('Cashu history requires NIP-44 encryption support. Please ensure your Nostr extension has ENCRYPT and DECRYPT permissions enabled.');
+
+      // Build encrypted content data (array form for forward compatibility)
+      const contentData: Array<string[]> = [
+        ['direction', direction],
+        ['amount', amount],
+        ...createdTokens.map(id => ['e', id, '', 'created']),
+        ...destroyedTokens.map(id => ['e', id, '', 'destroyed'])
+      ];
+
+      const encrypted = await user.signer.nip44.encrypt(user.pubkey, JSON.stringify(contentData));
 
       const event = await user.signer.signEvent({
         kind: CASHU_EVENT_KINDS.HISTORY,
-        content: JSON.stringify(historyEntry),
-        tags: [
-          ['direction', historyEntry.direction],
-          ['amount', historyEntry.amount],
-        ],
-        created_at: Math.floor(Date.now() / 1000),
+        content: encrypted,
+        tags: redeemedTokens.map(id => ['e', id, '', 'redeemed']),
+        created_at: Math.floor(Date.now() / 1000)
       });
 
-      await nostr.event(event);
+      await nostr.event(event, { relays: [cashuRelayStore.activeRelay] });
+
+      // Optimistic add (store timestamp in seconds like chorus)
+      historyStore.addHistoryEntries([
+        {
+          id: event.id,
+          direction,
+          amount,
+          timestamp: event.created_at,
+          createdTokens,
+            destroyedTokens,
+            redeemedTokens
+        } as any
+      ]);
+      processedIdsRef.current.add(event.id);
+      if (user?.pubkey) persistProcessedIds(user.pubkey, processedIdsRef.current);
       return event;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cashu', 'history'] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cashu', 'history', user?.pubkey, cashuRelayStore.activeRelay] })
   });
 
+  const isStableContext = waitForStableContext();
+
   const {
-    data: transactions = [],
+    data: fetchedNewCount = 0,
     isLoading,
     error,
     refetch
-  } = useQuery({
-    queryKey: ['cashu', 'history', user?.pubkey],
+  } = useQuery<number>({
+    queryKey: ['cashu', 'history', user?.pubkey, cashuRelayStore.activeRelay],
+    enabled: !!user && isStableContext,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: true, // Enable refetch on mount for account switching
+    retry: 1,
+    notifyOnChangeProps: ['status', 'data', 'error'],
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not authenticated');
 
-      // Check if we have cached transactions
-      const cachedTransactions = historyStore.getTransactions(user.pubkey);
-      if (cachedTransactions.length > 0) {
-        return cachedTransactions;
+      const now = Date.now();
+      if (now - lastStableStartRef.current < QUERY_DEBOUNCE_MS) {
+        return 0;
       }
+      lastStableStartRef.current = now;
 
-      // Fetch transaction history events from Nostr
-      const events = await nostr.query([
-        {
-          kinds: [CASHU_EVENT_KINDS.TRANSACTION],
-          authors: [user.pubkey],
-          limit: 100
+      // Timeout wrapper
+      const abortController = new AbortController();
+      const timeout = setTimeout(() => abortController.abort(), FETCH_TIMEOUT_MS);
+      const combinedSignal = (AbortSignal as any).any
+        ? (AbortSignal as any).any([signal, abortController.signal])
+        : abortController.signal;
+
+      // Fetch only HISTORY events (chorus parity)
+      let historyEvents: NostrEvent[] = [];
+      try {
+        historyEvents = await nostr.query([
+          { kinds: [CASHU_EVENT_KINDS.HISTORY], authors: [user.pubkey], limit: 100 }
+        ], { signal: combinedSignal, relays: [cashuRelayStore.activeRelay] });
+      } catch (e: any) {
+        if (e?.name === 'AbortError') {
+          clearTimeout(timeout);
+          return 0;
         }
-      ], { signal });
+        clearTimeout(timeout);
+        throw e;
+      }
+      clearTimeout(timeout);
 
-      // Parse transaction events
-      const parsedTransactions: CashuTransaction[] = [];
+      const batch: (CashuSpendingHistoryEntry & { id: string })[] = [];
 
-      for (const event of events) {
+      for (const event of historyEvents) {
+        if (processedIdsRef.current.has(event.id)) {
+          continue;
+        }
+
         try {
-          const content = JSON.parse(event.content);
-          
-          // Extract mint URL from tags
-          const mintTag = event.tags.find(tag => tag[0] === 'mint');
-          const mintUrl = mintTag?.[1] || '';
+          if (!user.signer.nip44) {
+            continue;
+          }
 
-          // Extract counterparty from tags (for nutzaps)
-          const pTag = event.tags.find(tag => tag[0] === 'p');
-          const counterparty = pTag?.[1];
+          const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
+          const contentData = JSON.parse(decrypted) as Array<string[]>;
 
-          const transaction: CashuTransaction = {
+          const entry: CashuSpendingHistoryEntry & { id: string } = {
             id: event.id,
-            type: content.type || 'send',
-            amount: parseInt(content.amount) || 0,
-            mintUrl,
-            timestamp: event.created_at * 1000,
-            status: content.status || 'completed',
-            description: content.description,
-            counterparty,
-            originalEvent: event
-          };
+            direction: 'out',
+            amount: '0',
+            timestamp: event.created_at, // seconds
+            createdTokens: [],
+            destroyedTokens: [],
+            redeemedTokens: []
+          } as any;
 
-          parsedTransactions.push(transaction);
-        } catch (err) {
-          console.warn('Failed to parse transaction event:', event.id, err);
+          for (const item of contentData) {
+            const [k, v, , marker] = item;
+            if (k === 'direction') entry.direction = v as 'in' | 'out';
+            else if (k === 'amount') entry.amount = String(v);
+            else if (k === 'e' && marker === 'created') entry.createdTokens?.push(v);
+            else if (k === 'e' && marker === 'destroyed') entry.destroyedTokens?.push(v);
+          }
+
+          // unencrypted redeemed tags
+          for (const tag of event.tags) {
+            if (tag[0] === 'e' && tag[3] === 'redeemed') {
+              entry.redeemedTokens?.push(tag[1]);
+            }
+          }
+
+          const amountNum = parseInt(entry.amount, 10) || 0;
+
+          if (amountNum <= 0) {
+            continue;
+          }
+
+          batch.push(entry);
+          processedIdsRef.current.add(event.id);
+        } catch (error) {
+          // ignore
         }
       }
 
-      // Sort by timestamp (newest first)
-      parsedTransactions.sort((a, b) => b.timestamp - a.timestamp);
+      if (batch.length) {
+        historyStore.addHistoryEntries(batch as any);
+        if (user?.pubkey) persistProcessedIds(user.pubkey, processedIdsRef.current);
+      }
 
-      // Cache the transactions
-      historyStore.setTransactions(user.pubkey, parsedTransactions);
-
-      return parsedTransactions;
+      return batch.length;
     },
-    enabled: !!user,
-    staleTime: 30000, // Consider data stale after 30 seconds
-    gcTime: 300000, // Keep in cache for 5 minutes
+    select: (count) => count,
   });
 
+  const history = historyStore.getHistoryEntries();
+
   return {
-    transactions,
+    history,
     isLoading,
-    error,
+    error: (error as any) ?? null,
     refetch,
     createHistory: createHistoryMutation.mutateAsync,
     isCreating: createHistoryMutation.isPending,
+    fetchedNewCount,
   };
 }
 
@@ -148,28 +295,21 @@ export function useCashuHistory(): UseCashuHistoryResult {
  * Hook to get transaction statistics
  */
 export function useCashuStats() {
-  const { transactions } = useCashuHistory();
+  const { history } = useCashuHistory();
 
   const stats = {
-    totalSent: transactions
-      .filter(t => ['send', 'nutzap_send'].includes(t.type) && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0),
-    
-    totalReceived: transactions
-      .filter(t => ['receive', 'nutzap_receive'].includes(t.type) && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0),
-    
-    totalMinted: transactions
-      .filter(t => t.type === 'mint' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0),
-    
-    totalMelted: transactions
-      .filter(t => t.type === 'melt' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0),
-    
-    transactionCount: transactions.filter(t => t.status === 'completed').length,
-    
-    recentTransactions: transactions.slice(0, 5),
+    totalSent: history
+      .filter(t => t.direction === 'out')
+      .reduce((sum, t) => sum + (parseInt(t.amount, 10) || 0), 0),
+
+    totalReceived: history
+      .filter(t => t.direction === 'in')
+      .reduce((sum, t) => sum + (parseInt(t.amount, 10) || 0), 0),
+
+    totalMinted: 0,
+    totalMelted: 0,
+    transactionCount: history.length,
+    recentTransactions: history.slice(0, 5),
   };
 
   return stats;

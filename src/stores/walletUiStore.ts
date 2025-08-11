@@ -8,6 +8,7 @@ interface WalletUiState {
     nutzap: boolean;
     history: boolean;
     mints: boolean;
+    cashuRelay: boolean;
   };
   toggleCardExpansion: (cardKey: keyof WalletUiState['expandedCards']) => void;
   setCardExpansion: (cardKey: keyof WalletUiState['expandedCards'], isExpanded: boolean) => void;
@@ -27,6 +28,7 @@ export const useWalletUiStore = create<WalletUiState>()(
         nutzap: false,
         history: true,
         mints: true,
+        cashuRelay: false,
       },
       showWallet: false,
       balanceAnimation: false,

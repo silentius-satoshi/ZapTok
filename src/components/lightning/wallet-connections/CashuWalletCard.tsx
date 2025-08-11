@@ -23,7 +23,7 @@ import {
   Trash,
   Eraser,
 } from "lucide-react";
-import { useCashuStore } from "@/stores/cashuStore";
+import { useCashuStore, CashuWalletStruct } from "@/stores/cashuStore";
 
 import { Badge } from "@/components/ui/badge";
 import { useCashuToken } from "@/hooks/useCashuToken";
@@ -106,10 +106,18 @@ export function CashuWalletCard() {
       new URL(newMint);
 
       // Add mint to wallet
-      handleCreateWallet({
-        ...wallet,
+      const updatedWalletData: CashuWalletStruct = {
+        id: crypto.randomUUID(),
+        name: 'My Wallet',
+        unit: 'sat',
         mints: [...wallet.mints, newMint],
-      });
+        balance: 0,
+        proofs: [],
+        lastUpdated: Date.now(),
+        privkey: wallet.privkey,
+      };
+      
+      handleCreateWallet(updatedWalletData);
 
       // Clear input
       setNewMint("");
@@ -133,10 +141,18 @@ export function CashuWalletCard() {
 
     try {
       // Remove mint from wallet
-      handleCreateWallet({
-        ...wallet,
+      const updatedWalletData: CashuWalletStruct = {
+        id: crypto.randomUUID(),
+        name: 'My Wallet',
+        unit: 'sat',
         mints: wallet.mints.filter((m) => m !== mintUrl),
-      });
+        balance: 0,
+        proofs: [],
+        lastUpdated: Date.now(),
+        privkey: wallet.privkey,
+      };
+      
+      handleCreateWallet(updatedWalletData);
     } catch {
       setError("Failed to remove mint");
     }

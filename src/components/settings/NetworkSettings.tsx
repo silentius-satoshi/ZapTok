@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Link, Trash2, HelpCircle } from 'lucide-react';
+import { Link, Trash2, HelpCircle, Plug } from 'lucide-react';
 import { SettingsSection } from './SettingsSection';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useCaching } from '@/contexts/CachingContext';
@@ -31,6 +32,8 @@ export function NetworkSettings({
   const { config, addRelay, removeRelay } = useAppContext();
   const { currentService, connectToCachingService, disconnectCachingService } = useCaching();
   const { toast } = useToast();
+  const [cachingServiceInput, setCachingServiceInput] = useState('');
+  const [isConnectingToCaching, setIsConnectingToCaching] = useState(false);
 
   // Function to normalize relay URL by adding wss:// if no protocol is present
   const normalizeRelayUrl = (url: string): string => {
@@ -87,6 +90,37 @@ export function NetworkSettings({
       newSet.delete(relayUrl);
       return newSet;
     });
+  };
+
+  const handleConnectToCachingService = async () => {
+    if (!cachingServiceInput.trim()) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid caching service URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const normalizedUrl = normalizeRelayUrl(cachingServiceInput);
+    setIsConnectingToCaching(true);
+
+    try {
+      await connectToCachingService(normalizedUrl);
+      setCachingServiceInput('');
+      toast({
+        title: "Connected",
+        description: "Successfully connected to caching service",
+      });
+    } catch (error) {
+      toast({
+        title: "Connection Failed",
+        description: error instanceof Error ? error.message : "Failed to connect to caching service",
+        variant: "destructive",
+      });
+    } finally {
+      setIsConnectingToCaching(false);
+    }
   };
 
   // Get relay status based on current relay selection
@@ -147,9 +181,33 @@ export function NetworkSettings({
           <div>
             <p className="text-gray-400 mb-3">Connected caching service</p>
             {currentService ? (
-              <div className="flex items-center gap-4 text-lg">
+              <div className="flex items-center gap-4 text-lg py-3">
                 <div className={`w-3 h-3 rounded-full ${currentService.isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <span className="text-gray-300 truncate">{currentService.url}</span>
+                <span className="text-gray-300 truncate flex-1">{currentService.url}</span>
+                <div className="flex items-center gap-2 ml-auto">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-500 hover:text-gray-300 hover:bg-gray-700"
+                    onClick={() => disconnectCachingService()}
+                  >
+                    disconnect
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-400 hover:bg-red-500/10 p-1"
+                    onClick={() => {
+                      disconnectCachingService();
+                      toast({
+                        title: "Service Removed",
+                        description: "Caching service has been disconnected and removed",
+                      });
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-4 text-lg">
@@ -166,9 +224,25 @@ export function NetworkSettings({
                 <input
                   type="text"
                   placeholder="wss://cachingservice.url"
-                  className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500"
+                  value={cachingServiceInput}
+                  onChange={(e) => setCachingServiceInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleConnectToCachingService();
+                    }
+                  }}
+                  disabled={isConnectingToCaching}
+                  className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 disabled:opacity-50"
                 />
-                <Link className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <button
+                  onClick={handleConnectToCachingService}
+                  disabled={isConnectingToCaching || !cachingServiceInput.trim()}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plug className={`h-5 w-5 text-gray-400 hover:text-gray-300 transition-colors cursor-pointer ${
+                    isConnectingToCaching ? 'animate-pulse' : ''
+                  }`} />
+                </button>
               </div>
             </div>
           </div>
@@ -267,7 +341,7 @@ export function NetworkSettings({
                       className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500"
                       autoFocus
                     />
-                    <Link className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Plug className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 hover:text-gray-300 transition-colors cursor-pointer" />
                   </div>
                 </div>
                 <div className="flex space-x-2">
@@ -302,7 +376,7 @@ export function NetworkSettings({
                     onClick={() => setShowCustomInput(true)}
                     readOnly
                   />
-                  <Link className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Plug className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 hover:text-gray-300 transition-colors cursor-pointer" />
                 </div>
               </div>
             )}

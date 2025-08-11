@@ -13,7 +13,9 @@ export function useLikedVideos(pubkey?: string) {
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
       
+    if (import.meta.env.DEV) {
       console.log('❤️ Fetching liked videos for pubkey:', pubkey);
+    }
       
       // First, get all reaction events (kind 7) by this user where they liked something
       const reactionEvents = await nostr.query([
@@ -24,7 +26,9 @@ export function useLikedVideos(pubkey?: string) {
         }
       ], { signal });
 
+    if (import.meta.env.DEV) {
       console.log('❤️ Found reaction events:', reactionEvents.length);
+    }
 
       // Filter for positive reactions (likes)
       const likeEvents = reactionEvents.filter(reaction => {
@@ -32,14 +36,18 @@ export function useLikedVideos(pubkey?: string) {
         return content === '+' || content === '❤️' || content === '👍' || content === '🤙';
       });
 
+    if (import.meta.env.DEV) {
       console.log('❤️ Filtered like events:', likeEvents.length);
+    }
 
       // Extract the event IDs that were liked
       const likedEventIds = likeEvents
         .map(reaction => reaction.tags.find(tag => tag[0] === 'e')?.[1])
         .filter((id): id is string => Boolean(id));
 
+    if (import.meta.env.DEV) {
       console.log('❤️ Liked event IDs:', likedEventIds.length);
+    }
 
       if (likedEventIds.length === 0) {
         return [];
@@ -52,7 +60,9 @@ export function useLikedVideos(pubkey?: string) {
         }
       ], { signal });
 
+    if (import.meta.env.DEV) {
       console.log('❤️ Found liked events:', likedEvents.length);
+    }
 
       // Validate and filter for video events
       const likedVideoEvents: VideoEvent[] = [];
@@ -64,7 +74,9 @@ export function useLikedVideos(pubkey?: string) {
         }
       }
 
+    if (import.meta.env.DEV) {
       console.log('❤️ Valid liked video events:', likedVideoEvents.length);
+    }
 
       // Sort by the like time (when the user liked it)
       // We need to match the liked events back to their reaction times

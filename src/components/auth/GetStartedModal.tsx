@@ -8,6 +8,8 @@ import { ArrowLeft, Camera, User } from 'lucide-react';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
+import { useNostr } from '@nostrify/react';
+import { NLogin, NUser } from '@nostrify/react/login';
 
 interface GetStartedModalProps {
   onClose: () => void;
@@ -22,6 +24,7 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
   
   const { mutate: createEvent } = useNostrPublish();
   const login = useLoginActions();
+  const { nostr } = useNostr();
 
   // Generate a fresh keypair when the modal opens
   useEffect(() => {
@@ -71,18 +74,28 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
     
     setIsLoading(true);
     try {
-      // First, log in with the new keypair
-      await login.nsec(newKeypair.nsec);
+      // Create the new login but don't add it yet
+      const newLogin = NLogin.fromNsec(newKeypair.nsec);
+      const newUser = NUser.fromNsecLogin(newLogin);
       
-      // Then create the profile metadata event
-      createEvent({
+      // Create profile metadata event with the NEW user's signer
+      const profileEvent = await newUser.signer.signEvent({
         kind: 0,
         content: JSON.stringify({
           name: name.trim() || undefined,
           picture: profileImage || undefined,
         }),
         tags: [],
+        created_at: Math.floor(Date.now() / 1000),
       });
+      
+      // Publish the event with the new user's credentials
+      await nostr.event(profileEvent, { signal: AbortSignal.timeout(5000) });
+      
+      // Only after successful profile creation, add the login
+      await login.nsec(newKeypair.nsec);
+      
+      console.log('Profile created and published for new account:', newUser.pubkey);
       
       // Close modal and user is now logged in
       onClose();
@@ -97,17 +110,27 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
     if (!newKeypair) return;
     
     try {
-      // Log in with the new keypair
-      await login.nsec(newKeypair.nsec);
+      // Create the new login but don't add it yet
+      const newLogin = NLogin.fromNsec(newKeypair.nsec);
+      const newUser = NUser.fromNsecLogin(newLogin);
       
-      // Create profile with the generated name
-      createEvent({
+      // Create profile metadata event with the NEW user's signer
+      const profileEvent = await newUser.signer.signEvent({
         kind: 0,
         content: JSON.stringify({
           name: name.trim(),
         }),
         tags: [],
+        created_at: Math.floor(Date.now() / 1000),
       });
+      
+      // Publish the event with the new user's credentials
+      await nostr.event(profileEvent, { signal: AbortSignal.timeout(5000) });
+      
+      // Only after successful profile creation, add the login
+      await login.nsec(newKeypair.nsec);
+      
+      console.log('Profile created and published for new account:', newUser.pubkey);
       
       // Close modal and user is now logged in
       onClose();
@@ -117,15 +140,15 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black flex items-center justify-center p-4 z-50 overflow-y-auto scrollbar-hide">
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-orange-900/20" />
+    <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" style={{ zIndex: 99999, backgroundColor: 'black' }}>
+      <div className="absolute inset-0" style={{ backgroundColor: 'black', zIndex: -1 }} />
       
       <div className="w-full max-w-md my-8 relative z-10">
         <Card className="bg-gray-900 border-gray-700">
           <CardHeader className="text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <img 
-                src="/images/ZapTok-v2.png" 
+                src="/images/ZapTok-v3.png" 
                 alt="ZapTok Logo" 
                 className="w-8 h-8 rounded-lg"
               />

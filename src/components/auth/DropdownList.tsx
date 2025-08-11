@@ -15,14 +15,15 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { useNavigate } from 'react-router-dom';
 import { VideoUploadModal } from '@/components/VideoUploadModal';
+import { PWAInstallModal } from '@/components/PWAInstallModal';
 import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
 import { useState } from 'react';
 
-interface AccountSwitcherProps {
+interface DropdownListProps {
   onAddAccountClick: () => void;
 }
 
-export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
+export function DropdownList({ onAddAccountClick }: DropdownListProps) {
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
   const currentAuthor = useAuthor(currentUser?.pubkey);
   const currentUserMetadata = currentAuthor.data?.metadata;
@@ -30,6 +31,7 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
   
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showPWAInstallModal, setShowPWAInstallModal] = useState(false);
 
   if (!currentUser) return null;
 
@@ -97,7 +99,7 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
           <Wallet className='w-4 h-4' />
-          <span>Lightning Wallet settings</span>
+          <span>Lightning Wallet Settings</span>
         </DropdownMenuItem>
 
         {/* Notifications */}
@@ -106,7 +108,7 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
           <Heart className='w-4 h-4' />
-          <span>Notifications</span>
+          <span>Notification Settings</span>
         </DropdownMenuItem>
 
         {/* Settings */}
@@ -120,17 +122,17 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
         
         {/* About ZapTok */}
         <DropdownMenuItem
-          onClick={() => {/* TODO: Implement about page */}}
+          onClick={() => navigate('/about')}
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
           <Info className='w-4 h-4' />
           <span>About ZapTok</span>
         </DropdownMenuItem>
 
-        {/* Install App - Grayed out */}
+        {/* Install App */}
         <DropdownMenuItem
-          disabled
-          className='flex items-center gap-2 p-2 rounded-md opacity-50 cursor-not-allowed'
+          onClick={() => setShowPWAInstallModal(true)}
+          className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
           <Download className='w-4 h-4' />
           <span>Install App</span>
@@ -160,7 +162,10 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
         <DropdownMenuSeparator />
         
         <DropdownMenuItem
-          onClick={onAddAccountClick}
+          onClick={() => {
+            console.log('Add another account clicked');
+            onAddAccountClick();
+          }}
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
           <UserPlus className='w-4 h-4' />
@@ -181,6 +186,12 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
       <VideoUploadModal 
         isOpen={showUploadModal} 
         onClose={handleUploadModalClose}
+      />
+      
+      {/* PWA Install Modal */}
+      <PWAInstallModal 
+        isOpen={showPWAInstallModal} 
+        onClose={() => setShowPWAInstallModal(false)}
       />
     </DropdownMenu>
   );

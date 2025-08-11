@@ -30,11 +30,13 @@ const Index = () => {
             
             {/* Video Feed */}
             <div className="flex-1 flex items-center justify-center overflow-hidden">
-              <VideoFeed />
+              <div className="w-full max-w-3xl h-full flex items-center justify-center">
+                <VideoFeed />
+              </div>
             </div>
             
             {/* Right Sidebar - Login Area */}
-            <div className="hidden lg:block w-[28rem] p-4 overflow-hidden">
+            <div className="hidden lg:block w-[28rem] overflow-hidden">
               <div className="sticky top-4 space-y-6">
                 {/* Login Area */}
                 <div className="p-4 overflow-hidden">
@@ -46,12 +48,12 @@ const Index = () => {
         </main>
         
         {/* Bottom attribution */}
-        <div className="fixed bottom-4 right-4 text-xs text-gray-500">
+        <div className="fixed bottom-4 right-4 text-sm text-gray-300">
           <a 
             href="https://soapbox.pub/mkstack" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="hover:text-gray-300 transition-colors"
+            className="hover:text-gray-100 transition-colors font-medium"
           >
             Vibed with MKStack
           </a>

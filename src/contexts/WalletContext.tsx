@@ -1,4 +1,4 @@
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState, ReactNode, useRef } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type {
   Transaction,
@@ -6,6 +6,46 @@ import type {
   WebLNProvider,
 } from '@/lib/wallet-types';
 import { WalletContext } from './wallet-context';
+
+// User-specific Lightning wallet balance storage
+const getUserLightningBalanceKey = (pubkey: string) => `lightning_balance_${pubkey}`;
+
+const getUserLightningBalance = (pubkey: string): number => {
+  try {
+    const stored = localStorage.getItem(getUserLightningBalanceKey(pubkey));
+    return stored ? parseInt(stored, 10) : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const setUserLightningBalance = (pubkey: string, balance: number): void => {
+  try {
+    localStorage.setItem(getUserLightningBalanceKey(pubkey), balance.toString());
+  } catch {
+    // Ignore localStorage errors
+  }
+};
+
+// User-specific Lightning wallet connection tracking
+const getUserLightningEnabledKey = (pubkey: string) => `lightning_enabled_${pubkey}`;
+
+const getUserLightningEnabled = (pubkey: string): boolean => {
+  try {
+    const stored = localStorage.getItem(getUserLightningEnabledKey(pubkey));
+    return stored === 'true';
+  } catch {
+    return false;
+  }
+};
+
+const setUserLightningEnabled = (pubkey: string, enabled: boolean): void => {
+  try {
+    localStorage.setItem(getUserLightningEnabledKey(pubkey), enabled.toString());
+  } catch {
+    // Ignore localStorage errors
+  }
+};
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const { user } = useCurrentUser(); // Only auto-connect if user is logged in
@@ -17,9 +57,88 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [transactionSupport, setTransactionSupport] = useState<boolean | null>(null);
 
+  // Track whether current user has Lightning wallet access enabled
+  const [userHasLightningAccess, setUserHasLightningAccess] = useState(false);
+
+  // Track the current user to detect changes
+  const previousUserRef = useRef(user?.pubkey);
+
+  // Ref to track ongoing async operations
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Reset wallet state when user changes
   useEffect(() => {
-    // Only attempt automatic WebLN connection if user is logged in
-    if (!user) {
+    const currentUserPubkey = user?.pubkey;
+    const previousUserPubkey = previousUserRef.current;
+
+    // If user changed (including logout), reset wallet state
+    if (currentUserPubkey !== previousUserPubkey) {
+      if (import.meta.env.DEV) {
+        console.log('👤 User changed, resetting wallet state:', {
+          previous: previousUserPubkey?.slice(0,8) + '...',
+          current: currentUserPubkey?.slice(0,8) + '...',
+          previousWalletInfo: walletInfo,
+          isConnected: isConnected
+        });
+      }
+
+      // Cancel any ongoing async operations
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+
+      // Reset all wallet-related state but handle per-user Lightning access
+      setError(null);
+      setTransactions([]);
+
+      if (currentUserPubkey) {
+        // Check if this user has Lightning wallet access
+        const hasLightningAccess = getUserLightningEnabled(currentUserPubkey);
+        setUserHasLightningAccess(hasLightningAccess);
+
+        if (hasLightningAccess) {
+          // User has Lightning access - maintain connection and load their balance
+          const userBalance = getUserLightningBalance(currentUserPubkey);
+          setWalletInfo(prev => prev ? {
+            ...prev,
+            balance: userBalance
+          } : {
+            alias: 'WebLN Wallet',
+            balance: userBalance,
+            implementation: 'WebLN',
+          });
+        } else {
+          // User doesn't have Lightning access - reset connection state
+          setProvider(null);
+          setIsConnected(false);
+          setWalletInfo(null);
+          setTransactionSupport(null);
+        }
+      } else {
+        // User logged out - reset everything
+        setUserHasLightningAccess(false);
+        setProvider(null);
+        setIsConnected(false);
+        setWalletInfo(null);
+        setTransactionSupport(null);
+      }
+
+      if (import.meta.env.DEV) {
+        console.log('👤 Wallet state reset complete for user:', {
+          user: currentUserPubkey?.slice(0,8) + '...',
+          hasLightningAccess: currentUserPubkey ? getUserLightningEnabled(currentUserPubkey) : false
+        });
+      }
+
+      // Update the ref for next comparison
+      previousUserRef.current = currentUserPubkey;
+    }
+  }, [user?.pubkey, walletInfo]);
+
+  useEffect(() => {
+    // Only attempt automatic WebLN connection if user is logged in and has Lightning access
+    if (!user || !getUserLightningEnabled(user.pubkey)) {
       return;
     }
 
@@ -35,23 +154,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             // Load initial wallet data after enabling
             try {
               const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
+              const userBalance = user?.pubkey ? getUserLightningBalance(user.pubkey) : balance.balance || 0;
+
               setWalletInfo({
                 alias: 'WebLN Wallet',
-                balance: balance.balance || 0,
+                balance: userBalance,
                 implementation: 'WebLN',
               });
 
               // Check transaction support once during initial connection
               setTransactionSupport(!!window.webln.listTransactions);
             } catch {
+            if (import.meta.env.DEV) {
               console.log('Could not load initial wallet data');
             }
+            }
           } catch {
+          if (import.meta.env.DEV) {
             console.log('WebLN provider not enabled or user rejected');
+          }
           }
         }
       } catch {
+      if (import.meta.env.DEV) {
         console.log('No existing wallet connection');
+      }
       }
     };
 
@@ -59,6 +186,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [user]); // Only run when user login state changes
 
   const connect = async () => {
+    if (!user?.pubkey) {
+      throw new Error('User must be logged in to connect Lightning wallet');
+    }
+
     try {
       setError(null);
       setIsLoading(true);
@@ -69,12 +200,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setProvider(window.webln);
         setIsConnected(true);
 
+        // Mark this user as having Lightning access
+        setUserLightningEnabled(user.pubkey, true);
+        setUserHasLightningAccess(true);
+
         // Load initial wallet data
         try {
           const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
+          const actualBalance = balance.balance || 0;
+
+          // Store the actual balance for this user
+          setUserLightningBalance(user.pubkey, actualBalance);
+
           setWalletInfo({
             alias: 'WebLN Wallet',
-            balance: balance.balance || 0,
+            balance: actualBalance,
             implementation: 'WebLN',
           });
 
@@ -114,6 +254,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await provider.sendPayment(invoice);
+
+      // Update balance after successful payment and store per user
+      if (user?.pubkey) {
+        try {
+          await getBalance(); // This will update the stored balance
+        } catch {
+          // Balance update failed but payment succeeded
+        }
+      }
+
       // Refresh transaction history after payment
       await getTransactionHistory();
       return { preimage: response.preimage };
@@ -131,11 +281,28 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         await provider.enable();
       }
 
-      if (provider.getBalance) {
+      if (provider.getBalance && user?.pubkey) {
         const response = await provider.getBalance();
-        return response.balance;
+        const actualBalance = response.balance;
+
+        // Store the actual balance from WebLN for this user
+        setUserLightningBalance(user.pubkey, actualBalance);
+
+        // Update walletInfo with the new balance
+        setWalletInfo(prev => prev ? {
+          ...prev,
+          balance: actualBalance
+        } : {
+          alias: 'WebLN Wallet',
+          balance: actualBalance,
+          implementation: 'WebLN',
+        });
+
+        return actualBalance;
       }
-      return 0; // Some wallets don't support balance queries
+
+      // Return stored user balance if WebLN getBalance not available
+      return user?.pubkey ? getUserLightningBalance(user.pubkey) : 0;
     } catch (error) {
       if (error instanceof Error && error.message.includes('enable')) {
         throw new Error('Wallet provider must be enabled before checking balance');
@@ -167,7 +334,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         await provider.enable();
       }
 
-      const balance = await getBalance();
+      const balance = await getBalance(); // This now handles user-specific storage
       let info: Record<string, unknown> = {};
 
       if (provider.getInfo) {
@@ -189,12 +356,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const getTransactionHistory = async (args?: { 
-    from?: number; 
-    until?: number; 
-    limit?: number; 
-    offset?: number; 
-    unpaid?: boolean; 
+  const getTransactionHistory = async (args?: {
+    from?: number;
+    until?: number;
+    limit?: number;
+    offset?: number;
+    unpaid?: boolean;
     type?: "incoming" | "outgoing";
   }): Promise<Transaction[]> => {
     if (!provider) throw new Error('No wallet connected');
@@ -205,6 +372,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         await provider.enable();
       }
 
+      // Create abort controller for this operation
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      const currentAbortController = abortControllerRef.current;
+
       let transactions: Transaction[] = [];
 
       // Use cached transaction support check to avoid repeated calls
@@ -212,29 +386,45 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         // First time check - update the support flag
         const hasSupport = !!provider.listTransactions;
         setTransactionSupport(hasSupport);
-        
+
         if (!hasSupport) {
+          if (import.meta.env.DEV) {
           console.log('listTransactions method not available on provider (browser extension limitation)');
+          }
           setTransactions([]);
           return [];
         }
       } else if (transactionSupport === false) {
         // Already confirmed no support, skip API call
+        if (import.meta.env.DEV) {
         console.log('Skipping transaction history call - provider does not support listTransactions');
+        }
         setTransactions([]);
         return [];
       }
 
       // Provider supports transactions, proceed with API call
       if (provider.listTransactions) {
-        console.log('Fetching transaction history with args:', args);
-        
+        if (import.meta.env.DEV) {
+          console.log('Fetching transaction history with args:', args);
+        }
+
         try {
           // Call listTransactions with optional parameters
           const response = await provider.listTransactions(args || { limit: 50 });
-          
+
+          // Check if operation was cancelled
+          if (currentAbortController.signal.aborted) {
+            if (import.meta.env.DEV) {
+              console.log('Transaction history fetch aborted - user changed');
+            }
+            return [];
+          }
+
+          if (import.meta.env.DEV) {
           console.log('Transaction response:', response);
-          
+          }
+
           // Map the NWC/NIP-47 transaction format to our internal format
           transactions = response.transactions?.map((tx: Record<string, unknown>) => ({
             id: (tx.payment_hash as string) || (tx.id as string) || Math.random().toString(36),
@@ -247,14 +437,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             settled: tx.settled !== false,
           })) || [];
 
+          if (import.meta.env.DEV) {
           console.log('Mapped transactions:', transactions);
+          }
         } catch (error) {
+          if (import.meta.env.DEV) {
           console.log('Failed to fetch transactions from provider:', error);
+          }
           // Fall through to show unsupported message
         }
       }
 
-      setTransactions(transactions);
+      // Final check before setting state - make sure operation wasn't cancelled
+      if (!currentAbortController.signal.aborted) {
+        setTransactions(transactions);
+      }
+
       return transactions;
     } catch (error) {
       console.error('Failed to fetch transaction history:', error);
@@ -280,6 +478,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       transactions,
       isLoading,
       transactionSupport,
+      userHasLightningAccess,
     }}>
       {children}
     </WalletContext.Provider>

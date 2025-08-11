@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { SignInModal } from './SignInModal';
 import GetStartedModal from './GetStartedModal';
+import { PWAInstallModal } from '@/components/PWAInstallModal';
+import { usePWA } from '@/hooks/usePWA';
+import { Monitor, Download } from 'lucide-react';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -12,6 +15,13 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const { user } = useCurrentUser();
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [showGetStartedModal, setShowGetStartedModal] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const {
+    isInstallable,
+    isInstalled,
+    isStandalone,
+    isInstalling,
+  } = usePWA();
 
   // Auto-close modal when user logs in
   useEffect(() => {
@@ -31,6 +41,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   if (!isOpen) return null;
 
+  // Original full-screen layout for initial login
   return (
     <>
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center relative overflow-hidden">
@@ -39,7 +50,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         <div className="relative z-10 text-center">
           <div className="flex items-center justify-center space-x-4 mb-8">
             <img 
-              src="/images/ZapTok-v2.png"
+              src="/images/ZapTok-v3.png"
               alt="ZapTok"
               className="w-16 h-16 rounded-2xl shadow-lg border border-gray-700/50"
             />
@@ -71,17 +82,38 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               Sign in
             </button>
           </div>
+
+          {/* PWA Install Section - show when not in standalone mode for better discoverability */}
+          {!isStandalone && (
+            <div className="mt-8 p-6 bg-gray-800/20 backdrop-blur-sm rounded-2xl border border-gray-600/30">
+              <div className="flex items-center justify-center space-x-3 mb-3">
+                <Monitor className="h-6 w-6 text-gray-400" />
+                <h3 className="text-xl font-medium text-white">Get the App</h3>
+              </div>
+              <p className="text-gray-400 text-base mb-6 text-center">
+                Install ZapTok for the best experience
+              </p>
+              <button
+                onClick={() => setShowInstallModal(true)}
+                disabled={isInstalling}
+                className="w-full flex items-center justify-center space-x-2 bg-gray-700/40 hover:bg-gray-600/50 border border-gray-500/40 text-white px-6 py-4 rounded-xl transition-all font-medium text-base"
+              >
+                <Download className="h-5 w-5" />
+                <span>{isInstalling ? 'Installing...' : 'Install App'}</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Credit at the bottom */}
         <div className="absolute bottom-6 text-center">
           <a 
-            href="https://github.com/silentius-satoshi/ZapTok" 
+            href="https://soapbox.pub/mkstack/" 
             target="_blank" 
             rel="noopener noreferrer" 
-            className="text-xs text-gray-500 hover:text-gray-400 transition-colors opacity-60 hover:opacity-80"
+            className="text-sm text-gray-300 hover:text-gray-100 transition-colors font-medium"
           >
-            vibed by @silentius
+            vibed by MKStack
           </a>
         </div>
       </div>
@@ -102,6 +134,12 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           }}
         />
       )}
+
+      {/* PWA Install Modal */}
+      <PWAInstallModal 
+        isOpen={showInstallModal} 
+        onClose={() => setShowInstallModal(false)} 
+      />
     </>
   );
 }

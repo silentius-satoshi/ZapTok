@@ -80,12 +80,14 @@ export function useBookmarkVideo() {
         ...newBookmarks.map(id => ['e', id]), // event references
       ];
 
+    if (import.meta.env.DEV) {
       console.log('🔖 Publishing bookmark update:', {
         action: isCurrentlyBookmarked ? 'REMOVE' : 'ADD',
         eventId,
         newBookmarkCount: newBookmarks.length,
         tags,
       });
+    }
 
       await createEvent({
         kind: 10003, // Updated to NIP-51 standard bookmarks list (was deprecated 30001)
@@ -93,7 +95,9 @@ export function useBookmarkVideo() {
         tags: tags,
       });
 
+      if (import.meta.env.DEV) {
       console.log('🔖 Bookmark event published successfully');
+      }
 
       return {
         isNowBookmarked: !isCurrentlyBookmarked,

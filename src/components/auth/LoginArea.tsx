@@ -1,15 +1,17 @@
 // NOTE: This file is stable and usually should not be modified.
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { LoginModal } from './LoginModal';
+import { AddAccountDialog } from './AddAccountDialog';
 import { useLoggedInAccounts } from '@/hooks/useLoggedInAccounts';
-import { AccountSwitcher } from './AccountSwitcher';
+import { DropdownList } from './DropdownList';
 import { useWallet } from '@/hooks/useWallet';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
+import { useUserCashuStore } from '@/stores/userCashuStore';
 import { cn } from '@/lib/utils';
 
 export interface LoginAreaProps {
@@ -18,20 +20,55 @@ export interface LoginAreaProps {
 
 export function LoginArea({ className }: LoginAreaProps) {
   const { currentUser } = useLoggedInAccounts();
-  const { walletInfo, isConnected, getBalance, provider } = useWallet();
+  const { walletInfo, isConnected, getBalance, provider, userHasLightningAccess } = useWallet();
   const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
+  const cashuStore = useUserCashuStore(currentUser?.pubkey);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [addAccountDialogOpen, setAddAccountDialogOpen] = useState(false);
   const [currency, setCurrency] = useState<'BTC' | 'USD'>('BTC');
   const navigate = useNavigate();
+
+  // Reset currency state when user changes to ensure UI updates
+  useEffect(() => {
+    if (currentUser) {
+      // Force currency toggle to re-evaluate by resetting to BTC
+      setCurrency('BTC');
+    }
+  }, [currentUser?.pubkey]);
+
+  // Bundle balance logging to reduce console noise
+  const balanceLogRef = useRef({
+    lastLogTime: 0,
+    callCount: 0,
+    lastBalance: 0,
+  });
 
   // Function to refresh wallet balance
   const refreshBalance = useCallback(async () => {
     if (provider && isConnected) {
       try {
-        console.log('Refreshing wallet balance...');
         const newBalance = await getBalance();
-        console.log('New balance retrieved:', newBalance);
-        // The balance should be updated in the wallet context
+
+        // Bundle balance refresh logging
+        if (import.meta.env.DEV) {
+          balanceLogRef.current.callCount++;
+          const now = Date.now();
+
+          // Log summary every 5 seconds or if balance changed
+          const shouldLog = now - balanceLogRef.current.lastLogTime > 5000 ||
+                           newBalance !== balanceLogRef.current.lastBalance;
+
+          if (shouldLog) {
+            console.log(`💰 Wallet Balance Update:`, {
+              refreshCount: balanceLogRef.current.callCount,
+              newBalance,
+              isConnected,
+              provider: provider ? 'connected' : 'disconnected',
+            });
+            balanceLogRef.current.lastLogTime = now;
+            balanceLogRef.current.lastBalance = newBalance || 0;
+          }
+        }
       } catch (error) {
         console.error('Failed to refresh balance:', error);
       }
@@ -45,24 +82,40 @@ export function LoginArea({ className }: LoginAreaProps) {
     }
   }, [isConnected, provider, refreshBalance]);
 
-  const formatBalance = () => {
-    const balance = walletInfo?.balance || 0;
+  const formatBalance = useCallback(() => {
+    // Only include Lightning balance if user has Lightning access
+    const lightningBalance = userHasLightningAccess ? (walletInfo?.balance || 0) : 0;
+    const cashuBalance = cashuStore?.wallets
+      ? cashuStore.wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0)
+      : 0;
+    const totalBalance = lightningBalance + cashuBalance;
 
-    // Debug logging
-    console.log('formatBalance called:', { balance, walletInfo, isConnected, btcPriceData });
+    // Debug logging for balance calculation
+    if (import.meta.env.DEV) {
+      console.log(`💳 Balance Display (${currentUser?.pubkey?.slice(0,8)}...): ₿${totalBalance} sats (⚡${lightningBalance} + 🥜${cashuBalance})`, {
+        lightningBalance,
+        cashuBalance,
+        totalBalance,
+        userHasLightningAccess,
+        walletInfo: walletInfo ? { balance: walletInfo.balance, alias: walletInfo.alias, implementation: walletInfo.implementation } : null,
+        cashuWallets: cashuStore?.wallets?.map(w => ({ id: w.id, balance: w.balance })) || [],
+        user: currentUser?.pubkey?.slice(0,8) + '...',
+        isWalletConnected: isConnected
+      });
+    }
 
     if (currency === 'BTC') {
-      return `${balance.toLocaleString()} sats`;
+      return `${totalBalance.toLocaleString()} sats`;
     } else {
       // Use the existing useBitcoinPrice hook utilities
       if (btcPriceData?.USD) {
-        const usdAmount = satsToUSD(balance, btcPriceData.USD);
-        return `$${usdAmount.toFixed(2)} USD`;
+        const usdAmount = satsToUSD(totalBalance, btcPriceData.USD);
+        return `${usdAmount.toFixed(2)} USD`;
       } else {
-        return `$${balance.toLocaleString()} sats (price loading...)`;
+        return `${totalBalance.toLocaleString()} sats (price loading...)`;
       }
     }
-  };
+  }, [walletInfo?.balance, cashuStore?.wallets, currency, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
 
   // Lightning wallet button - Enhanced with better styling
   const LightningWalletButton = () => (
@@ -75,13 +128,22 @@ export function LoginArea({ className }: LoginAreaProps) {
     </button>
   );
 
+  // Determine if currency toggle should be shown - Always show for logged-in users
+  const shouldShowCurrencyToggle = useMemo(() => {
+    // Always show currency toggle for any logged-in user
+    return !!currentUser;
+  }, [currentUser]);
+
   // Currency toggle button (BTC/USD) with balance display - Enhanced styling
   const CurrencyToggleButton = () => (
     <button
       className='group flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200 whitespace-nowrap min-w-fit'
       onClick={() => {
-        setCurrency(prev => prev === 'BTC' ? 'USD' : 'BTC');
-        console.log('Currency toggled to:', currency === 'BTC' ? 'USD' : 'BTC');
+        const newCurrency = currency === 'BTC' ? 'USD' : 'BTC';
+        setCurrency(newCurrency);
+        if (import.meta.env.DEV) {
+          console.log(`💱 Currency switched to: ${newCurrency}`);
+        }
       }}
       title={`Switch to ${currency === 'BTC' ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`}
     >
@@ -111,12 +173,12 @@ export function LoginArea({ className }: LoginAreaProps) {
           {/* Lightning Wallet Button */}
           <LightningWalletButton />
 
-          {/* Currency Toggle Button - only show if wallet is connected */}
-          {isConnected && <CurrencyToggleButton />}
+          {/* Currency Toggle Button - show based on computed logic */}
+          {shouldShowCurrencyToggle && <CurrencyToggleButton />}
 
           {/* Account Switcher */}
           <div className="flex-shrink-0">
-            <AccountSwitcher onAddAccountClick={() => setLoginModalOpen(true)} />
+            <DropdownList onAddAccountClick={() => setAddAccountDialogOpen(true)} />
           </div>
         </div>
       ) : (
@@ -129,9 +191,14 @@ export function LoginArea({ className }: LoginAreaProps) {
         </Button>
       )}
 
-      <LoginModal
+            <LoginModal
         isOpen={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
+      />
+
+      <AddAccountDialog
+        isOpen={addAccountDialogOpen}
+        onClose={() => setAddAccountDialogOpen(false)}
       />
     </div>
   );

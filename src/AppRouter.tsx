@@ -1,7 +1,18 @@
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { useVideoPlayback } from "@/contexts/VideoPlaybackContext";
+import { useContextualRelays } from "@/hooks/useContextualRelays";
 import { useEffect } from "react";
+import { logRoute } from "@/lib/devLogger";
+import NostrProvider from "@/components/NostrProvider";
+import { CachingProvider } from "@/components/CachingProvider";
+import { WalletProvider } from "@/contexts/WalletContext";
+import { UnifiedWalletProvider } from "@/contexts/UnifiedWalletContext";
+import { VideoPlaybackProvider } from "@/contexts/VideoPlaybackContext";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { WalletLoader } from "@/components/WalletLoader";
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 
 import Index from "./pages/Index";
 import Profile from "./pages/Profile";
@@ -12,11 +23,15 @@ import { Settings } from "./pages/Settings";
 import { LightningWallet } from "./pages/LightningWallet";
 import { Stream } from "./components/stream/Stream";
 import { NostrEntity } from "./pages/NostrEntity";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
 function RouteHandler() {
   const location = useLocation();
   const { resumeAllVideos } = useVideoPlayback();
+
+  // Automatically optimize relay connections based on current route
+  const { currentContext, isOptimized } = useContextualRelays();
 
   useEffect(() => {
     // Resume videos when navigating to video feed pages
@@ -24,6 +39,13 @@ function RouteHandler() {
       resumeAllVideos();
     }
   }, [location.pathname, resumeAllVideos]);
+
+  // Optional: Log relay optimization for debugging (only in development)
+  useEffect(() => {
+    if (isOptimized && import.meta.env.DEV) {
+      logRoute('info', `Using ${currentContext} relay context for ${location.pathname}`);
+    }
+  }, [currentContext, isOptimized, location.pathname]);
 
   return (
     <Routes>
@@ -34,6 +56,7 @@ function RouteHandler() {
       <Route path="/global" element={<Global />} />
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/settings" element={<Settings />} />
+      <Route path="/about" element={<About />} />
       <Route path="/wallet" element={<LightningWallet />} />
       <Route path="/stream" element={<Stream />} />
       {/* Nostr entity handler - must be after specific routes */}
@@ -46,9 +69,29 @@ function RouteHandler() {
 
 export function AppRouter() {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <ScrollToTop />
-      <RouteHandler />
+      <NostrProvider>
+        <CachingProvider>
+          <WalletProvider>
+            <UnifiedWalletProvider>
+              <VideoPlaybackProvider>
+                <TooltipProvider>
+                  <WalletLoader />
+                  <Toaster />
+                  <Sonner />
+                  <RouteHandler />
+                </TooltipProvider>
+              </VideoPlaybackProvider>
+            </UnifiedWalletProvider>
+          </WalletProvider>
+        </CachingProvider>
+      </NostrProvider>
     </BrowserRouter>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,9 +23,12 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   const [isLocked, setIsLocked] = useState(false);
 
   // Auto-close modal when user logs in
-  if (user) {
-    onClose();
-  }
+  useEffect(() => {
+    if (user && isOpen) {
+      // Defer the modal close to avoid state update during render warning
+      setTimeout(() => onClose(), 0);
+    }
+  }, [user, isOpen, onClose]);
 
   const handleExtensionLogin = async () => {
     setIsLocked(true);
@@ -36,7 +39,8 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       console.log('Starting extension login process...');
       await login.extension();
       console.log('Extension login successful, closing modal');
-      onClose();
+      // Defer the modal close to avoid state update during render warning
+      setTimeout(() => onClose(), 0);
     } catch (error) {
       console.error('Extension login failed:', error);
       toast({
@@ -53,7 +57,8 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     setIsLocked(true);
     try {
       await login.nsec(privateKey);
-      onClose();
+      // Defer the modal close to avoid state update during render warning
+      setTimeout(() => onClose(), 0);
     } catch (error) {
       console.error('Private key login failed:', error);
       toast({
@@ -71,7 +76,8 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     setIsLocked(true);
     try {
       await login.bunker(bunkerUrl);
-      onClose();
+      // Defer the modal close to avoid state update during render warning
+      setTimeout(() => onClose(), 0);
     } catch (error) {
       console.error('Bunker login failed:', error);
       toast({
@@ -88,15 +94,15 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 overflow-y-auto scrollbar-hide">
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-orange-900/20" />
+    <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" style={{ zIndex: 99999, backgroundColor: 'black' }}>
+      <div className="absolute inset-0" style={{ backgroundColor: 'black', zIndex: -1 }} />
       
       <div className="w-full max-w-md my-8 relative z-10">
         <Card className="bg-transparent backdrop-blur-sm border-none relative">
           <CardHeader className="text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <img 
-                src="/images/ZapTok-v2.png" 
+                src="/images/ZapTok-v3.png" 
                 alt="ZapTok Logo" 
                 className="w-8 h-8 rounded-lg"
               />

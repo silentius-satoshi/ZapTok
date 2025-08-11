@@ -2,19 +2,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createHead, UnheadProvider } from '@unhead/react/client';
 import { InferSeoMetaPlugin } from '@unhead/addons';
 import { Suspense, useEffect } from 'react';
-import NostrProvider from '@/components/NostrProvider';
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AuthFilter } from '@/components/auth/AuthFilter';
-import { WalletProvider } from '@/contexts/WalletContext';
-import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
-import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
+import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
-import { WalletLoader } from '@/components/WalletLoader';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -23,6 +16,7 @@ const head = createHead({
   ],
 });
 
+// Create QueryClient instance outside of component to prevent recreation
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -36,14 +30,20 @@ const queryClient = new QueryClient({
 const defaultConfig: AppConfig = {
   theme: "dark", // Changed to dark theme for ZapTok
   relayUrls: [
+    // Start with Chorus relay first for better Cashu transaction discovery
+    "wss://relay.chorus.community",
     "wss://relay.nostr.band",
-    "wss://ditto.pub/relay", 
+    "wss://ditto.pub/relay",
     "wss://relay.damus.io",
     "wss://relay.primal.net"
   ],
+  relayContext: 'all', // Start with all relays, will be optimized automatically
+  defaultZap,
+  availableZapOptions: defaultZapOptions,
 };
 
 const presetRelays = [
+  { url: 'wss://relay.chorus.community', name: 'Chorus' },
   { url: 'wss://ditto.pub/relay', name: 'Ditto' },
   { url: 'wss://relay.nostr.band', name: 'Nostr.Band' },
   { url: 'wss://relay.damus.io', name: 'Damus' },
@@ -65,6 +65,7 @@ function AppContent() {
         </div>
       </div>
     }>
+      {/* Main App Router */}
       <AppRouter />
     </Suspense>
   );
@@ -77,20 +78,7 @@ export function App() {
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
             <AuthFilter>
-              <NostrProvider>
-                <CachingProvider>
-                  <WalletProvider>
-                    <VideoPlaybackProvider>
-                      <TooltipProvider>
-                        <WalletLoader />
-                        <Toaster />
-                        <Sonner />
-                        <AppContent />
-                      </TooltipProvider>
-                    </VideoPlaybackProvider>
-                  </WalletProvider>
-                </CachingProvider>
-              </NostrProvider>
+              <AppContent />
             </AuthFilter>
           </NostrLoginProvider>
         </QueryClientProvider>

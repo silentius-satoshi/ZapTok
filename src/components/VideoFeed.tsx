@@ -41,14 +41,22 @@ export function VideoFeed() {
   } = useInfiniteQuery({
     queryKey: ['video-feed', following.data?.pubkeys, currentService?.url],
     queryFn: async ({ pageParam, signal }) => {
-      console.log(`🔍 Fetching videos from configured relays`);
-      
+      // Bundle video processing logs
+      const processingStats = {
+        followedAuthors: following.data?.pubkeys?.length || 0,
+        rawEvents: 0,
+        normalVideos: 0,
+        shortVideos: 0,
+        validatedEvents: 0,
+        failedValidation: 0,
+        noVideoUrl: 0,
+        finalVideos: 0,
+      };
+
       let events: NostrEvent[] = [];
       
       // Try to get videos from following list first
       if (following.data?.pubkeys?.length) {
-        console.log(`� Querying ${following.data.pubkeys.length} followed authors`);
-        
         const eventsFromFollowing = await nostr.query([
           {
             kinds: [21, 22], // NIP-71 normal videos, NIP-71 short videos
@@ -59,7 +67,7 @@ export function VideoFeed() {
         ], { signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]) });
         
         events = eventsFromFollowing;
-        console.log(`📋 Found ${events.length} events from following list`);
+        processingStats.rawEvents = events.length;
       }
 
       // Filter and validate video events, removing duplicates by both event ID and video URL
@@ -70,11 +78,11 @@ export function VideoFeed() {
         // Quick filter for potential video content
         if (!hasVideoContent(event)) return;
         
-        // Log what types of video events we're finding
+        // Count video event types
         if (event.kind === 21) {
-          console.log('📹 Found NIP-71 normal video event:', event.content.substring(0, 50));
+          processingStats.normalVideos++;
         } else if (event.kind === 22) {
-          console.log('📱 Found NIP-71 short video event:', event.content.substring(0, 50));
+          processingStats.shortVideos++;
         }
         
         // Only keep the latest version of each event ID
@@ -90,21 +98,16 @@ export function VideoFeed() {
       for (const event of uniqueEvents.values()) {
         const videoEvent = validateVideoEvent(event);
         if (!videoEvent) {
-          console.log('❌ Event failed validation:', event.id, event.content.substring(0, 50));
+          processingStats.failedValidation++;
           continue;
         }
         
         if (!videoEvent.videoUrl) {
-          console.log('❌ Event has no video URL:', event.id, 'Title:', videoEvent.title, 'Hash:', videoEvent.hash);
+          processingStats.noVideoUrl++;
           continue;
         }
         
-        console.log('✅ Valid video event:', {
-          id: event.id,
-          title: videoEvent.title,
-          videoUrl: videoEvent.videoUrl,
-          hash: videoEvent.hash
-        });
+        processingStats.validatedEvents++;
         
         // Normalize URL for comparison to catch duplicates with different parameters
         const normalizedUrl = normalizeVideoUrl(videoEvent.videoUrl);
@@ -118,17 +121,25 @@ export function VideoFeed() {
 
       // Sort by creation time (most recent first)
       const videoEvents = validatedEvents.sort((a, b) => b.created_at - a.created_at);
+      processingStats.finalVideos = videoEvents.length;
 
       // Minimal background processing for faster loading
       if (videoEvents.length > 0) {
         // Only cache video metadata (lightweight)
         cacheVideoMetadata(videoEvents);
-        
-        // Skip heavy prefetching operations for faster initial load
-        // These can be done after the videos are displayed
       }
 
-      console.log(`⚡ Processed ${videoEvents.length} videos in current batch`);
+      // Log bundled video processing summary
+      if (import.meta.env.DEV) {
+        console.log(`🎬 Video Feed Processing Complete:`, {
+          followedAuthors: processingStats.followedAuthors,
+          rawEvents: processingStats.rawEvents,
+          videoTypes: `${processingStats.normalVideos} normal + ${processingStats.shortVideos} short`,
+          validation: `${processingStats.validatedEvents} valid, ${processingStats.failedValidation + processingStats.noVideoUrl} rejected`,
+          finalCount: processingStats.finalVideos,
+        });
+      }
+
       return videoEvents;
     },
     getNextPageParam: (lastPage) => {
@@ -287,7 +298,9 @@ export function VideoFeed() {
   useEffect(() => {
     // Only auto-load if we have a reasonable amount of videos already
     if (videos.length >= 5 && currentVideoIndex >= videos.length - 3 && hasNextPage && !isFetchingNextPage) {
+      if (import.meta.env.DEV) {
       console.log(`📖 Auto-loading more videos... (current: ${currentVideoIndex}, total: ${videos.length})`);
+      }
       fetchNextPage();
     }
   }, [currentVideoIndex, videos.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
@@ -312,7 +325,9 @@ export function VideoFeed() {
         pullDistance = e.touches[0].clientY - startY;
         if (pullDistance > 100 && !isRefreshing) {
           isRefreshing = true;
+          if (import.meta.env.DEV) {
           console.log('🔄 Pull-to-refresh triggered');
+          }
           // Refetch first page to get newer content
           setTimeout(() => {
             window.location.reload(); // Simple refresh for now

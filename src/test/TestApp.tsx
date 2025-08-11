@@ -7,7 +7,9 @@ import { AppProvider } from '@/components/AppProvider';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
+import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
+import { UnifiedWalletProvider } from '@/contexts/UnifiedWalletContext';
 
 interface TestAppProps {
   children: React.ReactNode;
@@ -27,10 +29,12 @@ export function TestApp({ children }: TestAppProps) {
     theme: 'light',
     relayUrls: [
       'wss://relay.nostr.band',
-      'wss://ditto.pub/relay', 
+      'wss://ditto.pub/relay',
       'wss://relay.damus.io',
       'wss://relay.primal.net'
     ],
+    defaultZap,
+    availableZapOptions: defaultZapOptions,
   };
 
   return (
@@ -38,17 +42,19 @@ export function TestApp({ children }: TestAppProps) {
       <AppProvider storageKey='test-app-config' defaultConfig={defaultConfig}>
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='test-login'>
-            <NostrProvider>
-              <CachingProvider>
-                <WalletProvider>
-                  <VideoPlaybackProvider>
-                    <BrowserRouter>
-                      {children}
-                    </BrowserRouter>
-                  </VideoPlaybackProvider>
-                </WalletProvider>
-              </CachingProvider>
-            </NostrProvider>
+            <BrowserRouter>
+              <NostrProvider>
+                <CachingProvider>
+                  <WalletProvider>
+                    <UnifiedWalletProvider>
+                      <VideoPlaybackProvider>
+                        {children}
+                      </VideoPlaybackProvider>
+                    </UnifiedWalletProvider>
+                  </WalletProvider>
+                </CachingProvider>
+              </NostrProvider>
+            </BrowserRouter>
           </NostrLoginProvider>
         </QueryClientProvider>
       </AppProvider>

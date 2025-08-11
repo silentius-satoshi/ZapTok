@@ -41,7 +41,9 @@ export function useVideoCache() {
         });
         
         transaction.oncomplete = () => {
+        if (import.meta.env.DEV) {
           console.log('Video metadata cached successfully');
+        }
         };
         
         transaction.onerror = (error) => {
