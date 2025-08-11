@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,9 +23,12 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   const [isLocked, setIsLocked] = useState(false);
 
   // Auto-close modal when user logs in
-  if (user) {
-    onClose();
-  }
+  useEffect(() => {
+    if (user && isOpen) {
+      // Defer the modal close to avoid state update during render warning
+      setTimeout(() => onClose(), 0);
+    }
+  }, [user, isOpen, onClose]);
 
   const handleExtensionLogin = async () => {
     setIsLocked(true);
@@ -36,7 +39,8 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       console.log('Starting extension login process...');
       await login.extension();
       console.log('Extension login successful, closing modal');
-      onClose();
+      // Defer the modal close to avoid state update during render warning
+      setTimeout(() => onClose(), 0);
     } catch (error) {
       console.error('Extension login failed:', error);
       toast({
@@ -53,7 +57,8 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     setIsLocked(true);
     try {
       await login.nsec(privateKey);
-      onClose();
+      // Defer the modal close to avoid state update during render warning
+      setTimeout(() => onClose(), 0);
     } catch (error) {
       console.error('Private key login failed:', error);
       toast({
@@ -71,7 +76,8 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     setIsLocked(true);
     try {
       await login.bunker(bunkerUrl);
-      onClose();
+      // Defer the modal close to avoid state update during render warning
+      setTimeout(() => onClose(), 0);
     } catch (error) {
       console.error('Bunker login failed:', error);
       toast({

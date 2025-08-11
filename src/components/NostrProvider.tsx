@@ -5,7 +5,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
 import { getOptimalRelays, type RelayContext } from '@/lib/relayOptimization';
 import { useCashuRelayStore } from '@/stores/cashuRelayStore';
+import { useLocation } from 'react-router-dom';
 import { logRelay } from '@/lib/devLogger';
+import { useNostrLogin } from '@nostrify/react/login';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -40,6 +42,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const { config, presetRelays: _presetRelays } = useAppContext();
   const queryClient = useQueryClient();
   const cashuRelayStore = useCashuRelayStore();
+  const location = useLocation(); // Add location for route-based decisions
+  const { logins } = useNostrLogin(); // Get authentication state
 
   // Track relay connection states
   const [connectionState, setConnectionState] = useState<RelayConnectionState>({});
@@ -63,6 +67,22 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   // Get active relays based on context - with Cashu relay integration
   const relayContext = config.relayContext || 'all';
   const getActiveRelays = useCallback(() => {
+    // Check if user is logged in
+    const isLoggedIn = logins.length > 0;
+    
+    // For public routes, always allow relay connections
+    const isPublicRoute = location.pathname === '/global' || location.pathname === '/about';
+
+    // Only connect to relays if:
+    // 1. It's a public route, OR
+    // 2. User is logged in
+    if (!isPublicRoute && !isLoggedIn) {
+      if (import.meta.env.DEV) {
+        logRelay('debug', 'No relays activated: not viewing public content and not logged in');
+      }
+      return [];
+    }
+
     if (relayContext === 'cashu-only' || relayContext === 'settings-cashu') {
       // Use the active Cashu relay from the store instead of hardcoded relay
       const cashuRelay = cashuRelayStore.activeRelay;
@@ -76,7 +96,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       logRelay('debug', `Using optimal relays for ${relayContext} context: ${optimalRelays.length} relays`);
     }
     return optimalRelays;
-  }, [relayContext, config.relayUrls, cashuRelayStore.activeRelay]);
+  }, [relayContext, config.relayUrls, cashuRelayStore.activeRelay, location.pathname, logins.length]);
 
   const activeRelays = getActiveRelays();
 
@@ -93,27 +113,27 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const logConnectionSummary = useCallback(() => {
     const { connecting, connected, failed } = connectionSummary.current;
     const totalAttempted = connecting.length;
-    
+
     if (totalAttempted === 0 || connectionSummary.current.hasLoggedSummary) return;
-    
+
     // Check if we have results for all connection attempts
     const totalResults = connected.length + failed.length;
     if (totalResults < totalAttempted) return; // Still waiting for some results
-    
+
     // Filter connected/failed to only include currently active relays
     const currentlyActiveConnected = connected.filter(url => activeRelays.includes(url));
     const currentlyActiveFailed = failed.filter(url => activeRelays.includes(url));
-    
+
     if (currentlyActiveConnected.length > 0) {
-      logRelay('info', `Connected to ${currentlyActiveConnected.length}/${activeRelays.length} relays`, 
+      logRelay('info', `Connected to ${currentlyActiveConnected.length}/${activeRelays.length} relays`,
         currentlyActiveConnected.map(url => new URL(url).hostname).join(', '));
     }
-    
+
     if (currentlyActiveFailed.length > 0) {
-      logRelay('warn', `Failed to connect to ${currentlyActiveFailed.length} relays`, 
+      logRelay('warn', `Failed to connect to ${currentlyActiveFailed.length} relays`,
         currentlyActiveFailed.map(url => new URL(url).hostname).join(', '));
     }
-    
+
     connectionSummary.current.hasLoggedSummary = true;
   }, [activeRelays]);
 
@@ -122,21 +142,21 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     if (import.meta.env.DEV) {
       logRelay('debug', `🔄 useEffect triggered: relayContext=${relayContext}, activeRelay=${cashuRelayStore.activeRelay}`);
     }
-    
+
     const newActiveRelays = getActiveRelays();
     relayUrls.current = newActiveRelays;
-    
+
     // Initialize connection state for active relays, preserving existing connections
     const newConnectionState: RelayConnectionState = {};
     const alreadyConnected: string[] = [];
     const alreadyFailed: string[] = [];
     const stillConnecting: string[] = [];
-    
+
     // Debug: Log current connection state
     if (import.meta.env.DEV) {
       logRelay('debug', `Current connection state:`, connectionState);
     }
-    
+
     newActiveRelays.forEach(url => {
       // Preserve existing connection state if the relay is still active
       const existingState = connectionState[url];
@@ -152,7 +172,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         stillConnecting.push(url);
       }
     });
-    
+
     // Reset connection summary for new relay set, accounting for existing connections
     connectionSummary.current = {
       connecting: [...newActiveRelays], // All relays that were attempted
@@ -160,13 +180,13 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       failed: alreadyFailed,
       hasLoggedSummary: false,
     };
-    
+
     // Only update connection state if we have active relays
     // This preserves connection state when switching to 'none' context
     if (newActiveRelays.length > 0) {
       setConnectionState(newConnectionState);
     }
-    
+
     if (import.meta.env.DEV) {
       if (newActiveRelays.length > 0) {
         logRelay('info', `Switching to ${relayContext} context with ${newActiveRelays.length} relays`);
@@ -183,7 +203,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         logRelay('info', `Switching to ${relayContext} context with no relays`);
       }
     }
-    
+
     // Only reset queries if we're switching to a context that needs fresh data
     if (relayContext === 'wallet' || relayContext === 'cashu-only') {
       queryClient.resetQueries({ queryKey: ['cashu'] });
@@ -192,7 +212,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       queryClient.resetQueries({ queryKey: ['events'] });
     }
     // Don't reset queries for 'none' context or minor changes
-    
+
     // Trigger relay connections when context changes
     if (pool.current && newActiveRelays.length > 0) {
       // Use a simple subscription to trigger relay connections
@@ -200,14 +220,14 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         if (pool.current && relayUrls.current.length > 0) {
           // Create a minimal subscription that will trigger connections
           const controller = new AbortController();
-          
+
           // Start a query with immediate timeout to just trigger connections
           (async () => {
             try {
-              const iter = pool.current!.req([{ kinds: [1], limit: 1 }], { 
-                signal: controller.signal 
+              const iter = pool.current!.req([{ kinds: [1], limit: 1 }], {
+                signal: controller.signal
               });
-              
+
               // Take one result to trigger connections, then abort
               const iterator = iter[Symbol.asyncIterator]();
               setTimeout(() => controller.abort(), 50); // Quick abort
@@ -219,7 +239,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         }
       }, 10);
     }
-  }, [relayContext, config.relayUrls, cashuRelayStore.activeRelay, queryClient]);
+  }, [relayContext, config.relayUrls, cashuRelayStore.activeRelay, queryClient, logins.length]);
 
   // Initialize NPool only once
   if (!pool.current) {
@@ -227,9 +247,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       open(url: string) {
         // Set initial connecting state
         setConnectionState(prev => ({ ...prev, [url]: 'connecting' }));
-        
+
         const relay = new NRelay1(url);
-        
+
         // Monitor connection status with bundled logging
         let hasLogged = false;
         const checkConnection = () => {
@@ -241,7 +261,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
                 connectionSummary.current.connected.push(url);
               }
               hasLogged = true;
-              
+
               // Try to log summary after a delay to collect other connections
               setTimeout(logConnectionSummary, 500);
             } else if (relay.socket.readyState === 3) {
@@ -251,7 +271,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
                 connectionSummary.current.failed.push(url);
               }
               hasLogged = true;
-              
+
               // Try to log summary after a delay to collect other connections
               setTimeout(logConnectionSummary, 500);
             }
@@ -262,7 +282,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         setTimeout(checkConnection, 1000);
         setTimeout(checkConnection, 3000);
         setTimeout(checkConnection, 5000);
-        
+
         return relay;
       },
       reqRouter(filters) {
