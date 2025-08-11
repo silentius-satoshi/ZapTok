@@ -1,11 +1,12 @@
-import { useState, useMemo, memo, useCallback } from 'react';
+import { useState, useMemo, memo, useCallback, useEffect } from 'react';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
-import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
+import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
 import { useCashuStore } from '@/stores/cashuStore';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useWalletUiStore } from '@/stores/walletUiStore';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { ManualRecoveryModal } from './ManualRecoveryModal';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,8 +18,9 @@ interface CashuHistoryCardProps {
 }
 
 export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
+  const { user } = useCurrentUser();
   const { isLoading, history } = useCashuHistory();
-  const transactionHistoryStore = useTransactionHistoryStore();
+  const transactionHistoryStore = useUserTransactionHistoryStore(user?.pubkey);
   const cashuStore = useCashuStore();
   const { updateProofs } = useCashuWallet();
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -28,6 +30,11 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
   const [visibleEntries, setVisibleEntries] = useState(5);
   const { showSats } = useCurrencyDisplayStore();
   const { data: btcPrice } = useBitcoinPrice();
+
+  // Reset visible entries when user changes to ensure fresh display
+  useEffect(() => {
+    setVisibleEntries(5);
+  }, [user?.pubkey]);
 
   // Convert sats to display string honoring user preference
   const formatAmount = (sats: number) => {

@@ -10,12 +10,12 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
-import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
+import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
 import { useWalletUiStore } from '@/stores/walletUiStore';
 import { createLightningInvoice, mintTokensFromPaidInvoice, createMeltQuote, payLightningInvoice } from '@/lib/cashuLightning';
 import { QRScanner } from '@/components/QRScanner';
 import { v4 as uuidv4 } from 'uuid';
-import type { PendingTransaction } from '@/stores/transactionHistoryStore';
+import type { PendingTransaction } from '@/stores/userTransactionHistoryStore';
 import QRCode from 'react-qr-code';
 import { formatBalance } from '@/lib/cashu';
 import { AlertCircle as _A11yIgnore } from 'lucide-react'; // keep import unique (eslint satisfaction)
@@ -35,7 +35,7 @@ export function CashuWalletLightningCard() {
   } = useCashuWallet();
   const { createHistory } = useCashuHistory();
   const cashuStore = useCashuStore();
-  const transactionHistoryStore = useTransactionHistoryStore();
+  const transactionHistoryStore = useUserTransactionHistoryStore(user?.pubkey);
   const walletUiStore = useWalletUiStore();
   const isExpanded = walletUiStore.expandedCards.lightning;
   const [activeTab, setActiveTab] = useState("receive");

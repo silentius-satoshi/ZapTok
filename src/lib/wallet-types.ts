@@ -63,4 +63,5 @@ export interface WalletContextType {
   transactions: Transaction[];
   isLoading: boolean;
   transactionSupport: boolean | null;
+  userHasLightningAccess: boolean;
 }

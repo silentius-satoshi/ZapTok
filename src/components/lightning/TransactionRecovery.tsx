@@ -6,10 +6,11 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle2, Search, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCashuStore } from '@/stores/cashuStore';
-import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
+import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
 import { mintTokensFromPaidInvoice } from '@/lib/cashuLightning';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { CashuMint, CashuWallet } from '@cashu/cashu-ts';
 
 interface TransactionRecoveryProps {
@@ -17,6 +18,7 @@ interface TransactionRecoveryProps {
 }
 
 export function TransactionRecovery({ className }: TransactionRecoveryProps) {
+  const { user } = useCurrentUser();
   const [paymentHash, setPaymentHash] = useState('');
   const [preimage, setPreimage] = useState('');
   const [quoteId, setQuoteId] = useState('');
@@ -28,7 +30,7 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
   } | null>(null);
 
   const cashuStore = useCashuStore();
-  const transactionHistoryStore = useTransactionHistoryStore();
+  const transactionHistoryStore = useUserTransactionHistoryStore(user?.pubkey);
   const { updateProofs } = useCashuWallet();
   const { createHistory } = useCashuHistory();
 

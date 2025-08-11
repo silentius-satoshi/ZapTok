@@ -37,9 +37,9 @@ import { formatBalance } from "@/lib/cashu";
 
 import QRCode from "react-qr-code";
 import {
-  useTransactionHistoryStore,
+  useUserTransactionHistoryStore,
   PendingTransaction,
-} from "@/stores/transactionHistoryStore";
+} from "@/stores/userTransactionHistoryStore";
 import { v4 as uuidv4 } from "uuid";
 import { useWalletUiStore } from "@/stores/walletUiStore";
 import { QRScanner } from "@/components/QRScanner";
@@ -49,7 +49,7 @@ export function CashuWalletLightningCard() {
   const { wallet, isLoading, updateProofs } = useCashuWallet();
   const { createHistory } = useCashuHistory();
   const cashuStore = useCashuStore();
-  const transactionHistoryStore = useTransactionHistoryStore();
+  const transactionHistoryStore = useUserTransactionHistoryStore(user?.pubkey);
   const walletUiStore = useWalletUiStore();
   const isExpanded = walletUiStore.expandedCards.lightning;
   const [activeTab, setActiveTab] = useState("receive");

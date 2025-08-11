@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
 import { useCashuStore } from '@/stores/cashuStore';
-import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
+import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { 
   Dialog, 
   DialogContent, 
@@ -22,6 +23,7 @@ interface ManualRecoveryModalProps {
 }
 
 export function ManualRecoveryModal({ isOpen, onClose }: ManualRecoveryModalProps) {
+  const { user } = useCurrentUser();
   const [paymentHash, setPaymentHash] = useState('');
   const [preimage, setPreimage] = useState('');
   const [quote, setQuote] = useState('');
@@ -31,7 +33,7 @@ export function ManualRecoveryModal({ isOpen, onClose }: ManualRecoveryModalProp
   const { updateProofs } = useCashuWallet();
   const { createHistory } = useCashuHistory();
   const cashuStore = useCashuStore();
-  const transactionHistoryStore = useTransactionHistoryStore();
+  const transactionHistoryStore = useUserTransactionHistoryStore(user?.pubkey);
 
   const resetForm = () => {
     setPaymentHash('');
