@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Camera, User } from 'lucide-react';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useOnboardNewAccount } from '@/hooks/useOnboardNewAccount';
+import { FOLLOW_PACKS, getFollowPackById } from '@/lib/followPacks';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
@@ -20,9 +22,11 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
   const [name, setName] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFollowPackId, setSelectedFollowPackId] = useState<string | null>(null);
   const [newKeypair, setNewKeypair] = useState<{ pubkey: string; nsec: string } | null>(null);
-  
+
   const { mutate: createEvent } = useNostrPublish();
+  const onboardNewAccount = useOnboardNewAccount();
   const login = useLoginActions();
   const { nostr } = useNostr();
 
@@ -31,7 +35,7 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
     const secretKey = generateSecretKey();
     const pubkey = getPublicKey(secretKey);
     const nsec = nip19.nsecEncode(secretKey);
-    
+
     setNewKeypair({ pubkey, nsec });
   }, []);
 
@@ -71,36 +75,51 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
 
   const handleSave = async () => {
     if (!newKeypair) return;
-    
+
     setIsLoading(true);
     try {
-      // Create the new login but don't add it yet
+      // Create the new user instance
       const newLogin = NLogin.fromNsec(newKeypair.nsec);
       const newUser = NUser.fromNsecLogin(newLogin);
-      
-      // Create profile metadata event with the NEW user's signer
-      const profileEvent = await newUser.signer.signEvent({
-        kind: 0,
-        content: JSON.stringify({
-          name: name.trim() || undefined,
-          picture: profileImage || undefined,
-        }),
-        tags: [],
-        created_at: Math.floor(Date.now() / 1000),
+
+      // Use enhanced onboarding sequence for better visibility
+      const selectedPack = getFollowPackById(selectedFollowPackId);
+      const initialFollows = selectedPack ? selectedPack.accounts.map(a => a.pubkey) : undefined;
+      const result = await onboardNewAccount({
+        newUser,
+        displayName: name.trim() || 'ZapTok User',
+        about: undefined, // User didn't provide about text in this flow
+        pictureUrl: profileImage || undefined,
+        initialFollowHexes: initialFollows,
+        recommendedRelays: [
+          'wss://relay.damus.io',
+          'wss://relay.nostr.band',
+          'wss://relay.primal.net',
+          'wss://ditto.pub/relay',
+          'wss://relay.chorus.community'
+        ]
       });
-      
-      // Publish the event with the new user's credentials
-      await nostr.event(profileEvent, { signal: AbortSignal.timeout(5000) });
-      
-      // Only after successful profile creation, add the login
+
+      // Only after successful onboarding sequence, add the login
       await login.nsec(newKeypair.nsec);
-      
-      console.log('Profile created and published for new account:', newUser.pubkey);
-      
-      // Close modal and user is now logged in
+
+      console.log('Enhanced onboarding completed for new account:', {
+        pubkey: newUser.pubkey,
+        profileEventId: result.profileEventId,
+        contactListEventId: result.contactListEventId,
+        noteEventId: result.noteEventId,
+        verification: result.recommendedVerification
+      });
+
+      // Close modal and user is now logged in with proper visibility
       onClose();
     } catch (error) {
-      console.error('Failed to create profile:', error);
+      console.error('Failed to complete enhanced onboarding:', error);
+      // Fallback: still allow login even if onboarding partially failed
+      if (newKeypair) {
+        await login.nsec(newKeypair.nsec);
+        onClose();
+      }
     } finally {
       setIsLoading(false);
     }
@@ -108,48 +127,64 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
 
   const handleSkip = async () => {
     if (!newKeypair) return;
-    
+
     try {
-      // Create the new login but don't add it yet
+      // Create the new user instance
       const newLogin = NLogin.fromNsec(newKeypair.nsec);
       const newUser = NUser.fromNsecLogin(newLogin);
-      
-      // Create profile metadata event with the NEW user's signer
-      const profileEvent = await newUser.signer.signEvent({
-        kind: 0,
-        content: JSON.stringify({
-          name: name.trim(),
-        }),
-        tags: [],
-        created_at: Math.floor(Date.now() / 1000),
+
+      // Use enhanced onboarding sequence even for "skip" to ensure visibility
+      const selectedPack = getFollowPackById(selectedFollowPackId);
+      const initialFollows = selectedPack ? selectedPack.accounts.map(a => a.pubkey) : undefined;
+      const result = await onboardNewAccount({
+        newUser,
+        displayName: name.trim(), // Use the auto-generated name
+        about: 'New to Nostr via ZapTok! 🚀',
+        pictureUrl: undefined, // No picture selected
+        initialFollowHexes: initialFollows, // Include pack even on skip for visibility
+        recommendedRelays: [
+          'wss://relay.damus.io',
+          'wss://relay.nostr.band',
+          'wss://relay.primal.net',
+          'wss://ditto.pub/relay',
+          'wss://relay.chorus.community'
+        ]
       });
-      
-      // Publish the event with the new user's credentials
-      await nostr.event(profileEvent, { signal: AbortSignal.timeout(5000) });
-      
-      // Only after successful profile creation, add the login
+
+      // Only after successful onboarding sequence, add the login
       await login.nsec(newKeypair.nsec);
-      
-      console.log('Profile created and published for new account:', newUser.pubkey);
-      
-      // Close modal and user is now logged in
+
+      console.log('Enhanced onboarding (skip flow) completed for new account:', {
+        pubkey: newUser.pubkey,
+        profileEventId: result.profileEventId,
+        contactListEventId: result.contactListEventId,
+        noteEventId: result.noteEventId,
+        verification: result.recommendedVerification
+      });
+
+      // Close modal and user is now logged in with proper visibility
       onClose();
     } catch (error) {
-      console.error('Failed to create profile:', error);
+      console.error('Failed to complete enhanced onboarding (skip flow):', error);
+      // Fallback: still allow login even if onboarding partially failed
+      if (newKeypair) {
+        await login.nsec(newKeypair.nsec);
+        onClose();
+      }
     }
   };
 
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" style={{ zIndex: 99999, backgroundColor: 'black' }}>
       <div className="absolute inset-0" style={{ backgroundColor: 'black', zIndex: -1 }} />
-      
+
       <div className="w-full max-w-md my-8 relative z-10">
         <Card className="bg-gray-900 border-gray-700">
           <CardHeader className="text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
-              <img 
-                src="/images/ZapTok-v3.png" 
-                alt="ZapTok Logo" 
+              <img
+                src="/images/ZapTok-v3.png"
+                alt="ZapTok Logo"
                 className="w-8 h-8 rounded-lg"
               />
               <CardTitle className="text-3xl bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">
@@ -160,7 +195,7 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
               Set up your nostr profile to start earning sats
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="space-y-6">
             {/* Profile Picture Upload */}
             <div className="flex flex-col items-center space-y-4">
@@ -201,8 +236,36 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
               <p className="text-xs text-gray-400">This is the name that will be displayed to others</p>
             </div>
 
+            {/* Follow Pack Selection */}
+            <div className="space-y-2">
+              <Label className="text-gray-200">Starter Follow Pack (optional)</Label>
+              <div className="space-y-3 max-h-40 overflow-y-auto pr-1">
+                {FOLLOW_PACKS.map(pack => {
+                  const selected = selectedFollowPackId === pack.id;
+                  return (
+                    <button
+                      type="button"
+                      key={pack.id}
+                      onClick={() => setSelectedFollowPackId(selected ? null : pack.id)}
+                      className={`w-full text-left rounded-md border px-3 py-2 text-sm transition-colors ${selected ? 'border-orange-500 bg-orange-500/10' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-200">{pack.title}</span>
+                        {selected && <span className="text-xs text-orange-400">Selected</span>}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1 line-clamp-2">{pack.description}</p>
+                      <p className="text-[10px] text-gray-500 mt-1">{pack.accounts.length} accounts</p>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedFollowPackId && (
+                <p className="text-xs text-orange-400">{getFollowPackById(selectedFollowPackId)?.accounts.length} initial follows will be added</p>
+              )}
+            </div>
+
             {/* Save Button */}
-            <Button 
+            <Button
               onClick={handleSave}
               disabled={isLoading || !name.trim() || !newKeypair}
               className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white"

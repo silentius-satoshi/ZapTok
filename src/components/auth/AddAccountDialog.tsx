@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { SignInModal } from './SignInModal';
-import GetStartedModal from './GetStartedModal';
+import CreateAccountModal from './CreateAccountModal';
 
 interface AddAccountDialogProps {
   isOpen: boolean;
@@ -15,18 +15,18 @@ interface AddAccountDialogProps {
 
 export function AddAccountDialog({ isOpen, onClose }: AddAccountDialogProps) {
   const [showSignInModal, setShowSignInModal] = useState(false);
-  const [showGetStartedModal, setShowGetStartedModal] = useState(false);
-
-  // Debug logging
-  console.log('AddAccountDialog render:', { isOpen, showSignInModal, showGetStartedModal });
+  const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md bg-gray-900 border-gray-700 text-white">
+        <DialogContent
+          className="sm:max-w-md bg-gray-900 border-gray-700 text-white"
+          aria-describedby="add-account-description"
+        >
           <DialogHeader>
             <div className="flex items-center justify-center space-x-4 mb-2">
-              <img 
+              <img
                 src="/images/ZapTok-v3.png"
                 alt="ZapTok"
                 className="w-12 h-12 rounded-xl"
@@ -36,12 +36,12 @@ export function AddAccountDialog({ isOpen, onClose }: AddAccountDialogProps) {
               </DialogTitle>
             </div>
           </DialogHeader>
-          
+
           <div className="text-center space-y-6">
-            <p className="text-gray-300">
+            <p id="add-account-description" className="text-gray-300">
               Connect another Nostr identity
             </p>
-            
+
             {/* Get Started Button */}
             <div className="space-y-3">
               <button
@@ -49,7 +49,7 @@ export function AddAccountDialog({ isOpen, onClose }: AddAccountDialogProps) {
                   onClose();
                   // Add a small delay to ensure the dialog closes before opening the modal
                   setTimeout(() => {
-                    setShowGetStartedModal(true);
+                    setShowCreateAccountModal(true);
                   }, 100);
                 }}
                 className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-6 py-3 rounded-lg font-medium transition-all"
@@ -57,7 +57,7 @@ export function AddAccountDialog({ isOpen, onClose }: AddAccountDialogProps) {
                 Create New Account
               </button>
             </div>
-            
+
             <div className="text-center">
               <span className="text-gray-300">Have a Nostr account? </span>
               <button
@@ -78,21 +78,22 @@ export function AddAccountDialog({ isOpen, onClose }: AddAccountDialogProps) {
       </Dialog>
 
       {/* Sign In Modal */}
-      <SignInModal 
-        isOpen={showSignInModal} 
-        onClose={() => setShowSignInModal(false)} 
+      <SignInModal
+        isOpen={showSignInModal}
+        onClose={() => setShowSignInModal(false)}
       />
 
-      {/* Get Started Modal */}
-      {showGetStartedModal && (
-        <GetStartedModal 
-          onClose={() => setShowGetStartedModal(false)}
-          onBackToLogin={() => {
-            setShowGetStartedModal(false);
-            // Don't reopen the add account dialog
-          }}
-        />
-      )}
+      {/* Create Account Modal */}
+      <CreateAccountModal
+        open={showCreateAccountModal}
+        onAbort={() => setShowCreateAccountModal(false)}
+        onLogin={() => {
+          setShowCreateAccountModal(false);
+          setTimeout(() => {
+            setShowSignInModal(true);
+          }, 100);
+        }}
+      />
     </>
   );
 }

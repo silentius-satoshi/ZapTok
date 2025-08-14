@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { SignInModal } from './SignInModal';
-import GetStartedModal from './GetStartedModal';
+import CreateAccountModal from './CreateAccountModal';
 import { PWAInstallModal } from '@/components/PWAInstallModal';
 import { usePWA } from '@/hooks/usePWA';
 import { Monitor, Download } from 'lucide-react';
@@ -14,7 +14,7 @@ interface LoginModalProps {
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const { user } = useCurrentUser();
   const [showSignInModal, setShowSignInModal] = useState(false);
-  const [showGetStartedModal, setShowGetStartedModal] = useState(false);
+  const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const {
     isInstallable,
@@ -66,7 +66,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           {/* Get Started Button */}
           <div className="space-y-4 mb-8">
             <button
-              onClick={() => setShowGetStartedModal(true)}
+              onClick={() => setShowCreateAccountModal(true)}
               className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-8 py-3 rounded-lg text-lg font-medium transition-all transform hover:scale-105"
             >
               Get Started
@@ -124,16 +124,15 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         onClose={() => setShowSignInModal(false)} 
       />
 
-      {/* Get Started Modal */}
-      {showGetStartedModal && (
-        <GetStartedModal 
-          onClose={() => setShowGetStartedModal(false)}
-          onBackToLogin={() => {
-            setShowGetStartedModal(false);
-            // Main login modal stays open
-          }}
-        />
-      )}
+      {/* Create Account Modal */}
+      <CreateAccountModal 
+        open={showCreateAccountModal}
+        onAbort={() => setShowCreateAccountModal(false)}
+        onLogin={() => {
+          setShowCreateAccountModal(false);
+          // Main login modal stays open
+        }}
+      />
 
       {/* PWA Install Modal */}
       <PWAInstallModal 
