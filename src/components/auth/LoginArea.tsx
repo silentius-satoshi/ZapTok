@@ -48,27 +48,6 @@ export function LoginArea({ className }: LoginAreaProps) {
     if (provider && isConnected) {
       try {
         const newBalance = await getBalance();
-
-        // Bundle balance refresh logging
-        if (import.meta.env.DEV) {
-          balanceLogRef.current.callCount++;
-          const now = Date.now();
-
-          // Log summary every 5 seconds or if balance changed
-          const shouldLog = now - balanceLogRef.current.lastLogTime > 5000 ||
-                           newBalance !== balanceLogRef.current.lastBalance;
-
-          if (shouldLog) {
-            console.log(`💰 Wallet Balance Update:`, {
-              refreshCount: balanceLogRef.current.callCount,
-              newBalance,
-              isConnected,
-              provider: provider ? 'connected' : 'disconnected',
-            });
-            balanceLogRef.current.lastLogTime = now;
-            balanceLogRef.current.lastBalance = newBalance || 0;
-          }
-        }
       } catch (error) {
         console.error('Failed to refresh balance:', error);
       }
@@ -89,20 +68,6 @@ export function LoginArea({ className }: LoginAreaProps) {
       ? cashuStore.wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0)
       : 0;
     const totalBalance = lightningBalance + cashuBalance;
-
-    // Debug logging for balance calculation
-    if (import.meta.env.DEV) {
-      console.log(`💳 Balance Display (${currentUser?.pubkey?.slice(0,8)}...): ₿${totalBalance} sats (⚡${lightningBalance} + 🥜${cashuBalance})`, {
-        lightningBalance,
-        cashuBalance,
-        totalBalance,
-        userHasLightningAccess,
-        walletInfo: walletInfo ? { balance: walletInfo.balance, alias: walletInfo.alias, implementation: walletInfo.implementation } : null,
-        cashuWallets: cashuStore?.wallets?.map(w => ({ id: w.id, balance: w.balance })) || [],
-        user: currentUser?.pubkey?.slice(0,8) + '...',
-        isWalletConnected: isConnected
-      });
-    }
 
     if (currency === 'BTC') {
       return `${totalBalance.toLocaleString()} sats`;

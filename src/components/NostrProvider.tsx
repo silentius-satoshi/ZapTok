@@ -69,7 +69,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const getActiveRelays = useCallback(() => {
     // Check if user is logged in
     const isLoggedIn = logins.length > 0;
-    
+
     // For public routes, always allow relay connections
     const isPublicRoute = location.pathname === '/global' || location.pathname === '/about';
 
@@ -139,10 +139,6 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
   // Update refs and connection state when config changes
   useEffect(() => {
-    if (import.meta.env.DEV) {
-      logRelay('debug', `🔄 useEffect triggered: relayContext=${relayContext}, activeRelay=${cashuRelayStore.activeRelay}`);
-    }
-
     const newActiveRelays = getActiveRelays();
     relayUrls.current = newActiveRelays;
 
