@@ -1,15 +1,37 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { validateVideoEvent } from '@/lib/validateVideoEvent';
 import type { VideoEvent } from '@/lib/validateVideoEvent';
 
-export function useLikedVideos(pubkey?: string) {
+/**
+ * Hook to fetch video events that a specific user has liked (reacted to with kind 7 "+").
+ * Only fetches data when the user is authenticated.
+ */
+export function useLikedVideos(pubkey?: string): UseQueryResult<VideoEvent[], Error> {
   const { nostr } = useNostr();
+  const { user } = useCurrentUser();
+
+  if (import.meta.env.DEV) {
+    console.log('useLikedVideos: pubkey =', pubkey, 'user authenticated =', !!user);
+  }
 
   return useQuery({
     queryKey: ['liked-videos', pubkey],
     queryFn: async (c) => {
-      if (!pubkey) return [];
+      if (!pubkey) {
+        if (import.meta.env.DEV) {
+          console.log('useLikedVideos: No pubkey provided');
+        }
+        return [];
+      }
+
+      if (!user) {
+        if (import.meta.env.DEV) {
+          console.log('useLikedVideos: User not authenticated, skipping liked videos fetch');
+        }
+        return [];
+      }
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
       
@@ -92,7 +114,7 @@ export function useLikedVideos(pubkey?: string) {
 
       return sortedVideoEvents;
     },
-    enabled: !!pubkey,
+    enabled: !!pubkey && !!user,
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2,
   });

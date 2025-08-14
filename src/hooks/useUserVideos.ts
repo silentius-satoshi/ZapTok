@@ -1,63 +1,86 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { validateVideoEvent, hasVideoContent } from '@/lib/validateVideoEvent';
 import type { VideoEvent } from '@/lib/validateVideoEvent';
 
-export function useUserVideos(pubkey?: string) {
+/**
+ * Hook to fetch video events (kind 1 notes with video content) created by a specific user.
+ * Only fetches data when the user is authenticated.
+ */
+export function useUserVideos(pubkey?: string): UseQueryResult<VideoEvent[], Error> {
   const { nostr } = useNostr();
+  const { user } = useCurrentUser();
+
+  if (import.meta.env.DEV) {
+    console.log('useUserVideos: pubkey =', pubkey, 'user authenticated =', !!user);
+  }
 
   return useQuery({
     queryKey: ['user-videos', pubkey],
-    queryFn: async (c) => {
-      if (!pubkey) return [];
-
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(15000)]);
-      
-      console.log('🎥 Fetching videos for pubkey:', pubkey);
-      
-      // Query for various event types that might contain videos
-      // Cast to broader search to catch videos from different clients
-      const allEvents = await nostr.query([
-        {
-          kinds: [1, 1063, 30023, 34235], // Text notes, file metadata, long-form, video events
-          authors: [pubkey],
-          limit: 200, // Increase limit to catch more potential video events
+    queryFn: async ({ signal }) => {
+      if (!pubkey) {
+        if (import.meta.env.DEV) {
+          console.log('useUserVideos: No pubkey provided');
         }
-      ], { signal });
-
-      console.log('🎥 Found total events:', allEvents.length);
-
-      // Pre-filter events that might contain video content for efficiency
-      const potentialVideoEvents = allEvents.filter(hasVideoContent);
-      console.log('🎥 Potential video events after pre-filter:', potentialVideoEvents.length);
-
-      // Validate and filter video events
-      const videoEvents: VideoEvent[] = [];
-      
-      for (const event of potentialVideoEvents) {
-        const videoEvent = validateVideoEvent(event);
-        if (videoEvent && videoEvent.videoUrl) {
-          videoEvents.push(videoEvent);
-        }
+        return [];
       }
 
-      console.log('🎥 Valid video events:', videoEvents.length);
+      if (!user) {
+        if (import.meta.env.DEV) {
+          console.log('useUserVideos: User not authenticated, skipping video fetch');
+        }
+        return [];
+      }
 
-      // Remove duplicates based on video URL
-      const uniqueVideoEvents = videoEvents.filter((video, index, array) => {
-        return index === array.findIndex(v => 
-          v.videoUrl === video.videoUrl || 
-          (v.hash && video.hash && v.hash === video.hash)
+      if (import.meta.env.DEV) {
+        console.log('useUserVideos: Fetching videos for pubkey:', pubkey);
+      }
+
+      const timeout = AbortSignal.timeout(5000);
+      const combinedSignal = AbortSignal.any([signal, timeout]);
+
+      try {
+        const events = await nostr.query(
+          [
+            {
+              kinds: [1],
+              authors: [pubkey],
+              limit: 50,
+            },
+          ],
+          { signal: combinedSignal }
         );
-      });
 
-      console.log('🎥 Unique video events:', uniqueVideoEvents.length);
+        if (import.meta.env.DEV) {
+          console.log('useUserVideos: Received', events.length, 'events for pubkey:', pubkey);
+        }
 
-      // Sort by creation time (newest first)
-      return uniqueVideoEvents.sort((a, b) => b.created_at - a.created_at);
+        // Filter events to only include those with video content
+        const videoEvents = events.filter((event) => {
+          const isValid = validateVideoEvent(event);
+          const hasVideo = hasVideoContent(event);
+          
+          if (import.meta.env.DEV && (isValid || hasVideo)) {
+            console.log('useUserVideos: Event', event.id, 'isValid:', isValid, 'hasVideo:', hasVideo);
+          }
+          
+          return isValid && hasVideo;
+        }) as VideoEvent[];
+
+        if (import.meta.env.DEV) {
+          console.log('useUserVideos: Filtered to', videoEvents.length, 'video events');
+        }
+
+        return videoEvents;
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('useUserVideos: Error fetching videos:', error);
+        }
+        throw error;
+      }
     },
-    enabled: !!pubkey,
-    staleTime: 3 * 60 * 1000, // 3 minutes
-    retry: 3, // Retry failed requests
+    enabled: !!pubkey && !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

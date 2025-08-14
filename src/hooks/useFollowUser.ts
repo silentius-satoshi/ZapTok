@@ -25,33 +25,41 @@ export function useFollowUser() {
         }
       ], { signal });
 
-      // Get current following list
-      let currentFollowing: string[] = [];
+      // Get current following list with relay hints and petnames
+      let currentContacts: Array<{pubkey: string, relay: string, petname: string}> = [];
       let currentContent = '';
       
       if (currentContactEvents.length > 0) {
         const currentEvent = currentContactEvents[0];
-        currentFollowing = currentEvent.tags
+        currentContacts = currentEvent.tags
           .filter(([tagName]) => tagName === 'p')
-          .map(([, pubkey]) => pubkey)
-          .filter(Boolean);
+          .map(([, pubkey, relay, petname]) => ({
+            pubkey,
+            relay: relay || '',
+            petname: petname || ''
+          }))
+          .filter(contact => contact.pubkey);
         currentContent = currentEvent.content || '';
       }
 
       // Update the following list
-      let newFollowing: string[];
+      let newContacts: Array<{pubkey: string, relay: string, petname: string}>;
       if (isCurrentlyFollowing) {
         // Unfollow: remove from list
-        newFollowing = currentFollowing.filter(pk => pk !== pubkeyToFollow);
+        newContacts = currentContacts.filter(contact => contact.pubkey !== pubkeyToFollow);
       } else {
         // Follow: add to list (if not already there)
-        newFollowing = currentFollowing.includes(pubkeyToFollow) 
-          ? currentFollowing 
-          : [...currentFollowing, pubkeyToFollow];
+        const alreadyFollowing = currentContacts.some(contact => contact.pubkey === pubkeyToFollow);
+        if (alreadyFollowing) {
+          newContacts = [...currentContacts];
+        } else {
+          newContacts = [...currentContacts, { pubkey: pubkeyToFollow, relay: '', petname: '' }];
+        }
       }
 
       // Create new contact list event
-      const tags = newFollowing.map(pubkey => ['p', pubkey]);
+      // NIP-02 requires 'p' tags to have format: ['p', pubkey, relay, petname]
+      const tags = newContacts.map(contact => ['p', contact.pubkey, contact.relay, contact.petname]);
 
       await createEvent({
         kind: 3,
@@ -61,7 +69,7 @@ export function useFollowUser() {
 
       return {
         isNowFollowing: !isCurrentlyFollowing,
-        newFollowingCount: newFollowing.length,
+        newFollowingCount: newContacts.length,
       };
     },
     onSuccess: () => {
