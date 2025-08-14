@@ -17,7 +17,7 @@ interface UserSearchResult {
 // Helper function to detect and decode Nostr identifiers
 function parseNostrIdentifier(input: string): string | null {
   const trimmed = input.trim();
-  
+
   if (!trimmed) return null;
 
   // Check if it's an npub
@@ -44,16 +44,20 @@ function parseNostrIdentifier(input: string): string | null {
 export function useUserSearch(searchTerm: string = '', enabled: boolean = true) {
   // Ensure searchTerm is always a string
   const safeSearchTerm = searchTerm || '';
-  
+
+  // Only search if term is at least 3 characters to avoid too many queries
+  const shouldSearch = enabled && safeSearchTerm.length >= 3;
+
   // Parse the search term to get pubkey if it's a valid identifier
-  const targetPubkey = parseNostrIdentifier(safeSearchTerm);
-  
+  const targetPubkey = shouldSearch ? parseNostrIdentifier(safeSearchTerm) : null;
+
   // Use useAuthor hook for direct user lookup when we have a pubkey
+  // Pass empty string when we don't want to query (React Query will handle this)
   const author = useAuthor(targetPubkey || '');
 
   // Transform author data to match expected interface
   const data = useMemo((): UserSearchResult[] => {
-    if (!enabled || !safeSearchTerm || !targetPubkey) {
+    if (!shouldSearch || !targetPubkey) {
       return [];
     }
 
@@ -67,11 +71,11 @@ export function useUserSearch(searchTerm: string = '', enabled: boolean = true) 
     }
 
     return [];
-  }, [enabled, safeSearchTerm, targetPubkey, author.data]);
+  }, [shouldSearch, targetPubkey, author.data]);
 
   return {
     data,
-    isLoading: !!targetPubkey && author.isLoading,
+    isLoading: shouldSearch && !!targetPubkey && author.isLoading,
     isError: author.isError,
     error: author.error,
   };
