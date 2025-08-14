@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAppContext } from '@/hooks/useAppContext';
 import { type RelayContext } from '@/lib/relayOptimization';
@@ -12,19 +12,19 @@ const routeContextMap: Record<string, RelayContext> = {
   // Settings routes - no relays (except Cashu-related) - MUST come before '/'
   '/settings/connected-wallets': 'settings-cashu', // Has Cashu relay settings
   '/settings/profile': 'none',
-  '/settings/relays': 'none', 
+  '/settings/relays': 'none',
   '/settings/appearance': 'none',
   '/settings/about': 'none',
   '/settings': 'none',
-  
+
   // Lightning wallet - only Cashu relay
   '/wallet': 'cashu-only',
   '/lightning': 'cashu-only',
-  
+
   // Legacy Cashu routes
   '/cashu': 'cashu-only',
-  
-  // Profile and social routes - use feed-optimized relays  
+
+  // Profile and social routes - use feed-optimized relays
   '/profile': 'feed',
   '/npub': 'feed',
   '/note': 'feed',
@@ -33,7 +33,7 @@ const routeContextMap: Record<string, RelayContext> = {
   '/following': 'feed',
   '/discover': 'feed',
   '/feed': 'feed',
-  
+
   // Home route - MUST come last as it matches everything starting with '/'
   '/': 'feed',
 };
@@ -45,29 +45,41 @@ const routeContextMap: Record<string, RelayContext> = {
 export function useContextualRelays() {
   const location = useLocation();
   const { config, setRelayContext } = useAppContext();
-  
+  const lastSwitchTime = useRef<number>(0);
+  const MIN_SWITCH_INTERVAL = 500; // Minimum 500ms between context switches
+
   useEffect(() => {
     const currentPath = location.pathname;
-    
+
     // Find matching route pattern
     let optimalContext: RelayContext = 'feed'; // Default to feed context
-    
+
     for (const [routePattern, context] of Object.entries(routeContextMap)) {
       if (currentPath.startsWith(routePattern)) {
         optimalContext = context;
         break;
       }
     }
-    
+
     // Only switch context if it's different from current
-    if (config.relayContext !== optimalContext) {
+    // Also respect manual overrides (like search-only from UserSearchModal)
+    // Add rate limiting to prevent excessive switching
+    const now = Date.now();
+    const timeSinceLastSwitch = now - lastSwitchTime.current;
+
+    if (config.relayContext !== optimalContext &&
+        config.relayContext !== 'search-only' &&
+        timeSinceLastSwitch > MIN_SWITCH_INTERVAL) {
+
       if (import.meta.env.DEV) {
         logRoute('debug', `Switching from ${config.relayContext} to ${optimalContext} context for route: ${currentPath}`);
       }
+
       setRelayContext(optimalContext);
+      lastSwitchTime.current = now;
     }
   }, [location.pathname, config.relayContext, setRelayContext]);
-  
+
   return {
     currentContext: config.relayContext || 'all',
     isOptimized: config.relayContext !== 'all',
@@ -79,7 +91,7 @@ export function useContextualRelays() {
  */
 export function useRelayContext() {
   const { config, setRelayContext } = useAppContext();
-  
+
   return {
     context: config.relayContext || 'all',
     setContext: setRelayContext,
