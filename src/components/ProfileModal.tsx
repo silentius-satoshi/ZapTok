@@ -202,9 +202,20 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
             {/* Public Key */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Public Key</h3>
-              <code className="text-xs bg-muted p-2 rounded block break-all">
-                {nip19.npubEncode(targetPubkey)}
-              </code>
+              <div className="space-y-2">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">npub (bech32)</p>
+                  <code className="text-xs bg-muted p-2 rounded block break-all">
+                    {nip19.npubEncode(targetPubkey)}
+                  </code>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">hex</p>
+                  <code className="text-xs bg-muted p-2 rounded block break-all">
+                    {targetPubkey}
+                  </code>
+                </div>
+              </div>
             </div>
 
             <Separator />

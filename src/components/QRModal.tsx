@@ -239,22 +239,42 @@ export function QRModal({ isOpen, onClose, pubkey, metadata, displayName }: QRMo
 
           {/* Bottom - Copy Fields */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Public key:</span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-mono">{formatNpub(npub)}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyToClipboard(npub, 'npub')}
-                  className="h-6 w-6 p-0"
-                >
-                  {npubCopied ? (
-                    <Check className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
-                  )}
-                </Button>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Public key (npub):</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-mono">{formatNpub(npub)}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(npub, 'npub')}
+                    className="h-6 w-6 p-0"
+                  >
+                    {npubCopied ? (
+                      <Check className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Public key (hex):</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-mono">{pubkey.slice(0, 12)}...{pubkey.slice(-8)}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(pubkey, 'pubkey')}
+                    className="h-6 w-6 p-0"
+                  >
+                    {pubkeyCopied ? (
+                      <Check className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
 
