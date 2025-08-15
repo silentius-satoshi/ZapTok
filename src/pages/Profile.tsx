@@ -11,7 +11,7 @@ import { useFollowing } from '@/hooks/useFollowing';
 import { useFollowUser } from '@/hooks/useFollowUser';
 import { useBookmarkedVideos } from '@/hooks/useBookmarkedVideos';
 import { useUserVideos } from '@/hooks/useUserVideos';
-import { useLikedVideos } from '@/hooks/useLikedVideos';
+import { useRepostedVideos } from '@/hooks/useRepostedVideos';
 import { genUserName } from '@/lib/genUserName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -32,11 +32,11 @@ const Profile = () => {
   const { pubkey: paramPubkey } = useParams();
   const { user } = useCurrentUser();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'bookmarks'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'bookmarks'>('posts');
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
-  
+
   // Prevent body scrolling when edit form is shown
   useEffect(() => {
     if (showEditForm) {
@@ -46,11 +46,11 @@ const Profile = () => {
       };
     }
   }, [showEditForm]);
-  
+
   // Handle both hex pubkeys and npub identifiers
   const targetPubkey = (() => {
     if (!paramPubkey) return user?.pubkey || '';
-    
+
     // If it looks like an npub, decode it
     if (paramPubkey.startsWith('npub1')) {
       try {
@@ -62,11 +62,11 @@ const Profile = () => {
         console.error('Failed to decode npub:', error);
       }
     }
-    
+
     // Otherwise assume it's a hex pubkey
     return paramPubkey;
   })();
-  
+
   const isOwnProfile = !paramPubkey || targetPubkey === user?.pubkey;
 
   const author = useAuthor(targetPubkey);
@@ -75,13 +75,13 @@ const Profile = () => {
   const followUser = useFollowUser();
   const bookmarkedVideos = useBookmarkedVideos(isOwnProfile ? user?.pubkey : undefined);
   const userVideos = useUserVideos(targetPubkey);
-  const likedVideos = useLikedVideos(targetPubkey);
+  const repostedVideos = useRepostedVideos(targetPubkey);
   const metadata = author.data?.metadata;
 
   // Check if current user is following the target user
   const isFollowingTarget = Boolean(
-    user?.pubkey && 
-    currentUserFollowing?.data?.pubkeys && 
+    user?.pubkey &&
+    currentUserFollowing?.data?.pubkeys &&
     (currentUserFollowing.data.pubkeys as string[]).includes(targetPubkey)
   );
 
@@ -112,9 +112,9 @@ const Profile = () => {
 
   const handleFollowToggle = async () => {
     if (!user) return;
-    
+
     try {
-      const result = await followUser.mutateAsync({ 
+      const result = await followUser.mutateAsync({
         pubkeyToFollow: targetPubkey,
         isCurrentlyFollowing: isFollowingTarget
       });
@@ -152,13 +152,13 @@ const Profile = () => {
                   <Navigation />
                 </div>
               </div>
-              
+
               {/* Edit Profile Content */}
               <div className="flex-1 h-full overflow-y-auto scrollbar-hide">
                 <div className="max-w-2xl mx-auto p-6 min-h-full">
                   <div className="mb-6">
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       className="mb-4"
                       onClick={() => setShowEditForm(false)}
                     >
@@ -173,11 +173,11 @@ const Profile = () => {
                   <EditProfileForm />
                 </div>
               </div>
-              
-              {/* Right Sidebar - Login Area */}
-              <div className="hidden lg:block w-80 p-4">
+
+              {/* Right Sidebar - Compact Login Area */}
+              <div className="hidden lg:block w-80 p-3">
                 <div className="sticky top-4">
-                  <LoginArea className="w-full" />
+                  <LoginArea className="justify-end" />
                 </div>
               </div>
             </div>
@@ -200,7 +200,7 @@ const Profile = () => {
                   <Navigation />
                 </div>
               </div>
-              
+
               {/* Profile Content */}
               <div className="flex-1 overflow-y-auto scrollbar-hide">
                 <div className="max-w-4xl mx-auto p-6">
@@ -223,7 +223,7 @@ const Profile = () => {
                           {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </AvatarFallback>
                       </Avatar>
-                      
+
                       <div className="text-center space-y-3">
                         <h1 className="text-3xl font-bold">{displayName}</h1>
                         {userName !== displayName && (
@@ -300,10 +300,10 @@ const Profile = () => {
                                 <UserPlus className="w-4 h-4" />
                               )}
                               <span>
-                                {followUser.isPending 
-                                  ? 'Loading...' 
-                                  : isFollowingTarget 
-                                    ? 'Unfollow' 
+                                {followUser.isPending
+                                  ? 'Loading...'
+                                  : isFollowingTarget
+                                    ? 'Unfollow'
                                     : 'Follow'
                                 }
                               </span>
@@ -335,9 +335,9 @@ const Profile = () => {
                       {/* Website */}
                       {website && (
                         <div className="text-center">
-                          <a 
-                            href={website} 
-                            target="_blank" 
+                          <a
+                            href={website}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-400 hover:text-blue-300 underline"
                           >
@@ -353,7 +353,7 @@ const Profile = () => {
                   {/* Profile Tabs */}
                   <div className="mb-6">
                     <div className="flex space-x-1 p-1 bg-gray-900 rounded-lg">
-                      {(['posts', 'liked', 'bookmarks'] as const).map((tab) => (
+                      {(['posts', 'reposts', 'bookmarks'] as const).map((tab) => (
                         <button
                           key={tab}
                           onClick={() => setActiveTab(tab)}
@@ -364,7 +364,7 @@ const Profile = () => {
                           }`}
                         >
                           {tab === 'posts' && 'Posts'}
-                          {tab === 'liked' && 'Liked'}
+                          {tab === 'reposts' && 'Reposts'}
                           {tab === 'bookmarks' && 'Bookmarks'}
                         </button>
                       ))}
@@ -374,21 +374,21 @@ const Profile = () => {
                   {/* Content Grid */}
                   <div className="mt-6">
                     {activeTab === 'posts' ? (
-                      <VideoGrid 
+                      <VideoGrid
                         videos={userVideos.data || []}
                         isLoading={userVideos.isLoading}
                         emptyMessage="No videos published yet. Start creating and sharing videos!"
                         allowRemove={false}
                       />
-                    ) : activeTab === 'liked' ? (
-                      <VideoGrid 
-                        videos={likedVideos.data || []}
-                        isLoading={likedVideos.isLoading}
-                        emptyMessage="No liked videos yet. Like some videos to see them here!"
+                    ) : activeTab === 'reposts' ? (
+                      <VideoGrid
+                        videos={repostedVideos.data || []}
+                        isLoading={repostedVideos.isLoading}
+                        emptyMessage="No reposts yet. Repost some videos to see them here!"
                         allowRemove={false}
                       />
                     ) : activeTab === 'bookmarks' && isOwnProfile ? (
-                      <VideoGrid 
+                      <VideoGrid
                         videos={bookmarkedVideos.data || []}
                         isLoading={bookmarkedVideos.isLoading}
                         emptyMessage="No bookmarks yet. Start bookmarking videos you want to save!"
@@ -406,11 +406,11 @@ const Profile = () => {
                   </div>
                 </div>
               </div>
-              
-              {/* Right Sidebar - Login Area */}
-              <div className="hidden lg:block w-80 p-4">
+
+              {/* Right Sidebar - Compact Login Area */}
+              <div className="hidden lg:block w-80 p-3">
                 <div className="sticky top-4">
-                  <LoginArea className="w-full" />
+                  <LoginArea className="justify-end" />
                 </div>
               </div>
             </div>
@@ -426,7 +426,7 @@ const Profile = () => {
       />
 
       {/* QR Modal */}
-      <QRModal 
+      <QRModal
         isOpen={showQRModal}
         onClose={() => setShowQRModal(false)}
         pubkey={targetPubkey}
