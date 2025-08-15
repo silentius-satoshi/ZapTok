@@ -4,6 +4,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { AppContext, type AppConfig, type AppContextType, type Theme } from '@/contexts/AppContext';
 import type { ZapOption } from '@/types/zap';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
+import { primalBlossom } from '@/lib/blossomUtils';
 
 interface AppProviderProps {
   children: ReactNode;
@@ -29,6 +30,7 @@ const AppConfigSchema: z.ZodType<AppConfig, z.ZodTypeDef, unknown> = z.object({
   defaultZap: ZapOptionSchema,
   availableZapOptions: z.array(ZapOptionSchema).min(1),
   relayContext: z.enum(['all', 'wallet', 'feed', 'cashu-only', 'none', 'settings-cashu', 'search-only']).optional(),
+  blossomServers: z.array(z.string().url()).min(1),
 });
 
 // Migration schema for old single relay configs
@@ -69,6 +71,7 @@ export function AppProvider(props: AppProviderProps) {
             defaultZap,
             availableZapOptions: defaultZapOptions,
             relayContext: 'all',
+            blossomServers: [primalBlossom],
           };
         }
 
@@ -134,6 +137,38 @@ export function AppProvider(props: AppProviderProps) {
     }));
   };
 
+  // Add or replace primary Blossom server
+  const addBlossomServer = (serverUrl: string) => {
+    updateConfig((current) => ({
+      ...current,
+      blossomServers: [serverUrl, ...current.blossomServers.slice(1)]
+    }));
+  };
+
+  // Append a mirror Blossom server
+  const appendBlossomServer = (serverUrl: string) => {
+    updateConfig((current) => ({
+      ...current,
+      blossomServers: [...current.blossomServers.filter(url => url !== serverUrl), serverUrl]
+    }));
+  };
+
+  // Remove a specific Blossom server
+  const removeBlossomServer = (serverUrl: string) => {
+    updateConfig((current) => ({
+      ...current,
+      blossomServers: current.blossomServers.filter(url => url !== serverUrl)
+    }));
+  };
+
+  // Remove all mirror servers (keep only primary)
+  const removeBlossomMirrors = () => {
+    updateConfig((current) => ({
+      ...current,
+      blossomServers: current.blossomServers.slice(0, 1)
+    }));
+  };
+
   const appContextValue: AppContextType = {
     config,
     updateConfig,
@@ -144,6 +179,10 @@ export function AppProvider(props: AppProviderProps) {
     resetZapOptionsToDefault,
     setRelayContext,
     presetRelays,
+    addBlossomServer,
+    appendBlossomServer,
+    removeBlossomServer,
+    removeBlossomMirrors,
   };
 
   // Apply theme effects to document
