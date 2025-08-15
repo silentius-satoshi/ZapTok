@@ -44,7 +44,7 @@ export function useUserVideos(pubkey?: string): UseQueryResult<VideoEvent[], Err
         const events = await nostr.query(
           [
             {
-              kinds: [1],
+              kinds: [1, 21, 22], // Include NIP-71 video events (21, 22) along with text notes (1)
               authors: [pubkey],
               limit: 50,
             },
@@ -60,11 +60,11 @@ export function useUserVideos(pubkey?: string): UseQueryResult<VideoEvent[], Err
         const videoEvents = events.filter((event) => {
           const isValid = validateVideoEvent(event);
           const hasVideo = hasVideoContent(event);
-          
+
           if (import.meta.env.DEV && (isValid || hasVideo)) {
             console.log('useUserVideos: Event', event.id, 'isValid:', isValid, 'hasVideo:', hasVideo);
           }
-          
+
           return isValid && hasVideo;
         }) as VideoEvent[];
 
