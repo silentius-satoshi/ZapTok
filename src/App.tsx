@@ -7,6 +7,7 @@ import { AppProvider } from '@/components/AppProvider';
 import { AuthFilter } from '@/components/auth/AuthFilter';
 import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
+import { primalBlossom } from '@/lib/blossomUtils';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import AppRouter from './AppRouter';
 
@@ -40,6 +41,7 @@ const defaultConfig: AppConfig = {
   relayContext: 'all', // Start with all relays, will be optimized automatically
   defaultZap,
   availableZapOptions: defaultZapOptions,
+  blossomServers: [primalBlossom],
 };
 
 const presetRelays = [
