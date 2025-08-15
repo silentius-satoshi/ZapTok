@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { MessageCircle, Send, Bookmark, Plus } from 'lucide-react';
+import { MessageCircle, Bookmark, Plus, Repeat2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useVideoReactions } from '@/hooks/useVideoReactions';
 import { useVideoComments } from '@/hooks/useVideoComments';
+import { useVideoReposts } from '@/hooks/useVideoReposts';
+import { useRepost } from '@/hooks/useRepost';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useFollowUser } from '@/hooks/useFollowUser';
@@ -25,7 +27,6 @@ interface VideoActionButtonsProps {
   onZap?: () => void;
   onComment?: () => void;
   onBookmark?: () => void;
-  onShare?: () => void;
   onFollow?: () => void;
   onProfileClick?: () => void;
 }
@@ -37,13 +38,14 @@ export function VideoActionButtons({
   onZap: _onZap,
   onComment,
   onBookmark,
-  onShare,
   onFollow,
   onProfileClick,
 }: VideoActionButtonsProps) {
   const { user } = useCurrentUser();
   const reactions = useVideoReactions(event.id);
   const { data: commentsData } = useVideoComments(event.id);
+  const { data: repostsData } = useVideoReposts(event.id);
+  const { mutate: createRepost, isPending: isRepostPending } = useRepost();
   const author = useAuthor(event.pubkey);
   const following = useFollowing(user?.pubkey || '');
   // Bookmarks disabled in video feeds to prevent console spam
@@ -80,10 +82,13 @@ export function VideoActionButtons({
     });
   });
 
-  const handleShare = onShare || (() => {
-    // TODO: Implement share functionality
-    console.log('Share clicked');
-  });
+  const handleRepost = () => {
+    if (!user) return;
+
+    createRepost({
+      event: event,
+    });
+  };
 
   const handleFollow = onFollow || (() => {
     if (!user) return;
@@ -179,7 +184,23 @@ export function VideoActionButtons({
           </span>
         </div>
 
-        {/* 5. Bookmark Button */}
+        {/* 5. Repost Button */}
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="group rounded-full bg-gray-900/80 hover:bg-green-500/10 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg disabled:opacity-50 transition-all duration-200"
+            onClick={handleRepost}
+            disabled={isRepostPending || !user}
+          >
+            <Repeat2 className="w-6 h-6 text-green-400 drop-shadow-[0_0_4px_rgba(34,197,94,0.6)] group-hover:text-green-300 group-hover:drop-shadow-[0_0_8px_rgba(34,197,94,0.8)] group-hover:scale-110 transition-all duration-200" />
+          </Button>
+          <span className="text-white text-xs font-bold">
+            {repostsData ? formatCount(repostsData.count) : '0'}
+          </span>
+        </div>
+
+        {/* 6. Bookmark Button */}
         <div className="flex flex-col items-center gap-1">
           <Button
             variant="ghost"
@@ -195,26 +216,11 @@ export function VideoActionButtons({
             }`} />
           </Button>
           <span className="text-white text-xs font-bold">
-            {isCurrentlyBookmarked ? 'Saved' : 'Save'}
+            0
           </span>
         </div>
 
-        {/* 6. Share Button */}
-        <div className="flex flex-col items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="group rounded-full bg-gray-900/80 hover:bg-gray-600/20 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg transition-all duration-200"
-            onClick={handleShare}
-          >
-            <Send className="w-6 h-6 text-gray-300 drop-shadow-[0_0_4px_rgba(255,255,255,0.4)] group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] group-hover:scale-110 transition-all duration-200" />
-          </Button>
-          <span className="text-white text-xs font-bold">
-            Share
-          </span>
-        </div>
-
-        {/* 6. Profile Picture Button (clickable for profile page) */}
+        {/* 7. Profile Picture Button (clickable for profile page) */}
         <div className="flex flex-col items-center gap-1">
           <Button
             variant="ghost"
