@@ -140,26 +140,8 @@ export function useOnboardNewAccount() {
           content: profileEvent.content
         });
 
-        if (!profileResult || (Array.isArray(profileResult) && profileResult.length === 0)) {
-          console.warn('[OnboardNewAccount] ⚠️ Profile event may not have been accepted by relays, trying direct publishing...');
-
-          // Try direct publishing to major relays as fallback
-          const relays = [
-            'wss://relay.damus.io',
-            'wss://relay.primal.net',
-            'wss://relay.nostr.band'
-          ];
-
-          const publishResults = await Promise.allSettled(
-            relays.map(relay => publishToRelayDirect(profileEvent, relay))
-          );
-
-          const successCount = publishResults.filter(r => r.status === 'fulfilled' && r.value).length;
-          console.log(`[OnboardNewAccount] 📊 Direct publish results: ${successCount}/${relays.length} relays accepted profile`);
-
-        } else {
-          console.log('[OnboardNewAccount] 🎯 Profile event accepted by relays:', profileResult);
-        }
+        // Profile event publish is void, so we continue regardless
+        console.log('[OnboardNewAccount] ✅ Profile event published successfully');
       } catch (profileError) {
         console.error('[OnboardNewAccount] ❌ Failed to publish profile:', profileError);
         throw profileError;
@@ -202,9 +184,7 @@ export function useOnboardNewAccount() {
           tags: contactListEvent.tags.length
         });
 
-        if (!contactResult || (Array.isArray(contactResult) && contactResult.length === 0)) {
-          console.warn('[OnboardNewAccount] ⚠️ Contact list event may not have been accepted by relays');
-        }
+        console.log('[OnboardNewAccount] ✅ Contact list event published successfully');
       } catch (contactError) {
         console.error('[OnboardNewAccount] ❌ Failed to publish contact list:', contactError);
         throw contactError;
@@ -296,24 +276,8 @@ Just joined the decentralized social network from ZapTok. Excited to connect wit
         console.log('[OnboardNewAccount] 🧪 Test event publish result:', testResult);
         console.log('[OnboardNewAccount] 🧪 Result type:', typeof testResult, 'Is array:', Array.isArray(testResult));
 
-        // If Nostrify publishing failed, try direct publishing
-        if (!testResult || testResult === undefined) {
-          console.log('[OnboardNewAccount] 🧪 Nostrify publishing failed, trying direct approach...');
-
-          const testRelays = ['wss://relay.damus.io', 'wss://relay.primal.net'];
-          const directResults = await Promise.allSettled(
-            testRelays.map(relay => publishToRelayDirect(testEvent, relay))
-          );
-
-          const directSuccessCount = directResults.filter(r => r.status === 'fulfilled' && r.value).length;
-          console.log(`[OnboardNewAccount] 🧪 Direct test publish results: ${directSuccessCount}/${testRelays.length} relays accepted`);
-
-          if (directSuccessCount > 0) {
-            console.log('[OnboardNewAccount] ✅ Direct relay publishing is working! The issue is with Nostrify library.');
-          } else {
-            console.log('[OnboardNewAccount] ❌ Even direct publishing failed - deeper issue with event format or relay connectivity');
-          }
-        }
+        // Test event published successfully
+        console.log('[OnboardNewAccount] 🧪 Test event published via Nostrify');
 
         // Wait a moment then try to query it back
         console.log('[OnboardNewAccount] 🧪 Waiting 3 seconds then querying back...');
