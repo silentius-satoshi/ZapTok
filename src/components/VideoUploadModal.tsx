@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,6 +72,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       return;
     }
 
+    console.log('Processing video file:', file.name, file.type, file.size);
+
     setSelectedFile(file);
     setVideoMetadata(prev => ({
       ...prev,
@@ -80,11 +82,16 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       title: file.name.replace(/\.[^/.]+$/, '') // Remove file extension
     }));
 
+    // Clean up previous preview URL
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
     // Create preview URL
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
     setUploadStep('metadata');
-  }, [toast]);
+  }, [toast, previewUrl]);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -115,6 +122,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const handleVideoLoad = useCallback(() => {
     if (videoRef.current) {
       const duration = videoRef.current.duration;
+      console.log('Video loaded successfully, duration:', duration);
+      
       setVideoMetadata(prev => ({
         ...prev,
         duration: Math.round(duration)
@@ -179,6 +188,35 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const handleUpload = useCallback(async () => {
     if (!selectedFile || !user) return;
 
+    // Enhanced validation
+    if (!user.signer) {
+      toast({
+        title: 'Authentication Error',
+        description: 'User signer not available. Please try logging out and back in.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!user.signer.signEvent || typeof user.signer.signEvent !== 'function') {
+      toast({
+        title: 'Authentication Error',
+        description: 'Invalid signer configuration. Please ensure you are logged in with a Nostr extension or valid key.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    console.log('Starting upload process:', {
+      fileSize: selectedFile.size,
+      fileName: selectedFile.name,
+      userPubkey: user.pubkey,
+      signerAvailable: !!user.signer,
+      hasSignEvent: !!user.signer?.signEvent,
+      signerSignEventType: typeof user.signer?.signEvent,
+      signerMethods: user.signer ? Object.keys(user.signer) : 'none'
+    });
+
     setIsProcessing(true);
     setUploadStep('uploading');
     setUploadProgress(0);
@@ -187,6 +225,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       // Generate thumbnail if video is loaded
       let thumbnailUrl = '';
       if (videoRef.current) {
+        console.log('Generating thumbnail...');
         const thumbnailDataUrl = await generateThumbnail(videoRef.current);
         
         // Convert thumbnail to File for upload
@@ -195,19 +234,24 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         const thumbnailFile = new File([blob], `${selectedFile.name}_thumbnail.jpg`, { type: 'image/jpeg' });
         
         // Upload thumbnail to Blossom
+        console.log('Uploading thumbnail...');
         const thumbnailTags = await uploadFile(thumbnailFile);
         thumbnailUrl = thumbnailTags[0][1]; // First tag contains URL
+        console.log('Thumbnail uploaded:', thumbnailUrl);
       }
 
       // Upload video to Blossom
+      console.log('Uploading main video file...');
       setUploadProgress(50);
       const videoTags = await uploadFile(selectedFile);
+      console.log('Video uploaded successfully, tags:', videoTags);
       // videoUrl is the first tag - we'll use it in the tags array below
 
       setUploadProgress(80);
 
       // Determine video kind based on duration
       const videoKind = videoMetadata.duration <= 60 ? 22 : 21; // Short vs normal video
+      console.log('Creating Nostr event, kind:', videoKind);
 
       // Create NIP-71 video event
       const eventTags = [
@@ -232,6 +276,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         eventTags.push(['t', 'short']);
       }
 
+      console.log('Publishing event to Nostr...');
       createEvent({
         kind: videoKind,
         content: videoMetadata.description || videoMetadata.title,
@@ -253,9 +298,27 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
     } catch (error) {
       console.error('Upload failed:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        user: user ? { pubkey: user.pubkey, signerAvailable: !!user.signer } : 'No user'
+      });
+      
+      let errorMessage = 'There was an error uploading your video. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('signer') || error.message.includes('nostr')) {
+          errorMessage = 'Authentication error. Please try logging out and back in.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.message.includes('file') || error.message.includes('size')) {
+          errorMessage = 'File upload error. Please try a smaller file or different format.';
+        }
+      }
+      
       toast({
         title: 'Upload failed',
-        description: 'There was an error uploading your video. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
       setUploadStep('metadata');
@@ -286,6 +349,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             <Video className="h-5 w-5" />
             Upload Video to Nostr
           </DialogTitle>
+          <DialogDescription>
+            Share your video content on the decentralized Nostr network
+          </DialogDescription>
         </DialogHeader>
 
         {/* Step 1: File Selection */}
@@ -328,14 +394,35 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             {/* Video Preview */}
             <Card>
               <CardContent className="p-4">
-                <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
-                  <video
-                    ref={videoRef}
-                    src={previewUrl || ''}
-                    controls
-                    onLoadedMetadata={handleVideoLoad}
-                    className="w-full h-full object-contain"
-                  />
+                <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4 relative">
+                  {previewUrl ? (
+                    <video
+                      ref={videoRef}
+                      src={previewUrl}
+                      controls
+                      preload="metadata"
+                      onLoadedMetadata={handleVideoLoad}
+                      onError={(e) => {
+                        console.error('Video preview failed to load:', e.currentTarget.error);
+                        toast({
+                          title: 'Video preview error',
+                          description: 'Unable to preview video, but upload should still work.',
+                          variant: 'destructive',
+                        });
+                      }}
+                      className="w-full h-full object-contain"
+                      style={{ backgroundColor: 'black' }}
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <FileVideo className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">Loading video preview...</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* File Info */}
