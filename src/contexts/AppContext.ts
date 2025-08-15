@@ -23,6 +23,8 @@ export interface AppConfig {
   availableZapOptions: ZapOption[];
   /** Current relay context */
   relayContext?: RelayContext;
+  /** Blossom server URLs - first is primary, others are mirrors */
+  blossomServers: string[];
 }
 
 export interface AppContextType {
@@ -44,6 +46,14 @@ export interface AppContextType {
   setRelayContext: (context: RelayContext) => void;
   /** Optional list of preset relays to display in the RelaySelector */
   presetRelays?: { name: string; url: string }[];
+  /** Add or replace primary Blossom server */
+  addBlossomServer: (serverUrl: string) => void;
+  /** Append a mirror Blossom server */
+  appendBlossomServer: (serverUrl: string) => void;
+  /** Remove a specific Blossom server */
+  removeBlossomServer: (serverUrl: string) => void;
+  /** Remove all mirror servers */
+  removeBlossomMirrors: () => void;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);

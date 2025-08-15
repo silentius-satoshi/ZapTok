@@ -35,6 +35,7 @@ export function TestApp({ children }: TestAppProps) {
     ],
     defaultZap,
     availableZapOptions: defaultZapOptions,
+    blossomServers: ['https://media.primal.net'],
   };
 
   return (
