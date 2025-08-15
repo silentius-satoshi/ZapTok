@@ -85,11 +85,11 @@ export function LoginArea({ className }: LoginAreaProps) {
   // Lightning wallet button - Enhanced with better styling
   const LightningWalletButton = () => (
     <button
-      className='group flex items-center justify-center p-3 rounded-xl bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200'
+      className='group flex items-center justify-center p-2.5 rounded-lg bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200'
       onClick={() => navigate('/wallet')}
       title="Lightning Wallet"
     >
-      <Zap className='w-4 h-4 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-200' />
+      <Zap className='w-3.5 h-3.5 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-200' />
     </button>
   );
 
@@ -102,7 +102,7 @@ export function LoginArea({ className }: LoginAreaProps) {
   // Currency toggle button (BTC/USD) with balance display - Enhanced styling
   const CurrencyToggleButton = () => (
     <button
-      className='group flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200 whitespace-nowrap min-w-fit'
+      className='group flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200 whitespace-nowrap min-w-fit'
       onClick={() => {
         const newCurrency = currency === 'BTC' ? 'USD' : 'BTC';
         setCurrency(newCurrency);
@@ -114,15 +114,15 @@ export function LoginArea({ className }: LoginAreaProps) {
     >
       {currency === 'BTC' ? (
         <>
-          <span className='text-orange-400 font-semibold text-sm group-hover:text-orange-300 transition-colors duration-200'>₿</span>
-          <span className='text-orange-200 font-medium text-sm group-hover:text-orange-100 transition-colors duration-200'>
+          <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
+          <span className='text-orange-200 font-medium text-xs group-hover:text-orange-100 transition-colors duration-200'>
             {formatBalance().replace(' sats', '')} sats
           </span>
         </>
       ) : (
         <>
-          <span className='text-green-400 font-semibold text-sm group-hover:text-green-300 transition-colors duration-200'>$</span>
-          <span className='text-green-200 font-medium text-sm group-hover:text-green-100 transition-colors duration-200'>
+          <span className='text-green-400 font-semibold text-xs group-hover:text-green-300 transition-colors duration-200'>$</span>
+          <span className='text-green-200 font-medium text-xs group-hover:text-green-100 transition-colors duration-200'>
             {formatBalance().replace('$', '').replace(' USD', '')} USD
             {isPriceLoading && <span className="opacity-50 ml-1">⟳</span>}
           </span>
@@ -134,7 +134,7 @@ export function LoginArea({ className }: LoginAreaProps) {
   return (
     <div className={cn("inline-flex items-center justify-start min-w-0", className)}>
       {currentUser ? (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* Lightning Wallet Button */}
           <LightningWalletButton />
 
@@ -156,7 +156,7 @@ export function LoginArea({ className }: LoginAreaProps) {
         </Button>
       )}
 
-            <LoginModal
+      <LoginModal
         isOpen={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
       />
