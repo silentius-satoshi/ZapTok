@@ -137,6 +137,7 @@ Bulletproof & Transparent
 - NIP-50: Search Capability
 - NIP-53: Live Activities
 - NIP-75: Zap Goals
+- **Client-Side Video Compression**: Plebs-app-style multi-quality compression pipeline for mobile data optimization (see [implementation plan](./public/future-implementations/CLIENT_SIDE_VIDEO_COMPRESSION.md))
 
 **Research & Future Consideration**
 - NIP-03: OpenTimestamps Attestations

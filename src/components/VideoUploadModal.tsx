@@ -12,6 +12,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUploadFile } from '@/hooks/useUploadFile';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
+import { createHybridVideoEvent, type HybridVideoEventData } from '@/lib/hybridEventStrategy';
 
 interface VideoUploadModalProps {
   isOpen: boolean;
@@ -249,46 +250,62 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
       setUploadProgress(80);
 
-      // Determine video kind based on duration
-      const videoKind = videoMetadata.duration <= 60 ? 22 : 21; // Short vs normal video
-      console.log('Creating Nostr event, kind:', videoKind);
+      // Create hybrid video event for cross-client compatibility
+      console.log('Creating hybrid Nostr event for cross-client compatibility...');
 
-      // Create NIP-71 video event
-      const eventTags = [
-        ...videoTags, // Include all Blossom metadata tags
-        ['title', videoMetadata.title],
-        ['summary', videoMetadata.description],
-        ['duration', videoMetadata.duration.toString()],
-        ['size', videoMetadata.size.toString()],
-        ['type', videoMetadata.type],
-        ['t', 'video'],
-        ['t', 'zaptok'],
-      ];
+      // Extract video data from upload tags
+      const videoUrl = videoTags.find(tag => tag[0] === 'url')?.[1] || '';
+      const videoHash = videoTags.find(tag => tag[0] === 'x')?.[1] || '';
+      const videoSize = parseInt(videoTags.find(tag => tag[0] === 'size')?.[1] || '0');
+      const videoType = videoTags.find(tag => tag[0] === 'm')?.[1] || videoMetadata.type;
 
-      // Add thumbnail if available
-      if (thumbnailUrl) {
-        eventTags.push(['thumb', thumbnailUrl]);
-        eventTags.push(['image', thumbnailUrl]);
-      }
+      // Prepare video data for hybrid event
+      const hybridVideoData: HybridVideoEventData = {
+        title: videoMetadata.title,
+        description: videoMetadata.description,
+        videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        hash: videoHash,
+        duration: videoMetadata.duration,
+        size: videoSize,
+        type: videoType,
+        // Extract dimensions if available from Blossom tags
+        width: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[0] ? 
+               parseInt(videoTags.find(tag => tag[0] === 'dim')![1].split('x')[0]) : undefined,
+        height: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[1] ? 
+                parseInt(videoTags.find(tag => tag[0] === 'dim')![1].split('x')[1]) : undefined,
+      };
 
-      // Add content type specific tags
-      if (videoKind === 22) {
-        eventTags.push(['t', 'short']);
-      }
-
-      console.log('Publishing event to Nostr...');
-      createEvent({
-        kind: videoKind,
-        content: videoMetadata.description || videoMetadata.title,
-        tags: eventTags,
+      // Create hybrid event (kind 1 with rich metadata)
+      const hybridEvent = createHybridVideoEvent(hybridVideoData, {
+        includeNip71Tags: true,
+        includeRichContent: true,
+        hashtags: ['video', 'zaptok', ...(videoMetadata.duration <= 60 ? ['short'] : [])],
+        includeImeta: true
       });
+
+      // Add any additional Blossom-specific tags from the upload
+      const additionalTags = videoTags.filter(tag => 
+        !['url', 'x', 'size', 'dim', 'm', 'thumb'].includes(tag[0])
+      );
+      hybridEvent.tags = [...(hybridEvent.tags || []), ...additionalTags];
+
+      console.log('Publishing hybrid event to Nostr...', {
+        kind: hybridEvent.kind,
+        contentPreview: hybridEvent.content?.substring(0, 50),
+        tagCount: hybridEvent.tags?.length,
+        videoUrl: videoUrl,
+        videoHash: videoHash
+      });
+
+      createEvent(hybridEvent);
 
       setUploadProgress(100);
       setUploadStep('complete');
 
       toast({
         title: 'Video uploaded successfully!',
-        description: `Your ${videoKind === 22 ? 'short' : 'normal'} video has been published to Nostr.`,
+        description: `Your ${videoMetadata.duration <= 60 ? 'short' : 'normal'} video has been published with cross-client compatibility.`,
       });
 
       // Reset form after a delay
@@ -507,7 +524,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             <div className="text-left space-y-2 text-sm text-gray-600">
               <p>• Uploading to Blossom servers...</p>
               <p>• Generating thumbnail...</p>
-              <p>• Creating Nostr event...</p>
+              <p>• Creating hybrid Nostr event...</p>
               <p>• Publishing to relays...</p>
             </div>
           </div>
@@ -529,7 +546,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               <div className="text-left space-y-1 text-sm text-gray-600">
                 <p>✓ Video uploaded to Blossom</p>
                 <p>✓ Thumbnail generated</p>
-                <p>✓ NIP-71 event created</p>
+                <p>✓ Hybrid event created (kind 1)</p>
+                <p>✓ Cross-client compatible</p>
                 <p>✓ Published to relays</p>
               </div>
             </div>
