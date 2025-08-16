@@ -75,17 +75,35 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   const handleBunkerLogin = async (bunkerUrl: string) => {
     setIsLocked(true);
     try {
-      await login.bunker(bunkerUrl);
+      // Try the new nostr-tools implementation first
+      console.log('🔧 Attempting bunker login with nostr-tools implementation...');
+      await login.bunkerNostrTools(bunkerUrl);
+      console.log('✅ nostr-tools bunker login successful!');
       // Defer the modal close to avoid state update during render warning
       setTimeout(() => onClose(), 0);
-    } catch (error) {
-      console.error('Bunker login failed:', error);
-      toast({
-        title: "Login Failed",
-        description: error instanceof Error ? error.message : "Failed to connect to bunker",
-        variant: "destructive",
-      });
-      throw error; // Re-throw to let the child component handle loading state
+      return;
+    } catch (nostrToolsError) {
+      console.log('❌ nostr-tools bunker login failed, falling back to Nostrify...', nostrToolsError);
+
+      // Fallback to the original Nostrify implementation
+      try {
+        await login.bunker(bunkerUrl);
+        // Defer the modal close to avoid state update during render warning
+        setTimeout(() => onClose(), 0);
+      } catch (error) {
+        console.error('Bunker login fallback also failed:', error);
+
+        // Don't show error toast for confirmation URLs since BunkerLogin handles the flow
+        if (!(error instanceof Error && error.message.startsWith('https://'))) {
+          toast({
+            title: "Login Failed",
+            description: error instanceof Error ? error.message : "An unexpected error occurred",
+            variant: "destructive",
+          });
+        }
+
+        throw error; // Re-throw so BunkerLogin can handle it
+      }
     } finally {
       setIsLocked(false);
     }
@@ -96,14 +114,14 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" style={{ zIndex: 99999, backgroundColor: 'black' }}>
       <div className="absolute inset-0" style={{ backgroundColor: 'black', zIndex: -1 }} />
-      
+
       <div className="w-full max-w-md my-8 relative z-10">
         <Card className="bg-transparent backdrop-blur-sm border-none relative">
           <CardHeader className="text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
-              <img 
-                src="/images/ZapTok-v3.png" 
-                alt="ZapTok Logo" 
+              <img
+                src="/images/ZapTok-v3.png"
+                alt="ZapTok Logo"
                 className="w-8 h-8 rounded-lg"
               />
               <CardTitle className="text-3xl bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">
@@ -127,7 +145,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
               </TooltipProvider>
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="space-y-6">
             <Tabs defaultValue={('nostr' in window) ? 'extension' : 'key'} className="w-full">
               <TabsList className="grid w-full grid-cols-3">
@@ -135,25 +153,25 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                 <TabsTrigger value="key">Private Key</TabsTrigger>
                 <TabsTrigger value="bunker">Bunker</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="extension" className="space-y-4">
-                <ExtensionLogin 
-                  hasExtension={'nostr' in window} 
-                  loginWithExtension={handleExtensionLogin} 
-                  isLocked={isLocked} 
+                <ExtensionLogin
+                  hasExtension={'nostr' in window}
+                  loginWithExtension={handleExtensionLogin}
+                  isLocked={isLocked}
                   isPWA={false}
                 />
               </TabsContent>
-              
+
               <TabsContent value="key" className="space-y-4">
                 <PrivateKeyLogin login={handlePrivateKeyLogin} isLocked={isLocked} />
               </TabsContent>
-              
+
               <TabsContent value="bunker" className="space-y-4">
                 <BunkerLogin login={handleBunkerLogin} isLocked={isLocked} />
               </TabsContent>
             </Tabs>
-            
+
             <div className="text-center">
               <Button
                 variant="link"
