@@ -379,6 +379,7 @@ const Profile = () => {
                         isLoading={userVideos.isLoading}
                         emptyMessage="No videos published yet. Start creating and sharing videos!"
                         allowRemove={false}
+                        showVerificationBadge={false}
                       />
                     ) : activeTab === 'reposts' ? (
                       <VideoGrid
@@ -386,6 +387,7 @@ const Profile = () => {
                         isLoading={repostedVideos.isLoading}
                         emptyMessage="No reposts yet. Repost some videos to see them here!"
                         allowRemove={false}
+                        showVerificationBadge={false}
                       />
                     ) : activeTab === 'bookmarks' && isOwnProfile ? (
                       <VideoGrid
@@ -393,6 +395,7 @@ const Profile = () => {
                         isLoading={bookmarkedVideos.isLoading}
                         emptyMessage="No bookmarks yet. Start bookmarking videos you want to save!"
                         allowRemove={true}
+                        showVerificationBadge={false}
                       />
                     ) : (
                       <div className="grid grid-cols-3 gap-4">
