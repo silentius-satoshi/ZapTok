@@ -163,29 +163,34 @@
   100% { background-color: transparent; }
 }
 
-/* Mobile feed fullscreen overlay adjustments */
+/* Mobile feed fullscreen overlay adjustments with strict snap-to-grid */
 @media (max-width: 768px) {
+  :root {
+    /* Adjust if bottom nav height changes (includes padding & safe area spacing) */
+    --bottom-nav-height: 96px;
+  }
+
   .mobile-feed-container {
     position: fixed;
     inset: 0;
-    /* Leave room for bottom nav (approx 76px incl safe area) */
-    padding-top: calc(env(safe-area-inset-top) + 0px);
-    padding-bottom: calc(76px + env(safe-area-inset-bottom));
     width: 100%;
     height: 100dvh;
+    overflow: hidden;
     background: transparent;
-    pointer-events: auto;
-    display: flex;
-    flex-direction: column;
+    touch-action: pan-y;
   }
 
   .mobile-feed-scroller {
-    flex: 1;
-    overflow-y: scroll;
-    -webkit-overflow-scrolling: touch;
+    position: relative;
+    width: 100%;
+    height: calc(100dvh - var(--bottom-nav-height) - env(safe-area-inset-bottom));
+    overflow-y: auto;
     overscroll-behavior: contain;
-    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: y mandatory;
     background: transparent;
+    padding: 0;
+    margin: 0;
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
@@ -195,16 +200,25 @@
   }
 
   .mobile-video-item {
-    /* Full viewport minus bottom nav & safe area */
-    height: calc(100dvh - calc(76px + env(safe-area-inset-bottom)));
     width: 100%;
+    height: calc(100dvh - var(--bottom-nav-height) - env(safe-area-inset-bottom));
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    position: relative;
+    flex: none;
+    display: block;
   }
 
-  /* Ensure videos / wrappers inside fill container */
-  .mobile-video-item video,
-  .mobile-video-item .video-wrapper {
+  /* Ensure inner wrappers or cards stretch fully (override margins) */
+  .mobile-video-item > * {
     height: 100% !important;
-    width: 100%;
+    margin: 0 !important;
+  }
+
+  /* Make sure any video element fills the item */
+  .mobile-video-item video {
+    height: 100% !important;
+    width: 100% !important;
     object-fit: cover;
   }
 }

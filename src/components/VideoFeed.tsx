@@ -34,15 +34,11 @@ export function VideoFeed() {
   useEffect(() => {
     if (!isMobile) return;
     
-    const originalOverflow = document.documentElement.style.overflow;
-    const originalBodyOverflow = document.body.style.overflow;
-    
+    const original = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
     
     return () => {
-      document.documentElement.style.overflow = originalOverflow;
-      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = original;
     };
   }, [isMobile]);
 
@@ -483,21 +479,14 @@ export function VideoFeed() {
           scrollBehavior: 'smooth'
         }}
       >
-        <div
-          className={
-            isMobile
-              ? "flex flex-col snap-y snap-mandatory"
-              : "h-full w-full"
-          }
-        >
-          {videos.map((video, index) => (
-            <div
-              key={`${video.id}-${index}`}
-              className={
-                isMobile
-                  ? "mobile-video-item snap-start relative"
-                  : "h-screen flex items-center justify-center snap-start"
-              }
+        {videos.map((video, index) => (
+          <div
+            key={`${video.id}-${index}`}
+            className={
+              isMobile
+                ? "mobile-video-item"
+                : "h-screen flex items-center justify-center snap-start"
+            }
             >
               <div className={`flex w-full items-end h-full py-4 ${isMobile ? 'flex-col relative px-4' : 'gap-8 max-w-4xl'}`}>
                 {/* Video Container - Full height from top to bottom */}
@@ -544,7 +533,6 @@ export function VideoFeed() {
               </div>
             </div>
           )}
-        </div>
       </div>
     </div>
   );

@@ -35,15 +35,11 @@ export function GlobalVideoFeed() {
   useEffect(() => {
     if (!isMobile) return;
     
-    const originalOverflow = document.documentElement.style.overflow;
-    const originalBodyOverflow = document.body.style.overflow;
-    
+    const original = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
     
     return () => {
-      document.documentElement.style.overflow = originalOverflow;
-      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = original;
     };
   }, [isMobile]);
 
@@ -337,21 +333,14 @@ export function GlobalVideoFeed() {
         }
         style={{ scrollBehavior: 'smooth' }}
       >
-        <div
-          className={
-            isMobile
-              ? "flex flex-col snap-y snap-mandatory"
-              : "h-full w-full"
-          }
-        >
-          {videos.map((video, index) => (
-            <div
-              key={`${video.id}-${index}`}
-              className={
-                isMobile
-                  ? "mobile-video-item snap-start relative"
-                  : "h-screen flex items-center justify-center snap-start"
-              }
+        {videos.map((video, index) => (
+          <div
+            key={`${video.id}-${index}`}
+            className={
+              isMobile
+                ? "mobile-video-item"
+                : "h-screen flex items-center justify-center snap-start"
+            }
             >
               <div className={`flex w-full items-end h-full py-4 ${isMobile ? 'flex-col relative px-4' : 'gap-6 max-w-2xl'}`}>
                 <div className={`overflow-hidden bg-black shadow-2xl hover:shadow-3xl transition-all duration-300 ${
@@ -393,7 +382,6 @@ export function GlobalVideoFeed() {
               </div>
             </div>
           )}
-        </div>
       </div>
     </div>
   );
