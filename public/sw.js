@@ -9,9 +9,9 @@ const CACHE_DYNAMIC_NAME = 'zaptok-dynamic-v3';
 
 // Static assets to cache during install
 const STATIC_FILES = [
-  '/',
-  '/manifest.webmanifest',
-  '/images/ZapTok-v3.png',
+  '/ZapTok/',
+  '/ZapTok/manifest.webmanifest',
+  '/ZapTok/images/ZapTok-v3.png',
   // Add other critical assets as needed
 ];
 
@@ -339,8 +339,8 @@ self.addEventListener('push', (event) => {
   }
 
   const options = {
-    badge: '/images/ZapTok-v3.png',
-    icon: '/images/ZapTok-v3.png',
+    badge: '/ZapTok/images/ZapTok-v3.png',
+    icon: '/ZapTok/images/ZapTok-v3.png',
     vibrate: [200, 100, 200],
     data: data,
     actions: []
