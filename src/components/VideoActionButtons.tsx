@@ -120,7 +120,7 @@ export function VideoActionButtons({
       <div className={`flex items-center ${isMobile ? 'flex-col gap-4 w-16' : 'flex-col gap-5 w-20'}`}>
         {/* 1. Profile Picture with Follow Button (no click functionality on profile picture) */}
         <div className="relative">
-          <div className={`rounded-full p-0 overflow-hidden border-2 border-white/30 bg-transparent shadow-lg backdrop-blur-sm ${
+          <div className={`rounded-full p-0 overflow-hidden bg-transparent ${
             isMobile ? 'h-12 w-12' : 'h-14 w-14'
           }`}>
             <Avatar className={isMobile ? 'h-12 w-12' : 'h-14 w-14'}>
@@ -257,7 +257,7 @@ export function VideoActionButtons({
           <Button
             variant="ghost"
             size="sm"
-            className={`rounded-full p-0 overflow-hidden border-2 border-white/30 bg-transparent hover:bg-white/10 shadow-lg backdrop-blur-sm ${
+            className={`rounded-full p-0 overflow-hidden bg-transparent hover:bg-transparent ${
               isMobile ? 'h-12 w-12' : 'h-14 w-14'
             }`}
             onClick={handleProfileClick}
