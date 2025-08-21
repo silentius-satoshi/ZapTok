@@ -157,8 +157,8 @@ export function Settings() {
 
   return (
     <div className="flex h-screen bg-black">
-      {/* Left Navigation Column */}
-      <div className="w-80 border-r border-gray-800 bg-black flex flex-col">
+      {/* Left Navigation Column - Hidden on mobile */}
+      <div className="hidden md:flex w-80 border-r border-gray-800 bg-black flex-col">
         {/* Logo at top of sidebar */}
         <LogoHeader />
 
@@ -168,21 +168,21 @@ export function Settings() {
         </div>
       </div>
 
-      {/* Middle Settings Column */}
-      <div className="flex-1 border-r border-gray-800 bg-black">
+      {/* Middle Settings Column - Full width on mobile */}
+      <div className="flex-1 md:border-r border-gray-800 bg-black pt-16 md:pt-0 pb-16 md:pb-0">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-800">
           {renderSettingsHeader()}
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto scrollbar-hide" style={{ height: 'calc(100vh - 97px)' }}>
+        <div className="overflow-y-auto scrollbar-hide" style={{ height: 'calc(100vh - 97px - 4rem)' }}>
           {renderSettingsContent()}
         </div>
       </div>
 
-      {/* Right Relay Column */}
-      <div className="w-96 bg-black p-8">
+      {/* Right Relay Column - Hidden on mobile */}
+      <div className="hidden md:block w-96 bg-black p-8">
         <div className="space-y-10">
           {/* Relays Section */}
           <div>
