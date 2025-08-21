@@ -223,6 +223,48 @@ export function VideoFeed() {
     }
   }, [currentVideoIndex, videos, setCurrentVideo]);
 
+  // Intersection observer for video autoplay on mobile
+  useEffect(() => {
+    if (!isMobile || !containerRef.current || !videos.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const videoElement = entry.target.querySelector('video');
+          if (!videoElement) return;
+
+          if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+            // Video is more than 50% visible - play it
+            videoElement.play().catch(() => {
+              // Autoplay failed, user interaction required
+            });
+            
+            // Update current video context
+            const videoIndex = parseInt(entry.target.getAttribute('data-video-index') || '0');
+            if (videos[videoIndex]) {
+              setCurrentVideo(videos[videoIndex]);
+              setCurrentVideoIndex(videoIndex);
+            }
+          } else {
+            // Video is not prominently visible - pause it
+            videoElement.pause();
+          }
+        });
+      },
+      {
+        root: containerRef.current,
+        threshold: [0, 0.5, 1],
+        rootMargin: '-10% 0px -10% 0px'
+      }
+    );
+
+    // Observe all video items
+    const videoItems = containerRef.current.querySelectorAll('.mobile-video-item');
+    videoItems.forEach((item) => observer.observe(item));
+
+    return () => observer.disconnect();
+  }, [isMobile, videos, setCurrentVideo, setCurrentVideoIndex]);
+
   // Function to scroll to a specific video
   const scrollToVideo = (index: number) => {
     if (containerRef.current) {
@@ -482,17 +524,18 @@ export function VideoFeed() {
         {videos.map((video, index) => (
           <div
             key={`${video.id}-${index}`}
+            data-video-index={index}
             className={
               isMobile
                 ? "mobile-video-item"
                 : "h-screen flex items-center justify-center snap-start"
             }
             >
-              <div className={`flex w-full items-end h-full py-4 ${isMobile ? 'flex-col relative px-4' : 'gap-8 max-w-4xl'}`}>
+              <div className={`flex w-full items-end h-full ${isMobile ? 'flex-col relative' : 'gap-8 max-w-4xl py-4'}`}>
                 {/* Video Container - Full height from top to bottom */}
                 <div className={`overflow-hidden bg-black shadow-2xl hover:shadow-3xl transition-all duration-300 ${
                   isMobile 
-                    ? 'w-full h-full rounded-2xl border border-gray-800' 
+                    ? 'w-full h-full border-none' 
                     : 'flex-1 h-full rounded-3xl border-2 border-gray-800'
                 }`}>
                   <VideoCard

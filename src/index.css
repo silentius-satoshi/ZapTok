@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent horizontal scroll on mobile */
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -176,7 +183,7 @@
     width: 100%;
     height: 100dvh;
     overflow: hidden;
-    background: transparent;
+    background: #000; /* Prevent flash gaps on fast scroll */
     touch-action: pan-y;
   }
 
@@ -193,32 +200,69 @@
     margin: 0;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    scroll-behavior: smooth;
   }
 
   .mobile-feed-scroller::-webkit-scrollbar {
     display: none;
   }
 
+  /* Full-bleed video item area */
   .mobile-video-item {
-    width: 100%;
+    width: 100vw;
     height: calc(100dvh - var(--bottom-nav-height) - env(safe-area-inset-bottom));
     scroll-snap-align: start;
     scroll-snap-stop: always;
     position: relative;
     flex: none;
     display: block;
+    margin: 0;
+    padding: 0;
+    background: #000;
+  }
+
+  /* Remove any rounding / spacing introduced by card wrappers */
+  .mobile-video-item,
+  .mobile-video-item *[class*="rounded"],
+  .mobile-video-item .video-card,
+  .mobile-video-item .videoWrapper,
+  .mobile-video-item .card {
+    border-radius: 0 !important;
+  }
+
+  /* Kill outer margins/padding some cards might inject */
+  .mobile-video-item > .video-card,
+  .mobile-video-item > div[class*="p-"],
+  .mobile-video-item > div[class*="m-"] {
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   /* Ensure inner wrappers or cards stretch fully (override margins) */
   .mobile-video-item > * {
     height: 100% !important;
     margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
   }
 
-  /* Make sure any video element fills the item */
+  /* Ensure the actual video fills fully */
   .mobile-video-item video {
     height: 100% !important;
     width: 100% !important;
     object-fit: cover;
+    display: block;
+    background: #000;
+    pointer-events: auto;
+  }
+
+  /* If you have overlays positioned relative to inner wrappers, ensure they stretch */
+  .mobile-video-item .video-wrapper,
+  .mobile-video-item .video-inner {
+    height: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
   }
 }
