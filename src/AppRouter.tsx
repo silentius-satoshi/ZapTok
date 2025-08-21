@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { HashRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { useVideoPlayback } from "@/contexts/VideoPlaybackContext";
 import { useContextualRelays } from "@/hooks/useContextualRelays";
@@ -69,7 +69,7 @@ function RouteHandler() {
 
 export function AppRouter() {
   return (
-    <BrowserRouter
+    <HashRouter
       future={{
         v7_startTransition: true,
         v7_relativeSplatPath: true,
@@ -92,7 +92,7 @@ export function AppRouter() {
           </WalletProvider>
         </CachingProvider>
       </NostrProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 export default AppRouter;
