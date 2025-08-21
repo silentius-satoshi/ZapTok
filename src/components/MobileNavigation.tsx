@@ -23,7 +23,7 @@ export function MobileNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
-  
+
   const [isOpen, setIsOpen] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
@@ -108,7 +108,7 @@ export function MobileNavigation() {
   return (
     <>
       {/* Mobile Top Bar - Completely transparent overlay */}
-      <div 
+      <div
         className="md:hidden fixed left-0 top-0 z-50 w-full bg-transparent pointer-events-none select-none"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
@@ -159,7 +159,7 @@ export function MobileNavigation() {
                 </button>
               </>
             )}
-            
+
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
                 <button
@@ -234,7 +234,7 @@ export function MobileNavigation() {
                   {/* Profile Section */}
                   <div className="p-4 border-t border-gray-800">
                     {user ? (
-                      <button 
+                      <button
                         className="flex items-center gap-3 p-3 rounded-xl transition-all w-full text-left hover:bg-gray-800/30"
                         onClick={() => handleNavigateToPage('/profile')}
                       >
@@ -265,8 +265,8 @@ export function MobileNavigation() {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-t border-gray-800">
-        <div className="flex items-center justify-around py-3 px-4">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md">
+        <div className="flex items-center justify-around pt-4 pb-3 px-4">
           {bottomNavItems.map((item) => (
             <div key={item.id} className="flex justify-center">
               {item.isCenter ? (
@@ -326,14 +326,14 @@ export function MobileNavigation() {
       </div>
 
       {/* Modals */}
-      <VideoUploadModal 
-        isOpen={showUploadModal} 
-        onClose={handleUploadModalClose} 
+      <VideoUploadModal
+        isOpen={showUploadModal}
+        onClose={handleUploadModalClose}
       />
 
-      <UserSearchModal 
-        open={showUserSearchModal} 
-        onOpenChange={handleUserSearchModalClose} 
+      <UserSearchModal
+        open={showUserSearchModal}
+        onOpenChange={handleUserSearchModalClose}
       />
 
       {/* QuickZap Modal for current video author */}
