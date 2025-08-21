@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Volume2, VolumeX } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Play } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useVideoRegistration } from '@/hooks/useVideoRegistration';
@@ -25,7 +24,6 @@ interface VideoCardProps {
 
 export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious, onVideoUnavailable, showVerificationBadge = true }: VideoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
   const [userPaused, setUserPaused] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const videoRef = useVideoRegistration(); // Use the video registration hook
@@ -161,13 +159,6 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     setIsPlaying(false);
   };
 
-  const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-      setIsMuted(videoRef.current.muted);
-    }
-  };
-
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
       {/* Video Element or Error State */}
@@ -216,18 +207,6 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
           </div>
         </div>
       )}
-
-      {/* Volume Control - Top Right */}
-      <div className="absolute top-4 right-4 z-10">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="rounded-full bg-black/40 hover:bg-black/60 text-white h-10 w-10 backdrop-blur-sm"
-          onClick={toggleMute}
-        >
-          {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-        </Button>
-      </div>
 
       {/* Video Description - Bottom Left */}
       <div className="absolute bottom-4 left-4 right-20 text-white z-10">
