@@ -30,6 +30,22 @@ export function VideoFeed() {
   const isScrollingRef = useRef(false);
   const lastScrollTopRef = useRef(0);
 
+  // Lock body scroll on mobile to prevent dual scrolling
+  useEffect(() => {
+    if (!isMobile) return;
+    
+    const originalOverflow = document.documentElement.style.overflow;
+    const originalBodyOverflow = document.body.style.overflow;
+    
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    
+    return () => {
+      document.documentElement.style.overflow = originalOverflow;
+      document.body.style.overflow = originalBodyOverflow;
+    };
+  }, [isMobile]);
+
   // Enhanced caching hooks
   const { batchLoadProfiles } = useProfileCache();
   const { preloadThumbnails } = useVideoPrefetch();
@@ -450,62 +466,86 @@ export function VideoFeed() {
 
   return (
     <div
-      ref={containerRef}
-      className="h-screen overflow-y-auto scrollbar-hide bg-black snap-y snap-mandatory relative"
-      style={{
-        scrollBehavior: 'smooth'
-      }}
+      className={
+        isMobile
+          ? "mobile-feed-container"
+          : "relative w-full h-full"
+      }
     >
-      {videos.map((video, index) => (
+      <div
+        ref={containerRef}
+        className={
+          isMobile
+            ? "mobile-feed-scroller"
+            : "h-screen overflow-y-auto scrollbar-hide bg-black snap-y snap-mandatory relative"
+        }
+        style={{
+          scrollBehavior: 'smooth'
+        }}
+      >
         <div
-          key={`${video.id}-${index}`}
-          className="h-screen flex items-center justify-center snap-start"
+          className={
+            isMobile
+              ? "flex flex-col snap-y snap-mandatory"
+              : "h-full w-full"
+          }
         >
-          <div className={`flex w-full items-end h-full py-4 ${isMobile ? 'flex-col relative px-4' : 'gap-8 max-w-4xl'}`}>
-            {/* Video Container - Full height from top to bottom */}
-            <div className={`overflow-hidden bg-black shadow-2xl hover:shadow-3xl transition-all duration-300 ${
-              isMobile 
-                ? 'w-full h-full rounded-2xl border border-gray-800' 
-                : 'flex-1 h-full rounded-3xl border-2 border-gray-800'
-            }`}>
-              <VideoCard
-                event={video}
-                isActive={index === currentVideoIndex}
-                onNext={() => {
-                  const newIndex = Math.min(index + 1, videos.length - 1);
-                  setCurrentVideoIndex(newIndex);
-                  scrollToVideo(newIndex);
-                }}
-                onPrevious={() => {
-                  const newIndex = Math.max(index - 1, 0);
-                  setCurrentVideoIndex(newIndex);
-                  scrollToVideo(newIndex);
-                }}
-                onVideoUnavailable={index === currentVideoIndex ? skipToNextVideo : undefined}
-              />
-            </div>
+          {videos.map((video, index) => (
+            <div
+              key={`${video.id}-${index}`}
+              className={
+                isMobile
+                  ? "mobile-video-item snap-start relative"
+                  : "h-screen flex items-center justify-center snap-start"
+              }
+            >
+              <div className={`flex w-full items-end h-full py-4 ${isMobile ? 'flex-col relative px-4' : 'gap-8 max-w-4xl'}`}>
+                {/* Video Container - Full height from top to bottom */}
+                <div className={`overflow-hidden bg-black shadow-2xl hover:shadow-3xl transition-all duration-300 ${
+                  isMobile 
+                    ? 'w-full h-full rounded-2xl border border-gray-800' 
+                    : 'flex-1 h-full rounded-3xl border-2 border-gray-800'
+                }`}>
+                  <VideoCard
+                    event={video}
+                    isActive={index === currentVideoIndex}
+                    onNext={() => {
+                      const newIndex = Math.min(index + 1, videos.length - 1);
+                      setCurrentVideoIndex(newIndex);
+                      scrollToVideo(newIndex);
+                    }}
+                    onPrevious={() => {
+                      const newIndex = Math.max(index - 1, 0);
+                      setCurrentVideoIndex(newIndex);
+                      scrollToVideo(newIndex);
+                    }}
+                    onVideoUnavailable={index === currentVideoIndex ? skipToNextVideo : undefined}
+                  />
+                </div>
 
-            {/* Action Buttons - Mobile: overlay on video, Desktop: outside to the right */}
-            <div className={isMobile 
-              ? 'absolute right-4 bottom-20 z-10' 
-              : 'flex items-end pb-8 ml-4'
-            }>
-              <VideoActionButtons
-                event={video}
-              />
+                {/* Action Buttons - Mobile: overlay on video, Desktop: outside to the right */}
+                <div className={isMobile 
+                  ? 'absolute right-4 bottom-20 z-10' 
+                  : 'flex items-end pb-8 ml-4'
+                }>
+                  <VideoActionButtons
+                    event={video}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      ))}
+          ))}
 
-      {isFetchingNextPage && (
-        <div className="h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-8 h-8 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-400">Loading more videos...</p>
-          </div>
+          {isFetchingNextPage && (
+            <div className={isMobile ? "mobile-video-item flex items-center justify-center" : "h-screen flex items-center justify-center"}>
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-400">Loading more videos...</p>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

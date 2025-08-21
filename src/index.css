@@ -162,3 +162,49 @@
   0% { background-color: rgb(34 197 94 / 0.2); }
   100% { background-color: transparent; }
 }
+
+/* Mobile feed fullscreen overlay adjustments */
+@media (max-width: 768px) {
+  .mobile-feed-container {
+    position: fixed;
+    inset: 0;
+    /* Leave room for bottom nav (approx 76px incl safe area) */
+    padding-top: calc(env(safe-area-inset-top) + 0px);
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    width: 100%;
+    height: 100dvh;
+    background: transparent;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mobile-feed-scroller {
+    flex: 1;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
+    background: transparent;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .mobile-feed-scroller::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-video-item {
+    /* Full viewport minus bottom nav & safe area */
+    height: calc(100dvh - calc(76px + env(safe-area-inset-bottom)));
+    width: 100%;
+  }
+
+  /* Ensure videos / wrappers inside fill container */
+  .mobile-video-item video,
+  .mobile-video-item .video-wrapper {
+    height: 100% !important;
+    width: 100%;
+    object-fit: cover;
+  }
+}

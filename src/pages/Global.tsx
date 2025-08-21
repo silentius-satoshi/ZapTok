@@ -22,7 +22,7 @@ const Global = () => {
         {isMobile && <MobileNavigation />}
 
         {/* Main Content */}
-        <main className={`h-screen overflow-hidden ${isMobile ? 'pt-16 pb-16' : ''}`}>
+        <main className={`h-screen overflow-hidden ${isMobile ? '' : ''}`}>
           <div className="flex h-full">
             {/* Desktop Left Sidebar - Logo and Navigation */}
             <div className="hidden md:flex flex-col bg-black">
