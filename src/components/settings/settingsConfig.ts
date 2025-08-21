@@ -23,6 +23,30 @@ export interface SettingsSectionConfig {
 }
 
 export const settingsSections: SettingsSectionConfig[] = [
+  // Core Identity & Security Settings
+  {
+    id: 'keys',
+    title: 'Keys',
+    component: KeysSettings,
+    category: 'monetization'
+  },
+
+  // Connection & Network Settings
+  {
+    id: 'connected-wallets',
+    title: 'Connected Wallets',
+    component: ConnectedWalletsSettings,
+    category: 'network',
+    requiresProps: true
+  },
+  {
+    id: 'network',
+    title: 'Network',
+    component: NetworkSettings,
+    category: 'network',
+    requiresProps: true
+  },
+
   // Interface Settings
   {
     id: 'appearance',
@@ -45,15 +69,15 @@ export const settingsSections: SettingsSectionConfig[] = [
     category: 'content'
   },
   {
-    id: 'media-uploads',
-    title: 'Media Uploads',
-    component: MediaUploadsSettings,
-    category: 'content'
-  },
-  {
     id: 'stream',
     title: 'Stream',
     component: StreamSettings,
+    category: 'content'
+  },
+  {
+    id: 'media-uploads',
+    title: 'Media Uploads',
+    component: MediaUploadsSettings,
     category: 'content'
   },
 
@@ -71,26 +95,12 @@ export const settingsSections: SettingsSectionConfig[] = [
     category: 'moderation'
   },
 
-  // Network & Connection Settings
-  {
-    id: 'connected-wallets',
-    title: 'Connected Wallets',
-    component: ConnectedWalletsSettings,
-    category: 'network',
-    requiresProps: true
-  },
+  // Notification Settings
   {
     id: 'notifications',
     title: 'Notifications',
     component: NotificationsSettings,
     category: 'interface'
-  },
-  {
-    id: 'network',
-    title: 'Network',
-    component: NetworkSettings,
-    category: 'network',
-    requiresProps: true
   },
 
   // Developer Settings
@@ -106,12 +116,6 @@ export const settingsSections: SettingsSectionConfig[] = [
     id: 'zaps',
     title: 'Zaps',
     component: ZapsSettings,
-    category: 'monetization'
-  },
-  {
-    id: 'keys',
-    title: 'Keys',
-    component: KeysSettings,
     category: 'monetization'
   }
 ];

@@ -168,8 +168,8 @@ export function Settings() {
         </div>
       </div>
 
-      {/* Middle Settings Column - Full width on mobile */}
-      <div className="flex-1 md:border-r border-gray-800 bg-black pt-16 md:pt-0 pb-16 md:pb-0">
+  {/* Middle Settings Column - Full width on mobile */}
+  <div className="flex-1 md:border-r border-gray-800 bg-black pt-4 md:pt-0 pb-16 md:pb-0">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-800">
           {renderSettingsHeader()}
