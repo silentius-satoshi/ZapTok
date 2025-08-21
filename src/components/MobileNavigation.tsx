@@ -74,17 +74,8 @@ export function MobileNavigation() {
     { id: 'following', icon: Users, label: 'Following', path: '/' },
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    { id: 'wallet', icon: Zap, label: 'Lightning Wallet', path: '/wallet' },
-    { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
-  ];
-
-  // Core items for bottom navigation (most important for mobile)
-  const bottomNavItems = [
-    { id: 'following', icon: Users, label: 'Home', path: '/' },
-    { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
-    { id: 'global', icon: Globe, label: 'Global', path: '/global' },
-    { id: 'notifications', icon: Heart, label: 'Alerts', path: '/notifications' },
     { id: 'wallet', icon: Zap, label: 'Wallet', path: '/wallet' },
+    { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
   const isActive = (path: string) => {
@@ -222,11 +213,11 @@ export function MobileNavigation() {
 
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-t border-gray-800">
-        <div className="flex items-center justify-around py-2 px-2">
-          {bottomNavItems.map((item) => (
+        <div className="flex items-center overflow-x-auto scrollbar-hide py-2 px-2 gap-1">
+          {navItems.map((item) => (
             <button
               key={item.id}
-              className={`flex-1 max-w-20 h-12 flex flex-col items-center justify-center gap-1 rounded-lg transition-colors ${
+              className={`flex-shrink-0 w-16 h-12 flex flex-col items-center justify-center gap-1 rounded-lg transition-colors ${
                 isActive(item.path)
                   ? 'text-orange-400'
                   : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
