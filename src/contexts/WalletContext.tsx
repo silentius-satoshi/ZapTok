@@ -148,7 +148,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           // Always try to enable first, even if isEnabled is true
           try {
             await window.webln.enable();
-            setProvider(window.webln);
+            const webln = window.webln;
+            setProvider({
+              ...webln,
+              isEnabled: webln.isEnabled ?? true
+            });
             setIsConnected(true);
 
             // Load initial wallet data after enabling
@@ -197,7 +201,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Try to use WebLN first
       if (window.webln) {
         await window.webln.enable();
-        setProvider(window.webln);
+        const webln = window.webln;
+        setProvider({
+          ...webln,
+          isEnabled: webln.isEnabled ?? true
+        });
         setIsConnected(true);
 
         // Mark this user as having Lightning access

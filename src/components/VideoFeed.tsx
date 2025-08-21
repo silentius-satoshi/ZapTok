@@ -54,7 +54,7 @@ export function VideoFeed() {
       };
 
       let events: NostrEvent[] = [];
-      
+
       // Try to get videos from following list first
       if (following.data?.pubkeys?.length) {
         const eventsFromFollowing = await nostr.query([
@@ -65,7 +65,7 @@ export function VideoFeed() {
             until: pageParam,
           }
         ], { signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]) });
-        
+
         events = eventsFromFollowing;
         processingStats.rawEvents = events.length;
       }
@@ -73,48 +73,48 @@ export function VideoFeed() {
       // Filter and validate video events, removing duplicates by both event ID and video URL
       const uniqueEvents = new Map<string, NostrEvent>();
       const seenVideoUrls = new Set<string>();
-      
+
       events.forEach(event => {
         // Quick filter for potential video content
         if (!hasVideoContent(event)) return;
-        
+
         // Count video event types
         if (event.kind === 21) {
           processingStats.normalVideos++;
         } else if (event.kind === 22) {
           processingStats.shortVideos++;
         }
-        
+
         // Only keep the latest version of each event ID
         const existing = uniqueEvents.get(event.id);
         if (existing && event.created_at <= existing.created_at) return;
-        
+
         uniqueEvents.set(event.id, event);
       });
 
       // Validate events and deduplicate by video URL
       const validatedEvents: VideoEvent[] = [];
-      
+
       for (const event of uniqueEvents.values()) {
         const videoEvent = validateVideoEvent(event);
         if (!videoEvent) {
           processingStats.failedValidation++;
           continue;
         }
-        
+
         if (!videoEvent.videoUrl) {
           processingStats.noVideoUrl++;
           continue;
         }
-        
+
         processingStats.validatedEvents++;
-        
+
         // Normalize URL for comparison to catch duplicates with different parameters
         const normalizedUrl = normalizeVideoUrl(videoEvent.videoUrl);
-        
+
         // Skip if we've already seen this video URL
         if (seenVideoUrls.has(normalizedUrl)) continue;
-        
+
         seenVideoUrls.add(normalizedUrl);
         validatedEvents.push(videoEvent);
       }
@@ -167,12 +167,12 @@ export function VideoFeed() {
         const thumbnailUrls = videos
           .map(event => event.thumbnail)
           .filter(Boolean) as string[];
-        
+
         // Background prefetch (non-blocking)
         if (authorPubkeys.length > 0) {
           batchLoadProfiles(authorPubkeys.slice(0, 20)).catch(() => {}); // Limit to 20 profiles
         }
-        
+
         if (thumbnailUrls.length > 0) {
           preloadThumbnails(thumbnailUrls.slice(0, 10)); // Limit to 10 thumbnails
         }
@@ -204,7 +204,7 @@ export function VideoFeed() {
       // Calculate position for full-screen videos
       const videoHeight = window.innerHeight; // Full screen height
       const targetTop = index * videoHeight;
-      
+
       containerRef.current.scrollTo({
         top: targetTop,
         behavior: 'smooth'
@@ -228,18 +228,18 @@ export function VideoFeed() {
 
     const handleScroll = () => {
       if (isScrollingRef.current) return;
-      
+
       const scrollTop = container.scrollTop;
       const videoHeight = window.innerHeight; // Full screen height
-      
+
       // Calculate which video is most visible
       const newIndex = Math.round(scrollTop / videoHeight);
-      
+
       // Only update if we've actually moved to a different video
       if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < videos.length) {
         setCurrentVideoIndex(newIndex);
       }
-      
+
       lastScrollTopRef.current = scrollTop;
     };
 
@@ -257,13 +257,13 @@ export function VideoFeed() {
 
     const handleScrollEnd = () => {
       if (isScrollingRef.current) return;
-      
+
       const scrollTop = container.scrollTop;
       const videoHeight = window.innerHeight;
-      
+
       const targetIndex = Math.round(scrollTop / videoHeight);
       const targetScrollTop = targetIndex * videoHeight;
-      
+
       // Only snap if we're not already close to the target position
       if (Math.abs(scrollTop - targetScrollTop) > 10) {
         isScrollingRef.current = true;
@@ -271,7 +271,7 @@ export function VideoFeed() {
           top: targetScrollTop,
           behavior: 'smooth'
         });
-        
+
         setTimeout(() => {
           isScrollingRef.current = false;
         }, 300);
@@ -287,7 +287,7 @@ export function VideoFeed() {
     };
 
     container.addEventListener('scroll', handleScrollWithTimer, { passive: true });
-    
+
     return () => {
       container.removeEventListener('scroll', handleScrollWithTimer);
       clearTimeout(scrollTimer);
@@ -420,9 +420,9 @@ export function VideoFeed() {
               <p className="text-sm text-gray-500 mb-4">
                 Check back later or follow more creators who share videos
               </p>
-              <Button 
-                onClick={() => navigate('/settings?section=network')} 
-                variant="outline" 
+              <Button
+                onClick={() => navigate('/settings?section=network')}
+                variant="outline"
                 className="w-full"
               >
                 <Settings className="h-4 w-4 mr-2" />
@@ -436,7 +436,7 @@ export function VideoFeed() {
   }
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="h-screen overflow-y-auto scrollbar-hide bg-black snap-y snap-mandatory relative"
       style={{
@@ -446,9 +446,9 @@ export function VideoFeed() {
       {videos.map((video, index) => (
         <div
           key={`${video.id}-${index}`}
-          className="h-screen flex items-center justify-center snap-start px-6"
+          className="h-screen flex items-center justify-center snap-start px-4"
         >
-          <div className="flex gap-6 w-full max-w-2xl items-end h-full py-4">
+          <div className="flex gap-8 w-full max-w-4xl items-end h-full py-4">
             {/* Video Container - Full height from top to bottom */}
             <div className="flex-1 h-full overflow-hidden rounded-3xl border-2 border-gray-800 bg-black shadow-2xl hover:shadow-3xl transition-all duration-300">
               <VideoCard
@@ -467,9 +467,9 @@ export function VideoFeed() {
                 onVideoUnavailable={index === currentVideoIndex ? skipToNextVideo : undefined}
               />
             </div>
-            
+
             {/* Action Buttons - Outside and to the right of video */}
-            <div className="flex items-end pb-8">
+            <div className="flex items-end pb-8 ml-4">
               <VideoActionButtons
                 event={video}
               />
@@ -477,7 +477,7 @@ export function VideoFeed() {
           </div>
         </div>
       ))}
-      
+
       {isFetchingNextPage && (
         <div className="h-screen flex items-center justify-center">
           <div className="text-center">

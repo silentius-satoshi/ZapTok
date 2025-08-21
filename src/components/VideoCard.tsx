@@ -20,16 +20,17 @@ interface VideoCardProps {
   onNext: () => void;
   onPrevious: () => void;
   onVideoUnavailable?: () => void;
+  showVerificationBadge?: boolean;
 }
 
-export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious, onVideoUnavailable }: VideoCardProps) {
+export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious, onVideoUnavailable, showVerificationBadge = true }: VideoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [userPaused, setUserPaused] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const videoRef = useVideoRegistration(); // Use the video registration hook
   const author = useAuthor(event.pubkey);
-  
+
   // Use fallback URL system to find working video URLs
   const { workingUrl, isTestingUrls } = useVideoUrlFallback({
     originalUrl: event.videoUrl,
@@ -67,7 +68,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     if (import.meta.env.DEV) {
       const now = Date.now();
       const significantChange = workingUrl !== event.videoUrl || isTestingUrls;
-      
+
       if (significantChange && now - videoDebugRef.current.lastPropsLog > 5000) {
         console.log(`📱 VideoCard [${event.title?.slice(0, 20) || 'Untitled'}]:`, {
           status: isTestingUrls ? 'testing-urls' : 'ready',
@@ -90,7 +91,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
 
     const handleLoadedData = () => {
       videoDebugRef.current.loadEvents++;
-      
+
       if (import.meta.env.DEV) {
         const now = Date.now();
         // Bundle video load success logs - less frequent
@@ -206,7 +207,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
 
       {/* Pause Overlay */}
       {userPaused && !isPlaying && (
-        <div 
+        <div
           className="absolute inset-0 bg-black/20 flex items-center justify-center cursor-pointer"
           onClick={handlePlayPause}
         >
@@ -234,7 +235,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
           {/* Username */}
           <div className="flex items-center gap-2">
             <span className="font-bold text-white">@{displayName}</span>
-            {authorMetadata?.nip05 && (
+            {showVerificationBadge && authorMetadata?.nip05 && (
               <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-300 border-blue-400/30">
                 ✓ {authorMetadata.nip05}
               </Badge>

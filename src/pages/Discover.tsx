@@ -74,7 +74,7 @@ const Discover = () => {
     if (!activeFilters.includes(filterString)) {
       const newFilters = [...activeFilters, filterString];
       setActiveFilters(newFilters);
-      
+
       // Add filter to search query
       const filtersString = newFilters.join(' ');
       const baseQuery = searchQuery.split(' ').filter(term => !term.includes(':')).join(' ');
@@ -87,7 +87,7 @@ const Discover = () => {
   const removeFilter = (filterToRemove: string) => {
     const newFilters = activeFilters.filter(filter => filter !== filterToRemove);
     setActiveFilters(newFilters);
-    
+
     // Update search query
     const filtersString = newFilters.join(' ');
     const baseQuery = searchQuery.split(' ').filter(term => !term.includes(':')).join(' ');
@@ -118,7 +118,7 @@ const Discover = () => {
                 <Navigation />
               </div>
             </div>
-            
+
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto scrollbar-hide">
               <div className="max-w-4xl mx-auto p-6">
@@ -259,7 +259,7 @@ const Discover = () => {
                               Search failed: {error.message}
                             </p>
                             <p className="text-sm text-gray-400 mt-2">
-                              {searchScope === 'following' 
+                              {searchScope === 'following'
                                 ? "Make sure you're following users and your relay supports NIP-50 search functionality."
                                 : "Make sure your relay supports NIP-50 search functionality."
                               }
@@ -268,11 +268,11 @@ const Discover = () => {
                         </Card>
                       )}
 
-                      <VideoGrid 
+                      <VideoGrid
                         videos={searchResults || []}
                         isLoading={isLoading}
                         emptyMessage={
-                          searchFilter 
+                          searchFilter
                             ? searchScope === 'following'
                               ? "No videos found in your following list for this search. Try searching 'All Users' or follow more creators."
                               : "No videos found for your search. Try different keywords or filters."
@@ -287,7 +287,7 @@ const Discover = () => {
                 {!searchFilter && (
                   <>
                     <Separator className="mb-8" />
-                    
+
                     <div className="mb-8">
                       <div className="flex items-center space-x-2 mb-4">
                         <TrendingUp className="w-5 h-5 text-orange-500" />
@@ -349,11 +349,11 @@ const Discover = () => {
                 )}
               </div>
             </div>
-            
-            {/* Right Sidebar - Login Area */}
-            <div className="hidden lg:block w-80 p-4">
+
+            {/* Right Sidebar - Compact Login Area */}
+            <div className="hidden lg:block w-80 p-3">
               <div className="sticky top-4">
-                <LoginArea className="w-full" />
+                <LoginArea className="justify-end" />
               </div>
             </div>
           </div>

@@ -85,3 +85,33 @@ Object.defineProperty(HTMLVideoElement.prototype, 'muted', {
   writable: true,
   value: false,
 });
+
+// Mock global Image for environments without DOM Image constructor (used in prefetch logic)
+// Provides minimal interface for setting src without triggering network
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(global as any).Image = class MockImage {
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  // store event listeners similar to a lightweight EventTarget
+  private _listeners: Record<string, Set<(...args: unknown[]) => void>> = {};
+  addEventListener(event: string, cb: (...args: unknown[]) => void) {
+    if (!this._listeners[event]) this._listeners[event] = new Set();
+    this._listeners[event].add(cb);
+  }
+  removeEventListener(event: string, cb: (...args: unknown[]) => void) {
+    this._listeners[event]?.delete(cb);
+  }
+  dispatchEvent(event: { type: string }) {
+    this._listeners[event.type]?.forEach((cb) => {
+      try { cb(event); } catch (_) { /* ignore */ }
+    });
+    return true;
+  }
+  set src(_url: string) {
+    // Simulate async successful load
+    setTimeout(() => {
+      if (this.onload) this.onload();
+      this.dispatchEvent({ type: 'load' });
+    }, 0);
+  }
+};

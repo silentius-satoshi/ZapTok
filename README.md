@@ -51,16 +51,16 @@ ZapTok is a decentralized video platform powered by Bitcoin and Nostr. We delive
 - [ ] Long-form Content Support (NIP-23)
 
 **Community Features**
-- [ ] Public Chats (NIP-28)
-- [ ] Moderated Communities (NIP-72)
-- [ ] Polls & Interactive Content (NIP-69)
-- [ ] Live Activities & Streaming (NIP-53)
+- [ ] Live Streaming & Activities (NIP-53)
+- [ ] Creator Communities & Groups (NIP-72)
+- [ ] Interactive Polls & Voting (NIP-69)
+- [ ] Public Chat Rooms (NIP-28)
 
-**Platform Expansion**
-- [ ] Cross-platform mobile apps (iOS/Android)
-- [ ] Marketplace Integration (NIP-15)
-- [ ] Multiple Account Support
-- [ ] Push Notifications
+**Platform Evolution**
+- [ ] Progressive Web App (PWA) enhancements
+- [ ] Video Creator Marketplace (NIP-15)
+- [ ] Advanced Multi-Account Management
+- [ ] Cross-Client Compatibility Standards
 
 ## Philosophy
 
@@ -133,22 +133,28 @@ Bulletproof & Transparent
 
 **📋 Planned for Implementation**
 - NIP-10: Conventions for `e` and `p` tags (replies/mentions)  
-- NIP-17: Private Direct Messages
 - NIP-18: Reposts
-- NIP-23: Long-form Content
-- NIP-28: Public Chat
 - NIP-50: Search Capability
 - NIP-53: Live Activities
-- NIP-58: Badges
-- NIP-72: Moderated Communities
 - NIP-75: Zap Goals
+- **Client-Side Video Compression**: Plebs-app-style multi-quality compression pipeline for mobile data optimization (see [implementation plan](./public/future-implementations/CLIENT_SIDE_VIDEO_COMPRESSION.md))
 
 **Research & Future Consideration**
 - NIP-03: OpenTimestamps Attestations
-- NIP-15: Nostr Marketplace
-- NIP-42: Relay Authentication
-- NIP-44: Versioned Encryption
+- NIP-32: Content Labeling
+- NIP-92: Media Attachments
 - NIP-96: File Storage Integration
+- Bandwidth Optimization
+- CDN/Mirror Integration
+- Content Licensing & Rights Management
+- Creator Analytics
+- Creator Revenue Splits
+- Cross-Platform Embedding
+- Paywall Integrations
+- Playlist Support
+- Recurring Payments/Subscriptions
+- Video Annotations & Timestamps
+- Video Quality Metadata
 
 </details>
 
@@ -158,51 +164,18 @@ Bulletproof & Transparent
 This roadmap evolves based on:
 - Community feedback and feature requests
 - Nostr protocol development (NIPs)
-- Bitcoin Lightning Network improvements
+- Bitcoin / Lightning Network / Cashu improvements
 - Creator and user needs
 
 **Want to contribute?** Check our [Contributing Guidelines](CONTRIBUTING.md) or [open an issue](https://github.com/silentius-satoshi/ZapTok/issues) to suggest features!
 
----
-⚡ Zap A Coffee for Contributors ⚡
-
-
-**silentius satoshi** - [zapmeacoffee.com/silentius](https://zapmeacoffee.com/npub13vftmhzzxxyuvcq4d643agzwr4zvce3pc4gvxymgvuzlwpxa4z2sq4sjd9)
-
-`npub13vftmhzzxxyuvcq4d643agzwr4zvce3pc4gvxymgvuzlwpxa4z2sq4sjd9`
-
-
----
-*Last updated: [July 25, 2025]*
-
 ## License
 
-ZapTok is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
-
-### Why AGPL v3?
-
-We chose AGPL v3 to ensure that:
-- **All improvements remain open source**: Any modifications or deployments of ZapTok must share their source code
-- **Network copyleft protection**: SaaS providers can't create proprietary versions
-- **Creator & user protection**: Prevents big tech from exploiting the platform without contributing back
-- **Community-driven development**: Ensures ZapTok remains controlled by its users and contributors, not corporations
+ZapTok is licensed under the **MIT License**.
 
 ### Copyright Notice
 
-Copyright (c) 2025 silentius satoshi (silentius@nostrplebs.com)
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-### Brand Protection
-
-"ZapTok" is a project created by silentius satoshi. While the code is open source under AGPL v3, please respect the brand identity when creating derivative works.
-
-### Community Guidelines
-
-- **Contributions welcome**: Submit PRs, report issues, suggest features
-- **Fork freely**: Create your own versions while following AGPL v3 requirements  
-- **Commercial use**: Allowed under AGPL v3 terms (source code must remain open)
-- **Attribution**: Please credit original authors when redistributing
+Copyright (c) 2025 @silentius (silentius@nostrplebs.com)
 
 For the complete license text, see the [LICENSE](./LICENSE) file.
 
@@ -210,7 +183,7 @@ For the complete license text, see the [LICENSE](./LICENSE) file.
 
 <div align="center">
 
-**Built with ❤️ by the Nostr community**
+Built with ❤️ by [@silentius](https://nostr.band/npub13vftmhzzxxyuvcq4d643agzwr4zvce3pc4gvxymgvuzlwpxa4z2sq4sjd9)
 
 *Vibed with [MKStack](https://soapbox.pub/mkstack)*
 

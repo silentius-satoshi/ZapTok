@@ -35,12 +35,12 @@ const Global = () => {
               </div>
             </div>
 
-            {/* Right Sidebar - Login Area */}
-            <div className="hidden lg:block w-[28rem] overflow-hidden">
+            {/* Right Sidebar - Compact Login Area */}
+            <div className="hidden lg:block w-80 overflow-hidden">
               <div className="sticky top-4 space-y-6">
                 {/* Login Area */}
-                <div className="p-4 overflow-hidden">
-                  <LoginArea className="w-full" />
+                <div className="p-3 overflow-hidden">
+                  <LoginArea className="justify-end" />
                 </div>
               </div>
             </div>

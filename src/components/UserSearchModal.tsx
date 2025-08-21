@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,24 +23,53 @@ interface UserSearchModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// Custom debounce hook
+function useDebounced<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+interface UserSearchModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
 export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebounced(query.trim(), 300); // 300ms debounce
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const { mutate: followUser } = useFollowUser();
   const following = useFollowing(user?.pubkey || '');
   const navigate = useNavigate();
   const { config, setRelayContext } = useAppContext();
-  
+
   // Temporarily switch to search-only context when modal is open for user search
+  // But don't override if we're already in a search-compatible context
   useEffect(() => {
-    if (open && config.relayContext === 'none') {
-      setRelayContext('search-only');
+    if (open) {
+      // Only switch to search-only if we're in 'none' context
+      // This prevents conflicts with route-based context switching
+      if (config.relayContext === 'none') {
+        setRelayContext('search-only');
+      }
+    } else {
+      // When modal closes, if we set it to search-only, reset to none
+      // (route-based logic will handle setting the correct context)
+      if (config.relayContext === 'search-only') {
+        setRelayContext('none');
+      }
     }
   }, [open, config.relayContext, setRelayContext]);
-  
-  // Use the useUserSearch hook with current query
-  const { data: results = [], isLoading } = useUserSearch(query.trim());
+
+  // Use the useUserSearch hook with debounced query
+  const { data: results = [], isLoading } = useUserSearch(debouncedQuery);
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -91,12 +120,18 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent
+        className="sm:max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col"
+        aria-describedby="user-search-description"
+      >
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
             Direct User Search
           </DialogTitle>
+          <p id="user-search-description" className="text-sm text-muted-foreground sr-only">
+            Search for Nostr users by entering their npub or public key
+          </p>
         </DialogHeader>
 
         <div className="flex-shrink-0 relative">
@@ -110,7 +145,7 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0">
-          {!query.trim() ? (
+          {!debouncedQuery ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Search className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
@@ -134,7 +169,7 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
                 </Card>
               ))}
             </div>
-          ) : results.length === 0 && query.trim() ? (
+          ) : results.length === 0 && debouncedQuery ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Users className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
@@ -149,22 +184,22 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
                 const about = result.metadata?.about;
                 const nip05 = result.metadata?.nip05;
                 const avatar = result.metadata?.picture;
-                
+
                 return (
                   <Card key={result.pubkey} className="hover:bg-muted/50 transition-colors">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
-                        <Avatar 
+                        <Avatar
                           className="h-12 w-12 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
                           onClick={() => handleUserClick(result.pubkey)}
                         >
                           <AvatarImage src={avatar} alt={displayName} />
                           <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 
+                            <h3
                               className="font-semibold text-sm truncate cursor-pointer hover:text-primary transition-colors"
                               onClick={() => handleUserClick(result.pubkey)}
                             >
@@ -176,22 +211,22 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
                               </Badge>
                             )}
                           </div>
-                          
+
                           {userName !== displayName && (
-                            <p 
+                            <p
                               className="text-xs text-muted-foreground truncate mb-1 cursor-pointer hover:text-primary transition-colors"
                               onClick={() => handleUserClick(result.pubkey)}
                             >
                               @{userName}
                             </p>
                           )}
-                          
+
                           {about && (
                             <p className="text-xs text-muted-foreground line-clamp-2">
                               {about}
                             </p>
                           )}
-                          
+
                           {result.followedBy.length > 0 && (
                             <div className="flex items-center gap-1 mt-2">
                               <Users className="h-3 w-3 text-muted-foreground" />
@@ -201,7 +236,7 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex-shrink-0">
                           {user && result.pubkey !== user.pubkey && (
                             <Button

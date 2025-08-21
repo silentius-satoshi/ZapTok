@@ -47,21 +47,21 @@ export function usePWA(): PWAState & PWAActions {
   // Check if app is running in standalone mode
   useEffect(() => {
     const checkStandalone = () => {
-      const isStandaloneMode = 
+      const isStandaloneMode =
         window.matchMedia('(display-mode: standalone)').matches ||
         (window.navigator as any).standalone === true ||
         document.referrer.includes('android-app://');
-      
+
       setIsStandalone(isStandaloneMode);
       setIsInstalled(isStandaloneMode);
     };
 
     checkStandalone();
-    
+
     // Listen for display mode changes
     const mediaQuery = window.matchMedia('(display-mode: standalone)');
     const handleChange = () => checkStandalone();
-    
+
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
@@ -93,7 +93,7 @@ export function usePWA(): PWAState & PWAActions {
         console.log('[PWA] Install prompt available');
       }
       e.preventDefault();
-      
+
       const deferredPrompt = e as any;
       setInstallPrompt(deferredPrompt);
       setIsInstallable(true);
@@ -124,15 +124,15 @@ export function usePWA(): PWAState & PWAActions {
           if (import.meta.env.DEV) {
             console.log('[PWA] Service Worker registered successfully');
           }
-          
+
           const swRegistration: ServiceWorkerRegistration = {
             installing: registration.installing,
             waiting: registration.waiting,
             active: registration.active,
-            update: () => registration.update(),
+            update: async () => { await registration.update(); },
             unregister: () => registration.unregister(),
           };
-          
+
           setServiceWorkerRegistration(swRegistration);
 
           // Check for updates
@@ -146,7 +146,7 @@ export function usePWA(): PWAState & PWAActions {
           // Listen for service worker messages
           navigator.serviceWorker.addEventListener('message', (event) => {
             console.log('[PWA] Message from SW:', event.data);
-            
+
             if (event.data.type === 'notification-action') {
               // Handle notification actions
               const { url } = event.data;
@@ -207,7 +207,7 @@ export function usePWA(): PWAState & PWAActions {
     try {
       await serviceWorkerRegistration.update();
       setHasUpdate(false);
-      
+
       // Reload the page to activate the new service worker
       window.location.reload();
     } catch (error) {
@@ -236,7 +236,7 @@ export function usePWA(): PWAState & PWAActions {
     hasUpdate,
     isInstalling,
     installError,
-    
+
     // Actions
     installPWA,
     showInstallPrompt,

@@ -4,6 +4,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { AppContext, type AppConfig, type AppContextType, type Theme } from '@/contexts/AppContext';
 import type { ZapOption } from '@/types/zap';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
+import { primalBlossom } from '@/lib/blossomUtils';
 
 interface AppProviderProps {
   children: ReactNode;
@@ -28,7 +29,8 @@ const AppConfigSchema: z.ZodType<AppConfig, z.ZodTypeDef, unknown> = z.object({
   relayUrls: z.array(z.string().url()).min(1),
   defaultZap: ZapOptionSchema,
   availableZapOptions: z.array(ZapOptionSchema).min(1),
-  relayContext: z.enum(['all', 'wallet', 'feed']).optional(),
+  relayContext: z.enum(['all', 'wallet', 'feed', 'cashu-only', 'none', 'settings-cashu', 'search-only']).optional(),
+  blossomServers: z.array(z.string().url()).min(1),
 });
 
 // Migration schema for old single relay configs
@@ -53,13 +55,13 @@ export function AppProvider(props: AppProviderProps) {
       serialize: JSON.stringify,
       deserialize: (value: string) => {
         const parsed = JSON.parse(value);
-        
+
         // Try to parse as new config first
         const newConfigResult = AppConfigSchema.safeParse(parsed);
         if (newConfigResult.success) {
           return newConfigResult.data;
         }
-        
+
         // Try to parse as legacy config and migrate
         const legacyConfigResult = LegacyAppConfigSchema.safeParse(parsed);
         if (legacyConfigResult.success) {
@@ -69,9 +71,10 @@ export function AppProvider(props: AppProviderProps) {
             defaultZap,
             availableZapOptions: defaultZapOptions,
             relayContext: 'all',
+            blossomServers: [primalBlossom],
           };
         }
-        
+
         // If both fail, return default config
         return defaultConfig;
       }
@@ -111,7 +114,7 @@ export function AppProvider(props: AppProviderProps) {
   const setZapOption = (zapOption: Partial<ZapOption>, index: number) => {
     updateConfig((current) => ({
       ...current,
-      availableZapOptions: current.availableZapOptions.map((option, i) => 
+      availableZapOptions: current.availableZapOptions.map((option, i) =>
         i === index ? { ...option, ...zapOption } : option
       )
     }));
@@ -127,10 +130,42 @@ export function AppProvider(props: AppProviderProps) {
   };
 
   // Set relay context function
-  const setRelayContext = (relayContext: 'all' | 'wallet' | 'feed') => {
+  const setRelayContext = (relayContext: 'all' | 'wallet' | 'feed' | 'cashu-only' | 'none' | 'settings-cashu' | 'search-only') => {
     updateConfig((current) => ({
       ...current,
       relayContext
+    }));
+  };
+
+  // Add or replace primary Blossom server
+  const addBlossomServer = (serverUrl: string) => {
+    updateConfig((current) => ({
+      ...current,
+      blossomServers: [serverUrl, ...current.blossomServers.slice(1)]
+    }));
+  };
+
+  // Append a mirror Blossom server
+  const appendBlossomServer = (serverUrl: string) => {
+    updateConfig((current) => ({
+      ...current,
+      blossomServers: [...current.blossomServers.filter(url => url !== serverUrl), serverUrl]
+    }));
+  };
+
+  // Remove a specific Blossom server
+  const removeBlossomServer = (serverUrl: string) => {
+    updateConfig((current) => ({
+      ...current,
+      blossomServers: current.blossomServers.filter(url => url !== serverUrl)
+    }));
+  };
+
+  // Remove all mirror servers (keep only primary)
+  const removeBlossomMirrors = () => {
+    updateConfig((current) => ({
+      ...current,
+      blossomServers: current.blossomServers.slice(0, 1)
     }));
   };
 
@@ -144,6 +179,10 @@ export function AppProvider(props: AppProviderProps) {
     resetZapOptionsToDefault,
     setRelayContext,
     presetRelays,
+    addBlossomServer,
+    appendBlossomServer,
+    removeBlossomServer,
+    removeBlossomMirrors,
   };
 
   // Apply theme effects to document
@@ -183,11 +222,11 @@ function useApplyTheme(theme: Theme) {
     if (theme !== 'system') return;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
+
     const handleChange = () => {
       const root = window.document.documentElement;
       root.classList.remove('light', 'dark');
-      
+
       const systemTheme = mediaQuery.matches ? 'dark' : 'light';
       root.classList.add(systemTheme);
     };

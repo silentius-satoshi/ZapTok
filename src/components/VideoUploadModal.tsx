@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUploadFile } from '@/hooks/useUploadFile';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
+import { createHybridVideoEvent, type HybridVideoEventData } from '@/lib/hybridEventStrategy';
 
 interface VideoUploadModalProps {
   isOpen: boolean;
@@ -72,6 +73,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       return;
     }
 
+    console.log('Processing video file:', file.name, file.type, file.size);
+
     setSelectedFile(file);
     setVideoMetadata(prev => ({
       ...prev,
@@ -80,11 +83,16 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       title: file.name.replace(/\.[^/.]+$/, '') // Remove file extension
     }));
 
+    // Clean up previous preview URL
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
     // Create preview URL
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
     setUploadStep('metadata');
-  }, [toast]);
+  }, [toast, previewUrl]);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -115,6 +123,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const handleVideoLoad = useCallback(() => {
     if (videoRef.current) {
       const duration = videoRef.current.duration;
+      console.log('Video loaded successfully, duration:', duration);
+      
       setVideoMetadata(prev => ({
         ...prev,
         duration: Math.round(duration)
@@ -179,6 +189,35 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const handleUpload = useCallback(async () => {
     if (!selectedFile || !user) return;
 
+    // Enhanced validation
+    if (!user.signer) {
+      toast({
+        title: 'Authentication Error',
+        description: 'User signer not available. Please try logging out and back in.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!user.signer.signEvent || typeof user.signer.signEvent !== 'function') {
+      toast({
+        title: 'Authentication Error',
+        description: 'Invalid signer configuration. Please ensure you are logged in with a Nostr extension or valid key.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    console.log('Starting upload process:', {
+      fileSize: selectedFile.size,
+      fileName: selectedFile.name,
+      userPubkey: user.pubkey,
+      signerAvailable: !!user.signer,
+      hasSignEvent: !!user.signer?.signEvent,
+      signerSignEventType: typeof user.signer?.signEvent,
+      signerMethods: user.signer ? Object.keys(user.signer) : 'none'
+    });
+
     setIsProcessing(true);
     setUploadStep('uploading');
     setUploadProgress(0);
@@ -187,6 +226,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       // Generate thumbnail if video is loaded
       let thumbnailUrl = '';
       if (videoRef.current) {
+        console.log('Generating thumbnail...');
         const thumbnailDataUrl = await generateThumbnail(videoRef.current);
         
         // Convert thumbnail to File for upload
@@ -195,55 +235,77 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         const thumbnailFile = new File([blob], `${selectedFile.name}_thumbnail.jpg`, { type: 'image/jpeg' });
         
         // Upload thumbnail to Blossom
+        console.log('Uploading thumbnail...');
         const thumbnailTags = await uploadFile(thumbnailFile);
         thumbnailUrl = thumbnailTags[0][1]; // First tag contains URL
+        console.log('Thumbnail uploaded:', thumbnailUrl);
       }
 
       // Upload video to Blossom
+      console.log('Uploading main video file...');
       setUploadProgress(50);
       const videoTags = await uploadFile(selectedFile);
+      console.log('Video uploaded successfully, tags:', videoTags);
       // videoUrl is the first tag - we'll use it in the tags array below
 
       setUploadProgress(80);
 
-      // Determine video kind based on duration
-      const videoKind = videoMetadata.duration <= 60 ? 22 : 21; // Short vs normal video
+      // Create hybrid video event for cross-client compatibility
+      console.log('Creating hybrid Nostr event for cross-client compatibility...');
 
-      // Create NIP-71 video event
-      const eventTags = [
-        ...videoTags, // Include all Blossom metadata tags
-        ['title', videoMetadata.title],
-        ['summary', videoMetadata.description],
-        ['duration', videoMetadata.duration.toString()],
-        ['size', videoMetadata.size.toString()],
-        ['type', videoMetadata.type],
-        ['t', 'video'],
-        ['t', 'zaptok'],
-      ];
+      // Extract video data from upload tags
+      const videoUrl = videoTags.find(tag => tag[0] === 'url')?.[1] || '';
+      const videoHash = videoTags.find(tag => tag[0] === 'x')?.[1] || '';
+      const videoSize = parseInt(videoTags.find(tag => tag[0] === 'size')?.[1] || '0');
+      const videoType = videoTags.find(tag => tag[0] === 'm')?.[1] || videoMetadata.type;
 
-      // Add thumbnail if available
-      if (thumbnailUrl) {
-        eventTags.push(['thumb', thumbnailUrl]);
-        eventTags.push(['image', thumbnailUrl]);
-      }
+      // Prepare video data for hybrid event
+      const hybridVideoData: HybridVideoEventData = {
+        title: videoMetadata.title,
+        description: videoMetadata.description,
+        videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        hash: videoHash,
+        duration: videoMetadata.duration,
+        size: videoSize,
+        type: videoType,
+        // Extract dimensions if available from Blossom tags
+        width: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[0] ? 
+               parseInt(videoTags.find(tag => tag[0] === 'dim')![1].split('x')[0]) : undefined,
+        height: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[1] ? 
+                parseInt(videoTags.find(tag => tag[0] === 'dim')![1].split('x')[1]) : undefined,
+      };
 
-      // Add content type specific tags
-      if (videoKind === 22) {
-        eventTags.push(['t', 'short']);
-      }
-
-      createEvent({
-        kind: videoKind,
-        content: videoMetadata.description || videoMetadata.title,
-        tags: eventTags,
+      // Create hybrid event (kind 1 with rich metadata)
+      const hybridEvent = createHybridVideoEvent(hybridVideoData, {
+        includeNip71Tags: true,
+        includeRichContent: true,
+        hashtags: ['video', 'zaptok', ...(videoMetadata.duration <= 60 ? ['short'] : [])],
+        includeImeta: true
       });
+
+      // Add any additional Blossom-specific tags from the upload
+      const additionalTags = videoTags.filter(tag => 
+        !['url', 'x', 'size', 'dim', 'm', 'thumb'].includes(tag[0])
+      );
+      hybridEvent.tags = [...(hybridEvent.tags || []), ...additionalTags];
+
+      console.log('Publishing hybrid event to Nostr...', {
+        kind: hybridEvent.kind,
+        contentPreview: hybridEvent.content?.substring(0, 50),
+        tagCount: hybridEvent.tags?.length,
+        videoUrl: videoUrl,
+        videoHash: videoHash
+      });
+
+      createEvent(hybridEvent);
 
       setUploadProgress(100);
       setUploadStep('complete');
 
       toast({
         title: 'Video uploaded successfully!',
-        description: `Your ${videoKind === 22 ? 'short' : 'normal'} video has been published to Nostr.`,
+        description: `Your ${videoMetadata.duration <= 60 ? 'short' : 'normal'} video has been published with cross-client compatibility.`,
       });
 
       // Reset form after a delay
@@ -253,9 +315,27 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
     } catch (error) {
       console.error('Upload failed:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        user: user ? { pubkey: user.pubkey, signerAvailable: !!user.signer } : 'No user'
+      });
+      
+      let errorMessage = 'There was an error uploading your video. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('signer') || error.message.includes('nostr')) {
+          errorMessage = 'Authentication error. Please try logging out and back in.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.message.includes('file') || error.message.includes('size')) {
+          errorMessage = 'File upload error. Please try a smaller file or different format.';
+        }
+      }
+      
       toast({
         title: 'Upload failed',
-        description: 'There was an error uploading your video. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
       setUploadStep('metadata');
@@ -286,6 +366,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             <Video className="h-5 w-5" />
             Upload Video to Nostr
           </DialogTitle>
+          <DialogDescription>
+            Share your video content on the decentralized Nostr network
+          </DialogDescription>
         </DialogHeader>
 
         {/* Step 1: File Selection */}
@@ -328,14 +411,35 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             {/* Video Preview */}
             <Card>
               <CardContent className="p-4">
-                <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
-                  <video
-                    ref={videoRef}
-                    src={previewUrl || ''}
-                    controls
-                    onLoadedMetadata={handleVideoLoad}
-                    className="w-full h-full object-contain"
-                  />
+                <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4 relative">
+                  {previewUrl ? (
+                    <video
+                      ref={videoRef}
+                      src={previewUrl}
+                      controls
+                      preload="metadata"
+                      onLoadedMetadata={handleVideoLoad}
+                      onError={(e) => {
+                        console.error('Video preview failed to load:', e.currentTarget.error);
+                        toast({
+                          title: 'Video preview error',
+                          description: 'Unable to preview video, but upload should still work.',
+                          variant: 'destructive',
+                        });
+                      }}
+                      className="w-full h-full object-contain"
+                      style={{ backgroundColor: 'black' }}
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <FileVideo className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">Loading video preview...</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* File Info */}
@@ -420,7 +524,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             <div className="text-left space-y-2 text-sm text-gray-600">
               <p>• Uploading to Blossom servers...</p>
               <p>• Generating thumbnail...</p>
-              <p>• Creating Nostr event...</p>
+              <p>• Creating hybrid Nostr event...</p>
               <p>• Publishing to relays...</p>
             </div>
           </div>
@@ -442,7 +546,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               <div className="text-left space-y-1 text-sm text-gray-600">
                 <p>✓ Video uploaded to Blossom</p>
                 <p>✓ Thumbnail generated</p>
-                <p>✓ NIP-71 event created</p>
+                <p>✓ Hybrid event created (kind 1)</p>
+                <p>✓ Cross-client compatible</p>
                 <p>✓ Published to relays</p>
               </div>
             </div>

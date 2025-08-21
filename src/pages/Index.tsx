@@ -21,37 +21,37 @@ const Index = () => {
             <div className="flex flex-col bg-black">
               {/* Logo at top of sidebar */}
               <LogoHeader />
-              
+
               {/* Navigation */}
               <div className="flex-1">
                 <Navigation />
               </div>
             </div>
-            
+
             {/* Video Feed */}
-            <div className="flex-1 flex items-center justify-center overflow-hidden">
+            <div className="flex-1 flex items-center justify-center overflow-hidden pr-8">
               <div className="w-full max-w-3xl h-full flex items-center justify-center">
                 <VideoFeed />
               </div>
             </div>
-            
-            {/* Right Sidebar - Login Area */}
-            <div className="hidden lg:block w-[28rem] overflow-hidden">
+
+            {/* Right Sidebar - Compact Login Area */}
+            <div className="hidden lg:block w-80 overflow-hidden">
               <div className="sticky top-4 space-y-6">
                 {/* Login Area */}
-                <div className="p-4 overflow-hidden">
-                  <LoginArea className="w-full" />
+                <div className="p-3 overflow-hidden">
+                  <LoginArea className="justify-end" />
                 </div>
               </div>
             </div>
           </div>
         </main>
-        
+
         {/* Bottom attribution */}
         <div className="fixed bottom-4 right-4 text-sm text-gray-300">
-          <a 
-            href="https://soapbox.pub/mkstack" 
-            target="_blank" 
+          <a
+            href="https://soapbox.pub/mkstack"
+            target="_blank"
             rel="noopener noreferrer"
             className="hover:text-gray-100 transition-colors font-medium"
           >

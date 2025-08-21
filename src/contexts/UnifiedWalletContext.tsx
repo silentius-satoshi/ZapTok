@@ -34,21 +34,21 @@ interface UnifiedWalletContextType {
   isConnected: boolean;
   activeWalletType: WalletType | null;
   availableWallets: WalletInfo[];
-  
+
   // Wallet operations
   connect: (walletType: WalletType) => Promise<void>;
   disconnect: () => void;
   switchWallet: (walletType: WalletType) => void;
-  
+
   // Payment operations
   sendPayment: (invoice: string) => Promise<{ preimage: string; walletType: WalletType }>;
   makeInvoice: (amount: number, memo?: string) => Promise<{ invoice: string; walletType: WalletType }>;
-  
+
   // Data fetching
   getBalance: () => Promise<number>;
   getTransactionHistory: () => Promise<BaseTransaction[]>;
   getWalletInfo: () => Promise<WalletInfo>;
-  
+
   // State
   error: string | null;
   walletInfo: WalletInfo | null;
@@ -62,11 +62,11 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
   // WebLN state
   const [webLNProvider, setWebLNProvider] = useState<WebLNProvider | null>(null);
   const [webLNConnected, setWebLNConnected] = useState(false);
-  
+
   // Hooks for NWC and Cashu
   const nwc = useNWC();
   const cashu = useCashu();
-  
+
   // Unified state
   const [activeWalletType, setActiveWalletType] = useState<WalletType | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +79,11 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
     const checkWebLN = async () => {
       try {
         if (window.webln?.isEnabled) {
-          setWebLNProvider(window.webln);
+          const webln = window.webln;
+          setWebLNProvider({
+            ...webln,
+            isEnabled: webln.isEnabled ?? false
+          });
           setWebLNConnected(true);
         }
       } catch {
@@ -92,7 +96,7 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
 
   // Get available wallets
   const availableWallets: WalletInfo[] = [];
-  
+
   // Add WebLN wallet if available
   if (webLNConnected && webLNProvider) {
     availableWallets.push({
@@ -103,7 +107,7 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
       implementation: 'WebLN',
     });
   }
-  
+
   // Add NWC wallets
   if (nwc.connections.length > 0) {
     availableWallets.push({
@@ -115,7 +119,7 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
       implementation: 'Nostr Wallet Connect',
     });
   }
-  
+
   // Add Cashu wallets
   if (cashu.wallets.length > 0) {
     availableWallets.push({
@@ -133,17 +137,22 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       setIsLoading(true);
-      
+
       switch (walletType) {
-        case 'webln':
+        case 'webln': {
           if (!window.webln) {
             throw new Error('WebLN wallet not available. Please install Alby or another WebLN wallet.');
           }
           await window.webln.enable();
-          setWebLNProvider(window.webln);
+          const webln = window.webln;
+          setWebLNProvider({
+            ...webln,
+            isEnabled: webln.isEnabled ?? true
+          });
           setWebLNConnected(true);
           break;
-          
+        }
+
         case 'nwc':
           if (nwc.connections.length === 0) {
             throw new Error('No NWC connections configured. Please add a connection first.');
@@ -152,7 +161,7 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
             throw new Error('NWC wallet is not connected.');
           }
           break;
-          
+
         case 'cashu':
           if (cashu.wallets.length === 0) {
             throw new Error('No Cashu wallets configured. Please add a mint first.');
@@ -162,7 +171,7 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
           }
           break;
       }
-      
+
       setActiveWalletType(walletType);
       await refreshWalletInfo(walletType);
     } catch (error) {
@@ -188,7 +197,7 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
   const refreshWalletInfo = async (walletType: WalletType) => {
     try {
       let info: WalletInfo;
-      
+
       switch (walletType) {
         case 'webln': {
           if (!webLNProvider) throw new Error('WebLN not available');
@@ -202,7 +211,7 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
           };
           break;
         }
-          
+
         case 'nwc': {
           info = {
             alias: nwc.currentConnection?.alias || 'NWC Wallet',
@@ -214,7 +223,7 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
           };
           break;
         }
-          
+
         case 'cashu': {
           info = {
             alias: cashu.currentWallet?.alias || 'Cashu Wallet',
@@ -225,11 +234,11 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
           };
           break;
         }
-          
+
         default:
           throw new Error('Unknown wallet type');
       }
-      
+
       setWalletInfo(info);
     } catch (error) {
       console.error('Failed to refresh wallet info:', error);
@@ -238,10 +247,10 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
 
   const sendPayment = async (invoice: string): Promise<{ preimage: string; walletType: WalletType }> => {
     if (!activeWalletType) throw new Error('No active wallet');
-    
+
     try {
       let preimage: string;
-      
+
       switch (activeWalletType) {
         case 'webln': {
           if (!webLNProvider) throw new Error('WebLN not available');
@@ -249,13 +258,13 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
           preimage = webLNResult.preimage;
           break;
         }
-          
+
         case 'nwc': {
           const nwcResult = await nwc.payInvoice(invoice);
           preimage = nwcResult.preimage;
           break;
         }
-          
+
         case 'cashu': {
           const cashuResult = await cashu.payInvoice(invoice);
           if (!cashuResult.success || !cashuResult.preimage) {
@@ -264,14 +273,14 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
           preimage = cashuResult.preimage;
           break;
         }
-          
+
         default:
           throw new Error('Unknown wallet type');
       }
-      
+
       // Refresh wallet data after payment
       await refreshWalletInfo(activeWalletType);
-      
+
       return { preimage, walletType: activeWalletType };
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Payment failed');
@@ -280,10 +289,10 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
 
   const makeInvoice = async (amount: number, memo?: string): Promise<{ invoice: string; walletType: WalletType }> => {
     if (!activeWalletType) throw new Error('No active wallet');
-    
+
     try {
       let invoice: string;
-      
+
       switch (activeWalletType) {
         case 'webln': {
           if (!webLNProvider?.makeInvoice) throw new Error('WebLN invoice creation not supported');
@@ -291,24 +300,24 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
           invoice = webLNResult.paymentRequest;
           break;
         }
-          
+
         case 'nwc': {
           const nwcResult = await nwc.makeInvoice(amount, memo);
           if (!nwcResult.invoice) throw new Error('Failed to create NWC invoice');
           invoice = nwcResult.invoice;
           break;
         }
-          
+
         case 'cashu': {
           const cashuResult = await cashu.createInvoice(amount);
           invoice = cashuResult.invoice;
           break;
         }
-          
+
         default:
           throw new Error('Unknown wallet type');
       }
-      
+
       return { invoice, walletType: activeWalletType };
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Failed to create invoice');
@@ -317,20 +326,20 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
 
   const getBalance = async (): Promise<number> => {
     if (!activeWalletType) throw new Error('No active wallet');
-    
+
     switch (activeWalletType) {
       case 'webln': {
         if (!webLNProvider?.getBalance) return 0;
         const balance = await webLNProvider.getBalance();
         return balance.balance || 0;
       }
-        
+
       case 'nwc':
         return nwc.currentBalance;
-        
+
       case 'cashu':
         return cashu.currentBalance;
-        
+
       default:
         return 0;
     }
@@ -338,10 +347,10 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
 
   const getTransactionHistory = async (): Promise<BaseTransaction[]> => {
     if (!activeWalletType) return [];
-    
+
     try {
       let transactions: BaseTransaction[] = [];
-      
+
       switch (activeWalletType) {
         case 'webln': {
           // WebLN transaction history is limited
@@ -361,7 +370,7 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
           }
           break;
         }
-          
+
         case 'nwc': {
           const nwcTransactions = await nwc.getTransactions();
           transactions = nwcTransactions.map(tx => ({
@@ -377,14 +386,14 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
           }));
           break;
         }
-          
+
         case 'cashu':
           // Cashu doesn't have traditional transaction history
           // We could implement a local transaction log
           transactions = [];
           break;
       }
-      
+
       setTransactions(transactions);
       return transactions;
     } catch (error) {
@@ -395,7 +404,7 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
 
   const getWalletInfo = async (): Promise<WalletInfo> => {
     if (!activeWalletType) throw new Error('No active wallet');
-    
+
     await refreshWalletInfo(activeWalletType);
     return walletInfo!;
   };

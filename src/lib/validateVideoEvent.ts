@@ -184,18 +184,24 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
   // 1. An 'x' tag (hash tag for video files)
   // 2. A 'url' tag pointing to video content
   // 3. Content that looks like a video URL
+  // 4. imeta tag with video content (hybrid events)
   const hasHashTag = tags.some(tag => tag[0] === 'x');
   const hasUrlTag = tags.some(tag => tag[0] === 'url');
   const hasVideoInContent = /\.(mp4|webm|mov|avi|mkv)(\?.*)?$/i.test(event.content) ||
                            event.content.includes('youtube.com') ||
                            event.content.includes('youtu.be') ||
-                           event.content.includes('vimeo.com');
+                           event.content.includes('vimeo.com') ||
+                           event.content.includes('blossom') ||
+                           event.content.includes('satellite.earth');
   const hasVideoTag = tags.some(([tagName, tagValue]) => 
     tagName === 't' && tagValue?.toLowerCase().includes('video')
   );
+  const hasImetaVideo = tags.some(tag => 
+    tag[0] === 'imeta' && tag.some(prop => prop.includes('video/') || prop.includes('.mp4') || prop.includes('.webm'))
+  );
 
   // Must meet at least one video criteria
-  if (!hasHashTag && !hasUrlTag && !hasVideoInContent && !hasVideoTag) {
+  if (!hasHashTag && !hasUrlTag && !hasVideoInContent && !hasVideoTag && !hasImetaVideo) {
     return null;
   }
 
@@ -228,6 +234,38 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
         const duration = parseInt(tag[1]);
         if (!isNaN(duration) && duration > 0) {
           videoData.duration = duration;
+        }
+        break;
+      }
+      case 'summary': {
+        // NIP-71 style summary tag (for hybrid events)
+        if (!videoData.description || videoData.description === event.content) {
+          videoData.description = tag[1];
+        }
+        break;
+      }
+      case 'imeta': {
+        // Parse imeta tag for hybrid events (NIP-92 style)
+        const imetaProps: Record<string, string> = {};
+        for (let i = 1; i < tag.length; i++) {
+          const prop = tag[i];
+          const spaceIndex = prop.indexOf(' ');
+          if (spaceIndex > 0) {
+            const key = prop.substring(0, spaceIndex);
+            const value = prop.substring(spaceIndex + 1);
+            imetaProps[key] = value;
+          }
+        }
+
+        // Extract video data from imeta
+        if (imetaProps.url && !videoData.videoUrl) {
+          videoData.videoUrl = imetaProps.url;
+        }
+        if (imetaProps.x && !videoData.hash) {
+          videoData.hash = imetaProps.x;
+        }
+        if (imetaProps.thumb && !videoData.thumbnail) {
+          videoData.thumbnail = imetaProps.thumb;
         }
         break;
       }

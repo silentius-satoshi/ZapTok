@@ -37,7 +37,20 @@ export interface WebLNProvider {
 
 declare global {
   interface Window {
-    webln?: WebLNProvider;
+    webln?: {
+      enable(): Promise<void>;
+      sendPayment(paymentRequest: string): Promise<any>;
+      isEnabled?: boolean;
+      getBalance?(): Promise<any>;
+      listTransactions?(args?: {
+        from?: number;
+        until?: number;
+        limit?: number;
+        offset?: number;
+        unpaid?: boolean;
+        type?: "incoming" | "outgoing";
+      }): Promise<{ transactions: Record<string, unknown>[] }>;
+    };
   }
 }
 

@@ -26,7 +26,7 @@ export function About() {
                 <Navigation />
               </div>
             </div>
-            
+
             {/* About Content */}
             <div className="flex-1 overflow-y-auto scrollbar-hide">
               <div className="max-w-4xl mx-auto p-6">
@@ -37,7 +37,7 @@ export function About() {
                 </Button>
 
                 <div className="space-y-8">
-          
+
           {/* About ZapTok Section */}
           <Card className="border-0 shadow-none bg-transparent">
             <CardContent className="p-8 px-0">
@@ -45,20 +45,20 @@ export function About() {
                 <div>
                   <h1 className="text-3xl font-bold mb-4">About ZapTok</h1>
                   <p className="text-lg text-muted-foreground leading-relaxed">
-                    ZapTok is a simple, decentralized space for communities to gather, share, and grow — built by the 
+                    ZapTok is a simple, decentralized space for communities to gather, share, and grow — built by the
                     team at MKStack on the open Nostr protocol.
                   </p>
                 </div>
 
                 <div className="space-y-4 text-muted-foreground">
                   <p>
-                    Whether you're creating content, building your audience, or just looking for a safe space to 
-                    connect, ZapTok helps you create and join communities that reflect your values — without 
-                    compromising your privacy and no big tech server watching you. If you're a creator, artist, 
-                    developer, or builder looking for a freer, simpler way to share and engage online, ZapTok 
+                    Whether you're creating content, building your audience, or just looking for a safe space to
+                    connect, ZapTok helps you create and join communities that reflect your values — without
+                    compromising your privacy and no big tech server watching you. If you're a creator, artist,
+                    developer, or builder looking for a freer, simpler way to share and engage online, ZapTok
                     gives you the tools to do that on your terms.
                   </p>
-                  
+
                   <p className="text-lg font-medium text-foreground">
                     We give you the keys. You drive the conversation.
                   </p>
@@ -72,7 +72,7 @@ export function About() {
             <CardContent className="p-8 px-0">
               <div className="space-y-6">
                 <h2 className="text-2xl font-semibold">What can you do with ZapTok?</h2>
-                
+
                 <ul className="space-y-3 text-muted-foreground">
                   <li className="flex items-start">
                     <span className="text-primary mr-2">•</span>
@@ -118,20 +118,20 @@ export function About() {
                 <h2 className="text-2xl font-semibold">Talk to us</h2>
                 <div className="space-y-4 text-muted-foreground">
                   <p>
-                    Love ZapTok? Have an idea for how to make it better? Come say hello in our community or visit our 
+                    Love ZapTok? Have an idea for how to make it better? Come say hello in our community or visit our
                     GitHub. We welcome your feedback, ideas, contributions, and bug reports.
                   </p>
-                  
+
                   <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                    <Button 
-                      variant="default" 
+                    <Button
+                      variant="default"
                       onClick={() => window.open('https://soapbox.pub/mkstack', '_blank')}
                       className="flex-1"
                     >
                       Visit MKStack Community
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       disabled
                       className="flex-1 opacity-50 cursor-not-allowed"
                       title="Repository will be public soon"
@@ -148,9 +148,9 @@ export function About() {
           <div className="text-center py-8">
             <p className="text-sm text-muted-foreground">
               Vibed with{' '}
-              <a 
-                href="https://soapbox.pub/mkstack" 
-                target="_blank" 
+              <a
+                href="https://soapbox.pub/mkstack"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline"
               >
@@ -161,13 +161,13 @@ export function About() {
                 </div>
               </div>
             </div>
-            
-            {/* Right Sidebar - Login Area */}
-            <div className="hidden lg:block w-[28rem] overflow-hidden">
+
+            {/* Right Sidebar - Compact Login Area */}
+            <div className="hidden lg:block w-80 overflow-hidden">
               <div className="sticky top-4 space-y-6">
                 {/* Login Area */}
-                <div className="p-4 overflow-hidden">
-                  <LoginArea className="w-full" />
+                <div className="p-3 overflow-hidden">
+                  <LoginArea className="justify-end" />
                 </div>
               </div>
             </div>

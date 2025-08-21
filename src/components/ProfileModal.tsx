@@ -13,6 +13,7 @@ import { EditProfileForm } from '@/components/EditProfileForm';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { QRModal } from '@/components/QRModal';
 import { User, Edit, LogOut, Users, QrCode, Zap } from 'lucide-react';
+import { nip19 } from 'nostr-tools';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { useToast } from '@/hooks/useToast';
 import { getLightningAddress } from '@/lib/lightning';
@@ -136,7 +137,7 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
               <span>Profile</span>
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-6">
             {/* Profile Header */}
             <div className="flex flex-col items-center space-y-4">
@@ -146,7 +147,7 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
                   {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                 </AvatarFallback>
               </Avatar>
-              
+
               <div className="text-center space-y-2">
                 <h2 className="text-xl font-semibold">{displayName}</h2>
                 {userName !== displayName && (
@@ -187,9 +188,9 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
             {website && (
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">Website</h3>
-                <a 
-                  href={website} 
-                  target="_blank" 
+                <a
+                  href={website}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                 >
@@ -201,18 +202,29 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
             {/* Public Key */}
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Public Key</h3>
-              <code className="text-xs bg-muted p-2 rounded block break-all">
-                {targetPubkey}
-              </code>
+              <div className="space-y-2">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">npub (bech32)</p>
+                  <code className="text-xs bg-muted p-2 rounded block break-all">
+                    {nip19.npubEncode(targetPubkey)}
+                  </code>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">hex</p>
+                  <code className="text-xs bg-muted p-2 rounded block break-all">
+                    {targetPubkey}
+                  </code>
+                </div>
+              </div>
             </div>
 
             <Separator />
 
             {/* QR Code Button - Show for all users */}
             <div className="space-y-2">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start" 
+              <Button
+                variant="outline"
+                className="w-full justify-start"
                 onClick={handleQRClick}
               >
                 <QrCode className="w-4 h-4 mr-2" />
@@ -223,9 +235,9 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
             {/* Zap Button - Only show for other users */}
             {!isCurrentUser && (
               <div className="space-y-2">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start" 
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
                   onClick={handleZapClick}
                 >
                   <Zap className="w-4 h-4 mr-2" />
@@ -238,17 +250,17 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
             {isCurrentUser && (
               <div className="space-y-2">
                 <Separator />
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start" 
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
                   onClick={handleEditProfile}
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Profile
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
                   onClick={handleLogout}
                 >

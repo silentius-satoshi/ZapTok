@@ -4,6 +4,7 @@ export { AppearanceSettings } from './AppearanceSettings';
 export { FeedsSettings } from './FeedsSettings';
 export { DiscoverySettings } from './DiscoverySettings';
 export { MediaUploadsSettings } from './MediaUploadsSettings';
+export { BlossomSettings } from './BlossomSettings';
 export { StreamSettings } from './StreamSettings';
 export { ConnectedWalletsSettings } from './ConnectedWalletsSettings';
 export { CashuRelaySettings } from './CashuRelaySettings';

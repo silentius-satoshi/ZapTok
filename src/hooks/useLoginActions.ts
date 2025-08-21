@@ -1,6 +1,7 @@
 import { useNostr } from '@nostrify/react';
 import { NLogin, useNostrLogin } from '@nostrify/react/login';
 import { useAuthState } from './useAuthState';
+import { useNostrToolsBunkerLogin } from './useNostrToolsBunkerLogin';
 
 // NOTE: This file should not be edited except for adding new login methods.
 
@@ -8,6 +9,7 @@ export function useLoginActions() {
   const { nostr } = useNostr();
   const { logins, addLogin, removeLogin, setLogin } = useNostrLogin();
   const { markManualLogout, markManualExtensionLogin } = useAuthState();
+  const { bunkerLogin: nostrToolsBunkerLogin } = useNostrToolsBunkerLogin();
 
   return {
     // Login with a Nostr secret key
@@ -23,6 +25,12 @@ export function useLoginActions() {
       addLogin(login);
       // Auto-switch to the newly added account
       setLogin(login.id);
+    },
+    // Login with a NIP-46 "bunker://" URI using nostr-tools (more reliable)
+    async bunkerNostrTools(uri: string): Promise<void> {
+      // Use the nostr-tools implementation which handles integration automatically
+      await nostrToolsBunkerLogin(uri);
+      // Login is automatically added and activated by the hook
     },
     // Login with a NIP-07 browser extension
     async extension(): Promise<void> {
