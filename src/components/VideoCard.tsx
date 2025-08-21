@@ -199,11 +199,11 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       {/* Pause Overlay */}
       {userPaused && !isPlaying && (
         <div
-          className="absolute inset-0 bg-black/20 flex items-center justify-center cursor-pointer"
+          className="absolute inset-0 flex items-center justify-center cursor-pointer"
           onClick={handlePlayPause}
         >
-          <div className="bg-black/40 rounded-full p-6">
-            <Play className="w-16 h-16 text-white" fill="white" />
+          <div className="rounded-full p-6">
+            <Play className="w-16 h-16 text-white drop-shadow-lg" fill="white" />
           </div>
         </div>
       )}
@@ -213,9 +213,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         <div className="space-y-3">
           {/* Username */}
           <div className="flex items-center gap-2">
-            <span className="font-bold text-white">@{displayName}</span>
+            <span className="font-bold text-white truncate">@{displayName}</span>
             {showVerificationBadge && authorMetadata?.nip05 && (
-              <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-300 border-blue-400/30">
+              <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-300 border-blue-400/30 flex-shrink-0">
                 ✓ {authorMetadata.nip05}
               </Badge>
             )}

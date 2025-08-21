@@ -541,6 +541,7 @@ export function VideoFeed() {
                   <VideoCard
                     event={video}
                     isActive={index === currentVideoIndex}
+                    showVerificationBadge={!isMobile}
                     onNext={() => {
                       const newIndex = Math.min(index + 1, videos.length - 1);
                       setCurrentVideoIndex(newIndex);
