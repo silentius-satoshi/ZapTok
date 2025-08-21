@@ -107,28 +107,54 @@ export function MobileNavigation() {
 
   return (
     <>
-      {/* Mobile Top Bar - True overlay without layout space */}
+      {/* Mobile Top Bar - TikTok-style transparent overlay */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 pointer-events-none">
-        <div className="flex items-center justify-end pt-2 pr-4">
-          {/* Actions - Right aligned icons only */}
-          <div className="flex items-center space-x-2 pointer-events-auto">
+        <div className="flex items-center justify-between px-4 pt-4 pb-2">
+          {/* Left side - Navigation tabs like TikTok */}
+          <div className="flex items-center space-x-6 pointer-events-auto">
+            <button
+              onClick={() => navigate('/following')}
+              className={`text-lg font-semibold ${
+                location.pathname === '/' || location.pathname === '/following'
+                  ? 'text-white'
+                  : 'text-white/60'
+              }`}
+              style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
+            >
+              Following
+            </button>
+            <button
+              onClick={() => navigate('/discover')}
+              className={`text-lg font-semibold ${
+                location.pathname.startsWith('/discover')
+                  ? 'text-white'
+                  : 'text-white/60'
+              }`}
+              style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
+            >
+              For You
+            </button>
+          </div>
+
+          {/* Right side - Action buttons */}
+          <div className="flex items-center space-x-3 pointer-events-auto">
             {user && (
               <>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/lightning-wallet')}
-                  className="p-2 bg-black/20 backdrop-blur-sm hover:bg-black/40 rounded-full border border-white/20"
+                  className="p-2 hover:bg-white/10 rounded-full"
                 >
-                  <Wallet size={20} className="text-white drop-shadow-lg" />
+                  <Wallet size={22} className="text-white" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }} />
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleUploadClick}
-                  className="p-2 bg-black/20 backdrop-blur-sm hover:bg-black/40 rounded-full border border-white/20"
+                  className="p-2 hover:bg-white/10 rounded-full"
                 >
-                  <PlusSquare size={20} className="text-white drop-shadow-lg" />
+                  <PlusSquare size={22} className="text-white" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }} />
                 </Button>
               </>
             )}
@@ -136,7 +162,7 @@ export function MobileNavigation() {
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="sm" className="p-2 hover:bg-white/10 rounded-full">
-                  <Menu size={20} className="text-white drop-shadow-lg" />
+                  <Menu size={22} className="text-white" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }} />
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-80 bg-black border-gray-800 p-0">
