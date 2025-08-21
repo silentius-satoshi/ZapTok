@@ -6,7 +6,7 @@ import { defineConfig } from "vitest/config";
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
-  base: '/ZapTok/',
+  base: process.env.VERCEL ? '/' : '/ZapTok/',
   server: {
     host: "::",
     port: 5173,
