@@ -107,63 +107,67 @@ export function MobileNavigation() {
 
   return (
     <>
-      {/* Mobile Top Bar - TikTok-style transparent overlay */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 pointer-events-none">
-        <div className="flex items-center justify-between px-4 pt-4 pb-2">
-          {/* Left side - Navigation tabs like TikTok */}
-          <div className="flex items-center space-x-6 pointer-events-auto">
+      {/* Mobile Top Bar - Completely transparent overlay */}
+      <div 
+        className="md:hidden fixed left-0 top-0 z-50 w-full bg-transparent pointer-events-none select-none"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
+        <div className="mx-auto flex w-full max-w-screen-sm items-center justify-between px-4 py-3">
+          {/* Left side - Navigation tabs */}
+          <div className="flex gap-6 font-semibold text-lg tracking-wide pointer-events-auto">
             <button
               onClick={() => navigate('/following')}
-              className={`text-lg font-semibold ${
+              className={`transition-colors ${
                 location.pathname === '/' || location.pathname === '/following'
                   ? 'text-white'
                   : 'text-white/60'
               }`}
-              style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
+              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
             >
               Following
             </button>
             <button
               onClick={() => navigate('/discover')}
-              className={`text-lg font-semibold ${
+              className={`transition-colors ${
                 location.pathname.startsWith('/discover')
                   ? 'text-white'
                   : 'text-white/60'
               }`}
-              style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
+              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
             >
               For You
             </button>
           </div>
 
-          {/* Right side - Action buttons */}
-          <div className="flex items-center space-x-3 pointer-events-auto">
+          {/* Right side - Action icons */}
+          <div className="flex items-center gap-4 pointer-events-auto">
             {user && (
               <>
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <button
                   onClick={() => navigate('/lightning-wallet')}
-                  className="p-2 hover:bg-white/10 rounded-full"
+                  aria-label="Wallet"
+                  className="text-white/80 hover:text-white transition-colors"
                 >
-                  <Wallet size={22} className="text-white" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
+                  <Wallet className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                </button>
+                <button
                   onClick={handleUploadClick}
-                  className="p-2 hover:bg-white/10 rounded-full"
+                  aria-label="Upload"
+                  className="text-white/80 hover:text-white transition-colors"
                 >
-                  <PlusSquare size={22} className="text-white" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }} />
-                </Button>
+                  <PlusSquare className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                </button>
               </>
             )}
             
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="p-2 hover:bg-white/10 rounded-full">
-                  <Menu size={22} className="text-white" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }} />
-                </Button>
+                <button
+                  aria-label="Menu"
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <Menu className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                </button>
               </SheetTrigger>
               <SheetContent side="right" className="w-80 bg-black border-gray-800 p-0">
                 <div className="flex flex-col h-full">

@@ -10,6 +10,7 @@ import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
 import { UnifiedWalletProvider } from '@/contexts/UnifiedWalletContext';
+import { CurrentVideoProvider } from '@/contexts/CurrentVideoContext';
 
 interface TestAppProps {
   children: React.ReactNode;
@@ -49,7 +50,9 @@ export function TestApp({ children }: TestAppProps) {
                   <WalletProvider>
                     <UnifiedWalletProvider>
                       <VideoPlaybackProvider>
-                        {children}
+                        <CurrentVideoProvider>
+                          {children}
+                        </CurrentVideoProvider>
                       </VideoPlaybackProvider>
                     </UnifiedWalletProvider>
                   </WalletProvider>
