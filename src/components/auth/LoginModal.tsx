@@ -5,6 +5,7 @@ import CreateAccountModal from './CreateAccountModal';
 import { PWAInstallModal } from '@/components/PWAInstallModal';
 import { usePWA } from '@/hooks/usePWA';
 import { Monitor, Download } from 'lucide-react';
+import zapTokLogo from '/images/ZapTok-v3.png';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -46,11 +47,11 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     <>
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-orange-900/20" />
-        
+
         <div className="relative z-10 text-center">
           <div className="flex items-center justify-center space-x-4 mb-8">
-            <img 
-              src="/images/ZapTok-v3.png"
+            <img
+              src={zapTokLogo}
               alt="ZapTok"
               className="w-16 h-16 rounded-2xl shadow-lg border border-gray-700/50"
             />
@@ -58,11 +59,11 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               ZapTok
             </h1>
           </div>
-          
+
           <p className="text-gray-300 mb-8 text-lg">
             Connect your Nostr identity to create value + earn sats
           </p>
-          
+
           {/* Get Started Button */}
           <div className="space-y-4 mb-8">
             <button
@@ -72,7 +73,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               Get Started
             </button>
           </div>
-          
+
           <div className="flex items-center justify-center space-x-2">
             <span className="text-gray-300 text-lg">Have a Nostr account?</span>
             <button
@@ -107,10 +108,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
         {/* Credit at the bottom */}
         <div className="absolute bottom-6 text-center">
-          <a 
-            href="https://soapbox.pub/mkstack/" 
-            target="_blank" 
-            rel="noopener noreferrer" 
+          <a
+            href="https://soapbox.pub/mkstack/"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-sm text-gray-300 hover:text-gray-100 transition-colors font-medium"
           >
             vibed by MKStack
@@ -119,13 +120,13 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       </div>
 
       {/* Sign In Modal */}
-      <SignInModal 
-        isOpen={showSignInModal} 
-        onClose={() => setShowSignInModal(false)} 
+      <SignInModal
+        isOpen={showSignInModal}
+        onClose={() => setShowSignInModal(false)}
       />
 
       {/* Create Account Modal */}
-      <CreateAccountModal 
+      <CreateAccountModal
         open={showCreateAccountModal}
         onAbort={() => setShowCreateAccountModal(false)}
         onLogin={() => {
@@ -135,9 +136,9 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       />
 
       {/* PWA Install Modal */}
-      <PWAInstallModal 
-        isOpen={showInstallModal} 
-        onClose={() => setShowInstallModal(false)} 
+      <PWAInstallModal
+        isOpen={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
       />
     </>
   );

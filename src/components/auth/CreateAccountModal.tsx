@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import CreateAccount from './CreateAccount';
+import zapTokLogo from '/images/ZapTok-v3.png';
 
 interface CreateAccountModalProps {
   id?: string;
@@ -18,7 +19,7 @@ const CreateAccountModal = ({ id, open, onLogin, onAbort }: CreateAccountModalPr
 
   if (showCreateAccount) {
     return (
-      <CreateAccount 
+      <CreateAccount
         onClose={() => {
           setShowCreateAccount(false);
           onAbort?.();
@@ -35,7 +36,7 @@ const CreateAccountModal = ({ id, open, onLogin, onAbort }: CreateAccountModalPr
           <CardHeader className="text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <img
-                src="/images/ZapTok-v3.png"
+                src={zapTokLogo}
                 alt="ZapTok Logo"
                 className="w-8 h-8 rounded-lg"
               />
@@ -52,13 +53,13 @@ const CreateAccountModal = ({ id, open, onLogin, onAbort }: CreateAccountModalPr
                   <Sparkles className="w-8 h-8 text-orange-400" />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <h3 className="text-xl font-semibold text-white">
                   Create your Nostr identity
                 </h3>
                 <p className="text-gray-400 text-sm leading-relaxed">
-                  Join the decentralized social network where you own your content and identity. 
+                  Join the decentralized social network where you own your content and identity.
                   Connect with creators, earn sats, and experience true digital freedom.
                 </p>
               </div>
@@ -71,7 +72,7 @@ const CreateAccountModal = ({ id, open, onLogin, onAbort }: CreateAccountModalPr
               >
                 Create Account
               </Button>
-              
+
               <div className="text-center">
                 <span className="text-gray-500 text-sm">Already have an account?</span>
                 {' '}

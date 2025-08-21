@@ -8,6 +8,7 @@ import { ArrowLeft, Camera, User } from 'lucide-react';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useOnboardNewAccount } from '@/hooks/useOnboardNewAccount';
 import { FOLLOW_PACKS, getFollowPackById } from '@/lib/followPacks';
+import zapTokLogo from '/images/ZapTok-v3.png';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
@@ -183,7 +184,7 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
           <CardHeader className="text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <img
-                src="/images/ZapTok-v3.png"
+                src={zapTokLogo}
                 alt="ZapTok Logo"
                 className="w-8 h-8 rounded-lg"
               />

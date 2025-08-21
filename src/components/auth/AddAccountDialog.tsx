@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { SignInModal } from './SignInModal';
 import CreateAccountModal from './CreateAccountModal';
+import zapTokLogo from '/images/ZapTok-v3.png';
 
 interface AddAccountDialogProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ export function AddAccountDialog({ isOpen, onClose }: AddAccountDialogProps) {
           <DialogHeader>
             <div className="flex items-center justify-center space-x-4 mb-2">
               <img
-                src="/images/ZapTok-v3.png"
+                src={zapTokLogo}
                 alt="ZapTok"
                 className="w-12 h-12 rounded-xl"
               />

@@ -38,7 +38,7 @@ export function usePushNotifications(): PushNotificationState & PushNotification
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { user } = useCurrentUser();
   const { serviceWorkerRegistration } = usePWA();
 
@@ -79,7 +79,7 @@ export function usePushNotifications(): PushNotificationState & PushNotification
       setError(null);
       const result = await Notification.requestPermission();
       setPermission(result);
-      
+
       console.log('[Push] Permission result:', result);
       return result === 'granted';
     } catch (error) {
@@ -110,7 +110,7 @@ export function usePushNotifications(): PushNotificationState & PushNotification
 
       // Generate VAPID keys for your application
       // You would typically get this from your server/environment
-      const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY || 
+      const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY ||
         'BEl62iUYgUivxIkv69yViEuiBIa40HI80NM9Ame50P1S1b-dQD1-1HEhNh8Ui4Eg7lGGAT4XFb9R8iqhW9SZ3uE';
 
       const subscription = await registration.pushManager.subscribe({
@@ -284,8 +284,8 @@ export function showLocalNotification(payload: NotificationPayload): void {
 
   const options: NotificationOptions = {
     body: payload.body,
-    icon: payload.icon || '/images/ZapTok-v3.png',
-    badge: payload.badge || '/images/ZapTok-v3.png',
+    icon: payload.icon || `${import.meta.env.BASE_URL}images/ZapTok-v3.png`,
+    badge: payload.badge || `${import.meta.env.BASE_URL}images/ZapTok-v3.png`,
     data: payload.data,
     requireInteraction: true,
     tag: payload.type,
@@ -301,13 +301,13 @@ export function showLocalNotification(payload: NotificationPayload): void {
   notification.onclick = (event) => {
     event.preventDefault();
     window.focus();
-    
+
     // Handle click based on type
     const { data } = payload;
     if (data?.url) {
       window.location.href = data.url;
     }
-    
+
     notification.close();
   };
 

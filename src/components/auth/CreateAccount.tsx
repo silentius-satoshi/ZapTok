@@ -11,6 +11,7 @@ import { useLoginActions } from '@/hooks/useLoginActions';
 import { generateSecretKey, getPublicKey } from '@nostr/tools/pure';
 import * as nip19 from '@nostr/tools/nip19';
 import { bytesToHex } from '@noble/hashes/utils';
+import zapTokLogo from '/images/ZapTok-v3.png';
 
 interface CreateAccountProps {
   onClose: () => void;
@@ -491,7 +492,7 @@ const CreateAccount = ({ onClose, onBack }: CreateAccountProps) => {
           <CardHeader className="text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <img
-                src="/images/ZapTok-v3.png"
+                src={zapTokLogo}
                 alt="ZapTok Logo"
                 className="w-8 h-8 rounded-lg"
               />

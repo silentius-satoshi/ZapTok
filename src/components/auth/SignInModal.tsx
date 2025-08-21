@@ -8,6 +8,7 @@ import { useLoginActions } from '@/hooks/useLoginActions';
 import { useToast } from '@/hooks/useToast';
 import { HelpCircle } from 'lucide-react';
 import ExtensionLogin from './ExtensionLogin';
+import zapTokLogo from '/images/ZapTok-v3.png';
 import PrivateKeyLogin from './PrivateKeyLogin';
 import BunkerLogin from './BunkerLogin';
 
@@ -120,7 +121,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
           <CardHeader className="text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <img
-                src="/images/ZapTok-v3.png"
+                src={zapTokLogo}
                 alt="ZapTok Logo"
                 className="w-8 h-8 rounded-lg"
               />
