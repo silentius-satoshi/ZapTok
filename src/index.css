@@ -270,19 +270,23 @@
   .mobile-video-item .pill,
   .mobile-video-item .tag,
   .mobile-video-item .chip,
-  .mobile-video-item .avatar,
   .mobile-video-item .tooltip,
   .mobile-video-item .popover,
   /* Specific video UI elements */
   .mobile-video-item .absolute.top-4.right-4 button,
   .mobile-video-item .flex.items-center button,
   .mobile-video-item .flex.flex-col.items-center button,
-  .mobile-video-item [class*="rounded-full"],
   .mobile-video-item .group {
     height: auto !important;
     margin: revert !important;
     padding: revert !important;
     border-radius: revert !important;
+  }
+
+  /* Preserve circular profile pictures/avatars */
+  .mobile-video-item [data-radix-avatar-root],
+  .mobile-video-item .avatar {
+    border-radius: 50% !important;
   }
 
   /* Ensure the actual video fills fully */
