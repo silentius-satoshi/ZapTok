@@ -107,36 +107,36 @@ export function MobileNavigation() {
 
   return (
     <>
-      {/* Mobile Top Bar - Transparent with icons only */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-transparent">
-        <div className="flex items-center justify-end p-4">
+      {/* Mobile Top Bar - True overlay without layout space */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 pointer-events-none">
+        <div className="flex items-center justify-end pt-2 pr-4">
           {/* Actions - Right aligned icons only */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 pointer-events-auto">
             {user && (
               <>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/lightning-wallet')}
-                  className="p-2 bg-black/40 backdrop-blur-sm hover:bg-black/60 rounded-full border border-gray-700/50"
+                  className="p-2 bg-black/20 backdrop-blur-sm hover:bg-black/40 rounded-full border border-white/20"
                 >
-                  <Wallet size={20} className="text-white" />
+                  <Wallet size={20} className="text-white drop-shadow-lg" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleUploadClick}
-                  className="p-2 bg-black/40 backdrop-blur-sm hover:bg-black/60 rounded-full border border-gray-700/50"
+                  className="p-2 bg-black/20 backdrop-blur-sm hover:bg-black/40 rounded-full border border-white/20"
                 >
-                  <PlusSquare size={20} className="text-white" />
+                  <PlusSquare size={20} className="text-white drop-shadow-lg" />
                 </Button>
               </>
             )}
             
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="p-2 bg-black/40 backdrop-blur-sm hover:bg-black/60 rounded-full border border-gray-700/50">
-                  <Menu size={20} className="text-white" />
+                <Button variant="ghost" size="sm" className="p-2 hover:bg-white/10 rounded-full">
+                  <Menu size={20} className="text-white drop-shadow-lg" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-80 bg-black border-gray-800 p-0">
