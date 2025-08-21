@@ -190,7 +190,7 @@ export default function Notifications() {
   }
 
   return (
-    <div className="flex h-screen bg-black">
+    <div className={`flex h-screen bg-black ${isMobile ? 'overflow-x-hidden' : ''}`}>
       {/* Left Navigation Column - Hidden on Mobile */}
       {!isMobile && (
         <div className="w-80 border-r border-gray-800 bg-black flex flex-col">
@@ -202,9 +202,9 @@ export default function Notifications() {
       )}
 
       {/* Middle Notifications Column - Full Width on Mobile */}
-      <div className={`flex-1 bg-black ${!isMobile ? 'border-r border-gray-800' : ''}`}>
+      <div className={`flex-1 bg-black ${!isMobile ? 'border-r border-gray-800' : ''} ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
         {/* Header */}
-        <div className="px-6 py-5">
+        <div className={`py-5 ${isMobile ? 'px-4' : 'px-6'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button
@@ -238,7 +238,7 @@ export default function Notifications() {
         {/* Content */}
         <div className="overflow-y-auto scrollbar-hide" style={{ height: 'calc(100vh - 97px)' }}>
           <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-            <div className="px-6 py-0 border-b border-gray-800">
+            <div className={`py-0 border-b border-gray-800 ${isMobile ? 'px-0' : 'px-6'}`}>
               <div className="relative flex w-full bg-black">
                 {/* Sliding underline */}
                 <div
@@ -251,7 +251,7 @@ export default function Notifications() {
 
                 <button
                   onClick={() => setSelectedTab('all')}
-                  className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
+                  className={`flex-1 ${isMobile ? 'px-2 py-4 text-xs' : 'px-4 py-4 text-sm'} font-medium transition-colors ${
                     selectedTab === 'all'
                       ? 'text-white'
                       : 'text-gray-400 hover:text-gray-300'
@@ -261,7 +261,7 @@ export default function Notifications() {
                 </button>
                 <button
                   onClick={() => setSelectedTab('zaps')}
-                  className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
+                  className={`flex-1 ${isMobile ? 'px-2 py-4 text-xs' : 'px-4 py-4 text-sm'} font-medium transition-colors ${
                     selectedTab === 'zaps'
                       ? 'text-white'
                       : 'text-gray-400 hover:text-gray-300'
@@ -271,7 +271,7 @@ export default function Notifications() {
                 </button>
                 <button
                   onClick={() => setSelectedTab('mentions')}
-                  className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
+                  className={`flex-1 ${isMobile ? 'px-2 py-4 text-xs' : 'px-4 py-4 text-sm'} font-medium transition-colors ${
                     selectedTab === 'mentions'
                       ? 'text-white'
                       : 'text-gray-400 hover:text-gray-300'
@@ -281,7 +281,7 @@ export default function Notifications() {
                 </button>
                 <button
                   onClick={() => setSelectedTab('reposts')}
-                  className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
+                  className={`flex-1 ${isMobile ? 'px-2 py-4 text-xs' : 'px-4 py-4 text-sm'} font-medium transition-colors ${
                     selectedTab === 'reposts'
                       ? 'text-white'
                       : 'text-gray-400 hover:text-gray-300'
@@ -291,7 +291,7 @@ export default function Notifications() {
                 </button>
                 <button
                   onClick={() => setSelectedTab('follows')}
-                  className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
+                  className={`flex-1 ${isMobile ? 'px-2 py-4 text-xs' : 'px-4 py-4 text-sm'} font-medium transition-colors ${
                     selectedTab === 'follows'
                       ? 'text-white'
                       : 'text-gray-400 hover:text-gray-300'
@@ -303,7 +303,7 @@ export default function Notifications() {
             </div>
 
             <TabsContent value={selectedTab} className="m-0">
-              <div className="px-6">
+              <div className={`${isMobile ? 'px-4' : 'px-6'}`}>
                 {filteredNotifications.length === 0 ? (
                   <div className="py-16 text-center text-gray-400">
                     <p className="text-lg mb-2">No notifications to show</p>
