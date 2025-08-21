@@ -15,12 +15,14 @@ import { useCaching } from '@/contexts/CachingContext';
 import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent } from '@/lib/validateVideoEvent';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/useIsMobile';
 export function VideoFeed() {
   const { nostr } = useNostr();
   const { currentService } = useCaching();
   const { user } = useCurrentUser();
   const following = useFollowing(user?.pubkey || '');
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
@@ -446,11 +448,15 @@ export function VideoFeed() {
       {videos.map((video, index) => (
         <div
           key={`${video.id}-${index}`}
-          className="h-screen flex items-center justify-center snap-start px-4"
+          className="h-screen flex items-center justify-center snap-start"
         >
-          <div className="flex gap-8 w-full max-w-4xl items-end h-full py-4">
+          <div className={`flex w-full items-end h-full py-4 ${isMobile ? 'flex-col relative px-4' : 'gap-8 max-w-4xl'}`}>
             {/* Video Container - Full height from top to bottom */}
-            <div className="flex-1 h-full overflow-hidden rounded-3xl border-2 border-gray-800 bg-black shadow-2xl hover:shadow-3xl transition-all duration-300">
+            <div className={`overflow-hidden bg-black shadow-2xl hover:shadow-3xl transition-all duration-300 ${
+              isMobile 
+                ? 'w-full h-full rounded-2xl border border-gray-800' 
+                : 'flex-1 h-full rounded-3xl border-2 border-gray-800'
+            }`}>
               <VideoCard
                 event={video}
                 isActive={index === currentVideoIndex}
@@ -468,8 +474,11 @@ export function VideoFeed() {
               />
             </div>
 
-            {/* Action Buttons - Outside and to the right of video */}
-            <div className="flex items-end pb-8 ml-4">
+            {/* Action Buttons - Mobile: overlay on video, Desktop: outside to the right */}
+            <div className={isMobile 
+              ? 'absolute right-4 bottom-20 z-10' 
+              : 'flex items-end pb-8 ml-4'
+            }>
               <VideoActionButtons
                 event={video}
               />

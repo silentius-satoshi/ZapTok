@@ -4,8 +4,12 @@ import { Navigation } from '@/components/Navigation';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { AuthGate } from '@/components/AuthGate';
 import { LogoHeader } from '@/components/LogoHeader';
+import { MobileNavigation } from '@/components/MobileNavigation';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 const Index = () => {
+  const isMobile = useIsMobile();
+  
   useSeoMeta({
     title: 'ZapTok - Nostr Video Platform',
     description: 'Discover and share videos on the decentralized Nostr network.',
@@ -14,11 +18,14 @@ const Index = () => {
   return (
     <AuthGate>
       <div className="min-h-screen bg-black text-white overflow-hidden">
+        {/* Mobile Navigation */}
+        {isMobile && <MobileNavigation />}
+
         {/* Main Content */}
-        <main className="h-screen overflow-hidden">
+        <main className={`h-screen overflow-hidden ${isMobile ? 'pt-16 pb-16' : ''}`}>
           <div className="flex h-full">
-            {/* Left Sidebar - Logo and Navigation */}
-            <div className="flex flex-col bg-black">
+            {/* Desktop Left Sidebar - Logo and Navigation */}
+            <div className="hidden md:flex flex-col bg-black">
               {/* Logo at top of sidebar */}
               <LogoHeader />
 
@@ -29,13 +36,13 @@ const Index = () => {
             </div>
 
             {/* Video Feed */}
-            <div className="flex-1 flex items-center justify-center overflow-hidden pr-8">
-              <div className="w-full max-w-3xl h-full flex items-center justify-center">
+            <div className={`flex-1 flex items-center justify-center overflow-hidden ${isMobile ? '' : 'pr-8'}`}>
+              <div className={`w-full h-full flex items-center justify-center ${isMobile ? '' : 'max-w-3xl'}`}>
                 <VideoFeed />
               </div>
             </div>
 
-            {/* Right Sidebar - Compact Login Area */}
+            {/* Desktop Right Sidebar - Compact Login Area */}
             <div className="hidden lg:block w-80 overflow-hidden">
               <div className="sticky top-4 space-y-6">
                 {/* Login Area */}
@@ -47,8 +54,8 @@ const Index = () => {
           </div>
         </main>
 
-        {/* Bottom attribution */}
-        <div className="fixed bottom-4 right-4 text-sm text-gray-300">
+        {/* Bottom attribution - hidden on mobile to avoid conflicts */}
+        <div className="hidden md:block fixed bottom-4 right-4 text-sm text-gray-300">
           <a
             href="https://soapbox.pub/mkstack"
             target="_blank"
