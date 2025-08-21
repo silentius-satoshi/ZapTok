@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Menu, X } from 'lucide-react';
+import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Menu, X, Wallet, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { VideoUploadModal } from '@/components/VideoUploadModal';
@@ -11,10 +12,12 @@ import { UserSearchModal } from '@/components/UserSearchModal';
 import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { LoginArea } from '@/components/auth/LoginArea';
+import { QuickZap } from '@/components/QuickZap';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 export function MobileNavigation() {
   const { user } = useCurrentUser();
+  const { currentVideo } = useCurrentVideo();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
   const location = useLocation();
@@ -24,6 +27,7 @@ export function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
+  const [showQuickZap, setShowQuickZap] = useState(false);
 
   const handleNavigateToPage = (path: string) => {
     setIsOpen(false); // Always close side nav when navigating
@@ -69,6 +73,14 @@ export function MobileNavigation() {
     }
   };
 
+  const handleZapClick = () => {
+    // Zap the current video author if available
+    if (currentVideo && user) {
+      pauseAllVideos();
+      setShowQuickZap(true);
+    }
+  };
+
   const navItems = [
     { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
     { id: 'following', icon: Users, label: 'Following', path: '/' },
@@ -82,9 +94,9 @@ export function MobileNavigation() {
   const bottomNavItems = [
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'following', icon: Users, label: 'Following', path: '/' },
-    { id: 'wallet', icon: Zap, label: 'Wallet', path: '/wallet', isCenter: true },
+    { id: 'zap', icon: Zap, label: 'Zap', isCenter: true, isZapButton: true },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
+    { id: 'profile', icon: User, label: 'Profile', isUserProfile: true },
   ];
 
   const isActive = (path: string) => {
@@ -95,34 +107,36 @@ export function MobileNavigation() {
 
   return (
     <>
-      {/* Mobile Top Bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-b border-gray-800">
-        <div className="flex items-center justify-between p-4">
-          {/* Logo */}
-          <div className="flex items-center space-x-2">
-            <ZapTokLogo size={32} />
-            <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
-              ZapTok
-            </h1>
-          </div>
-
-          {/* Actions */}
+      {/* Mobile Top Bar - Transparent with icons only */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-transparent">
+        <div className="flex items-center justify-end p-4">
+          {/* Actions - Right aligned icons only */}
           <div className="flex items-center space-x-2">
             {user && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleUploadClick}
-                className="p-2"
-              >
-                <PlusSquare size={20} className="text-gray-400" />
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/lightning-wallet')}
+                  className="p-2 bg-black/40 backdrop-blur-sm hover:bg-black/60 rounded-full border border-gray-700/50"
+                >
+                  <Wallet size={20} className="text-white" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleUploadClick}
+                  className="p-2 bg-black/40 backdrop-blur-sm hover:bg-black/60 rounded-full border border-gray-700/50"
+                >
+                  <PlusSquare size={20} className="text-white" />
+                </Button>
+              </>
             )}
             
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="p-2">
-                  <Menu size={20} className="text-gray-400" />
+                <Button variant="ghost" size="sm" className="p-2 bg-black/40 backdrop-blur-sm hover:bg-black/60 rounded-full border border-gray-700/50">
+                  <Menu size={20} className="text-white" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-80 bg-black border-gray-800 p-0">
@@ -226,26 +240,52 @@ export function MobileNavigation() {
           {bottomNavItems.map((item) => (
             <div key={item.id} className="flex justify-center">
               {item.isCenter ? (
-                // Center lightning wallet button with elevated styling
+                // Center zap button with elevated styling
                 <button
-                  className={`h-14 w-14 flex items-center justify-center rounded-full transition-all transform ${
-                    isActive(item.path)
-                      ? 'bg-gradient-to-br from-orange-500 to-yellow-600 text-white shadow-lg shadow-orange-500/30 scale-105'
-                      : 'bg-gradient-to-br from-orange-400 to-yellow-500 text-white shadow-md shadow-orange-400/20 hover:scale-105 hover:shadow-lg hover:shadow-orange-500/30'
-                  }`}
-                  onClick={() => handleBottomNavClick(item.path)}
+                  className={`h-14 w-14 flex items-center justify-center rounded-full transition-all transform bg-gradient-to-br from-orange-400 to-yellow-500 text-white shadow-md shadow-orange-400/20 hover:scale-105 hover:shadow-lg hover:shadow-orange-500/30`}
+                  onClick={handleZapClick}
                 >
                   <item.icon size={24} className="drop-shadow-sm" />
                 </button>
+              ) : item.isUserProfile ? (
+                // Profile button with user avatar
+                user ? (
+                  <button
+                    className={`h-12 w-12 flex items-center justify-center rounded-full transition-colors ${
+                      isActive('/profile')
+                        ? 'ring-2 ring-orange-400'
+                        : 'hover:ring-2 hover:ring-gray-600'
+                    }`}
+                    onClick={() => handleBottomNavClick('/profile')}
+                  >
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={metadata?.picture} alt={metadata?.name ?? genUserName(user.pubkey)} />
+                      <AvatarFallback className="text-xs bg-gray-700 text-gray-300">
+                        {(metadata?.name ?? genUserName(user.pubkey)).charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                ) : (
+                  <button
+                    className={`h-12 w-12 flex items-center justify-center rounded-full transition-colors ${
+                      isActive('/profile')
+                        ? 'text-orange-400 bg-gray-800/30'
+                        : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+                    }`}
+                    onClick={() => handleBottomNavClick('/profile')}
+                  >
+                    <item.icon size={20} />
+                  </button>
+                )
               ) : (
                 // Regular navigation buttons - icon only
                 <button
                   className={`h-12 w-12 flex items-center justify-center rounded-full transition-colors ${
-                    isActive(item.path)
+                    isActive(item.path!)
                       ? 'text-orange-400 bg-gray-800/30'
                       : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
                   }`}
-                  onClick={() => handleBottomNavClick(item.path)}
+                  onClick={() => handleBottomNavClick(item.path!)}
                 >
                   <item.icon size={20} />
                 </button>
@@ -265,6 +305,18 @@ export function MobileNavigation() {
         open={showUserSearchModal} 
         onOpenChange={handleUserSearchModalClose} 
       />
+
+      {/* QuickZap Modal for current video author */}
+      {showQuickZap && currentVideo && (
+        <QuickZap
+          isOpen={showQuickZap}
+          recipientPubkey={currentVideo.pubkey}
+          onClose={() => {
+            setShowQuickZap(false);
+            resumeAllVideos();
+          }}
+        />
+      )}
     </>
   );
 }

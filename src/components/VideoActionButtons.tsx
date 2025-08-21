@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MessageCircle, Bookmark, Plus, Repeat2 } from 'lucide-react';
+import { MessageCircle, Bookmark, Plus, Repeat2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -151,15 +151,25 @@ export function VideoActionButtons({
           )}
         </div>
 
-        {/* 2. Zap Button */}
+        {/* 2. Zap Button - Display Only on Mobile, Interactive on Desktop */}
         <div className="flex flex-col items-center gap-1">
-          <ZapButton
-            recipientPubkey={event.pubkey}
-            eventId={event.id}
-            className={`rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white backdrop-blur-sm border border-gray-700 shadow-lg p-0 ${
+          {isMobile ? (
+            // Mobile: Display-only zap button (no click action)
+            <div className={`rounded-full bg-gray-900/80 text-white backdrop-blur-sm border border-gray-700 shadow-lg flex items-center justify-center ${
               isMobile ? 'h-10 w-10' : 'h-12 w-12'
-            }`}
-          />
+            }`}>
+              <Zap className={`text-yellow-400 ${isMobile ? 'w-5 h-5' : 'w-6 h-6'}`} fill="currentColor" />
+            </div>
+          ) : (
+            // Desktop: Interactive zap button
+            <ZapButton
+              recipientPubkey={event.pubkey}
+              eventId={event.id}
+              className={`rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white backdrop-blur-sm border border-gray-700 shadow-lg p-0 ${
+                isMobile ? 'h-10 w-10' : 'h-12 w-12'
+              }`}
+            />
+          )}
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'}`}>
             {reactions.data ? formatCount(reactions.data.zaps) : '0'}
           </span>
@@ -242,27 +252,27 @@ export function VideoActionButtons({
           </span>
         </div>
 
-        {/* 7. Profile Picture Button (clickable for profile page) - Hidden on mobile to save space */}
-        {!isMobile && (
-          <div className="flex flex-col items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="rounded-full p-0 h-12 w-12 overflow-hidden border-2 border-gray-700 bg-gray-900/80 hover:bg-gray-800/80 shadow-lg backdrop-blur-sm"
-              onClick={handleProfileClick}
-            >
-              <Avatar className="h-12 w-12">
-                <AvatarImage src={authorProfilePicture} alt={authorDisplayName} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
-                  {authorDisplayName.slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-            <span className="text-white text-xs font-bold">
-              Profile
-            </span>
-          </div>
-        )}
+        {/* 7. Profile Picture Button (clickable for profile page) */}
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`rounded-full p-0 overflow-hidden border-2 border-gray-700 bg-gray-900/80 hover:bg-gray-800/80 shadow-lg backdrop-blur-sm ${
+              isMobile ? 'h-10 w-10' : 'h-12 w-12'
+            }`}
+            onClick={handleProfileClick}
+          >
+            <Avatar className={isMobile ? 'h-10 w-10' : 'h-12 w-12'}>
+              <AvatarImage src={authorProfilePicture} alt={authorDisplayName} />
+              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
+                {authorDisplayName.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          </Button>
+          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'}`}>
+            {isMobile ? '' : 'Profile'}
+          </span>
+        </div>
       </div>
 
       {/* Comments Modal */}

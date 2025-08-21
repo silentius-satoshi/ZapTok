@@ -12,6 +12,7 @@ import { useFollowUser } from '@/hooks/useFollowUser';
 import { useBookmarkedVideos } from '@/hooks/useBookmarkedVideos';
 import { useUserVideos } from '@/hooks/useUserVideos';
 import { useRepostedVideos } from '@/hooks/useRepostedVideos';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { genUserName } from '@/lib/genUserName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,7 @@ const Profile = () => {
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const isMobile = useIsMobile();
 
   // Prevent body scrolling when edit form is shown
   useEffect(() => {
@@ -142,20 +144,22 @@ const Profile = () => {
   if (showEditForm && isOwnProfile) {
     return (
       <AuthGate>
-        <div className="h-screen bg-black text-white overflow-hidden">
+        <div className={`h-screen bg-black text-white overflow-hidden ${isMobile ? 'overflow-x-hidden' : ''}`}>
           <main className="h-full flex">
             <div className="flex">
-              {/* Left Sidebar - Logo and Navigation */}
-              <div className="flex flex-col bg-black">
-                <LogoHeader />
-                <div className="flex-1">
-                  <Navigation />
+              {/* Left Sidebar - Logo and Navigation - Hidden on Mobile */}
+              {!isMobile && (
+                <div className="flex flex-col bg-black">
+                  <LogoHeader />
+                  <div className="flex-1">
+                    <Navigation />
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Edit Profile Content */}
-              <div className="flex-1 h-full overflow-y-auto scrollbar-hide">
-                <div className="max-w-2xl mx-auto p-6 min-h-full">
+              {/* Edit Profile Content - Full Width on Mobile */}
+              <div className={`flex-1 h-full overflow-y-auto scrollbar-hide ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
+                <div className={`max-w-2xl mx-auto ${isMobile ? 'p-4' : 'p-6'} min-h-full`}>
                   <div className="mb-6">
                     <Button
                       variant="ghost"
@@ -165,8 +169,8 @@ const Profile = () => {
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back to Profile
                     </Button>
-                    <h1 className="text-2xl font-bold flex items-center space-x-2">
-                      <Edit className="w-6 h-6" />
+                    <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold flex items-center space-x-2`}>
+                      <Edit className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'}`} />
                       <span>Edit Profile</span>
                     </h1>
                   </div>
@@ -174,12 +178,14 @@ const Profile = () => {
                 </div>
               </div>
 
-              {/* Right Sidebar - Compact Login Area */}
-              <div className="hidden lg:block w-80 p-3">
-                <div className="sticky top-4">
-                  <LoginArea className="justify-end" />
+              {/* Right Sidebar - Compact Login Area - Hidden on Mobile */}
+              {!isMobile && (
+                <div className="hidden lg:block w-80 p-3">
+                  <div className="sticky top-4">
+                    <LoginArea className="justify-end" />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </main>
         </div>
@@ -190,20 +196,22 @@ const Profile = () => {
   return (
     <>
       <AuthGate>
-        <div className="min-h-screen bg-black text-white">
+        <div className={`min-h-screen bg-black text-white ${isMobile ? 'overflow-x-hidden' : ''}`}>
           <main className="h-screen">
             <div className="flex h-full">
-              {/* Left Sidebar - Logo and Navigation */}
-              <div className="flex flex-col bg-black">
-                <LogoHeader />
-                <div className="flex-1">
-                  <Navigation />
+              {/* Left Sidebar - Logo and Navigation - Hidden on Mobile */}
+              {!isMobile && (
+                <div className="flex flex-col bg-black">
+                  <LogoHeader />
+                  <div className="flex-1">
+                    <Navigation />
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Profile Content */}
-              <div className="flex-1 overflow-y-auto scrollbar-hide">
-                <div className="max-w-4xl mx-auto p-6">
+              {/* Profile Content - Full Width on Mobile */}
+              <div className={`flex-1 overflow-y-auto scrollbar-hide ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
+                <div className={`max-w-4xl mx-auto ${isMobile ? 'p-4' : 'p-6'}`}>
                   {/* Back to Home Button (only for other users' profiles) */}
                   {!isOwnProfile && (
                     <Link to="/">
@@ -215,19 +223,19 @@ const Profile = () => {
                   )}
 
                   {/* Profile Header */}
-                  <div className="mb-8">
+                  <div className={`${isMobile ? 'mb-6' : 'mb-8'}`}>
                     <div className="flex flex-col items-center space-y-6">
-                      <Avatar className="w-32 h-32">
+                      <Avatar className={`${isMobile ? 'w-24 h-24' : 'w-32 h-32'}`}>
                         <AvatarImage src={profileImage} alt={displayName} />
-                        <AvatarFallback className="text-2xl">
+                        <AvatarFallback className={`${isMobile ? 'text-xl' : 'text-2xl'}`}>
                           {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </AvatarFallback>
                       </Avatar>
 
                       <div className="text-center space-y-3">
-                        <h1 className="text-3xl font-bold">{displayName}</h1>
+                        <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold`}>{displayName}</h1>
                         {userName !== displayName && (
-                          <p className="text-xl text-gray-400">@{userName}</p>
+                          <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-gray-400`}>@{userName}</p>
                         )}
                         {nip05 && (
                           <Badge variant="secondary" className="text-sm">
@@ -237,7 +245,7 @@ const Profile = () => {
                       </div>
 
                       {/* Profile Action Buttons */}
-                      <div className="flex space-x-3">
+                      <div className={`flex ${isMobile ? 'flex-wrap justify-center gap-2' : 'space-x-3'}`}>
                         {/* 1. Following List Button */}
                         <Button
                           variant="outline"

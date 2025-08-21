@@ -14,6 +14,7 @@ import { Search, TrendingUp, Hash, X, Users, Globe } from 'lucide-react';
 import { useSearchVideos, useSearchVideosInFollowing } from '@/hooks/useSearchVideos';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useFollowing } from '@/hooks/useFollowing';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { debounce } from 'lodash';
 
 const Discover = () => {
@@ -23,6 +24,7 @@ const Discover = () => {
   const [searchFilter, setSearchFilter] = useState('');
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [searchScope, setSearchScope] = useState<'all' | 'following'>('all');
+  const isMobile = useIsMobile();
 
   const { data: globalSearchResults, isLoading: isGlobalLoading, error: globalError } = useSearchVideos(searchScope === 'all' ? searchFilter : '');
   const { data: followingSearchResults, isLoading: isFollowingLoading, error: followingError } = useSearchVideosInFollowing(
@@ -108,31 +110,33 @@ const Discover = () => {
 
   return (
     <AuthGate>
-      <div className="min-h-screen bg-black text-white">
+      <div className={`min-h-screen bg-black text-white ${isMobile ? 'overflow-x-hidden' : ''}`}>
         <main className="h-screen">
           <div className="flex h-full">
-            {/* Left Sidebar - Logo and Navigation */}
-            <div className="flex flex-col bg-black">
-              <LogoHeader />
-              <div className="flex-1">
-                <Navigation />
+            {/* Left Sidebar - Logo and Navigation - Hidden on Mobile */}
+            {!isMobile && (
+              <div className="flex flex-col bg-black">
+                <LogoHeader />
+                <div className="flex-1">
+                  <Navigation />
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Main Content */}
-            <div className="flex-1 overflow-y-auto scrollbar-hide">
-              <div className="max-w-4xl mx-auto p-6">
+            {/* Main Content - Full Width on Mobile */}
+            <div className={`flex-1 overflow-y-auto scrollbar-hide ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
+              <div className={`max-w-4xl mx-auto ${isMobile ? 'p-4' : 'p-6'}`}>
                 {/* Search Header */}
-                <div className="mb-8">
+                <div className={`${isMobile ? 'mb-6' : 'mb-8'}`}>
                   <div className="flex items-center space-x-3 mb-4">
-                    <Search className="w-8 h-8 text-orange-500" />
-                    <h1 className="text-3xl font-bold">Discover</h1>
+                    <Search className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} text-orange-500`} />
+                    <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold`}>Discover</h1>
                   </div>
-                  <p className="text-gray-400">Search for videos, explore trending content, and discover new creators</p>
+                  <p className={`text-gray-400 ${isMobile ? 'text-sm' : ''}`}>Search for videos, explore trending content, and discover new creators</p>
                 </div>
 
                 {/* Search Form */}
-                <Card className="mb-6">
+                <Card className={`${isMobile ? 'mb-4' : 'mb-6'}`}>
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
                       <Search className="w-5 h-5" />

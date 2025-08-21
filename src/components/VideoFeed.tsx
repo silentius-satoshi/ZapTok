@@ -12,6 +12,7 @@ import { useProfileCache } from '@/hooks/useProfileCache';
 import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
 import { useVideoCache } from '@/hooks/useVideoCache';
 import { useCaching } from '@/contexts/CachingContext';
+import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
 import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent } from '@/lib/validateVideoEvent';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
@@ -23,6 +24,7 @@ export function VideoFeed() {
   const following = useFollowing(user?.pubkey || '');
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { setCurrentVideo } = useCurrentVideo();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
@@ -199,6 +201,15 @@ export function VideoFeed() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentVideoIndex, videos.length]);
+
+  // Update current video context when index changes
+  useEffect(() => {
+    if (videos.length > 0 && currentVideoIndex >= 0 && currentVideoIndex < videos.length) {
+      setCurrentVideo(videos[currentVideoIndex]);
+    } else {
+      setCurrentVideo(null);
+    }
+  }, [currentVideoIndex, videos, setCurrentVideo]);
 
   // Function to scroll to a specific video
   const scrollToVideo = (index: number) => {

@@ -5,6 +5,7 @@ import { Suspense, useEffect } from 'react';
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AuthFilter } from '@/components/auth/AuthFilter';
+import { CurrentVideoProvider } from '@/contexts/CurrentVideoContext';
 import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { primalBlossom } from '@/lib/blossomUtils';
@@ -79,9 +80,11 @@ export function App() {
       <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
-            <AuthFilter>
-              <AppContent />
-            </AuthFilter>
+            <CurrentVideoProvider>
+              <AuthFilter>
+                <AppContent />
+              </AuthFilter>
+            </CurrentVideoProvider>
           </NostrLoginProvider>
         </QueryClientProvider>
       </AppProvider>
