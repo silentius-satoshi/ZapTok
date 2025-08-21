@@ -26,7 +26,17 @@ export function MobileNavigation() {
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
 
   const handleNavigateToPage = (path: string) => {
-    setIsOpen(false);
+    setIsOpen(false); // Always close side nav when navigating
+    if (path !== '/' && path !== '/global') {
+      pauseAllVideos();
+    } else {
+      resumeAllVideos();
+    }
+    navigate(path);
+  };
+
+  const handleBottomNavClick = (path: string) => {
+    // Separate handler for bottom nav to ensure no side nav interference
     if (path !== '/' && path !== '/global') {
       pauseAllVideos();
     } else {
@@ -66,6 +76,15 @@ export function MobileNavigation() {
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
     { id: 'wallet', icon: Zap, label: 'Lightning Wallet', path: '/wallet' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
+  ];
+
+  // Core items for bottom navigation (most important for mobile)
+  const bottomNavItems = [
+    { id: 'following', icon: Users, label: 'Home', path: '/' },
+    { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
+    { id: 'global', icon: Globe, label: 'Global', path: '/global' },
+    { id: 'notifications', icon: Heart, label: 'Alerts', path: '/notifications' },
+    { id: 'wallet', icon: Zap, label: 'Wallet', path: '/wallet' },
   ];
 
   const isActive = (path: string) => {
@@ -203,23 +222,20 @@ export function MobileNavigation() {
 
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-t border-gray-800">
-        <div className="flex items-center justify-around py-2">
-          {navItems.slice(0, 5).map((item) => (
-            <Link key={item.id} to={item.path} className="flex-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`w-full h-12 flex flex-col items-center justify-center gap-1 ${
-                  isActive(item.path)
-                    ? 'text-orange-400'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-                onClick={() => handleNavigateToPage(item.path)}
-              >
-                <item.icon size={18} />
-                <span className="text-xs font-medium">{item.label}</span>
-              </Button>
-            </Link>
+        <div className="flex items-center justify-around py-2 px-2">
+          {bottomNavItems.map((item) => (
+            <button
+              key={item.id}
+              className={`flex-1 max-w-20 h-12 flex flex-col items-center justify-center gap-1 rounded-lg transition-colors ${
+                isActive(item.path)
+                  ? 'text-orange-400'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+              }`}
+              onClick={() => handleBottomNavClick(item.path)}
+            >
+              <item.icon size={16} />
+              <span className="text-xs font-medium leading-tight truncate w-full text-center">{item.label}</span>
+            </button>
           ))}
         </div>
       </div>
