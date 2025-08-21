@@ -221,13 +221,26 @@
     background: #000;
   }
 
-  /* Remove any rounding / spacing introduced by card wrappers */
+  /* Remove rounding only from main video containers, preserve buttons/badges */
   .mobile-video-item,
-  .mobile-video-item *[class*="rounded"],
   .mobile-video-item .video-card,
   .mobile-video-item .videoWrapper,
-  .mobile-video-item .card {
+  .mobile-video-item .card,
+  .mobile-video-item > div[class*="rounded"] {
     border-radius: 0 !important;
+  }
+
+  /* Preserve rounding for interactive elements */
+  .mobile-video-item button,
+  .mobile-video-item .badge,
+  .mobile-video-item [role="button"],
+  .mobile-video-item .btn,
+  .mobile-video-item .action-button,
+  .mobile-video-item .floating-action,
+  .mobile-video-item .pill,
+  .mobile-video-item .tag,
+  .mobile-video-item .chip {
+    border-radius: inherit !important;
   }
 
   /* Kill outer margins/padding some cards might inject */
@@ -244,6 +257,26 @@
     margin: 0 !important;
     padding: 0 !important;
     border-radius: 0 !important;
+  }
+
+  /* Restore proper styling for buttons and interactive elements */
+  .mobile-video-item button,
+  .mobile-video-item .button,
+  .mobile-video-item [role="button"],
+  .mobile-video-item .btn,
+  .mobile-video-item .action-button,
+  .mobile-video-item .floating-action,
+  .mobile-video-item .badge,
+  .mobile-video-item .pill,
+  .mobile-video-item .tag,
+  .mobile-video-item .chip,
+  .mobile-video-item .avatar,
+  .mobile-video-item .tooltip,
+  .mobile-video-item .popover {
+    height: auto !important;
+    margin: revert !important;
+    padding: revert !important;
+    border-radius: revert !important;
   }
 
   /* Ensure the actual video fills fully */
