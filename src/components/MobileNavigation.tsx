@@ -78,13 +78,13 @@ export function MobileNavigation() {
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
-  // Core items for bottom navigation (most frequently used)
+  // Core items for bottom navigation in the requested order
   const bottomNavItems = [
-    { id: 'following', icon: Users, label: 'Following', path: '/' },
-    { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
+    { id: 'following', icon: Users, label: 'Following', path: '/' },
+    { id: 'wallet', icon: Zap, label: 'Wallet', path: '/wallet', isCenter: true },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    { id: 'wallet', icon: Zap, label: 'Wallet', path: '/wallet' },
+    { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
   ];
 
   const isActive = (path: string) => {
@@ -222,20 +222,45 @@ export function MobileNavigation() {
 
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md border-t border-gray-800">
-        <div className="flex items-center justify-around py-2 px-2">
+        <div className="flex items-center justify-around py-2 px-2 relative">
           {bottomNavItems.map((item) => (
-            <button
-              key={item.id}
-              className={`flex-1 h-12 flex flex-col items-center justify-center gap-1 rounded-lg transition-colors ${
-                isActive(item.path)
-                  ? 'text-orange-400'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
-              }`}
-              onClick={() => handleBottomNavClick(item.path)}
-            >
-              <item.icon size={16} />
-              <span className="text-xs font-medium leading-tight truncate w-full text-center">{item.label}</span>
-            </button>
+            <div key={item.id} className="flex-1 flex justify-center">
+              {item.isCenter ? (
+                // Center lightning wallet button with elevated styling
+                <div className="relative">
+                  {/* Ridge/elevation indicator */}
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-gradient-to-r from-orange-400 via-yellow-500 to-orange-400 rounded-full"></div>
+                  
+                  {/* Main button */}
+                  <button
+                    className={`relative h-14 w-14 flex flex-col items-center justify-center rounded-2xl transition-all transform ${
+                      isActive(item.path)
+                        ? 'bg-gradient-to-br from-orange-500 to-yellow-600 text-white shadow-lg shadow-orange-500/30 scale-105'
+                        : 'bg-gradient-to-br from-orange-400 to-yellow-500 text-white shadow-md shadow-orange-400/20 hover:scale-105 hover:shadow-lg hover:shadow-orange-500/30'
+                    }`}
+                    onClick={() => handleBottomNavClick(item.path)}
+                  >
+                    <item.icon size={20} className="drop-shadow-sm" />
+                    <span className="text-[10px] font-semibold leading-tight mt-0.5 drop-shadow-sm">
+                      {item.label}
+                    </span>
+                  </button>
+                </div>
+              ) : (
+                // Regular navigation buttons
+                <button
+                  className={`h-12 flex flex-col items-center justify-center gap-1 rounded-lg transition-colors px-3 min-w-0 ${
+                    isActive(item.path)
+                      ? 'text-orange-400'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+                  }`}
+                  onClick={() => handleBottomNavClick(item.path)}
+                >
+                  <item.icon size={16} />
+                  <span className="text-xs font-medium leading-tight truncate w-full text-center">{item.label}</span>
+                </button>
+              )}
+            </div>
           ))}
         </div>
       </div>
