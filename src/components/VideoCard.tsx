@@ -171,7 +171,6 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
           poster={event.thumbnail}
           className="w-full h-full object-cover cursor-pointer"
           loop
-          muted
           playsInline
           onClick={handlePlayPause}
           onPlay={handleVideoPlay}

@@ -144,40 +144,7 @@ const Discover = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Search Scope Toggle */}
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-400">Search in:</span>
-                      <div className="flex bg-gray-800 rounded-lg p-1">
-                        <button
-                          onClick={() => setSearchScope('all')}
-                          className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                            searchScope === 'all'
-                              ? 'bg-white text-black'
-                              : 'text-gray-400 hover:text-white'
-                          }`}
-                        >
-                          <Globe className="w-4 h-4" />
-                          <span>All Users</span>
-                        </button>
-                        <button
-                          onClick={() => setSearchScope('following')}
-                          disabled={!user || !following.data?.count}
-                          className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                            searchScope === 'following'
-                              ? 'bg-white text-black'
-                              : 'text-gray-400 hover:text-white'
-                          } ${(!user || !following.data?.count) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                          <Users className="w-4 h-4" />
-                          <span>Following Only</span>
-                          {following.data?.count && (
-                            <Badge variant="secondary" className="ml-1 text-xs">
-                              {following.data.count}
-                            </Badge>
-                          )}
-                        </button>
-                      </div>
-                    </div>
+                    {/* Search Scope Toggle - Removed */}
 
                     <form onSubmit={handleSearchSubmit} className="flex space-x-2">
                       <div className="flex-1 relative">

@@ -409,7 +409,7 @@ export function GlobalVideoFeed() {
                 </div>
                 
                 <div className={isMobile 
-                  ? 'absolute right-4 bottom-20 z-10' 
+                  ? 'absolute right-2 bottom-16 z-10' 
                   : 'flex items-end pb-8'
                 }>
                   <VideoActionButtons event={video} />

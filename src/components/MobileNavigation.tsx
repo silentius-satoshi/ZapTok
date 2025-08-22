@@ -113,36 +113,34 @@ export function MobileNavigation() {
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="mx-auto flex w-full max-w-screen-sm items-center justify-between px-4 py-3">
-          {/* Left side - Navigation tabs */}
+          {/* Left side - Empty space where tabs were */}
           <div className="flex gap-6 font-semibold text-lg tracking-wide pointer-events-auto">
-            <button
-              onClick={() => navigate('/following')}
-              className={`transition-colors ${
-                location.pathname === '/' || location.pathname === '/following'
-                  ? 'text-white'
-                  : 'text-white/60'
-              }`}
-              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
-            >
-              Following
-            </button>
-            <button
-              onClick={() => navigate('/discover')}
-              className={`transition-colors ${
-                location.pathname.startsWith('/discover')
-                  ? 'text-white'
-                  : 'text-white/60'
-              }`}
-              style={{ textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
-            >
-              For You
-            </button>
+            {/* Tabs removed */}
           </div>
 
           {/* Right side - Action icons */}
-          <div className="flex items-center gap-4 pointer-events-auto">
+          <div className="flex items-center gap-6 pointer-events-auto">
             {user && (
               <>
+                {/* Stream Icon */}
+                <button
+                  onClick={() => navigate('/stream')}
+                  aria-label="Live Stream"
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <Radio className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                </button>
+                
+                {/* Search User Icon */}
+                <button
+                  onClick={handleUserSearchClick}
+                  aria-label="Search Users"
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <UserPlus className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                </button>
+                
+                {/* Wallet Icon */}
                 <button
                   onClick={() => navigate('/lightning-wallet')}
                   aria-label="Wallet"
@@ -150,6 +148,8 @@ export function MobileNavigation() {
                 >
                   <Wallet className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
                 </button>
+                
+                {/* Upload Icon */}
                 <button
                   onClick={handleUploadClick}
                   aria-label="Upload"
@@ -160,6 +160,7 @@ export function MobileNavigation() {
               </>
             )}
 
+            {/* Hamburger Icon */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
                 <button
