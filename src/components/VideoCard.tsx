@@ -210,7 +210,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
 
       {/* Video Description - Bottom Left */}
       <div className="absolute bottom-4 left-4 right-20 text-white z-10">
-        <div className="space-y-3">
+        <div className="space-y-1">
           {/* Username */}
           <div className="flex items-center gap-2">
             <span className="font-bold text-white truncate">@{displayName}</span>
