@@ -7,9 +7,9 @@ export function LogoHeader() {
   const { user } = useCurrentUser();
 
   const handleLogoClick = () => {
-    // Only redirect to global feed if user is logged in
+    // Navigate to home page (Following feed) if user is logged in
     if (user) {
-      navigate('/global');
+      navigate('/');
     }
   };
 
@@ -18,7 +18,7 @@ export function LogoHeader() {
       <div
         className="flex items-center space-x-3 cursor-pointer group"
         onClick={handleLogoClick}
-        title={user ? "Go to Global Feed" : ""}
+        title={user ? "Go to Following Feed" : ""}
       >
         <img
           src={zapTokLogo}
