@@ -218,21 +218,25 @@ Help us continue building and improving ZapTok. Your support enables us to maint
 ZapTok stands on the shoulders of giants. We're deeply grateful to the open-source communities and visionary builders who made this platform possible:
 
 ### Protocol Pioneers
-- **[fiatjaf](https://fiatjaf.com/)** - Creator of the Nostr protocol, enabling truly decentralized social networks
+- **[fiatjaf](https://fiatjaf.com/)** - Creator of the Nostr protocol, enabling truly decentralized social networks (nostr: [pubkey](https://nostr.band/?q=npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6))
 - **Satoshi Nakamoto** - Creator of Bitcoin, the foundation of our censorship-resistant payments
 - **Bitcoin Contributors** - Maintaining the world's most robust decentralized money
-- **Lightning Network Developers** - Enabling instant, low-cost Bitcoin transactions
+- **[Lightning Labs](https://lightning.engineering/)** - Developers of LND, a leading Lightning Network implementation
 
 ### Nostr Ecosystem Builders
-- **[Primal](https://primal.net/)** - Leading Nostr client inspiring UX excellence
-- **[Derek Ross](https://github.com/derekross/zappix) (Zappix)** - Nostr advocate and community builder
-- **[@Luxas](https://plebs.app/)** - Video-first Nostr client showing the way forward
-- **Damus, Amethyst, Snort** - Pioneering Nostr clients that paved the path
+- **[Primal](https://primal.net/)** 
+- **[Damus](https://damus.io/)** 
+- **[Amethyst](https://amethyst.nostr.land/)**
+- **[Snort](https://snort.social/)** 
+- **[Derek Ross](https://github.com/derekross/zappix)[Zappix](https://zappix.app/home)** - Nostr advocate and community builder (nostr: [pubkey](https://nostr.band/?q=npub18ams6ewn5aj2n3wt2qawzglx9mr4nzksxhvrdc4gzrecw7n5tvjqctp424))
+- **[@Luxas](https://github.com/Spl0itable/plebs-app)[Plebs.app](https://plebs.app/)** - Video-first Nostr client showing the way forward (nostr: [pubkey](https://nostr.band/?q=npub16jdfqgazrkapk0yrqm9rdxlnys7ck39c7zmdzxtxqlmmpxg04r0sd733sv))
+
 
 ### Privacy & Payments Innovation
 - **[Cashu Protocol](https://cashu.space/)** - Enabling private eCash transactions
-- **[Jack Dorsey](https://github.com/jack) (+Chorus)** - Supporting decentralized social infrastructure
-- **Blossom Protocol Contributors** - Decentralized file storage solutions
+- **[Calle](https://github.com/callebtc)** - Cashu dev and community lead (nostr: [pubkey](https://nostr.band/?q=npub12rv5lskctqxxs2c8rf2zlzc7xx3qpvzs3w4etgemauy9thegr43sf485vg)) 
+- **[Jack Dorsey](https://github.com/jackjackbits) (+Chorus)** - Supporting decentralized social infrastructure (nostr: [pubkey](https://nostr.band/npub1sg6plzptd64u62a878hep2kev88swjh3tw00gjsfl8f237lmu63q0uf63m))
+- **[Blossom Protocol: hzrd149](https://github.com/hzrd149/blossom)** - Decentralized file storage solutions using nostr public / private keys (nostr: [pubkey](https://njump.me/npub1ye5ptcxfyyxl5vjvdjar2ua3f0hynkjzpx552mu5snj3qmx5pzjscpknpr))
 
 ### Technical Foundation
 - **React Team** - The UI framework powering our interface
