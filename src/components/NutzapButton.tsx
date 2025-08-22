@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { UserNutzapDialog } from '@/components/UserNutzapDialog';
 import { Button } from '@/components/ui/button';
 import {
-  Loader2
+  Loader2,
+  Coins
 } from 'lucide-react';
 import { formatBalance } from '@/lib/cashu';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ interface NutzapButtonProps {
   disabled?: boolean;
   className?: string;
   children?: React.ReactNode;
+  iconSize?: string; // Custom icon size
 }
 
 export function NutzapButton({
@@ -28,10 +30,12 @@ export function NutzapButton({
   showAmount = false,
   disabled = false,
   className,
-  children
+  children,
+  iconSize = 'h-4 w-4'
 }: NutzapButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   if (!userPubkey) {
     return (
@@ -41,11 +45,7 @@ export function NutzapButton({
         disabled={true}
         className={cn("text-muted-foreground", className)}
       >
-        <img 
-          src="/images/cashu-icon.png" 
-          alt="Nutzap" 
-          className="h-4 w-4" 
-        />
+        <Coins className={cn(iconSize, "text-orange-400")} />
         {showAmount && (
           <span className="ml-1 text-xs">
             {formatBalance(amount)}
@@ -72,14 +72,25 @@ export function NutzapButton({
       >
         {disabled ? (
           <Loader2 className="h-4 w-4 animate-spin" />
+        ) : imageError ? (
+          <Coins className={cn(iconSize, "transition-colors", isHovered ? "opacity-80" : "")} />
         ) : (
-          <img 
-            src="/images/cashu-icon.png" 
-            alt="Nutzap" 
+          <img
+            src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+            alt="Nutzap"
             className={cn(
-              "h-4 w-4 transition-colors",
+              iconSize,
+              "transition-colors object-contain",
               isHovered ? "opacity-80" : ""
             )}
+            onError={(e) => {
+              console.error('Failed to load cashu-icon.png', e);
+              setImageError(true);
+            }}
+            onLoad={() => {
+              // Image loaded successfully, ensure error state is false
+              setImageError(false);
+            }}
           />
         )}
 

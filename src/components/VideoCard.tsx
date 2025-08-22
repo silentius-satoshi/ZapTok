@@ -5,6 +5,7 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { useVideoRegistration } from '@/hooks/useVideoRegistration';
 import { useVideoUrlFallback } from '@/hooks/useVideoUrlFallback';
 import { genUserName } from '@/lib/genUserName';
+import { useNavigate } from 'react-router-dom';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface VideoCardProps {
@@ -27,6 +28,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const [userPaused, setUserPaused] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const videoRef = useVideoRegistration(); // Use the video registration hook
+  const navigate = useNavigate();
   const author = useAuthor(event.pubkey);
 
   // Use fallback URL system to find working video URLs
@@ -213,7 +215,12 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         <div className="space-y-1">
           {/* Username */}
           <div className="flex items-center gap-2">
-            <span className="font-bold text-white truncate">@{displayName}</span>
+            <button
+              className="font-bold text-white truncate hover:text-blue-300 transition-colors cursor-pointer"
+              onClick={() => navigate(`/profile/${event.pubkey}`)}
+            >
+              @{displayName}
+            </button>
             {showVerificationBadge && authorMetadata?.nip05 && (
               <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-300 border-blue-400/30 flex-shrink-0">
                 ✓ {authorMetadata.nip05}

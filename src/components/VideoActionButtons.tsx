@@ -117,13 +117,13 @@ export function VideoActionButtons({
 
   return (
     <>
-      <div className={`flex items-center ${isMobile ? 'flex-col gap-4 w-16' : 'flex-col gap-5 w-20'}`}>
+      <div className={`flex items-center ${isMobile ? 'flex-col gap-4 w-16' : 'flex-col gap-3 w-28'}`}>
         {/* 1. Profile Picture with Follow Button (no click functionality on profile picture) */}
         <div className="relative">
           <div className={`rounded-full p-0 overflow-hidden bg-transparent ${
-            isMobile ? 'h-12 w-12' : 'h-14 w-14'
+            isMobile ? 'h-12 w-12' : 'h-20 w-20'
           }`}>
-            <Avatar className={isMobile ? 'h-12 w-12' : 'h-14 w-14'}>
+            <Avatar className={isMobile ? 'h-12 w-12' : 'h-20 w-20'}>
               <AvatarImage src={authorProfilePicture} alt={authorDisplayName} />
               <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
                 {authorDisplayName.slice(0, 2).toUpperCase()}
@@ -136,7 +136,7 @@ export function VideoActionButtons({
             <Button
               variant="ghost"
               size="sm"
-              className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 rounded-full ${
+              className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 rounded-full p-0 flex items-center justify-center ${
                 isMobile ? 'h-5 w-5' : 'h-6 w-6'
               } ${
                 isCurrentlyFollowing
@@ -156,17 +156,25 @@ export function VideoActionButtons({
           {isMobile ? (
             // Mobile: Display-only zap button (no click action)
             <div className={`rounded-full bg-transparent text-white flex items-center justify-center ${
-              isMobile ? 'h-12 w-12' : 'h-14 w-14'
+              isMobile ? 'h-12 w-12' : 'h-20 w-20'
             }`}>
-              <Zap className={`text-yellow-400 ${isMobile ? 'w-7 h-7' : 'w-8 h-8'} drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]`} fill="currentColor" />
+              <Zap 
+                className={`text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]`} 
+                style={isMobile ? { width: '1.75rem', height: '1.75rem' } : { width: '4.5rem', height: '4.5rem' }}
+                fill="currentColor" 
+              />
             </div>
           ) : (
             // Desktop: Interactive zap button
             <ZapButton
               recipientPubkey={event.pubkey}
               eventId={event.id}
+              iconStyle={{ 
+                width: isMobile ? '28px' : '30px', 
+                height: isMobile ? '28px' : '30px' 
+              }}
               className={`rounded-full bg-transparent hover:bg-white/10 text-white p-0 ${
-                isMobile ? 'h-12 w-12' : 'h-14 w-14'
+                isMobile ? 'h-12 w-12' : 'h-20 w-20'
               }`}
             />
           )}
@@ -180,8 +188,9 @@ export function VideoActionButtons({
           <NutzapButton
             userPubkey={event.pubkey}
             eventId={event.id}
+            iconSize={isMobile ? 'w-7 h-7' : 'w-10 h-10'}
             className={`rounded-full bg-transparent hover:bg-white/10 text-white p-0 ${
-              isMobile ? 'h-12 w-12' : 'h-14 w-14'
+              isMobile ? 'h-12 w-12' : 'h-20 w-20'
             }`}
           />
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
@@ -195,13 +204,17 @@ export function VideoActionButtons({
             variant="ghost"
             size="sm"
             className={`group rounded-full bg-transparent hover:bg-white/10 text-white transition-all duration-200 ${
-              isMobile ? 'h-12 w-12' : 'h-14 w-14'
+              isMobile ? 'h-12 w-12' : 'h-20 w-20'
             }`}
             onClick={handleComment}
           >
-            <MessageCircle className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200 ${
-              isMobile ? 'w-7 h-7' : 'w-8 h-8'
-            }`} />
+            <MessageCircle 
+              className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200`}
+              style={{ 
+                width: isMobile ? '28px' : '30px', 
+                height: isMobile ? '28px' : '30px' 
+              }}
+            />
           </Button>
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
             {commentsData ? formatCount(commentsData.commentCount) : '0'}
@@ -214,14 +227,18 @@ export function VideoActionButtons({
             variant="ghost"
             size="sm"
             className={`group rounded-full bg-transparent hover:bg-white/10 text-white disabled:opacity-50 transition-all duration-200 ${
-              isMobile ? 'h-12 w-12' : 'h-14 w-14'
+              isMobile ? 'h-12 w-12' : 'h-20 w-20'
             }`}
             onClick={handleRepost}
             disabled={isRepostPending || !user}
           >
-            <Repeat2 className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-green-300 group-hover:scale-110 transition-all duration-200 ${
-              isMobile ? 'w-7 h-7' : 'w-8 h-8'
-            }`} />
+            <Repeat2 
+              className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-green-300 group-hover:scale-110 transition-all duration-200`}
+              style={{ 
+                width: isMobile ? '28px' : '30px', 
+                height: isMobile ? '28px' : '30px' 
+              }}
+            />
           </Button>
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
             {repostsData ? formatCount(repostsData.count) : '0'}
@@ -234,43 +251,25 @@ export function VideoActionButtons({
             variant="ghost"
             size="sm"
             className={`group rounded-full bg-transparent hover:bg-white/10 text-white disabled:opacity-50 transition-all duration-200 ${
-              isMobile ? 'h-12 w-12' : 'h-14 w-14'
+              isMobile ? 'h-12 w-12' : 'h-20 w-20'
             }`}
             onClick={handleBookmark}
             disabled={isBookmarkPending}
           >
-            <Bookmark className={`transition-all duration-200 ${
-              isMobile ? 'w-7 h-7' : 'w-8 h-8'
-            } ${
-              isCurrentlyBookmarked
-                ? 'fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]'
-                : 'text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-yellow-300 group-hover:scale-110'
-            }`} />
+            <Bookmark 
+              className={`transition-all duration-200 ${
+                isCurrentlyBookmarked
+                  ? 'fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]'
+                  : 'text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-yellow-300 group-hover:scale-110'
+              }`}
+              style={{ 
+                width: isMobile ? '28px' : '30px', 
+                height: isMobile ? '28px' : '30px' 
+              }}
+            />
           </Button>
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
             0
-          </span>
-        </div>
-
-        {/* 7. Profile Picture Button (clickable for profile page) */}
-        <div className="flex flex-col items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`rounded-full p-0 overflow-hidden bg-transparent hover:bg-transparent ${
-              isMobile ? 'h-12 w-12' : 'h-14 w-14'
-            }`}
-            onClick={handleProfileClick}
-          >
-            <Avatar className={isMobile ? 'h-12 w-12' : 'h-14 w-14'}>
-              <AvatarImage src={authorProfilePicture} alt={authorDisplayName} />
-              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
-                {authorDisplayName.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          </Button>
-          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
-            {isMobile ? '' : 'Profile'}
           </span>
         </div>
       </div>

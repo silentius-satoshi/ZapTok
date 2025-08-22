@@ -15,6 +15,8 @@ interface ZapButtonProps {
   className?: string;
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   size?: "default" | "sm" | "lg" | "icon";
+  iconSize?: string;
+  iconStyle?: React.CSSProperties;
 }
 
 export function ZapButton({ 
@@ -22,7 +24,9 @@ export function ZapButton({
   eventId, 
   className, 
   variant = "ghost", 
-  size = "sm" 
+  size = "sm",
+  iconSize = "h-4 w-4",
+  iconStyle
 }: ZapButtonProps) {
   const { user } = useCurrentUser();
   const { data: authorData } = useAuthor(recipientPubkey);
@@ -114,13 +118,16 @@ export function ZapButton({
         disabled={!canZap}
         title={getTooltipMessage()}
       >
-        <Zap className={`h-4 w-4 transition-all duration-200 ${
-          !canZap 
-            ? 'text-gray-500' 
-            : 'text-orange-500 drop-shadow-[0_0_4px_rgba(255,165,0,0.6)] group-hover:text-orange-400 group-hover:drop-shadow-[0_0_8px_rgba(255,165,0,0.8)] group-hover:scale-110'
-        } ${
-          showSparks ? 'animate-bounce text-yellow-300 drop-shadow-[0_0_12px_rgba(255,255,0,1)]' : ''
-        }`} />
+        <Zap 
+          className={`${iconSize} transition-all duration-200 ${
+            !canZap 
+              ? 'text-gray-500' 
+              : 'text-orange-500 drop-shadow-[0_0_4px_rgba(255,165,0,0.6)] group-hover:text-orange-400 group-hover:drop-shadow-[0_0_8px_rgba(255,165,0,0.8)] group-hover:scale-110'
+          } ${
+            showSparks ? 'animate-bounce text-yellow-300 drop-shadow-[0_0_12px_rgba(255,255,0,1)]' : ''
+          }`}
+          style={iconStyle}
+        />
         
         {/* Electric Sparks Effect */}
         {showSparks && (
