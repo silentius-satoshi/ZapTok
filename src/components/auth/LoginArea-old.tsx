@@ -11,7 +11,7 @@ import { useLoggedInAccounts } from '@/hooks/useLoggedInAccounts';
 import { DropdownList } from './DropdownList';
 import { useWallet } from '@/hooks/useWallet';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
-import { useCashuStore } from '@/stores/cashuStore';
+import { useUserCashuStore } from '@/stores/userCashuStore';
 import { cn } from '@/lib/utils';
 
 export interface LoginAreaProps {
@@ -22,7 +22,7 @@ export function LoginArea({ className }: LoginAreaProps) {
   const { currentUser } = useLoggedInAccounts();
   const { walletInfo, isConnected, getBalance, provider, userHasLightningAccess } = useWallet();
   const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
-  const cashuStore = useCashuStore();
+  const cashuStore = useUserCashuStore(currentUser?.pubkey);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [addAccountDialogOpen, setAddAccountDialogOpen] = useState(false);
   const [currency, setCurrency] = useState<'BTC' | 'USD'>('BTC');
@@ -64,20 +64,10 @@ export function LoginArea({ className }: LoginAreaProps) {
   const formatBalance = useCallback(() => {
     // Only include Lightning balance if user has Lightning access
     const lightningBalance = userHasLightningAccess ? (walletInfo?.balance || 0) : 0;
-    const cashuBalance = cashuStore.getTotalBalance();
+    const cashuBalance = cashuStore?.wallets
+      ? cashuStore.wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0)
+      : 0;
     const totalBalance = lightningBalance + cashuBalance;
-
-    console.log('[LoginArea] Balance calculation:', {
-      userHasLightningAccess,
-      lightningBalance: lightningBalance > 0 ? '[REDACTED]' : 0,
-      cashuBalance: cashuBalance > 0 ? '[REDACTED]' : 0,
-      totalBalance: totalBalance > 0 ? '[REDACTED]' : 0,
-      currency,
-      cashuStoreState: {
-        wallets: cashuStore.wallets?.length || 0,
-        initialized: !!cashuStore.wallets
-      }
-    });
 
     if (currency === 'BTC') {
       return `${totalBalance.toLocaleString()} sats`;
@@ -90,7 +80,7 @@ export function LoginArea({ className }: LoginAreaProps) {
         return `${totalBalance.toLocaleString()} sats (price loading...)`;
       }
     }
-  }, [walletInfo?.balance, cashuStore, currency, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
+  }, [walletInfo?.balance, cashuStore?.wallets, currency, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
 
   // Lightning wallet button - Enhanced with better styling
   const LightningWalletButton = () => (

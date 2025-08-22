@@ -119,10 +119,10 @@ export function usePWA(): PWAState & PWAActions {
   // Register service worker
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
+      navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
         .then((registration) => {
           if (import.meta.env.DEV) {
-            console.log('[PWA] Service Worker registered successfully');
+            console.log('[PWA] Service Worker registered successfully with base URL:', import.meta.env.BASE_URL);
           }
 
           const swRegistration: ServiceWorkerRegistration = {

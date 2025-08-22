@@ -137,28 +137,43 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [user?.pubkey, walletInfo]);
 
   useEffect(() => {
-    // Only attempt automatic WebLN connection if user is logged in and has Lightning access
-    if (!user || !getUserLightningEnabled(user.pubkey)) {
+    // Auto-detect WebLN for all logged-in users
+    if (!user?.pubkey) {
       return;
     }
 
-    const checkConnection = async () => {
+    const attemptAutoDetection = async () => {
       try {
+        // Check if user has explicitly disabled Lightning access
+        const userExplicitlyDisabled = localStorage.getItem(`lightning_disabled_${user.pubkey}`);
+        if (userExplicitlyDisabled === 'true') {
+          console.log('[WalletContext] Auto-detection skipped - user explicitly disabled Lightning');
+          return;
+        }
+
+        // Check if WebLN is available
         if (window.webln) {
-          // Always try to enable first, even if isEnabled is true
+          console.log('[WalletContext] WebLN detected, attempting auto-enable for user:', user.pubkey);
+
           try {
             await window.webln.enable();
             const webln = window.webln;
+
+            // Successfully enabled - set up the connection
             setProvider({
               ...webln,
               isEnabled: webln.isEnabled ?? true
             });
             setIsConnected(true);
 
-            // Load initial wallet data after enabling
+            // Mark this user as having Lightning access
+            setUserLightningEnabled(user.pubkey, true);
+            setUserHasLightningAccess(true);
+
+            // Load initial wallet data
             try {
               const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
-              const userBalance = user?.pubkey ? getUserLightningBalance(user.pubkey) : balance.balance || 0;
+              const userBalance = getUserLightningBalance(user.pubkey) || balance.balance || 0;
 
               setWalletInfo({
                 alias: 'WebLN Wallet',
@@ -166,28 +181,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 implementation: 'WebLN',
               });
 
-              // Check transaction support once during initial connection
               setTransactionSupport(!!window.webln.listTransactions);
-            } catch {
-            if (import.meta.env.DEV) {
-              console.log('Could not load initial wallet data');
+
+              console.log('[WalletContext] Auto-detection successful for user:', user.pubkey);
+            } catch (balanceError) {
+              console.log('[WalletContext] Could not load initial wallet data:', balanceError);
             }
-            }
-          } catch {
-          if (import.meta.env.DEV) {
-            console.log('WebLN provider not enabled or user rejected');
+          } catch (enableError) {
+            console.log('[WalletContext] WebLN enable failed (user may have rejected):', enableError);
+            // Don't mark as explicitly disabled here - user might try again later
           }
-          }
+        } else {
+          console.log('[WalletContext] No WebLN provider detected');
         }
-      } catch {
-      if (import.meta.env.DEV) {
-        console.log('No existing wallet connection');
-      }
+      } catch (error) {
+        console.log('[WalletContext] Auto-detection error:', error);
       }
     };
 
-    checkConnection();
-  }, [user]); // Only run when user login state changes
+    attemptAutoDetection();
+  }, [user?.pubkey]); // Run when user changes
 
   const connect = async () => {
     if (!user?.pubkey) {
