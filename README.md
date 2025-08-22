@@ -12,7 +12,7 @@ ZapTok is an open-sourced, decentralized video platform powered by Bitcoin — b
 
 We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips (aka zaps), giving creators and users complete control over their data and earnings. Experience familiar social media with true ownership and privacy - where your content and earnings are actually yours.
 
-Keep 100% of your earnings. No percentage of your earnings is distributed to the platform.
+***Keep 100% of your earnings. No percentage of your earnings is distributed to the platform.***
 
 ### 🎯 Phase 1: Foundation (Completed ✅)
 **Core Platform & Authentication**
@@ -228,14 +228,14 @@ ZapTok stands on the shoulders of giants. We're deeply grateful to the open-sour
 - **[Damus](https://damus.io/)** 
 - **[Amethyst](https://amethyst.nostr.land/)**
 - **[Snort](https://snort.social/)** 
-- **[Derek Ross](https://github.com/derekross/zappix)[Zappix](https://zappix.app/home)** - Nostr advocate and community builder (nostr: [pubkey](https://nostr.band/?q=npub18ams6ewn5aj2n3wt2qawzglx9mr4nzksxhvrdc4gzrecw7n5tvjqctp424))
-- **[@Luxas](https://github.com/Spl0itable/plebs-app)[Plebs.app](https://plebs.app/)** - Video-first Nostr client showing the way forward (nostr: [pubkey](https://nostr.band/?q=npub16jdfqgazrkapk0yrqm9rdxlnys7ck39c7zmdzxtxqlmmpxg04r0sd733sv))
+- **[Derek Ross](https://github.com/derekross/zappix)** **([Zappix.app](https://zappix.app/home))** - Nostr advocate and community builder (nostr: [pubkey](https://nostr.band/?q=npub18ams6ewn5aj2n3wt2qawzglx9mr4nzksxhvrdc4gzrecw7n5tvjqctp424))
+- **[@Luxas](https://github.com/Spl0itable/plebs-app)** **([Plebs.app](https://plebs.app/))** - Video-first Nostr client showing the way forward (nostr: [pubkey](https://nostr.band/?q=npub16jdfqgazrkapk0yrqm9rdxlnys7ck39c7zmdzxtxqlmmpxg04r0sd733sv))
 
 
 ### Privacy & Payments Innovation
 - **[Cashu Protocol](https://cashu.space/)** - Enabling private eCash transactions
 - **[Calle](https://github.com/callebtc)** - Cashu dev and community lead (nostr: [pubkey](https://nostr.band/?q=npub12rv5lskctqxxs2c8rf2zlzc7xx3qpvzs3w4etgemauy9thegr43sf485vg)) 
-- **[Jack Dorsey](https://github.com/jackjackbits) (+Chorus)** - Supporting decentralized social infrastructure (nostr: [pubkey](https://nostr.band/npub1sg6plzptd64u62a878hep2kev88swjh3tw00gjsfl8f237lmu63q0uf63m))
+- **[Jack Dorsey](https://github.com/jackjackbits)** **([+Chorus](https://chorus.community/))** - Supporting decentralized social infrastructure (nostr: [pubkey](https://nostr.band/npub1sg6plzptd64u62a878hep2kev88swjh3tw00gjsfl8f237lmu63q0uf63m))
 - **[Blossom Protocol: hzrd149](https://github.com/hzrd149/blossom)** - Decentralized file storage solutions using nostr public / private keys (nostr: [pubkey](https://njump.me/npub1ye5ptcxfyyxl5vjvdjar2ua3f0hynkjzpx552mu5snj3qmx5pzjscpknpr))
 
 ### Technical Foundation
