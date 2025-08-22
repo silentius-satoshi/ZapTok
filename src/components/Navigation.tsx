@@ -1,4 +1,4 @@
-import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus } from 'lucide-react';
+import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -17,13 +17,13 @@ export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
-  
+
   // Set activeTab based on current route
   const [activeTab, setActiveTab] = useState(() => {
     if (location.pathname === '/') return 'following';
     return 'following'; // default to following for now
   });
-  
+
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -74,6 +74,7 @@ export function Navigation() {
     { id: 'following', icon: Users, label: 'Following', onClick: () => handleNavigateToPage('/'), path: '/' },
     { id: 'global', icon: Globe, label: 'Global', onClick: () => handleNavigateToPage('/global'), path: '/global' },
     { id: 'userSearch', icon: UserPlus, label: 'Search Users', onClick: handleUserSearchClick },
+    { id: 'pro', icon: Crown, label: 'Pro Mode', onClick: () => handleNavigateToPage('/pro'), path: '/pro' },
     { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => handleNavigateToPage('/notifications'), path: '/notifications' },
     { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: () => handleNavigateToPage('/wallet'), path: '/wallet' },
     { id: 'settings', icon: Settings, label: 'Settings', onClick: () => handleNavigateToPage('/settings'), path: '/settings' },
@@ -82,7 +83,7 @@ export function Navigation() {
   // Update activeTab when location changes
   useEffect(() => {
     const pathname = location.pathname;
-    
+
     // Map routes to navigation tabs
     if (pathname === '/') {
       setActiveTab('following');
@@ -94,6 +95,8 @@ export function Navigation() {
       setActiveTab('settings');
     } else if (pathname === '/wallet') {
       setActiveTab('wallet');
+    } else if (pathname === '/pro') {
+      setActiveTab('pro');
     } else if (pathname === '/stream') {
       setActiveTab('stream');
     } else if (pathname.startsWith('/profile')) {
@@ -266,10 +269,10 @@ export function Navigation() {
         {/* Profile Section at Bottom */}
         {user && (
           <div className="mt-auto pt-4">
-            <button 
+            <button
               className={`flex items-center gap-3 p-3 rounded-2xl transition-all w-full text-foreground ${
-                hoveredItem === 'profile' 
-                  ? 'bg-gray-800/30 scale-105' 
+                hoveredItem === 'profile'
+                  ? 'bg-gray-800/30 scale-105'
                   : 'hover:bg-gray-800/20'
               }`}
               onClick={handleProfileClick}
@@ -306,15 +309,15 @@ export function Navigation() {
       </div>
 
       {/* Video Upload Modal */}
-      <VideoUploadModal 
-        isOpen={showUploadModal} 
-        onClose={handleUploadModalClose} 
+      <VideoUploadModal
+        isOpen={showUploadModal}
+        onClose={handleUploadModalClose}
       />
 
       {/* User Search Modal */}
-      <UserSearchModal 
-        open={showUserSearchModal} 
-        onOpenChange={handleUserSearchModalClose} 
+      <UserSearchModal
+        open={showUserSearchModal}
+        onOpenChange={handleUserSearchModalClose}
       />
     </>
   );

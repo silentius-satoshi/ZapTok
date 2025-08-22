@@ -7,12 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Play, Video, FileVideo, CheckCircle2 } from 'lucide-react';
+import { Upload, Play, Video, FileVideo, CheckCircle2, Zap } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUploadFile } from '@/hooks/useUploadFile';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
 import { createHybridVideoEvent, type HybridVideoEventData } from '@/lib/hybridEventStrategy';
+import { compressVideo, shouldCompressVideo, isCompressionSupported } from '@/lib/videoCompression';
 
 interface VideoUploadModalProps {
   isOpen: boolean;
@@ -47,7 +48,10 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadStep, setUploadStep] = useState<'select' | 'metadata' | 'uploading' | 'complete'>('select');
   const [isDragging, setIsDragging] = useState(false);
-  
+  const [compressionProgress, setCompressionProgress] = useState(0);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionResult, setCompressionResult] = useState<{ originalSize: number; compressedSize: number; } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -113,7 +117,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     setIsDragging(false);
-    
+
     const file = event.dataTransfer.files?.[0];
     if (file) {
       processFile(file);
@@ -124,7 +128,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     if (videoRef.current) {
       const duration = videoRef.current.duration;
       console.log('Video loaded successfully, duration:', duration);
-      
+
       setVideoMetadata(prev => ({
         ...prev,
         duration: Math.round(duration)
@@ -136,14 +140,14 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      
+
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
+
       // Seek to 1 second or 10% of video duration for thumbnail
       const seekTime = Math.min(1, video.duration * 0.1);
       video.currentTime = seekTime;
-      
+
       video.addEventListener('seeked', () => {
         if (context) {
           context.drawImage(video, 0, 0);
@@ -177,7 +181,10 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     setUploadProgress(0);
     setIsProcessing(false);
     setUploadStep('select');
-    
+    setCompressionProgress(0);
+    setIsCompressing(false);
+    setCompressionResult(null);
+
     // Clear file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -228,12 +235,12 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       if (videoRef.current) {
         console.log('Generating thumbnail...');
         const thumbnailDataUrl = await generateThumbnail(videoRef.current);
-        
+
         // Convert thumbnail to File for upload
         const response = await fetch(thumbnailDataUrl);
         const blob = await response.blob();
         const thumbnailFile = new File([blob], `${selectedFile.name}_thumbnail.jpg`, { type: 'image/jpeg' });
-        
+
         // Upload thumbnail to Blossom
         console.log('Uploading thumbnail...');
         const thumbnailTags = await uploadFile(thumbnailFile);
@@ -241,10 +248,61 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         console.log('Thumbnail uploaded:', thumbnailUrl);
       }
 
+      // Check if video should be compressed
+      let fileToUpload = selectedFile;
+      let compressionInfo = '';
+
+      if (isCompressionSupported() && await shouldCompressVideo(selectedFile)) {
+        console.log('Video compression recommended, compressing video...');
+        setIsCompressing(true);
+        setCompressionProgress(0);
+
+        try {
+          const result = await compressVideo(selectedFile, {
+            onProgress: (progress) => {
+              setCompressionProgress(progress);
+            }
+          });
+
+          fileToUpload = result.compressedFile;
+          setCompressionResult({
+            originalSize: result.originalSize,
+            compressedSize: result.compressedSize
+          });
+
+          const savedMB = (result.originalSize - result.compressedSize) / (1024 * 1024);
+          compressionInfo = ` (compressed from ${(result.originalSize / 1024 / 1024).toFixed(1)}MB to ${(result.compressedSize / 1024 / 1024).toFixed(1)}MB, saved ${savedMB.toFixed(1)}MB)`;
+
+          console.log('Video compression completed:', {
+            originalSize: result.originalSize,
+            compressedSize: result.compressedSize,
+            compressionRatio: result.compressionRatio,
+            savedMB: savedMB.toFixed(1)
+          });
+
+          toast({
+            title: 'Video compressed!',
+            description: `Reduced file size by ${savedMB.toFixed(1)}MB for faster upload and streaming.`,
+          });
+
+        } catch (compressionError) {
+          console.warn('Video compression failed, using original file:', compressionError);
+          toast({
+            title: 'Compression skipped',
+            description: 'Using original video file for upload.',
+            variant: 'default',
+          });
+        } finally {
+          setIsCompressing(false);
+        }
+      } else {
+        console.log('Video compression not needed or not supported');
+      }
+
       // Upload video to Blossom
-      console.log('Uploading main video file...');
+      console.log('Uploading main video file...' + compressionInfo);
       setUploadProgress(50);
-      const videoTags = await uploadFile(selectedFile);
+      const videoTags = await uploadFile(fileToUpload);
       console.log('Video uploaded successfully, tags:', videoTags);
       // videoUrl is the first tag - we'll use it in the tags array below
 
@@ -270,9 +328,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         size: videoSize,
         type: videoType,
         // Extract dimensions if available from Blossom tags
-        width: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[0] ? 
+        width: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[0] ?
                parseInt(videoTags.find(tag => tag[0] === 'dim')![1].split('x')[0]) : undefined,
-        height: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[1] ? 
+        height: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[1] ?
                 parseInt(videoTags.find(tag => tag[0] === 'dim')![1].split('x')[1]) : undefined,
       };
 
@@ -285,7 +343,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       });
 
       // Add any additional Blossom-specific tags from the upload
-      const additionalTags = videoTags.filter(tag => 
+      const additionalTags = videoTags.filter(tag =>
         !['url', 'x', 'size', 'dim', 'm', 'thumb'].includes(tag[0])
       );
       hybridEvent.tags = [...(hybridEvent.tags || []), ...additionalTags];
@@ -320,9 +378,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         stack: error instanceof Error ? error.stack : 'No stack trace',
         user: user ? { pubkey: user.pubkey, signerAvailable: !!user.signer } : 'No user'
       });
-      
+
       let errorMessage = 'There was an error uploading your video. Please try again.';
-      
+
       if (error instanceof Error) {
         if (error.message.includes('signer') || error.message.includes('nostr')) {
           errorMessage = 'Authentication error. Please try logging out and back in.';
@@ -332,7 +390,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
           errorMessage = 'File upload error. Please try a smaller file or different format.';
         }
       }
-      
+
       toast({
         title: 'Upload failed',
         description: errorMessage,
@@ -376,8 +434,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
           <div className="space-y-4">
             <div
               className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer ${
-                isDragging 
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                isDragging
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                   : 'border-gray-300 hover:border-gray-400'
               }`}
               onClick={() => fileInputRef.current?.click()}
@@ -394,7 +452,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                 Supports: MP4, WebM, MOV, AVI (max 100MB)
               </p>
             </div>
-            
+
             <input
               ref={fileInputRef}
               type="file"
@@ -441,7 +499,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                     </div>
                   )}
                 </div>
-                
+
                 {/* File Info */}
                 <div className="flex flex-wrap gap-2 mb-4">
                   <Badge variant="secondary">
@@ -507,26 +565,57 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         {/* Step 3: Uploading */}
         {uploadStep === 'uploading' && (
           <div className="space-y-4 text-center">
-            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-              <Upload className="h-8 w-8 text-blue-600 animate-pulse" />
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-medium mb-2">Uploading your video...</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                This may take a moment depending on your file size
-              </p>
-              
-              <Progress value={uploadProgress} className="w-full mb-2" />
-              <p className="text-xs text-gray-500">{uploadProgress}% complete</p>
-            </div>
+            {isCompressing ? (
+              <>
+                <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                  <Zap className="h-8 w-8 text-purple-600 animate-pulse" />
+                </div>
 
-            <div className="text-left space-y-2 text-sm text-gray-600">
-              <p>• Uploading to Blossom servers...</p>
-              <p>• Generating thumbnail...</p>
-              <p>• Creating hybrid Nostr event...</p>
-              <p>• Publishing to relays...</p>
-            </div>
+                <div>
+                  <h3 className="text-lg font-medium mb-2">Compressing video...</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Optimizing your video for faster upload and streaming
+                  </p>
+
+                  <Progress value={compressionProgress} className="w-full mb-2" />
+                  <p className="text-xs text-gray-500">{Math.round(compressionProgress)}% compressed</p>
+                </div>
+
+                <div className="text-left space-y-2 text-sm text-gray-600">
+                  <p>• Analyzing video metadata...</p>
+                  <p>• Optimizing video quality...</p>
+                  <p>• Reducing file size...</p>
+                  <p>• Preparing for upload...</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Upload className="h-8 w-8 text-blue-600 animate-pulse" />
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-medium mb-2">Uploading your video...</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {compressionResult
+                      ? `Compressed from ${(compressionResult.originalSize / 1024 / 1024).toFixed(1)}MB to ${(compressionResult.compressedSize / 1024 / 1024).toFixed(1)}MB`
+                      : "This may take a moment depending on your file size"
+                    }
+                  </p>
+
+                  <Progress value={uploadProgress} className="w-full mb-2" />
+                  <p className="text-xs text-gray-500">{uploadProgress}% complete</p>
+                </div>
+
+                <div className="text-left space-y-2 text-sm text-gray-600">
+                  <p>• {compressionResult ? '✓' : '•'} Video compression {compressionResult ? 'completed' : 'skipped'}</p>
+                  <p>• Uploading to Blossom servers...</p>
+                  <p>• Generating thumbnail...</p>
+                  <p>• Creating hybrid Nostr event...</p>
+                  <p>• Publishing to relays...</p>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -536,13 +625,13 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
-            
+
             <div>
               <h3 className="text-lg font-medium mb-2">Upload Complete!</h3>
               <p className="text-sm text-gray-600 mb-4">
                 Your video has been successfully published to Nostr
               </p>
-              
+
               <div className="text-left space-y-1 text-sm text-gray-600">
                 <p>✓ Video uploaded to Blossom</p>
                 <p>✓ Thumbnail generated</p>

@@ -24,6 +24,7 @@ import { LightningWallet } from "./pages/LightningWallet";
 import { Stream } from "./components/stream/Stream";
 import { NostrEntity } from "./pages/NostrEntity";
 import About from "./pages/About";
+import { ProModePage } from "./pages/ProModePage";
 import NotFound from "./pages/NotFound";
 
 function RouteHandler() {
@@ -59,6 +60,7 @@ function RouteHandler() {
       <Route path="/about" element={<About />} />
       <Route path="/wallet" element={<LightningWallet />} />
       <Route path="/stream" element={<Stream />} />
+      <Route path="/pro" element={<ProModePage />} />
       {/* Nostr entity handler - must be after specific routes */}
       <Route path="/:nip19Id" element={<NostrEntity />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
