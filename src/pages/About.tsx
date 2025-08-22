@@ -6,9 +6,15 @@ import { LogoHeader } from '@/components/LogoHeader';
 import { AuthGate } from '@/components/AuthGate';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useNavigate } from 'react-router-dom';
+import { useSeoMeta } from '@unhead/react';
 
 export function About() {
   const navigate = useNavigate();
+
+  useSeoMeta({
+    title: 'About ZapTok - Nostr Video Platform',
+    description: 'Learn about ZapTok, the decentralized video platform built on the Nostr protocol. Discover how we\'re revolutionizing social media with censorship-resistant, peer-to-peer video sharing.',
+  });
 
   const handleGoBack = () => {
     navigate(-1);

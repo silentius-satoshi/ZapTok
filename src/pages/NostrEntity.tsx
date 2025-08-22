@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Copy, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { useSeoMeta } from '@unhead/react';
 
 export function NostrEntity() {
   const { nip19: identifier } = useParams<{ nip19: string }>();
@@ -16,6 +17,11 @@ export function NostrEntity() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useSeoMeta({
+    title: 'Nostr Entity - ZapTok',
+    description: 'View details for Nostr entities including profiles, events, and addresses.',
+  });
 
   useEffect(() => {
     if (!identifier) {

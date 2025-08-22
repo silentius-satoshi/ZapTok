@@ -14,8 +14,14 @@ import { formatBalance } from '@/lib/cashu';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useSeoMeta } from '@unhead/react';
 
 export function LightningWallet() {
+  useSeoMeta({
+    title: 'Lightning Wallet - ZapTok',
+    description: 'Manage your Bitcoin lightning wallet, send and receive zaps, and view transaction history.',
+  });
+  
   const cashuStore = useCashuStore();
   const { data: btcPrice } = useBitcoinPrice();
   const { showSats, toggleCurrency } = useCurrencyDisplayStore();

@@ -5,6 +5,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { useSeoMeta } from '@unhead/react';
 import {
   Settings,
   ArrowLeft,
@@ -26,6 +27,11 @@ export default function Notifications() {
   const [selectedTab, setSelectedTab] = useState('all');
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  useSeoMeta({
+    title: 'Notifications - ZapTok',
+    description: 'View your latest notifications including zaps, comments, reposts, and follows on ZapTok.',
+  });
 
   // Redirect to home if user is not logged in
   if (!user) {

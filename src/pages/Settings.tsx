@@ -4,6 +4,7 @@ import { Navigation } from '@/components/Navigation';
 import { LogoHeader } from '@/components/LogoHeader';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useSettingsLogic } from '@/hooks/useSettingsLogic';
+import { useSeoMeta } from '@unhead/react';
 import {
   settingsSections,
   getSettingSectionById,
@@ -15,6 +16,12 @@ import {
 
 export function Settings() {
   const { config } = useAppContext();
+  
+  useSeoMeta({
+    title: 'Settings - ZapTok',
+    description: 'Configure your ZapTok account settings, privacy preferences, and network options.',
+  });
+  
   const {
     selectedSection,
     setSelectedSection,

@@ -11,7 +11,7 @@ const Index = () => {
   const isMobile = useIsMobile();
 
   useSeoMeta({
-    title: 'ZapTok - Following Feed',
+    title: 'Following Feed - ZapTok',
     description: 'Watch videos from creators you follow on the decentralized Nostr network.',
   });
 
