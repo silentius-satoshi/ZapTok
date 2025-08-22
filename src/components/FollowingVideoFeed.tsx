@@ -17,7 +17,7 @@ import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
-export function VideoFeed() {
+export function FollowingVideoFeed() {
   const { nostr } = useNostr();
   const { currentService } = useCaching();
   const { user } = useCurrentUser();

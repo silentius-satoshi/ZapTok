@@ -267,7 +267,7 @@ export function MobileNavigation() {
 
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md">
-        <div className="flex items-center justify-around pt-6 pb-2 px-4">
+        <div className="flex items-center justify-around px-4" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
           {bottomNavItems.map((item) => (
             <div key={item.id} className="flex justify-center">
               {item.isCenter ? (

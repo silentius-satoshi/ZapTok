@@ -1,5 +1,5 @@
 import { useSeoMeta } from '@unhead/react';
-import { VideoFeed } from '@/components/VideoFeed';
+import { GlobalVideoFeed } from '@/components/GlobalVideoFeed';
 import { Navigation } from '@/components/Navigation';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { AuthGate } from '@/components/AuthGate';
@@ -12,7 +12,7 @@ const Index = () => {
   
   useSeoMeta({
     title: 'ZapTok - Nostr Video Platform',
-    description: 'Discover and share videos on the decentralized Nostr network.',
+    description: 'Discover and share videos from creators around the world on the decentralized Nostr network.',
   });
 
   return (
@@ -35,10 +35,10 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Video Feed */}
+            {/* Global Video Feed */}
             <div className={`flex-1 flex items-center justify-center overflow-hidden ${isMobile ? '' : 'pr-8'}`}>
               <div className={`w-full h-full flex items-center justify-center ${isMobile ? '' : 'max-w-3xl'}`}>
-                <VideoFeed />
+                <GlobalVideoFeed />
               </div>
             </div>
 

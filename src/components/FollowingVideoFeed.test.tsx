@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, act } from '@testing-library/react';
-import { VideoFeed } from './VideoFeed';
+import { FollowingVideoFeed } from './FollowingVideoFeed';
 import { TestApp } from '@/test/TestApp';
 
 // Mock the hooks
@@ -72,7 +72,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
   };
 });
 
-describe('VideoFeed Scroll Snapping Logic', () => {
+describe('FollowingVideoFeed Scroll Snapping Logic', () => {
   let originalScrollTo: typeof Element.prototype.scrollTo;
   let scrollToSpy: ReturnType<typeof vi.fn>;
 
@@ -105,14 +105,14 @@ describe('VideoFeed Scroll Snapping Logic', () => {
   it('should render video feed with proper scroll container', () => {
     render(
       <TestApp>
-        <VideoFeed />
+        <FollowingVideoFeed />
       </TestApp>
     );
 
     // Find the container with scroll snap styles
     const container = document.querySelector('.h-screen.overflow-y-auto');
     expect(container).toBeInTheDocument();
-    
+
     // Check for scroll snap CSS properties in style attribute
     if (container) {
       expect(container).toHaveAttribute('style');
@@ -122,7 +122,7 @@ describe('VideoFeed Scroll Snapping Logic', () => {
   it('should handle scroll events with throttled behavior', () => {
     render(
       <TestApp>
-        <VideoFeed />
+        <FollowingVideoFeed />
       </TestApp>
     );
 
@@ -152,10 +152,10 @@ describe('VideoFeed Scroll Snapping Logic', () => {
 
   it('should calculate correct video index from scroll position and snap to correct video', async () => {
     vi.useFakeTimers();
-    
+
     render(
       <TestApp>
-        <VideoFeed />
+        <FollowingVideoFeed />
       </TestApp>
     );
 
@@ -180,7 +180,7 @@ describe('VideoFeed Scroll Snapping Logic', () => {
 
       // Simulate scroll event
       fireEvent.scroll(container);
-      
+
       // Fast-forward through the scroll timer (150ms)
       act(() => {
         vi.advanceTimersByTime(150);
@@ -199,13 +199,13 @@ describe('VideoFeed Scroll Snapping Logic', () => {
   it('should handle keyboard navigation for video switching', () => {
     render(
       <TestApp>
-        <VideoFeed />
+        <FollowingVideoFeed />
       </TestApp>
     );
 
     // Test ArrowDown key
     fireEvent.keyDown(window, { key: 'ArrowDown' });
-    
+
     // Should call scrollTo for next video (index 1)
     // New calculation: 1 * 800 (window.innerHeight) = 800
     expect(scrollToSpy).toHaveBeenCalledWith({
@@ -218,7 +218,7 @@ describe('VideoFeed Scroll Snapping Logic', () => {
 
     // Test ArrowUp key from index 1 (should go to index 0)
     fireEvent.keyDown(window, { key: 'ArrowUp' });
-    
+
     // Should call scrollTo to go to index 0
     // New calculation: 0 * 800 (window.innerHeight) = 0
     expect(scrollToSpy).toHaveBeenCalledWith({
@@ -229,10 +229,10 @@ describe('VideoFeed Scroll Snapping Logic', () => {
 
   it('should handle edge cases for scroll boundaries', async () => {
     vi.useFakeTimers();
-    
+
     render(
       <TestApp>
-        <VideoFeed />
+        <FollowingVideoFeed />
       </TestApp>
     );
 
@@ -255,7 +255,7 @@ describe('VideoFeed Scroll Snapping Logic', () => {
 
       // Simulate scroll event
       fireEvent.scroll(container);
-      
+
       // Fast-forward through the scroll timer (150ms)
       act(() => {
         vi.advanceTimersByTime(150);
@@ -275,7 +275,7 @@ describe('VideoFeed Scroll Snapping Logic', () => {
   it('should prevent multiple simultaneous snap operations via throttling', () => {
     render(
       <TestApp>
-        <VideoFeed />
+        <FollowingVideoFeed />
       </TestApp>
     );
 
