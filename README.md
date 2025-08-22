@@ -8,7 +8,11 @@
 
 ## Overview
 
-ZapTok is a decentralized video platform powered by Bitcoin and Nostr. We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips, giving creators and users complete control over their data and earnings. Experience familiar social media with true ownership and privacy - where your content and earnings are actually yours.
+ZapTok is an open-sourced, decentralized video platform powered by Bitcoin — built using the MKStack platform framework on the open Nostr protocol.
+
+We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips (aka zaps), giving creators and users complete control over their data and earnings. Experience familiar social media with true ownership and privacy - where your content and earnings are actually yours.
+
+Keep 100% of your earnings. No percentage of your earnings is distributed to the platform.
 
 ### 🎯 Phase 1: Foundation (Completed ✅)
 **Core Platform & Authentication**
@@ -17,6 +21,8 @@ ZapTok is a decentralized video platform powered by Bitcoin and Nostr. We delive
 - [x] Enhanced video encoding and streaming (NIP-71)
 - [x] Multi-relay support and relay management
 - [x] Basic content moderation tools
+- [x] Comments system (NIP-22) 
+
 
 **Creator Economy Basics**
 - [x] Lightning Network integration for instant zap functionality (NIP-57)
@@ -27,13 +33,15 @@ ZapTok is a decentralized video platform powered by Bitcoin and Nostr. We delive
 - [x] Decentralized storage integration (NIP-94 file metadata)
 - [x] Bech32 address support (NIP-19)
 - [x] DNS-based verification (NIP-05)
+- [x] Client-side video compression for mobile data optimization
+
 
 ### 🌟 Phase 2: Social Features (In Progress 🚧)
 **Essential Social**
 - [x] Follow Lists (NIP-02)
 - [x] Reactions & Engagement (NIP-25)
 - [x] User Profiles & Metadata (NIP-01, kind 0)
-- [ ] Replies, Mentions, Threads & Notifications (NIP-10)
+- [ ] Replies, Mentions, & Notifications (NIP-10)
 - [ ] Private Messages (NIP-17)
 
 **Content & Discovery**
@@ -42,6 +50,13 @@ ZapTok is a decentralized video platform powered by Bitcoin and Nostr. We delive
 - [ ] Hashtag Following and Custom Hashtags
 - [ ] Reposts & Quotes (NIP-18)
 - [ ] Content Search (NIP-50)
+
+**Infrastructure Improvements**
+- [x] Enhanced video upload with progress indicators
+- [x] Improved error handling and user feedback
+- [x] Performance optimizations for faster load times
+- [x] Scalability improvements for larger user base
+- [x] Mobile-responsive design and basic PWA support/enhancements
 
 ### 🏗️ Phase 3: Advanced Platform (Planned 📋)
 **Enhanced Creator Tools**
@@ -57,7 +72,6 @@ ZapTok is a decentralized video platform powered by Bitcoin and Nostr. We delive
 - [ ] Public Chat Rooms (NIP-28)
 
 **Platform Evolution**
-- [ ] Progressive Web App (PWA) enhancements
 - [ ] Video Creator Marketplace (NIP-15)
 - [ ] Advanced Multi-Account Management
 - [ ] Cross-Client Compatibility Standards
@@ -106,7 +120,7 @@ Bulletproof & Transparent
 - **Nostr**: Follow #ZapTok tag for updates
 - **+Chorus community**: [chorus.community/zaptok](https://chorus.community/group/34550%3A8b12bddc423189c660156eab1ea04e1d44cc6621c550c313686705f704dda895%3Azaptok-mdgpgdbb)
 - **GitHub**: Star the repository and watch for updates
-- **Website**: TBA
+- **Website**: [zaptok-labs.vercel.app](zaptok-labs.vercel.app)
 
 ### 🔮 Future Vision
 **Complete Nostr Ecosystem**
@@ -137,7 +151,6 @@ Bulletproof & Transparent
 - NIP-50: Search Capability
 - NIP-53: Live Activities
 - NIP-75: Zap Goals
-- **Client-Side Video Compression**: Plebs-app-style multi-quality compression pipeline for mobile data optimization (see [implementation plan](./public/future-implementations/CLIENT_SIDE_VIDEO_COMPRESSION.md))
 
 **Research & Future Consideration**
 - NIP-03: OpenTimestamps Attestations
@@ -179,11 +192,25 @@ Copyright (c) 2025 @silentius (silentius@nostrplebs.com)
 
 For the complete license text, see the [LICENSE](./LICENSE) file.
 
+## Support ZapTok
+
+Help us continue building and improving ZapTok. Your support enables us to maintain the platform, add new features, and keep the community growing.
+
+<div align="center">
+
+<img src="./public/images/qr-code-donation.png" alt="Donation QR Code" width="192" height="192" style="background: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"/>
+
+<br/>
+
+*Scan to support ZapTok development*
+
+</div>
+
 ---
 
 <div align="center">
 
-Built with ❤️ by [@silentius](https://nostr.band/npub13vftmhzzxxyuvcq4d643agzwr4zvce3pc4gvxymgvuzlwpxa4z2sq4sjd9)
+Built with ❤️ for our Nostr communities & the Decentralized Web by [@silentius](https://nostr.band/npub13vftmhzzxxyuvcq4d643agzwr4zvce3pc4gvxymgvuzlwpxa4z2sq4sjd9)
 
 *Vibed with [MKStack](https://soapbox.pub/mkstack)*
 

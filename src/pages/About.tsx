@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Navigation } from '@/components/Navigation';
 import { LogoHeader } from '@/components/LogoHeader';
 import { AuthGate } from '@/components/AuthGate';
@@ -51,22 +52,18 @@ export function About() {
                 <div>
                   <h1 className="text-3xl font-bold mb-4">About ZapTok</h1>
                   <p className="text-lg text-muted-foreground leading-relaxed">
-                    ZapTok is a simple, decentralized space for communities to gather, share, and grow — built by the
-                    team at MKStack on the open Nostr protocol.
+                    ZapTok is an open-sourced, decentralized video platform powered by Bitcoin — built using the
+                    MKStack platform framework on the open Nostr protocol.
                   </p>
                 </div>
 
                 <div className="space-y-4 text-muted-foreground">
                   <p>
-                    Whether you're creating content, building your audience, or just looking for a safe space to
-                    connect, ZapTok helps you create and join communities that reflect your values — without
-                    compromising your privacy and no big tech server watching you. If you're a creator, artist,
-                    developer, or builder looking for a freer, simpler way to share and engage online, ZapTok
-                    gives you the tools to do that on your terms.
+                    We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips (aka zaps), giving creators and users complete control over their data and earnings. Experience familiar social media with true ownership and privacy - where your content and earnings are actually yours.
                   </p>
 
                   <p className="text-lg font-medium text-foreground">
-                    We give you the keys. You drive the conversation.
+                    Keep 100% of your earnings. No percentage of your earnings is distributed to the platform.
                   </p>
                 </div>
               </div>
@@ -86,7 +83,7 @@ export function About() {
                   </li>
                   <li className="flex items-start">
                     <span className="text-primary mr-2">•</span>
-                    <span>Post videos, notes and photos — share updates, reflections, or inspiration</span>
+                    <span>Create and upload videos — share your updates, reflections, or inspiration</span>
                   </li>
                   <li className="flex items-start">
                     <span className="text-primary mr-2">•</span>
@@ -102,17 +99,46 @@ export function About() {
                   </li>
                   <li className="flex items-start">
                     <span className="text-primary mr-2">•</span>
-                    <span>Support creators through community-driven micropayments using Bitcoin Lightning and eCash via the Cashu protocol</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-primary mr-2">•</span>
-                    <span>Support the voices you believe in — zap fellow creators, reward contributors, fund projects</span>
+                    <span>Support creators & fund projects through Bitcoin Lightning zaps and eCash micropayments via the Cashu protocol</span>
                   </li>
                   <li className="flex items-start">
                     <span className="text-primary mr-2">•</span>
                     <span>Receive support for your own work, creativity, or ideas from a like-minded community</span>
                   </li>
                 </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Support ZapTok */}
+          <Card className="border-0 shadow-none bg-transparent">
+            <CardContent className="p-8 px-0">
+              <div className="space-y-6">
+                <h2 className="text-2xl font-semibold">Support ZapTok</h2>
+                <div className="space-y-4 text-muted-foreground">
+                  <p>
+                    Help us continue building and improving ZapTok. Your support enables us to maintain the platform, 
+                    add new features, and keep the community growing.
+                  </p>
+                  
+                  <div className="flex flex-col items-center space-y-4 pt-4">
+                    <div className="bg-white p-4 rounded-lg shadow-lg">
+                      <img 
+                        src={`${import.meta.env.BASE_URL}images/qr-code-donation.png`}
+                        alt="Donation QR Code" 
+                        className="w-48 h-48 object-contain border"
+                        onError={(e) => {
+                          console.error('Image failed to load. Attempted URL:', e.currentTarget.src);
+                          console.error('Base URL:', import.meta.env.BASE_URL);
+                        }}
+                        onLoad={() => console.log('Image loaded successfully')}
+                      />
+                    </div>
+                    <p className="text-sm text-center">
+                      Scan to support ZapTok development
+                    </p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -128,22 +154,31 @@ export function About() {
                     GitHub. We welcome your feedback, ideas, contributions, and bug reports.
                   </p>
 
-                  <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                    <Button
-                      variant="default"
-                      onClick={() => window.open('https://soapbox.pub/mkstack', '_blank')}
-                      className="flex-1"
-                    >
-                      Visit MKStack Community
-                    </Button>
-                    <Button
-                      variant="outline"
-                      disabled
-                      className="flex-1 opacity-50 cursor-not-allowed"
-                      title="Repository will be public soon"
-                    >
-                      GitHub (Coming Soon)
-                    </Button>
+                  <div className="pt-4">
+                    <Tabs defaultValue="soapbox" className="w-full">
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger 
+                          value="soapbox"
+                          onClick={() => window.open('https://soapbox.pub/mkstack', '_blank')}
+                        >
+                          Soapbox Communities
+                        </TabsTrigger>
+                        <TabsTrigger 
+                          value="chorus"
+                          onClick={() => window.open('https://chorus.community/group/34550%3A8b12bddc423189c660156eab1ea04e1d44cc6621c550c313686705f704dda895%3Azaptok-mdgpgdbb', '_blank')}
+                        >
+                          ZapTok on +Chorus
+                        </TabsTrigger>
+                        <TabsTrigger 
+                          value="github"
+                          disabled
+                          className="opacity-50 cursor-not-allowed"
+                          title="Repository will be public soon"
+                        >
+                          GitHub (Coming Soon)
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
                   </div>
                 </div>
               </div>
