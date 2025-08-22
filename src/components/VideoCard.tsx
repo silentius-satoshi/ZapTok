@@ -115,7 +115,8 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     videoElement.addEventListener('loadstart', handleLoadStart);
 
     if (isActive) {
-      // When video becomes active, only auto-play if user hasn't manually paused
+      // When video becomes active, reset to beginning and auto-play if user hasn't manually paused
+      videoElement.currentTime = 0; // Reset video to beginning
       if (!userPaused) {
         videoElement.play().catch((error) => {
           console.error('Auto-play failed:', error);

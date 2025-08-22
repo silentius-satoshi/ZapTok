@@ -86,7 +86,7 @@ export function MobileNavigation() {
     { id: 'following', icon: Users, label: 'Following', path: '/' },
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    { id: 'wallet', icon: Zap, label: 'Wallet', path: '/wallet' },
+    { id: 'wallet', icon: Zap, label: 'Lightning Wallet', path: '/wallet' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
@@ -142,8 +142,8 @@ export function MobileNavigation() {
                 
                 {/* Wallet Icon */}
                 <button
-                  onClick={() => navigate('/lightning-wallet')}
-                  aria-label="Wallet"
+                  onClick={() => navigate('/wallet')}
+                  aria-label="Lightning Wallet"
                   className="text-white/80 hover:text-white transition-colors"
                 >
                   <Wallet className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
