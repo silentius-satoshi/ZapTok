@@ -42,7 +42,7 @@ Keep 100% of your earnings. No percentage of your earnings is distributed to the
 - [x] Reactions & Engagement (NIP-25)
 - [x] User Profiles & Metadata (NIP-01, kind 0)
 - [ ] Replies, Mentions, & Notifications (NIP-10)
-- [ ] Private Messages (NIP-17)
+- [ ] Private Direct Messages (NIP-17)
 
 **Content & Discovery**
 - [x] Video Events (NIP-71)
@@ -80,9 +80,12 @@ Keep 100% of your earnings. No percentage of your earnings is distributed to the
 
 ZapTok believes in:
 - **Self sovereignty**: Users own their data, identity, and monetary interactions - no intermediaries, no gatekeepers
-- **Censorship resistance**: Decentralized architecture with no single point of failure or control
-- **Privacy by design**: Built-in privacy protections, not afterthoughts or add-ons 
+- **Creator-first economy**: Tools and features that empower creators to monetize directly without middlemen taking a cut
+- **Interoperability**: Seamless integration with other Nostr apps and services for a unified user experience
 - **Open source**: Transparent, auditable code that the community can verify and improve
+- **Privacy by design**: Built-in privacy protections, not afterthoughts or add-ons
+- **Censorship resistance**: Decentralized architecture with no single point of failure or control 
+
 
 
 ## How ZapTok's Protocol Integration Benefits You:
@@ -91,16 +94,16 @@ For Creators:
 Own Your Brand & Earnings
 
 - Keep your identity and follower relationships (Nostr) - no platform can delete you
-- Receive instant Bitcoin tips with zero platform fees
+- Receive instant Bitcoin tips (aka lightning zaps in satoshis) with zero platform fees
 - Get paid 24/7 from a global audience without banking restrictions
 - Build once, publish everywhere - your content works across Nostr apps
-- No chargebacks or payment reversals on tips received
+- No chargebacks or payment reversals on zaps received
   
 For Viewers/Fans:
 True Privacy & Control
 
 - Watch and interact without giving up personal data
-- Tip creators directly with pseudo-anonymous Bitcoin payments
+- Tip creators directly with pseudo-anonymous Bitcoin zap payments
 - Your viewing history and preferences stay private by design
 - Access content that can't be censored or geo-blocked
 - Use the same identity across all Nostr-compatible apps
@@ -120,7 +123,7 @@ Bulletproof & Transparent
 - **Nostr**: Follow #ZapTok tag for updates
 - **+Chorus community**: [chorus.community/zaptok](https://chorus.community/group/34550%3A8b12bddc423189c660156eab1ea04e1d44cc6621c550c313686705f704dda895%3Azaptok-mdgpgdbb)
 - **GitHub**: Star the repository and watch for updates
-- **Website**: [zaptok-labs.vercel.app](zaptok-labs.vercel.app)
+- **Website**: [zaptok-labs.vercel.app](https://zaptok-labs.vercel.app/)
 
 ### 🔮 Future Vision
 **Complete Nostr Ecosystem**
@@ -182,6 +185,8 @@ This roadmap evolves based on:
 
 **Want to contribute?** Check our [Contributing Guidelines](CONTRIBUTING.md) or [open an issue](https://github.com/silentius-satoshi/ZapTok/issues) to suggest features!
 
+---
+
 ## License
 
 ZapTok is licensed under the **MIT License**.
@@ -191,6 +196,8 @@ ZapTok is licensed under the **MIT License**.
 Copyright (c) 2025 @silentius (silentius@nostrplebs.com)
 
 For the complete license text, see the [LICENSE](./LICENSE) file.
+
+---
 
 ## Support ZapTok
 
@@ -205,6 +212,34 @@ Help us continue building and improving ZapTok. Your support enables us to maint
 *Scan to support ZapTok development*
 
 </div>
+
+## Acknowledgments & Credits
+
+ZapTok stands on the shoulders of giants. We're deeply grateful to the open-source communities and visionary builders who made this platform possible:
+
+### Protocol Pioneers
+- **[fiatjaf](https://fiatjaf.com/)** - Creator of the Nostr protocol, enabling truly decentralized social networks
+- **Satoshi Nakamoto** - Creator of Bitcoin, the foundation of our censorship-resistant payments
+- **Bitcoin Contributors** - Maintaining the world's most robust decentralized money
+- **Lightning Network Developers** - Enabling instant, low-cost Bitcoin transactions
+
+### Nostr Ecosystem Builders
+- **[Primal](https://primal.net/)** - Leading Nostr client inspiring UX excellence
+- **[Derek Ross](https://github.com/derekross/zappix) (Zappix)** - Nostr advocate and community builder
+- **[@Luxas](https://plebs.app/)** - Video-first Nostr client showing the way forward
+- **Damus, Amethyst, Snort** - Pioneering Nostr clients that paved the path
+
+### Privacy & Payments Innovation
+- **[Cashu Protocol](https://cashu.space/)** - Enabling private eCash transactions
+- **[Jack Dorsey](https://github.com/jack) (+Chorus)** - Supporting decentralized social infrastructure
+- **Blossom Protocol Contributors** - Decentralized file storage solutions
+
+### Technical Foundation
+- **React Team** - The UI framework powering our interface
+- **Vite & Tailwind CSS** - Development tools enabling rapid iteration
+- **All NIPs Authors** - Collectively building the Nostr specification
+
+*Building on Nostr means building together. Every contribution to the ecosystem benefits everyone.*
 
 ---
 
