@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Menu, X, Wallet, User } from 'lucide-react';
+import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Menu, Wallet, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useLoginActions } from '@/hooks/useLoginActions';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
@@ -14,6 +15,8 @@ import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { QuickZap } from '@/components/QuickZap';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { useFeedRefresh } from '@/contexts/FeedRefreshContext';
+import { bundleLog } from '@/lib/logBundler';
 
 export function MobileNavigation() {
   const { user } = useCurrentUser();
@@ -23,6 +26,8 @@ export function MobileNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
+  const { refreshCurrentFeed } = useFeedRefresh();
+  const { logout } = useLoginActions();
 
   const [isOpen, setIsOpen] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -40,7 +45,14 @@ export function MobileNavigation() {
   };
 
   const handleBottomNavClick = (path: string) => {
-    // Separate handler for bottom nav to ensure no side nav interference
+    // Check if user is clicking on the same feed they're currently viewing
+    if (location.pathname === path && (path === '/' || path === '/global')) {
+      bundleLog('mobileNavRefresh', `📱 Same-page refresh triggered for path: ${path}`);
+      refreshCurrentFeed(path);
+      return; // Don't navigate, just refresh
+    }
+
+    // Different page navigation
     if (path !== '/' && path !== '/global') {
       pauseAllVideos();
     } else {
@@ -81,13 +93,21 @@ export function MobileNavigation() {
     }
   };
 
+  const handleLogout = () => {
+    setIsOpen(false); // Close the sheet
+    logout();
+  };
+
   const navItems = [
     { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
+    { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
     { id: 'following', icon: Users, label: 'Following', path: '/' },
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    { id: 'wallet', icon: Zap, label: 'Lightning Wallet', path: '/wallet' },
+    { id: 'wallet', icon: Wallet, label: 'Lightning Wallet', path: '/wallet' },
+    { id: 'live-stream', icon: Radio, label: 'Live Stream', action: 'liveStream' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
+    { id: 'upload-video', icon: PlusSquare, label: 'Upload Video', action: 'uploadVideo' },
   ];
 
   // Core items for bottom navigation in the requested order
@@ -130,7 +150,7 @@ export function MobileNavigation() {
                 >
                   <Radio className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
                 </button>
-                
+
                 {/* Search User Icon */}
                 <button
                   onClick={handleUserSearchClick}
@@ -139,7 +159,7 @@ export function MobileNavigation() {
                 >
                   <UserPlus className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
                 </button>
-                
+
                 {/* Wallet Icon */}
                 <button
                   onClick={() => navigate('/wallet')}
@@ -148,7 +168,7 @@ export function MobileNavigation() {
                 >
                   <Wallet className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
                 </button>
-                
+
                 {/* Upload Icon */}
                 <button
                   onClick={handleUploadClick}
@@ -176,82 +196,101 @@ export function MobileNavigation() {
                     <div className="flex items-center justify-between">
                       <SheetTitle className="text-white flex items-center space-x-2">
                         <ZapTokLogo size={24} />
-                        <span>Menu</span>
+                        <span>ZapTok</span>
                       </SheetTitle>
                     </div>
                   </SheetHeader>
 
                   {/* Navigation Items */}
                   <div className="flex-1 p-4 space-y-2">
-                    {navItems.map((item) => (
-                      <Link key={item.id} to={item.path}>
-                        <Button
-                          variant="ghost"
-                          className={`w-full justify-start h-12 ${
-                            isActive(item.path)
-                              ? 'bg-gray-800/50 text-orange-400'
-                              : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
-                          }`}
-                          onClick={() => handleNavigateToPage(item.path)}
-                        >
-                          <item.icon size={20} className="mr-3" />
-                          <span className="font-medium">{item.label}</span>
-                        </Button>
-                      </Link>
-                    ))}
+                    {navItems.map((item) => {
+                      // Handle action items vs navigation items
+                      if (item.action) {
+                        // Action items that don't navigate but perform functions
+                        let onClick;
+                        switch (item.action) {
+                          case 'searchUsers':
+                            onClick = handleUserSearchClick;
+                            break;
+                          case 'uploadVideo':
+                            onClick = handleUploadClick;
+                            break;
+                          case 'liveStream':
+                            onClick = () => handleNavigateToPage('/stream');
+                            break;
+                          default:
+                            onClick = () => {};
+                        }
 
-                    {user && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-start h-12 text-gray-400 hover:text-white hover:bg-gray-800/30"
-                          onClick={handleUserSearchClick}
-                        >
-                          <UserPlus size={20} className="mr-3" />
-                          <span className="font-medium">Search Users</span>
-                        </Button>
+                        // Only show user-only action items if user is logged in
+                        if (['searchUsers', 'uploadVideo', 'liveStream'].includes(item.action) && !user) {
+                          return null;
+                        }
 
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-start h-12 text-gray-400 hover:text-white hover:bg-gray-800/30"
-                          onClick={handleUploadClick}
-                        >
-                          <PlusSquare size={20} className="mr-3" />
-                          <span className="font-medium">Upload Video</span>
-                        </Button>
-
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-start h-12 text-gray-400 hover:text-white hover:bg-gray-800/30"
-                          onClick={() => handleNavigateToPage('/stream')}
-                        >
-                          <Radio size={20} className="mr-3" />
-                          <span className="font-medium">Live Stream</span>
-                        </Button>
-                      </>
-                    )}
+                        return (
+                          <Button
+                            key={item.id}
+                            variant="ghost"
+                            className="w-full justify-start h-12 text-gray-400 hover:text-white hover:bg-gray-800/30"
+                            onClick={onClick}
+                          >
+                            <item.icon size={20} className="mr-3" />
+                            <span className="font-medium">{item.label}</span>
+                          </Button>
+                        );
+                      } else {
+                        // Navigation items with paths
+                        return (
+                          <Link key={item.id} to={item.path}>
+                            <Button
+                              variant="ghost"
+                              className={`w-full justify-start h-12 ${
+                                isActive(item.path)
+                                  ? 'bg-gray-800/50 text-orange-400'
+                                  : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+                              }`}
+                              onClick={() => handleNavigateToPage(item.path)}
+                            >
+                              <item.icon size={20} className="mr-3" />
+                              <span className="font-medium">{item.label}</span>
+                            </Button>
+                          </Link>
+                        );
+                      }
+                    })}
                   </div>
 
                   {/* Profile Section */}
                   <div className="p-4 border-t border-gray-800">
                     {user ? (
-                      <button
-                        className="flex items-center gap-3 p-3 rounded-xl transition-all w-full text-left hover:bg-gray-800/30"
-                        onClick={() => handleNavigateToPage('/profile')}
-                      >
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage src={metadata?.picture} alt={metadata?.name ?? genUserName(user.pubkey)} />
-                          <AvatarFallback>{(metadata?.name ?? genUserName(user.pubkey)).charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className='flex-1 text-left truncate'>
-                          <p className="font-medium text-sm text-gray-300 truncate">
-                            {metadata?.name ?? genUserName(user.pubkey)}
-                          </p>
-                          {metadata?.nip05 && (
-                            <p className="text-xs text-gray-500 truncate">{metadata.nip05}</p>
-                          )}
-                        </div>
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          className="flex items-center gap-3 p-3 rounded-xl transition-all flex-1 text-left hover:bg-gray-800/30"
+                          onClick={() => handleNavigateToPage('/profile')}
+                        >
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={metadata?.picture} alt={metadata?.name ?? genUserName(user.pubkey)} />
+                            <AvatarFallback>{(metadata?.name ?? genUserName(user.pubkey)).charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <div className='flex-1 text-left truncate'>
+                            <p className="font-medium text-sm text-gray-300 truncate">
+                              {metadata?.name ?? genUserName(user.pubkey)}
+                            </p>
+                            {metadata?.nip05 && (
+                              <p className="text-xs text-gray-500 truncate">{metadata.nip05}</p>
+                            )}
+                          </div>
+                        </button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleLogout}
+                          className="h-10 w-10 p-0 border-gray-600 text-gray-400 hover:text-red-400 hover:border-red-400 hover:bg-red-400/10"
+                          title="Logout"
+                        >
+                          <LogOut className="w-4 h-4" />
+                        </Button>
+                      </div>
                     ) : (
                       <div className="w-full">
                         <LoginArea className="w-full justify-center" />
