@@ -11,6 +11,7 @@ import ExtensionLogin from './ExtensionLogin';
 import zapTokLogo from '/images/ZapTok-v3.png';
 import PrivateKeyLogin from './PrivateKeyLogin';
 import BunkerLogin from './BunkerLogin';
+import { devLog, devError } from '@/lib/devConsole';
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -37,13 +38,13 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       if (!('nostr' in window)) {
         throw new Error('Nostr extension not found. Please install a NIP-07 extension.');
       }
-      console.log('Starting extension login process...');
+      devLog('Starting extension login process...');
       await login.extension();
-      console.log('Extension login successful, closing modal');
+      devLog('Extension login successful, closing modal');
       // Defer the modal close to avoid state update during render warning
       setTimeout(() => onClose(), 0);
     } catch (error) {
-      console.error('Extension login failed:', error);
+      devError('Extension login failed:', error);
       toast({
         title: "Login Failed",
         description: error instanceof Error ? error.message : "Failed to connect to extension",
@@ -77,14 +78,14 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     setIsLocked(true);
     try {
       // Try the new nostr-tools implementation first
-      console.log('🔧 Attempting bunker login with nostr-tools implementation...');
+      devLog('🔧 Attempting bunker login with nostr-tools implementation...');
       await login.bunkerNostrTools(bunkerUrl);
-      console.log('✅ nostr-tools bunker login successful!');
+      devLog('✅ nostr-tools bunker login successful!');
       // Defer the modal close to avoid state update during render warning
       setTimeout(() => onClose(), 0);
       return;
     } catch (nostrToolsError) {
-      console.log('❌ nostr-tools bunker login failed, falling back to Nostrify...', nostrToolsError);
+      devLog('❌ nostr-tools bunker login failed, falling back to Nostrify...', nostrToolsError);
 
       // Fallback to the original Nostrify implementation
       try {
@@ -92,7 +93,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
         // Defer the modal close to avoid state update during render warning
         setTimeout(() => onClose(), 0);
       } catch (error) {
-        console.error('Bunker login fallback also failed:', error);
+        devError('Bunker login fallback also failed:', error);
 
         // Don't show error toast for confirmation URLs since BunkerLogin handles the flow
         if (!(error instanceof Error && error.message.startsWith('https://'))) {

@@ -13,6 +13,8 @@ import { useWallet } from '@/hooks/useWallet';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCashuStore } from '@/stores/cashuStore';
 import { cn } from '@/lib/utils';
+import { bundleLog } from '@/lib/logBundler';
+import { devLog } from '@/lib/devConsole';
 
 export interface LoginAreaProps {
   className?: string;
@@ -73,13 +75,7 @@ export function LoginArea({ className }: LoginAreaProps) {
 
     if (balanceLogRef.current !== currentState) {
       balanceLogRef.current = currentState;
-      console.log('[LoginArea] Balance changed:', {
-        userHasLightningAccess,
-        lightningBalance: lightningBalance > 0 ? '[REDACTED]' : 0,
-        cashuBalance: cashuBalance > 0 ? '[REDACTED]' : 0,
-        totalBalance: totalBalance > 0 ? '[REDACTED]' : 0,
-        currency,
-      });
+      bundleLog('walletBalanceChanges', `Balance update: ${userHasLightningAccess ? 'Lightning connected' : 'Lightning disconnected'}, Total: ${totalBalance} sats`);
     }
 
     if (currency === 'BTC') {
@@ -120,7 +116,7 @@ export function LoginArea({ className }: LoginAreaProps) {
         const newCurrency = currency === 'BTC' ? 'USD' : 'BTC';
         setCurrency(newCurrency);
         if (import.meta.env.DEV) {
-          console.log(`💱 Currency switched to: ${newCurrency}`);
+          devLog(`💱 Currency switched to: ${newCurrency}`);
         }
       }}
       title={`Switch to ${currency === 'BTC' ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`}
