@@ -46,6 +46,8 @@ export function MobileNavigation() {
   };
 
   const handleBottomNavClick = (path: string) => {
+    bundleLog('mobileNavClick', `📱 Bottom nav clicked: ${path}, current: ${location.pathname}`);
+
     // Check if user is clicking on the same feed they're currently viewing
     if (location.pathname === path && (path === '/' || path === '/global')) {
       bundleLog('mobileNavRefresh', `📱 Same-page refresh triggered for path: ${path}`);
@@ -317,7 +319,7 @@ export function MobileNavigation() {
 
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md">
-        <div className="flex items-center justify-around px-4" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+        <div className="flex items-center justify-around px-4" style={{ paddingTop: '2px', paddingBottom: '2px' }}>
           {bottomNavItems.map((item) => (
             <div key={item.id} className="flex justify-center">
               {item.isCenter ? (
