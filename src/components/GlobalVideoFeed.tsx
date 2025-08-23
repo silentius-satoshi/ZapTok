@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { VideoCard } from '@/components/VideoCard';
 import { VideoActionButtons } from '@/components/VideoActionButtons';
@@ -33,6 +33,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   const isMobile = useIsMobile();
   const { setCurrentVideo } = useCurrentVideo();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
   const lastScrollTopRef = useRef(0);
@@ -61,7 +62,6 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
     isFetchingNextPage,
     isLoading,
     error,
-    refetch,
   } = useInfiniteQuery({
     queryKey: ['global-video-feed', currentService?.url],
     queryFn: async ({ pageParam, signal }) => {
@@ -149,9 +149,10 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   useImperativeHandle(ref, () => ({
     refresh: () => {
       bundleLog('globalVideoRefresh', '🔄 Manual refresh triggered for global feed');
-      refetch();
+      // Reset the infinite query to start fresh and show latest videos
+      queryClient.resetQueries({ queryKey: ['global-video-feed', currentService?.url] });
     }
-  }), [refetch]);
+  }), [queryClient, currentService?.url]);
 
   const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
 

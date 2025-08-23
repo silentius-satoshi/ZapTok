@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { VideoCard } from '@/components/VideoCard';
 import { VideoActionButtons } from '@/components/VideoActionButtons';
@@ -33,6 +33,7 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
+  const queryClient = useQueryClient();
   const lastScrollTopRef = useRef(0);
 
   // Lock body scroll on mobile to prevent dual scrolling
@@ -59,7 +60,6 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
     isFetchingNextPage,
     isLoading,
     error,
-    refetch,
   } = useInfiniteQuery({
     queryKey: ['video-feed', following.data?.pubkeys, currentService?.url],
     queryFn: async ({ pageParam, signal }) => {
@@ -176,9 +176,10 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
   useImperativeHandle(ref, () => ({
     refresh: () => {
       bundleLog('followingVideoRefresh', '🔄 Manual refresh triggered for following feed');
-      refetch();
+      // Reset the infinite query to start fresh and show latest videos
+      queryClient.resetQueries({ queryKey: ['following-video-feed', user?.pubkey, currentService?.url] });
     }
-  }), [refetch]);
+  }), [queryClient, user?.pubkey, currentService?.url]);
 
   const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
 
