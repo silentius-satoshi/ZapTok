@@ -227,8 +227,9 @@ ZapTok stands on the shoulders of giants. We're deeply grateful to the open-sour
 - **[Primal](https://primal.net/)** 
 - **[Damus](https://damus.io/)** 
 - **[Amethyst](https://amethyst.nostr.land/)**
-- **[Snort](https://snort.social/)** 
-- **[Derek Ross](https://github.com/derekross/zappix)** **([Zappix.app](https://zappix.app/home))** - Nostr advocate and community builder (nostr: [pubkey](https://nostr.band/?q=npub18ams6ewn5aj2n3wt2qawzglx9mr4nzksxhvrdc4gzrecw7n5tvjqctp424))
+- **[Snort](https://snort.social/)**
+- **[Zap.stream](https://github.com/v0l/zap.stream)** **([Zap.stream](https://zap.stream/)** - Nostr Live-Streaming OG client trail blazer for the open source communities (nostr: [pubkey](https://njump.me/npub1eaz6dwsnvwkha5sn5puwwyxjgy26uusundrm684lg3vw4ma5c2jsqarcgz))
+- **[Derek Ross](https://github.com/derekross/zappix)** **([Zappix.app](https://zappix.app/home))** - THE OG Nostr advocate and community builder (nostr: [pubkey](https://nostr.band/?q=npub18ams6ewn5aj2n3wt2qawzglx9mr4nzksxhvrdc4gzrecw7n5tvjqctp424))
 - **[@Luxas](https://github.com/Spl0itable/plebs-app)** **([Plebs.app](https://plebs.app/))** - Video-first Nostr client showing the way forward (nostr: [pubkey](https://nostr.band/?q=npub16jdfqgazrkapk0yrqm9rdxlnys7ck39c7zmdzxtxqlmmpxg04r0sd733sv))
 
 
