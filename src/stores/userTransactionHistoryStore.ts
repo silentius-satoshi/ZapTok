@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { SpendingHistoryEntry } from '@/lib/cashu';
+import { bundleLog } from '@/lib/logBundler';
 
 // Define a pending transaction interface for lightning invoices
 export interface PendingTransaction {
@@ -183,9 +184,9 @@ function getUserTransactionHistoryStore(userPubkey: string) {
 
   // Cache the store
   userTransactionHistoryStores.set(userPubkey, userStore);
-  
+
   if (import.meta.env.DEV) {
-    console.log(`📊 Created user-specific transaction history store for ${userPubkey.slice(0, 8)}...`);
+    bundleLog('userTransactionHistory', `📊 Created user-specific transaction history store for ${userPubkey.slice(0, 8)}...`);
   }
 
   return userStore;

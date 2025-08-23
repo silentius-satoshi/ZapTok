@@ -17,6 +17,7 @@ import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { bundleLog } from '@/lib/logBundler';
 export function FollowingVideoFeed() {
   const { nostr } = useNostr();
   const { currentService } = useCaching();
@@ -147,7 +148,7 @@ export function FollowingVideoFeed() {
 
       // Log concise video processing summary
       if (import.meta.env.DEV && processingStats.finalVideos > 0) {
-        console.log(`🎬 Video Feed: ${processingStats.finalVideos} videos processed (${processingStats.followedAuthors} authors)`);
+        bundleLog('FollowingVideoFeed', `🎬 Video Feed: ${processingStats.finalVideos} videos processed (${processingStats.followedAuthors} authors)`);
       }
 
       return videoEvents;
@@ -360,7 +361,7 @@ export function FollowingVideoFeed() {
     // Only auto-load if we have a reasonable amount of videos already
     if (videos.length >= 5 && currentVideoIndex >= videos.length - 3 && hasNextPage && !isFetchingNextPage) {
       if (import.meta.env.DEV) {
-      console.log(`📖 Auto-loading more videos... (current: ${currentVideoIndex}, total: ${videos.length})`);
+        bundleLog('FollowingVideoFeed', `📖 Auto-loading more videos... (current: ${currentVideoIndex}, total: ${videos.length})`);
       }
       fetchNextPage();
     }
@@ -387,7 +388,7 @@ export function FollowingVideoFeed() {
         if (pullDistance > 100 && !isRefreshing) {
           isRefreshing = true;
           if (import.meta.env.DEV) {
-          console.log('🔄 Pull-to-refresh triggered');
+            bundleLog('FollowingVideoFeed', '🔄 Pull-to-refresh triggered');
           }
           // Refetch first page to get newer content
           setTimeout(() => {

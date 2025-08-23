@@ -4,6 +4,7 @@ import { immer } from 'zustand/middleware/immer';
 import { Proof, MintQuoteResponse, MeltQuoteResponse } from '@cashu/cashu-ts';
 import type { P2PKSecret } from '@/lib/p2pk';
 import type { NostrEvent } from 'nostr-tools';
+import { bundleLog } from '@/lib/logBundler';
 
 export interface CashuWalletStruct {
   id: string;
@@ -131,7 +132,7 @@ export interface CashuStore {
   // Utility methods
   getTotalBalance: () => number;
   getBalanceByMint: (mintUrl: string) => number;
-  
+
   // Additional wallet methods
   getMintProofs: (mintUrl: string) => Promise<Proof[]>;
   privkey?: string;
@@ -162,13 +163,13 @@ export const useCashuStore = create<CashuStore>()(
         const allProofs = state.wallets.flatMap(wallet => wallet.proofs || []);
         // Include pending proofs in the total
         const totalProofs = [...allProofs, ...state.pendingProofs];
-      if (import.meta.env.DEV) {
-        console.log('cashuStore: Getting proofs, total:', totalProofs.length, '(wallet proofs:', allProofs.length, ', pending:', state.pendingProofs.length, ')');
-      }
-        if (totalProofs.length > 0) {
         if (import.meta.env.DEV) {
-          console.log('cashuStore: First proof:', totalProofs[0]);
+          bundleLog('cashuStore', `Getting proofs, total: ${totalProofs.length} (wallet proofs: ${allProofs.length}, pending: ${state.pendingProofs.length})`);
         }
+        if (totalProofs.length > 0) {
+          if (import.meta.env.DEV) {
+            bundleLog('cashuStore', `First proof: ${JSON.stringify(totalProofs[0])}`);
+          }
         }
         return totalProofs;
       },
@@ -181,24 +182,24 @@ export const useCashuStore = create<CashuStore>()(
           } else {
             state.wallets.push(wallet);
           }
-          
+
           // Transfer any pending proofs to this wallet
           if (state.pendingProofs.length > 0) {
-          if (import.meta.env.DEV) {
-            console.log('cashuStore: Transferring', state.pendingProofs.length, 'pending proofs to new wallet');
-          }
+            if (import.meta.env.DEV) {
+              bundleLog('cashuStore', `Transferring ${state.pendingProofs.length} pending proofs to new wallet`);
+            }
             wallet.proofs.push(...state.pendingProofs);
             wallet.balance = wallet.proofs.reduce((sum, p) => sum + p.amount, 0);
             wallet.lastUpdated = Date.now();
-            
+
             // Clear pending proofs
             state.pendingProofs = [];
             state.pendingProofEvents = [];
             if (import.meta.env.DEV) {
-              console.log('cashuStore: Wallet balance after transfer:', wallet.balance);
+              bundleLog('cashuStore', `Wallet balance after transfer: ${wallet.balance}`);
             }
           }
-          
+
           // Set as active if no active wallet
           if (!state.activeWalletId) {
             state.activeWalletId = wallet.id;
@@ -226,10 +227,10 @@ export const useCashuStore = create<CashuStore>()(
 
       addMint: (mint: CashuMintStruct | string) => {
         set((state) => {
-          const mintStruct = typeof mint === 'string' 
+          const mintStruct = typeof mint === 'string'
             ? { url: mint, isActive: true } as CashuMintStruct
             : mint;
-          
+
           const existingIndex = state.mints.findIndex(m => m.url === mintStruct.url);
           if (existingIndex >= 0) {
             state.mints[existingIndex] = { ...state.mints[existingIndex], ...mintStruct };
@@ -307,68 +308,68 @@ export const useCashuStore = create<CashuStore>()(
       },
 
       addProofs: (proofs: Proof[], eventId: string) => {
-      if (import.meta.env.DEV) {
-        console.log('cashuStore: Adding proofs:', proofs.length, 'with eventId:', eventId);
-      }
+        if (import.meta.env.DEV) {
+          bundleLog('cashuStore', `Adding proofs: ${proofs.length} with eventId: ${eventId}`);
+        }
         set((state) => {
           // Check if we've already processed this event
           const existingEventProofs = Array.from(state.proofEventMap.entries())
             .filter(([_, eid]) => eid === eventId)
             .map(([secret, _]) => secret);
-          
+
           if (existingEventProofs.length > 0) {
             if (import.meta.env.DEV) {
-              console.log('cashuStore: Event', eventId, 'already processed, skipping duplicate proofs');
+              bundleLog('cashuStore', `Event ${eventId} already processed, skipping duplicate proofs`);
             }
             return;
           }
-          
+
           // Filter out proofs that already exist in any wallet
           const newProofs = proofs.filter(proof => {
             // Check if this proof secret already exists
-            const alreadyExists = state.wallets.some(wallet => 
+            const alreadyExists = state.wallets.some(wallet =>
               wallet.proofs.some(existingProof => existingProof.secret === proof.secret)
             ) || state.pendingProofs.some(pendingProof => pendingProof.secret === proof.secret);
-            
+
             if (alreadyExists) {
               if (import.meta.env.DEV) {
-                console.log('cashuStore: Proof already exists, skipping:', proof.secret.substring(0, 8) + '...');
+                bundleLog('cashuStore', `Proof already exists, skipping: ${proof.secret.substring(0, 8)}...`);
               }
             }
             return !alreadyExists;
           });
-          
+
           if (newProofs.length === 0) {
             if (import.meta.env.DEV) {
-              console.log('cashuStore: All proofs already exist, nothing to add');
+              bundleLog('cashuStore', 'All proofs already exist, nothing to add');
             }
             return;
           }
-          
+
           if (import.meta.env.DEV) {
-            console.log('cashuStore: Adding', newProofs.length, 'new proofs out of', proofs.length, 'total');
+            bundleLog('cashuStore', `Adding ${newProofs.length} new proofs out of ${proofs.length} total`);
           }
-          
+
           // Map each new proof to its event ID
           newProofs.forEach(proof => {
             state.proofEventMap.set(proof.secret, eventId);
           });
-          
+
           // Find wallet that can store these proofs (for now, use the first wallet)
           const wallet = state.wallets[0];
           if (wallet) {
             if (import.meta.env.DEV) {
-              console.log('cashuStore: Adding proofs to wallet:', wallet.id);
+              bundleLog('cashuStore', `Adding proofs to wallet: ${wallet.id}`);
             }
             wallet.proofs.push(...newProofs);
             wallet.balance = wallet.proofs.reduce((sum, p) => sum + p.amount, 0);
             wallet.lastUpdated = Date.now();
             if (import.meta.env.DEV) {
-              console.log('cashuStore: Wallet balance updated to:', wallet.balance);
+              bundleLog('cashuStore', `Wallet balance updated to: ${wallet.balance}`);
             }
           } else {
             if (import.meta.env.DEV) {
-              console.log('cashuStore: No wallet found, storing proofs as pending');
+              bundleLog('cashuStore', 'No wallet found, storing proofs as pending');
             }
             // Store proofs temporarily until a wallet is created
             state.pendingProofs.push(...newProofs);
@@ -383,7 +384,7 @@ export const useCashuStore = create<CashuStore>()(
           proofs.forEach(proof => {
             state.proofEventMap.delete(proof.secret);
           });
-          
+
           // Remove proofs from wallets
           state.wallets.forEach(wallet => {
             wallet.proofs = wallet.proofs.filter(p =>
@@ -428,7 +429,7 @@ export const useCashuStore = create<CashuStore>()(
       getProofsByEventId: (eventId: string) => {
         const state = get();
         const proofs: Proof[] = [];
-        
+
         // Find all proofs with this eventId
         for (const [secret, mappedEventId] of state.proofEventMap.entries()) {
           if (mappedEventId === eventId) {
@@ -441,7 +442,7 @@ export const useCashuStore = create<CashuStore>()(
             }
           }
         }
-        
+
         return proofs;
       },
 
@@ -534,7 +535,7 @@ export const useCashuStore = create<CashuStore>()(
         const state = get();
         const mint = state.mints.find(m => m.url === mintUrl);
         if (!mint) return [];
-        
+
         // Get all proofs that belong to this mint's keysets
         return state.proofs.filter(proof => {
           return mint.keysets?.some(keyset => keyset.id === proof.id);

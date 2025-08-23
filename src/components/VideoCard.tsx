@@ -7,6 +7,7 @@ import { useVideoUrlFallback } from '@/hooks/useVideoUrlFallback';
 import { genUserName } from '@/lib/genUserName';
 import { useNavigate } from 'react-router-dom';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { bundleLog } from '@/lib/logBundler';
 
 interface VideoCardProps {
   event: NostrEvent & {
@@ -42,9 +43,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   useEffect(() => {
     // Only auto-skip if the video is currently active and has finished testing URLs
     if (isActive && !isTestingUrls && !workingUrl && onVideoUnavailable) {
-    if (import.meta.env.DEV) {
-      console.log('🚫 Auto-skipping unavailable video:', event.title || event.id);
-    }
+      if (import.meta.env.DEV) {
+        bundleLog('VideoCard', `🚫 Auto-skipping unavailable video: ${event.title || event.id}`);
+      }
       // Small delay to prevent jarring immediate skip
       const timeoutId = setTimeout(() => {
         onVideoUnavailable();
@@ -71,12 +72,12 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       const significantChange = workingUrl !== event.videoUrl || isTestingUrls;
 
       if (significantChange && now - videoDebugRef.current.lastPropsLog > 5000) {
-        console.log(`📱 VideoCard [${event.title?.slice(0, 20) || 'Untitled'}]:`, {
+        bundleLog('VideoCard', `📱 VideoCard [${event.title?.slice(0, 20) || 'Untitled'}]: ${JSON.stringify({
           status: isTestingUrls ? 'testing-urls' : 'ready',
           videoUrl: workingUrl?.split('/').pop()?.slice(0, 12) + '...',
           hasHash: !!event.hash,
           isActive,
-        });
+        })}`);
         videoDebugRef.current.lastPropsLog = now;
       }
     }
@@ -97,7 +98,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         const now = Date.now();
         // Bundle video load success logs - less frequent
         if (now - videoDebugRef.current.lastLoadLog > 5000) {
-          console.log(`🎬 Video Load Summary: ${videoDebugRef.current.loadEvents} videos loaded successfully`);
+          bundleLog('VideoCard', `🎬 Video Load Summary: ${videoDebugRef.current.loadEvents} videos loaded successfully`);
           videoDebugRef.current.lastLoadLog = now;
           videoDebugRef.current.loadEvents = 0;
         }
@@ -108,7 +109,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       // Reduce load start logging noise
       if (import.meta.env.DEV && isActive && !videoDebugRef.current.hasLoggedStart) {
         videoDebugRef.current.hasLoggedStart = true;
-        console.log(`▶️ Loading: ${event.title?.slice(0, 30) || 'Untitled video'}...`);
+        bundleLog('VideoCard', `▶️ Loading: ${event.title?.slice(0, 30) || 'Untitled video'}...`);
       }
     };
 
