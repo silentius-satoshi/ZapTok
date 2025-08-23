@@ -91,12 +91,12 @@ export function LoginArea({ className }: LoginAreaProps) {
     }
   }, [walletInfo?.balance, cashuStore, currency, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
 
-  // Lightning wallet button - Enhanced with better styling
+  // Cashu wallet button - Enhanced with better styling
   const LightningWalletButton = () => (
     <button
       className='group flex items-center justify-center p-2.5 rounded-lg bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200'
       onClick={() => navigate('/wallet')}
-      title="Lightning Wallet"
+      title="Cashu Wallet"
     >
       <Zap className='w-3.5 h-3.5 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-200' />
     </button>
@@ -144,7 +144,7 @@ export function LoginArea({ className }: LoginAreaProps) {
     <div className={cn("inline-flex items-center justify-start min-w-0", className)}>
       {currentUser ? (
         <div className="flex items-center gap-2">
-          {/* Lightning Wallet Button */}
+          {/* Cashu Wallet Button */}
           <LightningWalletButton />
 
           {/* Currency Toggle Button - show based on computed logic */}

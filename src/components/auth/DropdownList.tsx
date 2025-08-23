@@ -96,13 +96,13 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
           <span>View Profile</span>
         </DropdownMenuItem>
 
-        {/* Lightning Wallet */}
+        {/* Cashu Wallet */}
         <DropdownMenuItem
           onClick={() => navigate('/settings?section=connected-wallets')}
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
           <Wallet className='w-4 h-4' />
-          <span>Lightning Wallet Settings</span>
+          <span>Cashu Wallet Settings</span>
         </DropdownMenuItem>
 
         {/* Notifications */}

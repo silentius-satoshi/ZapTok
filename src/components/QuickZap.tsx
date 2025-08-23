@@ -8,10 +8,12 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { getLightningAddress } from '@/lib/lightning';
 import { useZapPayment, useLightningPaymentSuggestion } from '@/hooks/useZapPayment';
 import { needsVercelProxy } from '@/lib/lightning-proxy';
-import { Settings, Zap, Wallet, CreditCard } from 'lucide-react';
+import { Settings, Zap, Wallet, CreditCard, Bitcoin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { genUserName } from '@/lib/genUserName';
 import { useUnifiedWallet } from '@/contexts/UnifiedWalletContext';
+import { useWallet } from '@/hooks/useWallet';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface QuickZapProps {
   isOpen: boolean;
@@ -31,8 +33,10 @@ export function QuickZap({
   const { user } = useCurrentUser();
   const navigate = useNavigate();
   const { isConnected: walletConnected, activeWalletType } = useUnifiedWallet();
+  const { isConnected: bitcoinConnectConnected, userHasLightningAccess } = useWallet();
+  const isMobile = useIsMobile();
   const [zapAmount, setZapAmount] = useState(21);
-  const [paymentMethod, setPaymentMethod] = useState<'webln' | 'unified'>('webln');
+  const [paymentMethod, setPaymentMethod] = useState<'webln' | 'unified' | 'bitcoin-connect'>('webln');
 
   // Get recipient info for display
   const { data: authorData } = useAuthor(recipientPubkey);
@@ -50,10 +54,22 @@ export function QuickZap({
   // Auto-select best payment method when modal opens
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
 
+  // Check if user qualifies for Bitcoin Connect (bunker signers on mobile PWA)
+  const shouldShowBitcoinConnect = isMobile && user && (
+    user.signer?.constructor?.name?.includes('bunker') ||
+    user.signer?.constructor?.name?.includes('nsec') ||
+    (user as any)?.loginType === 'bunker' ||
+    (user as any)?.loginType === 'nsec' ||
+    (user as any)?.loginType === 'x-bunker-nostr-tools' ||
+    !window.nostr
+  );
+
   // Auto-select payment method based on provider capabilities
   if (!hasAutoSelected && paymentSuggestion && isOpen) {
     if (paymentSuggestion.shouldUseCashu && walletConnected) {
       setPaymentMethod('unified');
+    } else if (shouldShowBitcoinConnect && bitcoinConnectConnected) {
+      setPaymentMethod('bitcoin-connect');
     } else if (paymentSuggestion.canUseWebLN && window.webln) {
       setPaymentMethod('webln');
     }
@@ -97,18 +113,40 @@ export function QuickZap({
     }
 
     try {
-      // Use the new enhanced Lightning payment system
-      const result = await zapPayment({
-        lightningAddress,
-        amountSats: zapAmount,
-        comment: `Zap from ZapTok user`,
-        nostr: eventId ? {
-          eventId,
-          pubkey: recipientPubkey
-        } : {
-          pubkey: recipientPubkey
+      let result: any;
+
+      if (paymentMethod === 'bitcoin-connect' && shouldShowBitcoinConnect && bitcoinConnectConnected) {
+        // Handle Bitcoin Connect payment using WebLN provider
+        if (!window.webln) {
+          throw new Error('Bitcoin Connect WebLN provider not available');
         }
-      });
+
+        // Use the existing Lightning payment system, but ensure it uses WebLN
+        result = await zapPayment({
+          lightningAddress,
+          amountSats: zapAmount,
+          comment: `Zap from ZapTok user`,
+          nostr: eventId ? {
+            eventId,
+            pubkey: recipientPubkey
+          } : {
+            pubkey: recipientPubkey
+          }
+        });
+      } else {
+        // Use the existing enhanced Lightning payment system for other methods
+        result = await zapPayment({
+          lightningAddress,
+          amountSats: zapAmount,
+          comment: `Zap from ZapTok user`,
+          nostr: eventId ? {
+            eventId,
+            pubkey: recipientPubkey
+          } : {
+            pubkey: recipientPubkey
+          }
+        });
+      }
 
       if (result.success) {
         onZapSuccess?.();
@@ -159,7 +197,7 @@ export function QuickZap({
           {/* Payment Method Selection */}
           <div className="px-4">
             <Label className="text-gray-300 text-sm mb-2 block">Payment Method</Label>
-            <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className={`grid gap-2 mb-3 ${shouldShowBitcoinConnect ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <Button
                 variant={paymentMethod === 'webln' ? 'default' : 'outline'}
                 onClick={() => setPaymentMethod('webln')}
@@ -184,8 +222,23 @@ export function QuickZap({
                 disabled={isZapping || paymentSuggestion?.isBlocked}
               >
                 <Wallet className="w-3 h-3" />
-                <span>Wallet</span>
+                <span>Cashu</span>
               </Button>
+              {shouldShowBitcoinConnect && (
+                <Button
+                  variant={paymentMethod === 'bitcoin-connect' ? 'default' : 'outline'}
+                  onClick={() => setPaymentMethod('bitcoin-connect')}
+                  className={`h-12 flex-col gap-1 text-xs ${
+                    paymentMethod === 'bitcoin-connect'
+                      ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                      : 'border-gray-600 text-gray-300 hover:text-white hover:border-gray-500'
+                  }`}
+                  disabled={isZapping || paymentSuggestion?.isBlocked}
+                >
+                  <Bitcoin className="w-3 h-3" />
+                  <span>Bitcoin Connect</span>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -215,7 +268,8 @@ export function QuickZap({
                   !zapAmount ||
                   paymentSuggestion?.isBlocked ||
                   (paymentMethod === 'webln' && !window.webln) ||
-                  (paymentMethod === 'unified' && !walletConnected)
+                  (paymentMethod === 'unified' && !walletConnected) ||
+                  (paymentMethod === 'bitcoin-connect' && !bitcoinConnectConnected)
                 }
                 className="w-full bg-orange-600 hover:bg-orange-700 text-white mb-3 h-10"
               >
@@ -249,10 +303,21 @@ export function QuickZap({
                           </p>
                         )}
                       </div>
+                    ) : paymentMethod === 'bitcoin-connect' ? (
+                      <div>
+                        <p className="text-blue-200 text-xs text-center mb-1">
+                          {bitcoinConnectConnected ? '💡 Ready to pay with Bitcoin Connect' : '⚠️ Bitcoin Connect not connected - connect in settings'}
+                        </p>
+                        {usesProxy && (
+                          <p className="text-green-200 text-xs text-center mb-1">
+                            🌐 <strong>Secure Proxy:</strong> Enhanced compatibility for {lightningAddress?.split('@')[1]}
+                          </p>
+                        )}
+                      </div>
                     ) : (
                       <div>
                         <p className="text-blue-200 text-xs text-center mb-1">
-                          {walletConnected ? `💡 Ready with ${activeWalletType} wallet` : '⚠️ Wallet not connected'}
+                          {walletConnected ? `💡 Ready with ${activeWalletType} wallet` : '⚠️ Cashu wallet not connected'}
                         </p>
                         {usesProxy && (
                           <p className="text-green-200 text-xs text-center mb-1">

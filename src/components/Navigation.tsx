@@ -76,7 +76,7 @@ export function Navigation() {
     { id: 'userSearch', icon: UserPlus, label: 'Search Users', onClick: handleUserSearchClick },
     { id: 'pro', icon: Crown, label: 'Pro Mode', onClick: () => handleNavigateToPage('/pro'), path: '/pro' },
     { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => handleNavigateToPage('/notifications'), path: '/notifications' },
-    { id: 'wallet', icon: Zap, label: 'Lightning Wallet', onClick: () => handleNavigateToPage('/wallet'), path: '/wallet' },
+    { id: 'wallet', icon: Zap, label: 'Cashu Wallet', onClick: () => handleNavigateToPage('/wallet'), path: '/wallet' },
     { id: 'settings', icon: Settings, label: 'Settings', onClick: () => handleNavigateToPage('/settings'), path: '/settings' },
   ];
 

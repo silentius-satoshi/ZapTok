@@ -19,6 +19,7 @@ import {
 import { Button, Connect, init } from '@getalby/bitcoin-connect-react';
 import { useToast } from '@/hooks/useToast';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useWallet } from '@/hooks/useWallet';
 
 interface EnhancedBitcoinConnectCardProps {
   className?: string;
@@ -26,11 +27,18 @@ interface EnhancedBitcoinConnectCardProps {
 }
 
 export function EnhancedBitcoinConnectCard({ className, onTestConnection }: EnhancedBitcoinConnectCardProps) {
-  const [isConnected, setIsConnected] = useState(false);
-  const [connectedWallet, setConnectedWallet] = useState<string>('');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+
+  // Use global wallet state instead of local state
+  const {
+    isConnected,
+    walletInfo,
+    connect,
+    disconnect,
+    userHasLightningAccess
+  } = useWallet();
 
   // Initialize Bitcoin Connect for mobile PWA
   useEffect(() => {
@@ -41,37 +49,62 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
     });
   }, []);
 
-  const handleConnected = (provider: any) => {
-    setIsConnected(true);
-    setConnectedWallet(provider?.info?.alias || provider?.constructor?.name || 'Lightning Wallet');
-    toast({
-      title: "Wallet Connected",
-      description: `Successfully connected to your Lightning wallet`,
-    });
+  const handleConnected = async (provider: any) => {
+    try {
+      // Bitcoin Connect should have set up window.webln
+      // Let's trigger the global wallet context to re-detect the connection
+      if (window.webln) {
+        await connect(); // This will detect the new WebLN provider
+        toast({
+          title: "Wallet Connected",
+          description: `Successfully connected to your Lightning wallet`,
+        });
+      } else {
+        throw new Error("WebLN provider not available after Bitcoin Connect");
+      }
+    } catch (error) {
+      console.error('Connection failed:', error);
+      toast({
+        title: "Connection Failed",
+        description: error instanceof Error ? error.message : "Failed to connect wallet",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDisconnected = () => {
-    // Disconnect from Bitcoin Connect WebLN provider if available
-    if (window.webln?.disable) {
-      window.webln.disable().catch(console.error);
+  const handleDisconnected = async () => {
+    try {
+      // Use the global disconnect function
+      await disconnect();
+      toast({
+        title: "Wallet Disconnected",
+        description: "Lightning wallet has been disconnected successfully",
+        variant: "destructive",
+      });
+    } catch (error) {
+      console.error('Disconnect failed:', error);
+      toast({
+        title: "Disconnect Failed",
+        description: error instanceof Error ? error.message : "Failed to disconnect wallet",
+        variant: "destructive",
+      });
     }
-
-    // Clear local state
-    setIsConnected(false);
-    setConnectedWallet('');
-
-    toast({
-      title: "Wallet Disconnected",
-      description: "Lightning wallet has been disconnected successfully",
-      variant: "destructive",
-    });
   };
 
   const handleTestConnection = async () => {
-    if (!isConnected) {
+    // Debug: Check the actual state
+    console.log('Test Connection Debug:', {
+      isConnected,
+      userHasLightningAccess,
+      hasWindowWebln: !!window.webln,
+      weblnEnabled: window.webln?.isEnabled,
+      walletInfo
+    });
+
+    if (!isConnected || !userHasLightningAccess) {
       toast({
-        title: "No Connection",
-        description: "Please connect a wallet first before testing",
+        title: "❌ Connection Test Failed",
+        description: "No wallet connected",
         variant: "destructive",
       });
       return;
@@ -79,24 +112,20 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
 
     setIsTestingConnection(true);
     try {
-      // Use the prop function if available, otherwise fall back to local implementation
-      if (onTestConnection) {
-        await onTestConnection();
+      // Test the actual WebLN connection
+      if (window.webln) {
+        // First ensure WebLN is enabled
+        await window.webln.enable();
+
+        // Try to get wallet info to verify connection
+        const info = await window.webln.getInfo();
+
+        toast({
+          title: "✅ Connection Test Successful",
+          description: `Connected to ${info?.alias || 'Lightning wallet'} - Ready for payments`,
+        });
       } else {
-        // Fallback implementation
-        if (window.webln) {
-          await window.webln.enable();
-          toast({
-            title: "✅ Connection Test Successful",
-            description: "Lightning wallet connection is working properly",
-          });
-        } else {
-          toast({
-            title: "❌ Connection Test Failed",
-            description: "WebLN provider not found",
-            variant: "destructive",
-          });
-        }
+        throw new Error("WebLN provider not available");
       }
     } catch (error) {
       console.error('Connection test failed:', error);
@@ -123,7 +152,7 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
             </div>
             <div>
               <CardTitle className="flex items-center space-x-2">
-                <span>Lightning Wallet</span>
+                <span>Bitcoin Connect</span>
                 <Badge variant="outline" className="text-xs">
                   <Smartphone className="w-3 h-3 mr-1" />
                   Mobile PWA
@@ -137,7 +166,7 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
 
           {/* Connection status indicator */}
           <div className="flex items-center space-x-2">
-            {isConnected ? (
+            {isConnected && userHasLightningAccess ? (
               <Badge variant="default" className="bg-green-500">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Connected
@@ -154,11 +183,11 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
 
       <CardContent className="relative space-y-6">
         {/* Connection status section */}
-        {isConnected && connectedWallet && (
+        {isConnected && userHasLightningAccess && walletInfo && (
           <Alert>
             <CheckCircle className="h-4 w-4" />
             <AlertDescription>
-              Connected to <strong>{connectedWallet}</strong>. You can now send and receive Lightning payments.
+              Connected to <strong>{walletInfo.alias || 'Lightning Wallet'}</strong>. You can now send and receive Lightning payments.
             </AlertDescription>
           </Alert>
         )}
@@ -181,7 +210,7 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
 
         {/* Action buttons */}
         <div className="space-y-3">
-          {!isConnected ? (
+          {!isConnected || !userHasLightningAccess ? (
             <div className="space-y-2">
               {/* Bitcoin Connect Button component */}
               <Button

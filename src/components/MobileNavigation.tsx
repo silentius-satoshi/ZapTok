@@ -115,7 +115,7 @@ export function MobileNavigation() {
     { id: 'following', icon: Users, label: 'Following', path: '/' },
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    { id: 'wallet', icon: Wallet, label: 'Lightning Wallet', path: '/wallet' },
+    { id: 'wallet', icon: Wallet, label: 'Cashu Wallet', path: '/wallet' },
     { id: 'live-stream', icon: Radio, label: 'Live Stream', action: 'liveStream' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
     { id: 'upload-video', icon: PlusSquare, label: 'Upload Video', action: 'uploadVideo' },
@@ -174,7 +174,7 @@ export function MobileNavigation() {
                 {/* Wallet Icon */}
                 <button
                   onClick={() => navigate('/wallet')}
-                  aria-label="Lightning Wallet"
+                  aria-label="Cashu Wallet"
                   className="text-white/80 hover:text-white transition-colors"
                 >
                   <Wallet className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
