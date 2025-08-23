@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
+import { useLightningAddressTest } from '@/hooks/useZapPayment';
 import { Button } from '@/components/ui/button';
 import { QuickZap } from '@/components/QuickZap';
 import { Zap } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { getLightningAddress } from '@/lib/lightning';
-import { useUnifiedWallet } from '@/contexts/UnifiedWalletContext';
-import { getPaymentSuggestion } from '@/lib/lightning-providers';
 
 interface ZapButtonProps {
   recipientPubkey: string;
@@ -19,11 +18,11 @@ interface ZapButtonProps {
   iconStyle?: React.CSSProperties;
 }
 
-export function ZapButton({ 
-  recipientPubkey, 
-  eventId, 
-  className, 
-  variant = "ghost", 
+export function ZapButton({
+  recipientPubkey,
+  eventId,
+  className,
+  variant = "ghost",
   size = "sm",
   iconSize = "h-4 w-4",
   iconStyle
@@ -31,12 +30,12 @@ export function ZapButton({
   const { user } = useCurrentUser();
   const { data: authorData } = useAuthor(recipientPubkey);
   const { toast } = useToast();
-  const { isConnected: walletConnected } = useUnifiedWallet();
-  
+  const { testAddress } = useLightningAddressTest();
+
   const [isQuickZapOpen, setIsQuickZapOpen] = useState(false);
   const [showSparks, setShowSparks] = useState(false);
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (!user) {
       toast({
         title: "Login Required",
@@ -57,32 +56,27 @@ export function ZapButton({
       return;
     }
 
-    // Check if the provider is supported
-    const suggestion = getPaymentSuggestion(lightningAddress);
-    if (suggestion.isBlocked) {
-      toast({
-        title: "Provider Not Supported",
-        description: `${suggestion.message} This app works best with Alby, Stacker News, or ZBD Lightning addresses.`,
-        variant: "destructive",
-      });
-      return;
-    }
+    // Test the Lightning address with our enhanced system
+    try {
+      const testResult = await testAddress(lightningAddress);
+      if (!testResult.isSupported) {
+        toast({
+          title: "Provider Not Supported",
+          description: testResult.error || "This Lightning provider is not currently supported.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    // Check if any payment method is available
-    const hasWebLN = !!window.webln;
-    const hasWallet = walletConnected;
-    
-    if (!hasWebLN && !hasWallet) {
-      toast({
-        title: "No Payment Method Available",
-        description: "Please install the Alby browser extension or connect a wallet to send Lightning payments",
-        variant: "destructive",
-      });
-      return;
-    }
+      // If we get here, the Lightning address is working - open QuickZap
+      setIsQuickZapOpen(true);
 
-    // Open QuickZap modal - it will handle payment method selection
-    setIsQuickZapOpen(true);
+    } catch (error) {
+      // Even if the test fails, still allow trying with QuickZap
+      // The user might have a working WebLN setup
+      console.warn('Lightning address test failed, but allowing QuickZap attempt:', error);
+      setIsQuickZapOpen(true);
+    }
   };
 
   // Callback when zap is successfully sent
@@ -95,16 +89,13 @@ export function ZapButton({
   // Check if Lightning address is available and at least one payment method is available
   const lightningAddress = getLightningAddress(authorData?.metadata);
   const hasWebLN = !!window.webln;
-  const hasWallet = walletConnected;
-  const suggestion = lightningAddress ? getPaymentSuggestion(lightningAddress) : null;
-  const canZap = user && lightningAddress && (hasWebLN || hasWallet) && !suggestion?.isBlocked;
+  const canZap = user && lightningAddress;
 
   // Create tooltip message
   const getTooltipMessage = () => {
     if (!lightningAddress) return 'User has no Lightning address';
     if (!user) return 'Login to zap';
-    if (suggestion?.isBlocked) return `${suggestion.message}`;
-    if (!hasWebLN && !hasWallet) return 'Install Alby extension or connect wallet';
+    if (!hasWebLN) return 'Install Alby extension or connect wallet for best experience';
     return 'Click to send zap';
   };
 
@@ -118,17 +109,17 @@ export function ZapButton({
         disabled={!canZap}
         title={getTooltipMessage()}
       >
-        <Zap 
+        <Zap
           className={`${iconSize} transition-all duration-200 ${
-            !canZap 
-              ? 'text-gray-500' 
+            !canZap
+              ? 'text-gray-500'
               : 'text-orange-500 drop-shadow-[0_0_4px_rgba(255,165,0,0.6)] group-hover:text-orange-400 group-hover:drop-shadow-[0_0_8px_rgba(255,165,0,0.8)] group-hover:scale-110'
           } ${
             showSparks ? 'animate-bounce text-yellow-300 drop-shadow-[0_0_12px_rgba(255,255,0,1)]' : ''
           }`}
           style={iconStyle}
         />
-        
+
         {/* Electric Sparks Effect */}
         {showSparks && (
           <>

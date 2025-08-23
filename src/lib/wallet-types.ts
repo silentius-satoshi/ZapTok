@@ -39,6 +39,7 @@ declare global {
   interface Window {
     webln?: {
       enable(): Promise<void>;
+      disable?(): Promise<void>;
       sendPayment(paymentRequest: string): Promise<any>;
       isEnabled?: boolean;
       getBalance?(): Promise<any>;
@@ -57,7 +58,7 @@ declare global {
 export interface WalletContextType {
   isConnected: boolean;
   connect: () => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
   sendPayment: (invoice: string) => Promise<{ preimage: string }>;
   getBalance: () => Promise<number>;
   makeInvoice: (amount: number, memo?: string) => Promise<string>;
@@ -70,6 +71,7 @@ export interface WalletContextType {
     type?: "incoming" | "outgoing";
   }) => Promise<Transaction[]>;
   getWalletInfo: () => Promise<WalletInfo>;
+  testConnection: () => Promise<boolean>;
   provider: WebLNProvider | null;
   error: string | null;
   walletInfo: WalletInfo | null;

@@ -16,12 +16,12 @@ import {
 
 export function Settings() {
   const { config } = useAppContext();
-  
+
   useSeoMeta({
     title: 'Settings - ZapTok',
     description: 'Configure your ZapTok account settings, privacy preferences, and network options.',
   });
-  
+
   const {
     selectedSection,
     setSelectedSection,
@@ -36,7 +36,8 @@ export function Settings() {
     isConnected,
     handleBitcoinConnect,
     handleDisconnect,
-    handleNostrWalletConnect
+    handleNostrWalletConnect,
+    handleTestConnection
   } = useSettingsLogic();
 
   // Mock additional relays for display if less than 2 active
@@ -92,6 +93,7 @@ export function Settings() {
           onNostrWalletConnect={handleNostrWalletConnect}
           isConnected={isConnected}
           onDisconnect={handleDisconnect}
+          onTestConnection={handleTestConnection}
         />
       );
     }

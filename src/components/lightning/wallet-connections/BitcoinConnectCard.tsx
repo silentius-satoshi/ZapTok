@@ -1,12 +1,14 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bitcoin, Loader2, CheckCircle, AlertCircle, Zap } from 'lucide-react';
+import { Bitcoin, Loader2, CheckCircle, AlertCircle, Zap, RefreshCw } from 'lucide-react';
+import { useToast } from '@/hooks/useToast';
 
 interface BitcoinConnectCardProps {
   isConnecting: boolean;
   onConnect: () => void;
   isConnected?: boolean;
   onDisconnect?: () => void;
+  onTestConnection?: () => Promise<void>;
   userHasLightningAccess?: boolean;
   onEnableNWC?: () => void;
 }
@@ -16,9 +18,11 @@ const BitcoinConnectCard = ({
   onConnect,
   isConnected = false,
   onDisconnect,
+  onTestConnection,
   userHasLightningAccess = false,
   onEnableNWC
 }: BitcoinConnectCardProps) => {
+  const { toast } = useToast();
   // If user doesn't have Lightning access, show NWC option
   if (!userHasLightningAccess) {
     return (
@@ -73,6 +77,15 @@ const BitcoinConnectCard = ({
       <div className="flex items-center space-x-3">
         {isConnected ? (
           <>
+            <Button
+              onClick={onTestConnection}
+              variant="ghost"
+              size="sm"
+              className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Test
+            </Button>
             {onDisconnect && (
               <Button
                 onClick={onDisconnect}
@@ -80,7 +93,7 @@ const BitcoinConnectCard = ({
                 size="sm"
                 className="text-pink-400 hover:text-pink-300 hover:bg-pink-400/10"
               >
-                disconnect
+                Disconnect
               </Button>
             )}
             <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/20">

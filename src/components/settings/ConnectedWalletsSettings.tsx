@@ -13,6 +13,7 @@ interface ConnectedWalletsSettingsProps {
   onNostrWalletConnect: () => Promise<void>;
   isConnected: boolean;
   onDisconnect: () => Promise<void>;
+  onTestConnection: () => Promise<void>;
   onEnableNWC?: () => void;
 }
 
@@ -22,6 +23,7 @@ export function ConnectedWalletsSettings({
   onNostrWalletConnect,
   isConnected,
   onDisconnect,
+  onTestConnection,
   onEnableNWC
 }: ConnectedWalletsSettingsProps) {
   const { userHasLightningAccess } = useWallet();
@@ -48,7 +50,7 @@ export function ConnectedWalletsSettings({
       <div className="space-y-3">
         {shouldUseEnhancedBitcoinConnect ? (
           // Enhanced Bitcoin Connect for mobile PWA users with bunker/nsec
-          <EnhancedBitcoinConnectCard />
+          <EnhancedBitcoinConnectCard onTestConnection={onTestConnection} />
         ) : (
           // Standard Bitcoin Connect for extension users
           <BitcoinConnectCard
@@ -56,6 +58,7 @@ export function ConnectedWalletsSettings({
             onConnect={onBitcoinConnect}
             isConnected={isConnected}
             onDisconnect={onDisconnect}
+            onTestConnection={onTestConnection}
             userHasLightningAccess={userHasLightningAccess}
             onEnableNWC={onEnableNWC}
           />

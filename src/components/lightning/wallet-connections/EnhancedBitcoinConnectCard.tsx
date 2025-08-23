@@ -22,9 +22,10 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface EnhancedBitcoinConnectCardProps {
   className?: string;
+  onTestConnection?: () => Promise<void>;
 }
 
-export function EnhancedBitcoinConnectCard({ className }: EnhancedBitcoinConnectCardProps) {
+export function EnhancedBitcoinConnectCard({ className, onTestConnection }: EnhancedBitcoinConnectCardProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [connectedWallet, setConnectedWallet] = useState<string>('');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
@@ -50,11 +51,18 @@ export function EnhancedBitcoinConnectCard({ className }: EnhancedBitcoinConnect
   };
 
   const handleDisconnected = () => {
+    // Disconnect from Bitcoin Connect WebLN provider if available
+    if (window.webln?.disable) {
+      window.webln.disable().catch(console.error);
+    }
+
+    // Clear local state
     setIsConnected(false);
     setConnectedWallet('');
+
     toast({
       title: "Wallet Disconnected",
-      description: "Lightning wallet has been disconnected",
+      description: "Lightning wallet has been disconnected successfully",
       variant: "destructive",
     });
   };
@@ -71,18 +79,29 @@ export function EnhancedBitcoinConnectCard({ className }: EnhancedBitcoinConnect
 
     setIsTestingConnection(true);
     try {
-      // Test the connection with a simple enable call
-      if (window.webln) {
-        await window.webln.enable();
-        toast({
-          title: "Connection Test Successful",
-          description: "Lightning wallet connection is working properly",
-        });
+      // Use the prop function if available, otherwise fall back to local implementation
+      if (onTestConnection) {
+        await onTestConnection();
+      } else {
+        // Fallback implementation
+        if (window.webln) {
+          await window.webln.enable();
+          toast({
+            title: "✅ Connection Test Successful",
+            description: "Lightning wallet connection is working properly",
+          });
+        } else {
+          toast({
+            title: "❌ Connection Test Failed",
+            description: "WebLN provider not found",
+            variant: "destructive",
+          });
+        }
       }
     } catch (error) {
       console.error('Connection test failed:', error);
       toast({
-        title: "Connection Test Failed",
+        title: "❌ Connection Test Failed",
         description: error instanceof Error ? error.message : "Failed to test wallet connection",
         variant: "destructive",
       });

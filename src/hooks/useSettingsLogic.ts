@@ -3,11 +3,13 @@ import { useLocation } from 'react-router-dom';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useToast } from '@/hooks/useToast';
 import { useWallet } from '@/hooks/useWallet';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export function useSettingsLogic() {
   const location = useLocation();
   const { toast } = useToast();
-  const { isConnected, disconnect } = useWallet();
+  const { isConnected, disconnect, testConnection } = useWallet();
+  const { user } = useCurrentUser();
   const { config, presetRelays = [] } = useAppContext();
 
   // Settings state
@@ -71,20 +73,47 @@ export function useSettingsLogic() {
 
   const handleDisconnect = async () => {
     try {
+      // First disconnect from WebLN if it's available
+      if (window.webln?.disable) {
+        await window.webln.disable();
+      }
+
+      // Then disconnect from our local wallet context
       await disconnect();
+
+      // Also clear any Bitcoin Connect specific state if needed
+      if (user?.pubkey) {
+        localStorage.removeItem(`lightning_enabled_${user.pubkey}`);
+      }
+
       toast({
         title: "Wallet Disconnected",
-        description: "Your Lightning wallet has been disconnected."
+        description: "Your Lightning wallet has been disconnected successfully."
       });
-    } catch {
+    } catch (error) {
       toast({
         title: "Disconnect failed",
-        description: "Could not disconnect wallet",
+        description: error instanceof Error ? error.message : "Could not disconnect wallet",
         variant: "destructive"
       });
     }
   };
 
+  const handleTestConnection = async () => {
+    try {
+      await testConnection();
+      toast({
+        title: "✅ Connection Test Successful",
+        description: "Lightning wallet connection is working properly",
+      });
+    } catch (error) {
+      toast({
+        title: "❌ Connection Test Failed",
+        description: error instanceof Error ? error.message : "Failed to test wallet connection",
+        variant: "destructive",
+      });
+    }
+  };
   const handleNostrWalletConnect = async () => {
     setIsConnecting('nwc');
     try {
@@ -121,6 +150,7 @@ export function useSettingsLogic() {
     // Handlers
     handleBitcoinConnect,
     handleDisconnect,
+    handleTestConnection,
     handleNostrWalletConnect
   };
 }

@@ -258,13 +258,42 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const disconnect = () => {
-    setProvider(null);
-    setIsConnected(false);
-    setError(null);
-    setWalletInfo(null);
-    setTransactions([]);
-    setTransactionSupport(null);
+  const disconnect = async () => {
+    try {
+      // Try to disable WebLN provider if available
+      if (window.webln?.disable) {
+        await window.webln.disable();
+      }
+
+      // Clear user-specific Lightning access if user is logged in
+      if (user?.pubkey) {
+        setUserLightningEnabled(user.pubkey, false);
+        setUserHasLightningAccess(false);
+      }
+
+      // Reset local state
+      setProvider(null);
+      setIsConnected(false);
+      setError(null);
+      setWalletInfo(null);
+      setTransactions([]);
+      setTransactionSupport(null);
+    } catch (error) {
+      // Even if WebLN disable fails, still clear local state
+      console.warn('WebLN disable failed, but clearing local state:', error);
+
+      if (user?.pubkey) {
+        setUserLightningEnabled(user.pubkey, false);
+        setUserHasLightningAccess(false);
+      }
+
+      setProvider(null);
+      setIsConnected(false);
+      setError(null);
+      setWalletInfo(null);
+      setTransactions([]);
+      setTransactionSupport(null);
+    }
   };
 
   const sendPayment = async (invoice: string): Promise<{ preimage: string }> => {
@@ -374,14 +403,35 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const testConnection = async (): Promise<boolean> => {
+    try {
+      if (!provider) {
+        throw new Error('No wallet connected');
+      }
+
+      // Try to enable the provider
+      if (!provider.isEnabled) {
+        await provider.enable();
+      }
+
+      // Optionally test getInfo or getBalance to verify connection
+      if (provider.getInfo) {
+        await provider.getInfo();
+      }
+
+      return true;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Connection test failed');
+    }
+  };
+
   const getTransactionHistory = async (args?: {
-    from?: number;
-    until?: number;
     limit?: number;
     offset?: number;
     unpaid?: boolean;
-    type?: "incoming" | "outgoing";
-  }): Promise<Transaction[]> => {
+    from?: number;
+    until?: number;
+  }) => {
     if (!provider) throw new Error('No wallet connected');
 
     try {
@@ -480,6 +530,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       makeInvoice,
       getTransactionHistory,
       getWalletInfo,
+      testConnection,
       provider,
       error,
       walletInfo,
