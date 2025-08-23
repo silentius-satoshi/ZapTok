@@ -424,7 +424,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
                 </div>
 
                 <div className={isMobile
-                  ? 'absolute right-2 bottom-4 z-10'
+                  ? 'absolute right-1 bottom-4 z-10'
                   : 'flex items-end pb-8'
                 }>
                   <VideoActionButtons event={video} />

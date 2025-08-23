@@ -566,7 +566,7 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
 
                 {/* Action Buttons - Mobile: overlay on video, Desktop: outside to the right */}
                 <div className={isMobile
-                  ? 'absolute right-2 bottom-4 z-10'
+                  ? 'absolute right-1 bottom-4 z-10'
                   : 'flex items-end pb-8 ml-4'
                 }>
                   <VideoActionButtons
