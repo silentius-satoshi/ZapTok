@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import { useBookmarkVideo } from '@/hooks/useBookmarks';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { VideoEvent } from '@/lib/validateVideoEvent';
 
 interface VideoGridProps {
@@ -20,6 +21,7 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { mutate: bookmarkVideo, isPending: isRemovingBookmark } = useBookmarkVideo();
+  const isMobile = useIsMobile();
 
   const handleRemoveBookmark = (video: VideoEvent, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent video card click
@@ -39,9 +41,13 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
   };
 
   if (isLoading) {
+    // Enhanced mobile PWA loading grid - better mobile layout
+    const gridCols = isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
+    const skeletonCount = isMobile ? 4 : 6;
+
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className={`grid ${gridCols} gap-3`}>
+        {Array.from({ length: skeletonCount }).map((_, i) => (
           <Card key={i} className="aspect-[9/16] overflow-hidden">
             <CardContent className="p-0 h-full">
               <Skeleton className="w-full h-full" />
@@ -70,11 +76,20 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto scrollbar-hide">
+      {/* Enhanced mobile PWA grid layout - optimized for profile viewing */}
+      <div className={`grid gap-3 ${
+        isMobile
+          ? 'grid-cols-2 max-h-[70vh]' // Mobile PWA: 2 columns, better height management
+          : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 max-h-[600px]' // Desktop: responsive columns
+      } overflow-y-auto scrollbar-hide`}>
         {videos.map((video, index) => (
           <div
             key={video.id}
-            className="relative aspect-[9/16] cursor-pointer rounded-lg overflow-hidden hover:scale-105 transition-transform duration-200 group"
+            className={`relative aspect-[9/16] cursor-pointer rounded-lg overflow-hidden transition-all duration-200 group ${
+              isMobile
+                ? 'hover:scale-102 active:scale-95' // Mobile: subtle touch feedback
+                : 'hover:scale-105' // Desktop: standard hover effect
+            }`}
             onClick={() => handleVideoClick(index)}
           >
             <VideoCard
@@ -85,12 +100,16 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
               showVerificationBadge={showVerificationBadge}
             />
 
-            {/* Remove bookmark button */}
+            {/* Enhanced remove bookmark button for mobile */}
             {allowRemove && (
               <Button
                 variant="destructive"
                 size="sm"
-                className="absolute top-2 right-2 h-6 w-6 p-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+                className={`absolute top-2 right-2 h-6 w-6 p-0 rounded-full transition-opacity duration-200 z-10 ${
+                  isMobile
+                    ? 'opacity-80 hover:opacity-100' // Mobile: always visible but subtle
+                    : 'opacity-0 group-hover:opacity-100' // Desktop: show on hover
+                }`}
                 onClick={(e) => handleRemoveBookmark(video, e)}
                 disabled={isRemovingBookmark}
               >
@@ -101,6 +120,7 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
         ))}
       </div>
 
+      {/* Enhanced VideoModal for mobile PWA fullscreen experience */}
       <VideoModal
         isOpen={isModalOpen}
         onClose={handleModalClose}
