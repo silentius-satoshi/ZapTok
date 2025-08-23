@@ -212,8 +212,8 @@ const Profile = () => {
               {/* Profile Content - Full Width on Mobile */}
               <div className={`flex-1 overflow-y-auto scrollbar-hide ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
                 <div className={`max-w-4xl mx-auto ${isMobile ? 'p-4' : 'p-6'}`}>
-                  {/* Back to Home Button (only for other users' profiles) */}
-                  {!isOwnProfile && (
+                  {/* Back Button - Show for own profile on mobile */}
+                  {isMobile && isOwnProfile && (
                     <Link to="/">
                       <Button variant="ghost" className="mb-4">
                         <ArrowLeft className="w-4 h-4 mr-2" />

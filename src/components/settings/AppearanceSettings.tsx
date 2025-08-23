@@ -1,5 +1,4 @@
 import { SettingsSection } from "./SettingsSection";
-import { PWAInfo } from "@/components/PWAInfo";
 
 export function AppearanceSettings() {
   return (
@@ -67,11 +66,6 @@ export function AppearanceSettings() {
             className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
           />
           <span className="text-gray-500">Automatically set Dark or Light mode based on your system settings</span>
-        </div>
-
-        {/* PWA Information */}
-        <div className="mt-8">
-          <PWAInfo />
         </div>
       </div>
     </SettingsSection>

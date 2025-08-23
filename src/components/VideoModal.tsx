@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Volume2, VolumeX, SkipBack, SkipForward } from 'lucide-react';
+import { X, Volume2, VolumeX, SkipBack, SkipForward, ArrowLeft } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -138,6 +138,18 @@ export function VideoModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-none w-screen h-screen p-0 bg-black border-none">
         <div className="relative w-full h-full flex items-center justify-center">
+          {/* Back Button */}
+          <Button
+            variant="ghost"
+            size={isMobile ? "default" : "sm"}
+            className={`absolute top-4 left-4 z-50 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm ${
+              isMobile ? 'h-12 w-12' : 'h-10 w-10'
+            }`}
+            onClick={onClose}
+          >
+            <ArrowLeft className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
+          </Button>
+
           {/* Close Button */}
           <Button
             variant="ghost"
@@ -230,7 +242,7 @@ export function VideoModal({
           {isMobile && videos.length > 1 && (
             <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50">
               <div className="bg-black/40 backdrop-blur-sm rounded-full px-4 py-2 text-white text-xs">
-                {currentIndex + 1} / {videos.length} • Swipe to navigate
+                {currentIndex + 1} / {videos.length}
               </div>
             </div>
           )}
@@ -296,11 +308,6 @@ export function VideoModal({
                 {currentIndex + 1} of {videos.length}
               </div>
             </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="absolute top-4 left-4 z-50 text-white text-xs opacity-75">
-            <p>Use ← → to navigate • Space to play/pause • M to mute • Esc to close</p>
           </div>
         </div>
       </DialogContent>

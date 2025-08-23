@@ -100,7 +100,7 @@ export function KeysSettings() {
       <div className="space-y-3">
         <h3 className="text-xl font-medium">Public Key (npub)</h3>
         <div className="flex items-center gap-3">
-          <div className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg p-4 font-mono text-sm break-all">
+          <div className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg p-4 font-mono text-sm break-all overflow-hidden min-w-0">
             {publicKey || 'Not available'}
           </div>
           <Button
@@ -108,7 +108,7 @@ export function KeysSettings() {
             size="icon"
             onClick={() => copyToClipboard(publicKey, 'Public key')}
             disabled={!publicKey}
-            className="text-gray-400 hover:text-white"
+            className="text-gray-400 hover:text-white flex-shrink-0"
           >
             <Copy className="w-4 h-4" />
           </Button>
@@ -136,14 +136,14 @@ export function KeysSettings() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg p-4 font-mono text-sm break-all">
+          <div className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg p-4 font-mono text-sm break-all overflow-hidden min-w-0">
             {canShowPrivateKey ? (
               showPrivateKey ? privateKey : '•'.repeat(64)
             ) : (
               showPrivateKey ? '***** Private key not accessible *****' : '•'.repeat(32)
             )}
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-shrink-0">
             <Button
               variant="ghost"
               size="icon"

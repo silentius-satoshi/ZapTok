@@ -7,6 +7,7 @@ import { SettingsSection } from './SettingsSection';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useCaching } from '@/contexts/CachingContext';
 import { useToast } from '@/hooks/useToast';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface NetworkSettingsProps {
   customRelay: string;
@@ -32,6 +33,7 @@ export function NetworkSettings({
   const { config, addRelay, removeRelay } = useAppContext();
   const { currentService, connectToCachingService, disconnectCachingService } = useCaching();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [cachingServiceInput, setCachingServiceInput] = useState('');
   const [isConnectingToCaching, setIsConnectingToCaching] = useState(false);
 
@@ -155,11 +157,11 @@ export function NetworkSettings({
   };
 
   return (
-    <SettingsSection className="space-y-6 px-6 pt-6 pb-6">
+    <SettingsSection className={`space-y-6 ${isMobile ? 'px-4 pt-4 pb-4' : 'px-6 pt-6 pb-6'}`}>
       {/* Caching Service Section */}
-      <div className="pb-6 border-b border-gray-800">
-        <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-lg font-semibold text-white">Caching Service</h3>
+      <div className={`border-b border-gray-800 ${isMobile ? 'pb-4' : 'pb-6'}`}>
+        <div className={`flex items-center gap-2 ${isMobile ? 'mb-3' : 'mb-4'}`}>
+          <h3 className={`font-semibold text-white ${isMobile ? 'text-base' : 'text-lg'}`}>Caching Service</h3>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -177,17 +179,17 @@ export function NetworkSettings({
           </TooltipProvider>
         </div>
 
-        <div className="space-y-6">
+        <div className={`space-y-6 ${isMobile ? 'space-y-4' : ''}`}>
           <div>
-            <p className="text-gray-400 mb-3">Connected caching service</p>
+            <p className={`text-gray-400 ${isMobile ? 'mb-2 text-sm' : 'mb-3'}`}>Connected caching service</p>
             {currentService ? (
-              <div className="flex items-center gap-4 text-lg py-3">
+              <div className={`flex items-center gap-4 py-3 ${isMobile ? 'text-base' : 'text-lg'}`}>
                 <div className={`w-3 h-3 rounded-full ${currentService.isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
                 <span className="text-gray-300 truncate flex-1">{currentService.url}</span>
-                <div className="flex items-center gap-2 ml-auto">
+                <div className={`flex items-center gap-2 ml-auto ${isMobile ? 'flex-col' : ''}`}>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size={isMobile ? "sm" : "sm"}
                     className="text-gray-500 hover:text-gray-300 hover:bg-gray-700"
                     onClick={() => disconnectCachingService()}
                   >
@@ -195,7 +197,7 @@ export function NetworkSettings({
                   </Button>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size={isMobile ? "sm" : "sm"}
                     className="text-red-500 hover:text-red-400 hover:bg-red-500/10 p-1"
                     onClick={() => {
                       disconnectCachingService();
@@ -210,7 +212,7 @@ export function NetworkSettings({
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-4 text-lg">
+              <div className={`flex items-center gap-4 ${isMobile ? 'text-base' : 'text-lg'}`}>
                 <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
                 <span className="text-gray-400">No caching service connected</span>
               </div>
@@ -218,7 +220,7 @@ export function NetworkSettings({
           </div>
 
           <div>
-            <p className="text-gray-400 mb-3">Connect to a different caching service</p>
+            <p className={`text-gray-400 ${isMobile ? 'mb-2 text-sm' : 'mb-3'}`}>Connect to a different caching service</p>
             <div className="flex items-center gap-2">
               <div className="flex-1 relative">
                 <input
@@ -232,7 +234,9 @@ export function NetworkSettings({
                     }
                   }}
                   disabled={isConnectingToCaching}
-                  className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 disabled:opacity-50"
+                  className={`w-full bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 disabled:opacity-50 ${
+                    isMobile ? 'p-2 text-sm' : 'p-3'
+                  }`}
                 />
                 <button
                   onClick={handleConnectToCachingService}

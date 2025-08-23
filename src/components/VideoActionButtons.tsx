@@ -117,7 +117,7 @@ export function VideoActionButtons({
 
   return (
     <>
-      <div className={`flex items-center ${isMobile ? 'flex-col gap-4 w-16' : 'flex-col gap-3 w-28'}`}>
+      <div className={`flex items-center ${isMobile ? 'flex-col gap-1.5 w-16' : 'flex-col gap-2.5 w-28'}`}>
         {/* 1. Profile Picture with Follow Button (no click functionality on profile picture) */}
         <div className="relative">
           <div className={`rounded-full p-0 overflow-hidden bg-transparent ${
@@ -158,10 +158,10 @@ export function VideoActionButtons({
             <div className={`rounded-full bg-transparent text-white flex items-center justify-center ${
               isMobile ? 'h-12 w-12' : 'h-20 w-20'
             }`}>
-              <Zap 
-                className={`text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]`} 
+              <Zap
+                className={`text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]`}
                 style={isMobile ? { width: '1.75rem', height: '1.75rem' } : { width: '4.5rem', height: '4.5rem' }}
-                fill="currentColor" 
+                fill="currentColor"
               />
             </div>
           ) : (
@@ -169,9 +169,9 @@ export function VideoActionButtons({
             <ZapButton
               recipientPubkey={event.pubkey}
               eventId={event.id}
-              iconStyle={{ 
-                width: isMobile ? '28px' : '30px', 
-                height: isMobile ? '28px' : '30px' 
+              iconStyle={{
+                width: isMobile ? '28px' : '30px',
+                height: isMobile ? '28px' : '30px'
               }}
               className={`rounded-full bg-transparent hover:bg-white/10 text-white p-0 ${
                 isMobile ? 'h-12 w-12' : 'h-20 w-20'
@@ -208,11 +208,11 @@ export function VideoActionButtons({
             }`}
             onClick={handleComment}
           >
-            <MessageCircle 
+            <MessageCircle
               className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200`}
-              style={{ 
-                width: isMobile ? '28px' : '30px', 
-                height: isMobile ? '28px' : '30px' 
+              style={{
+                width: isMobile ? '28px' : '30px',
+                height: isMobile ? '28px' : '30px'
               }}
             />
           </Button>
@@ -232,11 +232,11 @@ export function VideoActionButtons({
             onClick={handleRepost}
             disabled={isRepostPending || !user}
           >
-            <Repeat2 
+            <Repeat2
               className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-green-300 group-hover:scale-110 transition-all duration-200`}
-              style={{ 
-                width: isMobile ? '28px' : '30px', 
-                height: isMobile ? '28px' : '30px' 
+              style={{
+                width: isMobile ? '28px' : '30px',
+                height: isMobile ? '28px' : '30px'
               }}
             />
           </Button>
@@ -256,15 +256,15 @@ export function VideoActionButtons({
             onClick={handleBookmark}
             disabled={isBookmarkPending}
           >
-            <Bookmark 
+            <Bookmark
               className={`transition-all duration-200 ${
                 isCurrentlyBookmarked
                   ? 'fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]'
                   : 'text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-yellow-300 group-hover:scale-110'
               }`}
-              style={{ 
-                width: isMobile ? '28px' : '30px', 
-                height: isMobile ? '28px' : '30px' 
+              style={{
+                width: isMobile ? '28px' : '30px',
+                height: isMobile ? '28px' : '30px'
               }}
             />
           </Button>
