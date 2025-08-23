@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { devLog, devWarn, bundleLog } from '@/lib/devConsole';
 
 interface VideoEvent extends NostrEvent {
   videoUrl?: string;
@@ -16,7 +17,7 @@ export function useVideoCache() {
     try {
       // Simple IndexedDB wrapper for video metadata
       const request = indexedDB.open('ZapTokCache', 1);
-      
+
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains('videoMetadata')) {
@@ -24,12 +25,12 @@ export function useVideoCache() {
           store.createIndex('cached_at', 'cached_at');
         }
       };
-      
+
       request.onsuccess = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
         const transaction = db.transaction(['videoMetadata'], 'readwrite');
         const store = transaction.objectStore('videoMetadata');
-        
+
         videoData.forEach(video => {
           const cacheEntry = {
             ...video,
@@ -39,26 +40,26 @@ export function useVideoCache() {
           };
           store.put(cacheEntry);
         });
-        
+
         transaction.oncomplete = () => {
         if (import.meta.env.DEV) {
-          console.log('Video metadata cached successfully');
+          bundleLog('videoCaching', `Video metadata cached successfully (${videoData.length} items)`);
         }
         };
-        
+
         transaction.onerror = (error) => {
-          console.warn('Failed to cache video metadata:', error);
+          devWarn('Failed to cache video metadata', { error });
         };
       };
-      
+
       request.onerror = (error) => {
-        console.warn('Failed to open IndexedDB:', error);
+        devWarn('Failed to open IndexedDB', { error });
       };
     } catch (error) {
-      console.warn('IndexedDB not supported or failed:', error);
+      devWarn('IndexedDB not supported or failed', { error });
     }
   }, []);
-  
+
   // Preload video thumbnails
   const preloadThumbnails = useCallback((thumbnailUrls: string[]) => {
     thumbnailUrls.forEach(url => {
@@ -69,7 +70,7 @@ export function useVideoCache() {
           // Successfully preloaded
         };
         img.onerror = () => {
-          console.warn('Failed to preload thumbnail:', url);
+          bundleLog('thumbnailPreloadErrors', `Failed to preload thumbnail: ${url}`);
         };
         img.src = url;
       }
@@ -82,16 +83,16 @@ export function useVideoCache() {
 
     try {
       const request = indexedDB.open('ZapTokCache', 1);
-      
+
       request.onsuccess = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
         const transaction = db.transaction(['videoMetadata'], 'readwrite');
         const store = transaction.objectStore('videoMetadata');
         const index = store.index('cached_at');
-        
+
         const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
         const range = IDBKeyRange.upperBound(weekAgo);
-        
+
         index.openCursor(range).onsuccess = (event) => {
           const cursor = (event.target as IDBRequest).result;
           if (cursor) {
@@ -101,9 +102,9 @@ export function useVideoCache() {
         };
       };
     } catch (error) {
-      console.warn('Failed to clean cache:', error);
+      devWarn('Failed to clean cache', { error });
     }
   }, []);
-  
+
   return { cacheVideoMetadata, preloadThumbnails, cleanCache };
 }

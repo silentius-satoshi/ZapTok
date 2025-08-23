@@ -1,6 +1,7 @@
 import { useNostr } from "@nostrify/react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { bundleLog } from "@/lib/logBundler";
+import { devLog } from "@/lib/devConsole";
 
 import { useCurrentUser } from "./useCurrentUser";
 import {
@@ -41,7 +42,7 @@ export function useNostrPublish(): UseMutationResult<NostrEvent> {
             const parsed = JSON.parse(processedContent);
             // Re-serialize to ensure consistent formatting
             processedContent = JSON.stringify(parsed);
-            console.log('[useNostrPublish] Kind 0 metadata validated and normalized');
+            devLog('[useNostrPublish] Kind 0 metadata validated and normalized');
           } catch (error) {
             throw new Error(`Kind 0 events must have valid JSON content: ${error}`);
           }
@@ -71,7 +72,7 @@ export function useNostrPublish(): UseMutationResult<NostrEvent> {
         }
 
         // Log event details for debugging with relay targeting info
-        console.log('[useNostrPublish] 📤 Publishing NIP-01 compliant event:', {
+        devLog('[useNostrPublish] 📤 Publishing NIP-01 compliant event:', {
           kind: event.kind,
           tagsCount: event.tags.length,
           contentLength: event.content.length,
@@ -92,7 +93,7 @@ export function useNostrPublish(): UseMutationResult<NostrEvent> {
             content: event.content
           };
           const serialized = serializeEventForId(serializable);
-          console.log('[useNostrPublish] Event serialization for ID (dev):', {
+          devLog('[useNostrPublish] Event serialization for ID (dev):', {
             serializedLength: serialized.length,
             hasValidChars: /^[\x20-\x7E]*$/.test(serialized), // Printable ASCII
           });
@@ -111,7 +112,7 @@ export function useNostrPublish(): UseMutationResult<NostrEvent> {
           await nostr.event(event, { signal: AbortSignal.timeout(10000) });
 
           const publishDuration = Date.now() - publishStartTime;
-          console.log('[useNostrPublish] ✅ Event published successfully', {
+          devLog('[useNostrPublish] ✅ Event published successfully', {
             eventId: event.id.slice(0, 12) + '...',
             kind: event.kind,
             duration: `${publishDuration}ms`,

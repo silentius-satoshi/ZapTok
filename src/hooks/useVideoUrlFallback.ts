@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { devLog, bundleLog } from '@/lib/devConsole';
 
 interface VideoUrlFallbackOptions {
   originalUrl?: string;
@@ -13,18 +14,18 @@ export function useVideoUrlFallback({ originalUrl, hash, title }: VideoUrlFallba
 
   useEffect(() => {
     if (!originalUrl && !hash) return;
-    
+
     const testUrls = async () => {
       if (isTestingUrls) return;
       setIsTestingUrls(true);
 
       // Prepare list of URLs to test
       const urlsToTest: string[] = [];
-      
+
       if (originalUrl && !testedUrls.has(originalUrl)) {
         urlsToTest.push(originalUrl);
       }
-      
+
       if (hash) {
         const hashUrls = [
           `https://cdn.satellite.earth/${hash}`,
@@ -33,7 +34,7 @@ export function useVideoUrlFallback({ originalUrl, hash, title }: VideoUrlFallba
           `https://nostr.download/${hash}.mp4`,
           `https://void.cat/${hash}`,
         ];
-        
+
         hashUrls.forEach(url => {
           if (!testedUrls.has(url)) {
             urlsToTest.push(url);
@@ -54,43 +55,43 @@ export function useVideoUrlFallback({ originalUrl, hash, title }: VideoUrlFallba
       for (const url of urlsToTest.slice(0, 3)) { // Limit to first 3 to avoid overwhelming
         try {
           urlTestingStats.testedUrls++;
-          
+
           const response = await Promise.race([
             fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(2000) }),
-            new Promise<never>((_, reject) => 
+            new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error('Timeout')), 2000)
             )
           ]);
-          
+
           if (response.ok) {
             urlTestingStats.workingUrl = url.split('/').pop()?.slice(0, 12) + '...';
-            
+
             if (import.meta.env.DEV) {
-              console.log(`🎬 URL Test [${urlTestingStats.title}]: Found working URL (${urlTestingStats.testedUrls}/${urlTestingStats.totalUrls} tested)`);
+              bundleLog('videoUrlTesting', `🎬 URL Test [${urlTestingStats.title}]: Found working URL (${urlTestingStats.testedUrls}/${urlTestingStats.totalUrls} tested)`);
             }
-            
+
             setWorkingUrl(url);
             setTestedUrls(prev => new Set([...prev, url]));
             foundWorkingUrl = true;
             break;
           } else {
-            console.log('❌ URL failed:', response.status, url);
+            bundleLog('videoUrlErrors', `❌ URL failed: ${response.status} ${url}`);
           }
         } catch (error) {
-          console.log('🚫 URL test error:', error instanceof Error ? error.message : 'Unknown error', url);
+          bundleLog('videoUrlErrors', `🚫 URL test error: ${error instanceof Error ? error.message : 'Unknown error'} - ${url}`);
         }
-        
+
         setTestedUrls(prev => new Set([...prev, url]));
       }
-      
+
       // If no working URL was found after testing all URLs, set to null
       if (!foundWorkingUrl && urlsToTest.length > 0) {
         if (import.meta.env.DEV) {
-          console.log(`❌ URL Test [${urlTestingStats.title}]: No working URLs found (${urlTestingStats.testedUrls}/${urlTestingStats.totalUrls} tested)`);
+          bundleLog('videoUrlTesting', `❌ URL Test [${urlTestingStats.title}]: No working URLs found (${urlTestingStats.testedUrls}/${urlTestingStats.totalUrls} tested)`);
         }
         setWorkingUrl(null);
       }
-      
+
       setIsTestingUrls(false);
     };
 
