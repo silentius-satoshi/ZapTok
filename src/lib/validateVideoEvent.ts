@@ -1,5 +1,7 @@
 import type { NostrEvent } from '@nostrify/nostrify';
 
+import { bundleLog } from './logBundler';
+
 export interface VideoEvent extends NostrEvent {
   videoUrl?: string;
   thumbnail?: string;
@@ -151,7 +153,7 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
   // NIP-71 events should have either a video URL from imeta or a hash
   if (!videoData.videoUrl && !videoData.hash) {
     if (import.meta.env.DEV) {
-      console.log(`❌ NIP-71 [${validationInfo.id}]: No video URL or hash found`);
+      bundleLog('video-validation', `❌ NIP-71 [${validationInfo.id}]: No video URL or hash found`);
     }
     return null;
   }
@@ -165,7 +167,7 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
 
   // Only log validation failures in development
   if (import.meta.env.DEV && !validationInfo.videoUrl) {
-    console.warn(`❌ NIP-71 [${validationInfo.id}]: ${validationInfo.title} - Missing video URL`);
+    bundleLog('video-validation', `❌ NIP-71 [${validationInfo.id}]: ${validationInfo.title} - Missing video URL`);
   }
 
   return videoData;

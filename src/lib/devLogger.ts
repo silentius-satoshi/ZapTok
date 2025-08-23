@@ -3,6 +3,8 @@
  * Only active in development mode
  */
 
+import { bundleLog } from './logBundler';
+
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 type LogCategory = 'relay' | 'cashu' | 'route' | 'wallet' | 'general';
 
@@ -86,6 +88,14 @@ class DevLogger {
   }
 
   private printEntry(entry: LogEntry) {
+    // Use bundling for high-frequency relay logs
+    if (entry.category === 'relay' && entry.level === 'debug') {
+      const bundleKey = `${entry.category}-${entry.level}`;
+      bundleLog(bundleKey, `${entry.message}${entry.data ? ` (${JSON.stringify(entry.data)})` : ''}`);
+      return;
+    }
+
+    // Regular logging for important messages
     const categoryColor = this.categoryColors[entry.category];
     const levelStyle = this.levelStyles[entry.level];
 
