@@ -34,6 +34,9 @@ interface LightningInvoiceResponse {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Get the origin first
+  const origin = req.headers.origin;
+  
   // Set CORS headers for your domain only
   const allowedOrigins = [
     'https://zaptok.vercel.app', // Production domain
@@ -42,8 +45,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     'http://localhost:3000', // Alternative dev port
   ];
 
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin || '')) {
+  // Also allow any *.vercel.app subdomain for your deployments
+  const isVercelDomain = origin && origin.match(/^https:\/\/.*\.vercel\.app$/);
+  const isGitHubPages = origin && origin.includes('silentius-satoshi.github.io');
+
+  if (allowedOrigins.includes(origin || '') || isVercelDomain || isGitHubPages) {
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
   }
 
