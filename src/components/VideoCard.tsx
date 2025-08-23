@@ -4,10 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useVideoRegistration } from '@/hooks/useVideoRegistration';
 import { useVideoUrlFallback } from '@/hooks/useVideoUrlFallback';
+import { useUserInteraction } from '@/contexts/UserInteractionContext';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { usePWA } from '@/hooks/usePWA';
 import { genUserName } from '@/lib/genUserName';
 import { useNavigate } from 'react-router-dom';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { bundleLog } from '@/lib/logBundler';
+import { devError, devLog } from '@/lib/devConsole';
 
 interface VideoCardProps {
   event: NostrEvent & {
@@ -31,6 +35,8 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const videoRef = useVideoRegistration(); // Use the video registration hook
   const navigate = useNavigate();
   const author = useAuthor(event.pubkey);
+  const isMobile = useIsMobile();
+  const { isStandalone, isInstalled } = usePWA();
 
   // Use fallback URL system to find working video URLs
   const { workingUrl, isTestingUrls } = useVideoUrlFallback({
@@ -56,6 +62,37 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
 
   const authorMetadata = author.data?.metadata;
   const displayName = authorMetadata?.name || authorMetadata?.display_name || genUserName(event.pubkey);
+
+  // PWA visibility change handling for mobile apps
+  useEffect(() => {
+    const isPWAMobile = isMobile && (isStandalone || isInstalled);
+
+    if (!isPWAMobile) return;
+
+    const handleVisibilityChange = () => {
+      const videoElement = videoRef.current;
+      if (!videoElement || !isActive) return;
+
+      if (document.hidden) {
+        // App went to background - pause video to save battery
+        if (!videoElement.paused) {
+          videoElement.pause();
+          bundleLog('mobilePWAInteraction', '📱 PWA went to background - paused video');
+        }
+      } else {
+        // App came to foreground - resume if not user paused
+        if (!userPaused && videoElement.paused) {
+          videoElement.play().catch(() => {
+            // Silently handle play failures
+          });
+          bundleLog('mobilePWAInteraction', '📱 PWA returned to foreground - resumed video');
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isMobile, isStandalone, isInstalled, isActive, userPaused, videoRef]);
 
   // Bundle video card debugging logs
   const videoDebugRef = useRef({
@@ -88,7 +125,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     if (!videoElement) return;
 
     const handleError = (error: Event) => {
-      console.error('Video error for event:', event.id, 'URL:', workingUrl, 'Error:', error);
+      devError('Video error', { eventId: event.id, url: workingUrl, error });
     };
 
     const handleLoadedData = () => {
@@ -120,15 +157,55 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     if (isActive) {
       // When video becomes active, reset to beginning and auto-play if user hasn't manually paused
       videoElement.currentTime = 0; // Reset video to beginning
+      videoElement.muted = false; // Unmute the active video for audio playback
+
       if (!userPaused) {
-        videoElement.play().catch((error) => {
-          console.error('Auto-play failed:', error);
-        });
-        setIsPlaying(true);
+        // Enhanced PWA mobile autoplay strategy
+        const isPWAMobile = isMobile && (isStandalone || isInstalled);
+        const playPromise = videoElement.play();
+
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              // Autoplay with audio succeeded
+              bundleLog('videoAutoPlay', `✅ Video autoplay with audio successful${isPWAMobile ? ' (PWA Mobile)' : ''}`);
+              setIsPlaying(true);
+            })
+            .catch((error) => {
+              // If autoplay with audio fails, try muted autoplay as fallback
+              bundleLog('videoAutoPlayErrors', `Audio autoplay failed, trying muted fallback: ${error.message}${isPWAMobile ? ' (PWA Mobile)' : ''}`);
+              videoElement.muted = true;
+
+              const mutedPlayPromise = videoElement.play();
+              if (mutedPlayPromise !== undefined) {
+                mutedPlayPromise
+                  .then(() => {
+                    bundleLog('videoAutoPlay', `✅ Muted autoplay successful${isPWAMobile ? ' (PWA Mobile)' : ''}`);
+                    setIsPlaying(true);
+
+                    // For PWA mobile, try to unmute after a short delay if user interacted
+                    if (isPWAMobile) {
+                      setTimeout(() => {
+                        if (!userPaused && isActive && videoElement) {
+                          videoElement.muted = false;
+                          bundleLog('videoAutoPlay', '🔊 PWA Mobile: Attempting to unmute after muted autoplay');
+                        }
+                      }, 1000);
+                    }
+                  })
+                  .catch((mutedError) => {
+                    bundleLog('videoAutoPlayErrors', `❌ Even muted autoplay failed: ${mutedError.message}${isPWAMobile ? ' (PWA Mobile)' : ''}`);
+                  });
+              }
+            });
+        } else {
+          setIsPlaying(true);
+        }
       }
     } else {
-      // When video becomes inactive, always pause and reset user pause state
+      // When video becomes inactive, always pause, mute, and reset user pause state
       videoElement.pause();
+      videoElement.muted = true; // Mute inactive videos
       setIsPlaying(false);
       setUserPaused(false);
     }
@@ -144,7 +221,19 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
+    const isPWAMobile = isMobile && (isStandalone || isInstalled);
+
     if (videoElement.paused) {
+      // When manually playing, ensure audio is enabled for active video
+      if (isActive) {
+        videoElement.muted = false;
+
+        // For PWA mobile, additional interaction tracking
+        if (isPWAMobile) {
+          bundleLog('mobilePWAInteraction', '👆 User manually played video in PWA');
+        }
+      }
+
       videoElement.play().catch(() => {
         // Ignore play failures
       });
@@ -176,9 +265,23 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
           className="w-full h-full object-cover cursor-pointer"
           loop
           playsInline
+          muted={!isActive} // Mute inactive videos, unmute active video
+          preload={isActive ? "auto" : "metadata"} // Aggressive preloading for active videos
+          webkit-playsinline="true" // iOS Safari compatibility
+          x5-video-player-type="h5" // WeChat browser optimization
+          x5-video-player-fullscreen="true" // WeChat fullscreen optimization
           onClick={handlePlayPause}
           onPlay={handleVideoPlay}
           onPause={handleVideoPause}
+          onTouchStart={(e) => {
+            // PWA mobile touch optimization
+            const isPWAMobile = isMobile && (isStandalone || isInstalled);
+            if (isPWAMobile) {
+              // Prevent default to avoid mobile browser interference
+              e.preventDefault();
+              bundleLog('mobilePWAInteraction', '👆 Touch interaction on video in PWA');
+            }
+          }}
         />
       ) : isTestingUrls ? (
         <div className="w-full h-full bg-gray-900 flex items-center justify-center">

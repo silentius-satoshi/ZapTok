@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { VideoCard } from '@/components/VideoCard';
@@ -17,8 +17,14 @@ import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { devLog } from '@/lib/devConsole';
+import { bundleLog } from '@/lib/logBundler';
 
-export function GlobalVideoFeed() {
+export interface GlobalVideoFeedRef {
+  refresh: () => void;
+}
+
+export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   const { nostr } = useNostr();
   const { currentService } = useCaching();
   const { user } = useCurrentUser();
@@ -34,10 +40,10 @@ export function GlobalVideoFeed() {
   // Lock body scroll on mobile to prevent dual scrolling
   useEffect(() => {
     if (!isMobile) return;
-    
+
     const original = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
-    
+
     return () => {
       document.documentElement.style.overflow = original;
     };
@@ -55,11 +61,12 @@ export function GlobalVideoFeed() {
     isFetchingNextPage,
     isLoading,
     error,
+    refetch,
   } = useInfiniteQuery({
     queryKey: ['global-video-feed', currentService?.url],
     queryFn: async ({ pageParam, signal }) => {
-      console.log(`🌍 Fetching global video content`);
-      
+      bundleLog('globalVideoFetch', '🌍 Fetching global video content');
+
       // Get global video content from all users
       const events = await nostr.query([
         {
@@ -69,48 +76,48 @@ export function GlobalVideoFeed() {
         }
       ], { signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]) });
 
-      console.log(`🌍 Found ${events.length} global video events`);
+      bundleLog('globalVideoProcessing', `🌍 Found ${events.length} global video events`);
 
       // Filter out videos from users we're already following to avoid duplicates
       const followedPubkeys = new Set(following.data?.pubkeys || []);
       const unfollowedEvents = events.filter(event => !followedPubkeys.has(event.pubkey));
 
-      console.log(`🌍 Filtered to ${unfollowedEvents.length} videos from unfollowed users`);
+      bundleLog('globalVideoFiltering', `🌍 Filtered to ${unfollowedEvents.length} videos from unfollowed users (${events.length} → ${unfollowedEvents.length})`);
 
       // Filter and validate video events
       const uniqueEvents = new Map<string, NostrEvent>();
       const seenVideoUrls = new Set<string>();
-      
+
       unfollowedEvents.forEach(event => {
         if (!hasVideoContent(event)) return;
-        
+
         // Log what types of video events we're finding
         if (event.kind === 21) {
-          console.log('🌍📹 Found NIP-71 normal video event:', event.content.substring(0, 50));
+          bundleLog('nipVideoEvents', `🌍📹 Found NIP-71 normal video event: ${event.content.substring(0, 50)}`);
         } else if (event.kind === 22) {
-          console.log('🌍📱 Found NIP-71 short video event:', event.content.substring(0, 50));
+          bundleLog('nipVideoEvents', `🌍📱 Found NIP-71 short video event: ${event.content.substring(0, 50)}`);
         }
-        
+
         // Only keep the latest version of each event ID
         const existing = uniqueEvents.get(event.id);
         if (existing && event.created_at <= existing.created_at) return;
-        
+
         uniqueEvents.set(event.id, event);
       });
 
       // Validate events and deduplicate by video URL
       const validatedEvents: VideoEvent[] = [];
-      
+
       for (const event of uniqueEvents.values()) {
         const videoEvent = validateVideoEvent(event);
         if (!videoEvent || !videoEvent.videoUrl) continue;
-        
-        console.log(`🌍✅ Valid global video event [kind ${event.kind}]:`, videoEvent.title || 'No title');
-        
+
+        bundleLog('validVideoEvents', `🌍✅ Valid global video event [kind ${event.kind}]: ${videoEvent.title || 'No title'}`);
+
         // Normalize URL for comparison
         const normalizedUrl = normalizeVideoUrl(videoEvent.videoUrl);
         if (seenVideoUrls.has(normalizedUrl)) continue;
-        
+
         seenVideoUrls.add(normalizedUrl);
         validatedEvents.push(videoEvent);
       }
@@ -122,7 +129,7 @@ export function GlobalVideoFeed() {
         cacheVideoMetadata(videoEvents);
       }
 
-      console.log(`⚡ Processed ${videoEvents.length} global videos in current batch`);
+      bundleLog('globalVideoBatch', `⚡ Processed ${videoEvents.length} global videos in current batch`);
       return videoEvents;
     },
     getNextPageParam: (lastPage) => {
@@ -138,6 +145,14 @@ export function GlobalVideoFeed() {
     refetchOnMount: false,
   });
 
+  // Expose refresh function to parent
+  useImperativeHandle(ref, () => ({
+    refresh: () => {
+      bundleLog('globalVideoRefresh', '🔄 Manual refresh triggered for global feed');
+      refetch();
+    }
+  }), [refetch]);
+
   const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
 
   // Background prefetching
@@ -148,11 +163,11 @@ export function GlobalVideoFeed() {
         const thumbnailUrls = videos
           .map(event => event.thumbnail)
           .filter(Boolean) as string[];
-        
+
         if (authorPubkeys.length > 0) {
           batchLoadProfiles(authorPubkeys.slice(0, 20)).catch(() => {});
         }
-        
+
         if (thumbnailUrls.length > 0) {
           preloadThumbnails(thumbnailUrls.slice(0, 10));
         }
@@ -202,7 +217,7 @@ export function GlobalVideoFeed() {
             videoElement.play().catch(() => {
               // Autoplay failed, user interaction required
             });
-            
+
             // Update current video context
             const videoIndex = parseInt(entry.target.getAttribute('data-video-index') || '0');
             if (videos[videoIndex]) {
@@ -234,7 +249,7 @@ export function GlobalVideoFeed() {
     if (containerRef.current) {
       const videoHeight = window.innerHeight;
       const targetTop = index * videoHeight;
-      
+
       containerRef.current.scrollTo({
         top: targetTop,
         behavior: 'smooth'
@@ -249,15 +264,15 @@ export function GlobalVideoFeed() {
 
     const handleScroll = () => {
       if (isScrollingRef.current) return;
-      
+
       const scrollTop = container.scrollTop;
       const videoHeight = window.innerHeight;
       const newIndex = Math.round(scrollTop / videoHeight);
-      
+
       if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < videos.length) {
         setCurrentVideoIndex(newIndex);
       }
-      
+
       lastScrollTopRef.current = scrollTop;
     };
 
@@ -274,19 +289,19 @@ export function GlobalVideoFeed() {
 
     const handleScrollEnd = () => {
       if (isScrollingRef.current) return;
-      
+
       const scrollTop = container.scrollTop;
       const videoHeight = window.innerHeight;
       const targetIndex = Math.round(scrollTop / videoHeight);
       const targetScrollTop = targetIndex * videoHeight;
-      
+
       if (Math.abs(scrollTop - targetScrollTop) > 10) {
         isScrollingRef.current = true;
         container.scrollTo({
           top: targetScrollTop,
           behavior: 'smooth'
         });
-        
+
         setTimeout(() => {
           isScrollingRef.current = false;
         }, 300);
@@ -301,7 +316,7 @@ export function GlobalVideoFeed() {
     };
 
     container.addEventListener('scroll', handleScrollWithTimer, { passive: true });
-    
+
     return () => {
       container.removeEventListener('scroll', handleScrollWithTimer);
       clearTimeout(scrollTimer);
@@ -311,7 +326,7 @@ export function GlobalVideoFeed() {
   // Auto-load more videos
   useEffect(() => {
     if (videos.length >= 5 && currentVideoIndex >= videos.length - 3 && hasNextPage && !isFetchingNextPage) {
-      console.log(`📖 Auto-loading more global videos... (current: ${currentVideoIndex}, total: ${videos.length})`);
+      devLog(`📖 Auto-loading more global videos... (current: ${currentVideoIndex}, total: ${videos.length})`);
       fetchNextPage();
     }
   }, [currentVideoIndex, videos.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
@@ -343,9 +358,9 @@ export function GlobalVideoFeed() {
               <p className="text-sm text-gray-500 mb-4">
                 Try switching to a different relay or check back later
               </p>
-              <Button 
-                onClick={() => navigate('/settings?section=network')} 
-                variant="outline" 
+              <Button
+                onClick={() => navigate('/settings?section=network')}
+                variant="outline"
                 className="w-full"
               >
                 <Settings className="h-4 w-4 mr-2" />
@@ -366,7 +381,7 @@ export function GlobalVideoFeed() {
           : "relative w-full h-full"
       }
     >
-      <div 
+      <div
         ref={containerRef}
         className={
           isMobile
@@ -387,8 +402,8 @@ export function GlobalVideoFeed() {
             >
               <div className={`flex w-full items-end h-full ${isMobile ? 'flex-col relative' : 'gap-6 max-w-2xl py-4'}`}>
                 <div className={`overflow-hidden bg-black shadow-2xl hover:shadow-3xl transition-all duration-300 ${
-                  isMobile 
-                    ? 'w-full h-full border-none' 
+                  isMobile
+                    ? 'w-full h-full border-none'
                     : 'flex-1 h-full rounded-3xl border-2 border-gray-800'
                 }`}>
                   <VideoCard
@@ -407,9 +422,9 @@ export function GlobalVideoFeed() {
                     }}
                   />
                 </div>
-                
-                <div className={isMobile 
-                  ? 'absolute right-2 bottom-16 z-10' 
+
+                <div className={isMobile
+                  ? 'absolute right-2 bottom-16 z-10'
                   : 'flex items-end pb-8'
                 }>
                   <VideoActionButtons event={video} />
@@ -417,7 +432,7 @@ export function GlobalVideoFeed() {
               </div>
             </div>
           ))}
-          
+
           {isFetchingNextPage && (
             <div className={isMobile ? "mobile-video-item flex items-center justify-center" : "h-screen flex items-center justify-center"}>
               <div className="text-center">
@@ -429,4 +444,6 @@ export function GlobalVideoFeed() {
       </div>
     </div>
   );
-}
+});
+
+GlobalVideoFeed.displayName = 'GlobalVideoFeed';

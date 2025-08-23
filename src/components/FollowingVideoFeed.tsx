@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { VideoCard } from '@/components/VideoCard';
@@ -18,7 +18,11 @@ import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { bundleLog } from '@/lib/logBundler';
-export function FollowingVideoFeed() {
+export interface FollowingVideoFeedRef {
+  refresh: () => void;
+}
+
+export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref) => {
   const { nostr } = useNostr();
   const { currentService } = useCaching();
   const { user } = useCurrentUser();
@@ -55,6 +59,7 @@ export function FollowingVideoFeed() {
     isFetchingNextPage,
     isLoading,
     error,
+    refetch,
   } = useInfiniteQuery({
     queryKey: ['video-feed', following.data?.pubkeys, currentService?.url],
     queryFn: async ({ pageParam, signal }) => {
@@ -166,6 +171,14 @@ export function FollowingVideoFeed() {
     gcTime: 1000 * 60 * 5, // Keep data in cache for 5 minutes
     refetchOnMount: false, // Don't refetch when component mounts if data exists
   });
+
+  // Expose refresh function to parent
+  useImperativeHandle(ref, () => ({
+    refresh: () => {
+      bundleLog('followingVideoRefresh', '🔄 Manual refresh triggered for following feed');
+      refetch();
+    }
+  }), [refetch]);
 
   const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
 
@@ -575,4 +588,6 @@ export function FollowingVideoFeed() {
       </div>
     </div>
   );
-}
+});
+
+FollowingVideoFeed.displayName = 'FollowingVideoFeed';
