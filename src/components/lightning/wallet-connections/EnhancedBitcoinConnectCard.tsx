@@ -24,9 +24,11 @@ import { useWallet } from '@/hooks/useWallet';
 interface EnhancedBitcoinConnectCardProps {
   className?: string;
   onTestConnection?: () => Promise<void>;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-export function EnhancedBitcoinConnectCard({ className, onTestConnection }: EnhancedBitcoinConnectCardProps) {
+export function EnhancedBitcoinConnectCard({ className, onTestConnection, disabled = false, disabledReason }: EnhancedBitcoinConnectCardProps) {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -117,12 +119,21 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
         // First ensure WebLN is enabled
         await window.webln.enable();
 
-        // Try to get wallet info to verify connection
-        const info = await window.webln.getInfo();
+        // Try to get wallet info to verify connection (if available)
+        let walletAlias = 'Lightning wallet';
+        if ('getInfo' in window.webln && typeof window.webln.getInfo === 'function') {
+          try {
+            const info = await window.webln.getInfo();
+            walletAlias = info?.alias || 'Lightning wallet';
+          } catch (infoError) {
+            // getInfo failed but connection might still work
+            console.warn('getInfo failed, but wallet may still be functional:', infoError);
+          }
+        }
 
         toast({
           title: "✅ Connection Test Successful",
-          description: `Connected to ${info?.alias || 'Lightning wallet'} - Ready for payments`,
+          description: `Connected to ${walletAlias} - Ready for payments`,
         });
       } else {
         throw new Error("WebLN provider not available");
@@ -140,7 +151,7 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
   };
 
   return (
-    <Card className={`relative overflow-hidden ${className}`}>
+    <Card className={`relative overflow-hidden ${disabled ? 'opacity-50' : ''} ${className}`}>
       {/* Enhanced mobile PWA gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-yellow-500/5 to-amber-500/10" />
 
@@ -159,17 +170,22 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
                 </Badge>
               </CardTitle>
               <CardDescription>
-                Enhanced Bitcoin Connect for mobile users
+                {disabled && disabledReason ? disabledReason : "Enhanced Bitcoin Connect for mobile users"}
               </CardDescription>
             </div>
           </div>
 
           {/* Connection status indicator */}
           <div className="flex items-center space-x-2">
-            {isConnected && userHasLightningAccess ? (
+            {isConnected && userHasLightningAccess && !disabled ? (
               <Badge variant="default" className="bg-green-500">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Connected
+              </Badge>
+            ) : disabled ? (
+              <Badge variant="outline">
+                <AlertCircle className="w-3 h-3 mr-1" />
+                Disabled
               </Badge>
             ) : (
               <Badge variant="outline">
@@ -179,6 +195,13 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
             )}
           </div>
         </div>
+
+        {disabled && disabledReason && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{disabledReason}</AlertDescription>
+          </Alert>
+        )}
       </CardHeader>
 
       <CardContent className="relative space-y-6">
@@ -210,7 +233,7 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
 
         {/* Action buttons */}
         <div className="space-y-3">
-          {!isConnected || !userHasLightningAccess ? (
+          {(!isConnected || !userHasLightningAccess) && !disabled ? (
             <div className="space-y-2">
               {/* Bitcoin Connect Button component */}
               <Button
@@ -218,7 +241,7 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
                 onDisconnected={handleDisconnected}
               />
             </div>
-          ) : (
+          ) : isConnected && userHasLightningAccess && !disabled ? (
             <div className="grid grid-cols-2 gap-2">
               <UIButton
                 onClick={handleTestConnection}
@@ -241,7 +264,13 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection }: Enha
                 Disconnect
               </UIButton>
             </div>
-          )}
+          ) : disabled ? (
+            <div className="text-center p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                Connection controls disabled
+              </p>
+            </div>
+          ) : null}
         </div>
 
         {/* Mobile PWA specific notes */}

@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Bitcoin, Loader2, CheckCircle, AlertCircle, Zap, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { cn } from '@/lib/utils';
 
 interface BitcoinConnectCardProps {
   isConnecting: boolean;
@@ -11,6 +12,8 @@ interface BitcoinConnectCardProps {
   onTestConnection?: () => Promise<void>;
   userHasLightningAccess?: boolean;
   onEnableNWC?: () => void;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 const BitcoinConnectCard = ({
@@ -20,13 +23,16 @@ const BitcoinConnectCard = ({
   onDisconnect,
   onTestConnection,
   userHasLightningAccess = false,
-  onEnableNWC
+  onEnableNWC,
+  disabled = false,
+  disabledReason
 }: BitcoinConnectCardProps) => {
   const { toast } = useToast();
   // If user doesn't have Lightning access, show NWC option
   if (!userHasLightningAccess) {
     return (
-      <div className="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700 opacity-60">
+      <div className={cn("flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700",
+        disabled ? "opacity-30" : "opacity-60")}>
         <div className="flex items-center space-x-3">
           <div className="p-2 bg-gray-500/20 rounded-lg">
             <Bitcoin className="w-6 h-6 text-gray-400" />
@@ -34,13 +40,13 @@ const BitcoinConnectCard = ({
           <div>
             <h3 className="font-medium text-gray-300">Bitcoin Connect</h3>
             <p className="text-sm text-gray-400">
-              No Lightning wallet connected for this account
+              {disabled && disabledReason ? disabledReason : "No Lightning wallet connected for this account"}
             </p>
           </div>
         </div>
 
         <div className="flex items-center space-x-3">
-          {onEnableNWC && (
+          {onEnableNWC && !disabled && (
             <Button
               onClick={onEnableNWC}
               variant="outline"
@@ -53,7 +59,7 @@ const BitcoinConnectCard = ({
           )}
           <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">
             <AlertCircle className="w-3 h-3 mr-1" />
-            Unavailable
+            {disabled ? "Disabled" : "Unavailable"}
           </Badge>
         </div>
       </div>
@@ -61,7 +67,8 @@ const BitcoinConnectCard = ({
   }
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700">
+    <div className={cn("flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700",
+      disabled && "opacity-50")}>
       <div className="flex items-center space-x-3">
         <div className="p-2 bg-orange-500/20 rounded-lg">
           <Bitcoin className="w-6 h-6 text-orange-400" />
@@ -69,7 +76,8 @@ const BitcoinConnectCard = ({
         <div>
           <h3 className="font-medium text-white">Bitcoin Connect</h3>
           <p className="text-sm text-gray-400">
-            {isConnected ? "Your Bitcoin Lightning wallet is connected" : "Connect your Bitcoin Lightning wallet directly"}
+            {disabled && disabledReason ? disabledReason :
+              isConnected ? "Your Bitcoin Lightning wallet is connected" : "Connect your Bitcoin Lightning wallet directly"}
           </p>
         </div>
       </div>
@@ -82,6 +90,7 @@ const BitcoinConnectCard = ({
               variant="ghost"
               size="sm"
               className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
+              disabled={disabled}
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Test
@@ -92,6 +101,7 @@ const BitcoinConnectCard = ({
                 variant="ghost"
                 size="sm"
                 className="text-pink-400 hover:text-pink-300 hover:bg-pink-400/10"
+                disabled={disabled}
               >
                 Disconnect
               </Button>
@@ -104,7 +114,7 @@ const BitcoinConnectCard = ({
         ) : (
           <Button
             onClick={onConnect}
-            disabled={isConnecting}
+            disabled={isConnecting || disabled}
             className="bg-pink-500 hover:bg-pink-600 text-white px-6"
           >
             {isConnecting ? (
