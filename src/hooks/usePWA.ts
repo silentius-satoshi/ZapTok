@@ -117,11 +117,17 @@ export function usePWA(): PWAState & PWAActions {
   }, []);
 
   // Register service worker
+  // Service Worker registration with duplicate prevention
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
+    let hasRegistered = false;
+
+    if ('serviceWorker' in navigator && !hasRegistered) {
+      hasRegistered = true;
       navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
         .then((registration) => {
-          if (import.meta.env.DEV) {
+          // Only log once per session to reduce noise
+          if (import.meta.env.DEV && !sessionStorage.getItem('pwa-registered')) {
+            sessionStorage.setItem('pwa-registered', 'true');
             console.log('[PWA] Service Worker registered successfully with base URL:', import.meta.env.BASE_URL);
           }
 

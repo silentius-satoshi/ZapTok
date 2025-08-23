@@ -36,12 +36,8 @@ export function LoginArea({ className }: LoginAreaProps) {
     }
   }, [currentUser?.pubkey]);
 
-  // Bundle balance logging to reduce console noise
-  const balanceLogRef = useRef({
-    lastLogTime: 0,
-    callCount: 0,
-    lastBalance: 0,
-  });
+  // Track balance state changes to reduce console spam
+  const balanceLogRef = useRef<string>('');
 
   // Function to refresh wallet balance
   const refreshBalance = useCallback(async () => {
@@ -67,17 +63,24 @@ export function LoginArea({ className }: LoginAreaProps) {
     const cashuBalance = cashuStore.getTotalBalance();
     const totalBalance = lightningBalance + cashuBalance;
 
-    console.log('[LoginArea] Balance calculation:', {
+    // Only log when values actually change (reduce console spam)
+    const currentState = JSON.stringify({
       userHasLightningAccess,
-      lightningBalance: lightningBalance > 0 ? '[REDACTED]' : 0,
-      cashuBalance: cashuBalance > 0 ? '[REDACTED]' : 0,
-      totalBalance: totalBalance > 0 ? '[REDACTED]' : 0,
-      currency,
-      cashuStoreState: {
-        wallets: cashuStore.wallets?.length || 0,
-        initialized: !!cashuStore.wallets
-      }
+      lightningBalance: lightningBalance > 0,
+      cashuBalance: cashuBalance > 0,
+      totalBalance: totalBalance > 0
     });
+
+    if (balanceLogRef.current !== currentState) {
+      balanceLogRef.current = currentState;
+      console.log('[LoginArea] Balance changed:', {
+        userHasLightningAccess,
+        lightningBalance: lightningBalance > 0 ? '[REDACTED]' : 0,
+        cashuBalance: cashuBalance > 0 ? '[REDACTED]' : 0,
+        totalBalance: totalBalance > 0 ? '[REDACTED]' : 0,
+        currency,
+      });
+    }
 
     if (currency === 'BTC') {
       return `${totalBalance.toLocaleString()} sats`;

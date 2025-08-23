@@ -153,7 +153,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         // Check if WebLN is available
         if (window.webln) {
-          console.log('[WalletContext] WebLN detected, attempting auto-enable for user:', user.pubkey);
+          console.log('[WalletContext] WebLN detected, attempting auto-enable for user:', user.pubkey.slice(0, 8) + '...');
 
           try {
             await window.webln.enable();
@@ -183,7 +183,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
               setTransactionSupport(!!window.webln.listTransactions);
 
-              console.log('[WalletContext] Auto-detection successful for user:', user.pubkey);
+              console.log('[WalletContext] Auto-detection successful for user:', user.pubkey.slice(0, 8) + '...');
             } catch (balanceError) {
               console.log('[WalletContext] Could not load initial wallet data:', balanceError);
             }

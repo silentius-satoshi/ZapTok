@@ -17,12 +17,12 @@ export interface VideoEvent extends NostrEvent {
  */
 export function validateVideoEvent(event: NostrEvent): VideoEvent | null {
   const tags = event.tags || [];
-  
+
   // NIP-71 video events (kind 21 = normal videos, kind 22 = short videos)
   if (event.kind === 21 || event.kind === 22) {
     return validateNip71VideoEvent(event, tags);
   }
-  
+
   // Legacy video event validation for kind 1 and 1063
   return validateLegacyVideoEvent(event, tags);
 }
@@ -49,11 +49,11 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
   // Parse imeta tags first (primary video source in NIP-71)
   const imetaTags = tags.filter(tag => tag[0] === 'imeta');
   validationInfo.imetaCount = imetaTags.length;
-  
+
   for (const imetaTag of imetaTags) {
     // Parse imeta tag properties
     const imetaProps: Record<string, string> = {};
-    
+
     for (let i = 1; i < imetaTag.length; i++) {
       const prop = imetaTag[i];
       const spaceIndex = prop.indexOf(' ');
@@ -69,12 +69,12 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
       videoData.videoUrl = imetaProps.url;
       validationInfo.videoUrl = imetaProps.url;
     }
-    
+
     // Extract thumbnail from image property
     if (imetaProps.image && !videoData.thumbnail) {
       videoData.thumbnail = imetaProps.image;
     }
-    
+
     // Extract hash from x property
     if (imetaProps.x && !videoData.hash) {
       videoData.hash = imetaProps.x;
@@ -163,13 +163,9 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
     validationInfo.videoUrl = videoData.videoUrl;
   }
 
-  // Log bundled validation summary
-  if (import.meta.env.DEV) {
-    console.log(`✅ NIP-71 [${validationInfo.id}]: ${validationInfo.title}`, {
-      imeta: validationInfo.imetaCount,
-      hasUrl: !!validationInfo.videoUrl,
-      hasHash: !!validationInfo.hash,
-    });
+  // Only log validation failures in development
+  if (import.meta.env.DEV && !validationInfo.videoUrl) {
+    console.warn(`❌ NIP-71 [${validationInfo.id}]: ${validationInfo.title} - Missing video URL`);
   }
 
   return videoData;
@@ -193,10 +189,10 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
                            event.content.includes('vimeo.com') ||
                            event.content.includes('blossom') ||
                            event.content.includes('satellite.earth');
-  const hasVideoTag = tags.some(([tagName, tagValue]) => 
+  const hasVideoTag = tags.some(([tagName, tagValue]) =>
     tagName === 't' && tagValue?.toLowerCase().includes('video')
   );
-  const hasImetaVideo = tags.some(tag => 
+  const hasImetaVideo = tags.some(tag =>
     tag[0] === 'imeta' && tag.some(prop => prop.includes('video/') || prop.includes('.mp4') || prop.includes('.webm'))
   );
 
@@ -319,11 +315,11 @@ export function hasVideoContent(event: NostrEvent): boolean {
 
   // Legacy video content detection for other kinds
   const tags = event.tags || [];
-  
+
   // Quick checks for video indicators
   const hasHashTag = tags.some(tag => tag[0] === 'x');
   const hasUrlTag = tags.some(tag => tag[0] === 'url');
-  const hasVideoTag = tags.some(([tagName, tagValue]) => 
+  const hasVideoTag = tags.some(([tagName, tagValue]) =>
     tagName === 't' && tagValue?.toLowerCase().includes('video')
   );
   const hasVideoInContent = /\.(mp4|webm|mov|avi|mkv)(\?.*)?$/i.test(event.content) ||

@@ -33,10 +33,10 @@ export function FollowingVideoFeed() {
   // Lock body scroll on mobile to prevent dual scrolling
   useEffect(() => {
     if (!isMobile) return;
-    
+
     const original = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
-    
+
     return () => {
       document.documentElement.style.overflow = original;
     };
@@ -145,15 +145,9 @@ export function FollowingVideoFeed() {
         cacheVideoMetadata(videoEvents);
       }
 
-      // Log bundled video processing summary
-      if (import.meta.env.DEV) {
-        console.log(`🎬 Video Feed Processing Complete:`, {
-          followedAuthors: processingStats.followedAuthors,
-          rawEvents: processingStats.rawEvents,
-          videoTypes: `${processingStats.normalVideos} normal + ${processingStats.shortVideos} short`,
-          validation: `${processingStats.validatedEvents} valid, ${processingStats.failedValidation + processingStats.noVideoUrl} rejected`,
-          finalCount: processingStats.finalVideos,
-        });
+      // Log concise video processing summary
+      if (import.meta.env.DEV && processingStats.finalVideos > 0) {
+        console.log(`🎬 Video Feed: ${processingStats.finalVideos} videos processed (${processingStats.followedAuthors} authors)`);
       }
 
       return videoEvents;
@@ -238,7 +232,7 @@ export function FollowingVideoFeed() {
             videoElement.play().catch(() => {
               // Autoplay failed, user interaction required
             });
-            
+
             // Update current video context
             const videoIndex = parseInt(entry.target.getAttribute('data-video-index') || '0');
             if (videos[videoIndex]) {
@@ -534,8 +528,8 @@ export function FollowingVideoFeed() {
               <div className={`flex w-full items-end h-full ${isMobile ? 'flex-col relative' : 'gap-8 max-w-4xl py-4'}`}>
                 {/* Video Container - Full height from top to bottom */}
                 <div className={`overflow-hidden bg-black shadow-2xl hover:shadow-3xl transition-all duration-300 ${
-                  isMobile 
-                    ? 'w-full h-full border-none' 
+                  isMobile
+                    ? 'w-full h-full border-none'
                     : 'flex-1 h-full rounded-3xl border-2 border-gray-800'
                 }`}>
                   <VideoCard
@@ -557,8 +551,8 @@ export function FollowingVideoFeed() {
                 </div>
 
                 {/* Action Buttons - Mobile: overlay on video, Desktop: outside to the right */}
-                <div className={isMobile 
-                  ? 'absolute right-2 bottom-16 z-10' 
+                <div className={isMobile
+                  ? 'absolute right-2 bottom-16 z-10'
                   : 'flex items-end pb-8 ml-4'
                 }>
                   <VideoActionButtons

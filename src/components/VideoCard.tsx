@@ -61,6 +61,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     lastPropsLog: 0,
     loadEvents: 0,
     lastLoadLog: 0,
+    hasLoggedStart: false,
   });
 
   // Bundled props logging - only when significant changes occur
@@ -104,8 +105,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     };
 
     const handleLoadStart = () => {
-      // Only log load start for active videos to reduce noise
-      if (import.meta.env.DEV && isActive) {
+      // Reduce load start logging noise
+      if (import.meta.env.DEV && isActive && !videoDebugRef.current.hasLoggedStart) {
+        videoDebugRef.current.hasLoggedStart = true;
         console.log(`▶️ Loading: ${event.title?.slice(0, 30) || 'Untitled video'}...`);
       }
     };
