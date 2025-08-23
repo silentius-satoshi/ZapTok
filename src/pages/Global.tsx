@@ -6,10 +6,12 @@ import { AuthGate } from '@/components/AuthGate';
 import { LogoHeader } from '@/components/LogoHeader';
 import { MobileNavigation } from '@/components/MobileNavigation';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useFeedRefresh } from '@/contexts/FeedRefreshContext';
 
 const Global = () => {
   const isMobile = useIsMobile();
-  
+  const { globalFeedRef } = useFeedRefresh();
+
   useSeoMeta({
     title: 'Global Feed - ZapTok',
     description: 'Discover videos from creators around the world on the decentralized Nostr network.',
@@ -38,7 +40,7 @@ const Global = () => {
             {/* Global Video Feed */}
             <div className={`flex-1 flex items-center justify-center overflow-hidden ${isMobile ? '' : 'pr-8'}`}>
               <div className={`w-full h-full flex items-center justify-center ${isMobile ? '' : 'max-w-3xl'}`}>
-                <GlobalVideoFeed />
+                <GlobalVideoFeed ref={globalFeedRef} />
               </div>
             </div>
 

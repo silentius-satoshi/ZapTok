@@ -6,6 +6,7 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AuthFilter } from '@/components/auth/AuthFilter';
 import { CurrentVideoProvider } from '@/contexts/CurrentVideoContext';
+import { FeedRefreshProvider } from '@/contexts/FeedRefreshContext';
 import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { primalBlossom } from '@/lib/blossomUtils';
@@ -81,9 +82,11 @@ export function App() {
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
             <CurrentVideoProvider>
-              <AuthFilter>
-                <AppContent />
-              </AuthFilter>
+              <FeedRefreshProvider>
+                <AuthFilter>
+                  <AppContent />
+                </AuthFilter>
+              </FeedRefreshProvider>
             </CurrentVideoProvider>
           </NostrLoginProvider>
         </QueryClientProvider>

@@ -6,9 +6,11 @@ import { AuthGate } from '@/components/AuthGate';
 import { LogoHeader } from '@/components/LogoHeader';
 import { MobileNavigation } from '@/components/MobileNavigation';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useFeedRefresh } from '@/contexts/FeedRefreshContext';
 
 const Index = () => {
   const isMobile = useIsMobile();
+  const { followingFeedRef } = useFeedRefresh();
 
   useSeoMeta({
     title: 'Zaptok - Homepage',
@@ -38,7 +40,7 @@ const Index = () => {
             {/* Following Video Feed */}
             <div className={`flex-1 flex items-center justify-center overflow-hidden ${isMobile ? '' : 'pr-8'}`}>
               <div className={`w-full h-full flex items-center justify-center ${isMobile ? '' : 'max-w-3xl'}`}>
-                <FollowingVideoFeed />
+                <FollowingVideoFeed ref={followingFeedRef} />
               </div>
             </div>
 
