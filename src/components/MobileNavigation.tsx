@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useLoginActions } from '@/hooks/useLoginActions';
+import { useLogoutWithWarning } from '@/hooks/useLogoutWithWarning';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
@@ -14,6 +14,7 @@ import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { QuickZap } from '@/components/QuickZap';
+import { LogoutWarningModal } from '@/components/LogoutWarningModal';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useFeedRefresh } from '@/contexts/FeedRefreshContext';
 import { bundleLog } from '@/lib/logBundler';
@@ -27,7 +28,7 @@ export function MobileNavigation() {
   const navigate = useNavigate();
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
   const { refreshCurrentFeed } = useFeedRefresh();
-  const { logout } = useLoginActions();
+  const { logout, confirmLogout, cancelLogout, showWarning } = useLogoutWithWarning();
 
   const [isOpen, setIsOpen] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -98,7 +99,15 @@ export function MobileNavigation() {
     logout();
   };
 
-  const navItems = [
+  interface NavItem {
+    id: string;
+    icon: any;
+    label: string;
+    path?: string;
+    action?: string;
+  }
+
+  const navItems: NavItem[] = [
     { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
     { id: 'following', icon: Users, label: 'Following', path: '/' },
@@ -240,6 +249,8 @@ export function MobileNavigation() {
                         );
                       } else {
                         // Navigation items with paths
+                        if (!item.path) return null; // Skip items without paths
+
                         return (
                           <Link key={item.id} to={item.path}>
                             <Button
@@ -249,7 +260,7 @@ export function MobileNavigation() {
                                   ? 'bg-gray-800/50 text-orange-400'
                                   : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
                               }`}
-                              onClick={() => handleNavigateToPage(item.path)}
+                              onClick={() => handleNavigateToPage(item.path!)}
                             >
                               <item.icon size={20} className="mr-3" />
                               <span className="font-medium">{item.label}</span>
@@ -387,6 +398,13 @@ export function MobileNavigation() {
           }}
         />
       )}
+
+      {/* Logout Warning Modal */}
+      <LogoutWarningModal
+        isOpen={showWarning}
+        onClose={cancelLogout}
+        onConfirmLogout={confirmLogout}
+      />
     </>
   );
 }

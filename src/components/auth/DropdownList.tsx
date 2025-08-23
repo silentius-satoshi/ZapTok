@@ -11,10 +11,12 @@ import {
 } from '@/components/ui/dropdown-menu.tsx';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar.tsx';
 import { useLoggedInAccounts, type Account } from '@/hooks/useLoggedInAccounts';
+import { useLogoutWithWarning } from '@/hooks/useLogoutWithWarning';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { useNavigate } from 'react-router-dom';
 import { VideoUploadModal } from '@/components/VideoUploadModal';
+import { LogoutWarningModal } from '@/components/LogoutWarningModal';
 import { PWAInstallModal } from '@/components/PWAInstallModal';
 import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
 import { useState } from 'react';
@@ -25,11 +27,12 @@ interface DropdownListProps {
 
 export function DropdownList({ onAddAccountClick }: DropdownListProps) {
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
+  const { logout, confirmLogout, cancelLogout, showWarning } = useLogoutWithWarning();
   const currentAuthor = useAuthor(currentUser?.pubkey);
   const currentUserMetadata = currentAuthor.data?.metadata;
   const navigate = useNavigate();
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
-  
+
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showPWAInstallModal, setShowPWAInstallModal] = useState(false);
 
@@ -56,7 +59,7 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        <button 
+        <button
           className='flex items-center gap-3 p-3 rounded-2xl bg-gray-800/30 hover:bg-gray-700/40 transition-all w-full text-foreground'
           style={{
             border: 'none',
@@ -83,7 +86,7 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
           <Upload className='w-4 h-4' />
           <span>Upload Video</span>
         </DropdownMenuItem>
-        
+
         {/* View Profile */}
         <DropdownMenuItem
           onClick={() => navigate('/profile')}
@@ -119,7 +122,7 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
           <Settings className='w-4 h-4' />
           <span>Settings</span>
         </DropdownMenuItem>
-        
+
         {/* About ZapTok */}
         <DropdownMenuItem
           onClick={() => navigate('/about')}
@@ -139,7 +142,7 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
-        
+
         {/* Account switching section */}
         <div className='font-medium text-sm px-2 py-1.5'>Switch Account</div>
         {otherUsers.map((user) => (
@@ -158,9 +161,9 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
             {user.id === currentUser.id && <div className='w-2 h-2 rounded-full bg-primary'></div>}
           </DropdownMenuItem>
         ))}
-        
+
         <DropdownMenuSeparator />
-        
+
         <DropdownMenuItem
           onClick={() => {
             console.log('Add another account clicked');
@@ -171,27 +174,34 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
           <UserPlus className='w-4 h-4' />
           <span>Add another account</span>
         </DropdownMenuItem>
-        
+
         {/* Log out - Red color to match screenshot */}
         <DropdownMenuItem
-          onClick={() => removeLogin(currentUser.id)}
+          onClick={logout}
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
         >
           <LogOut className='w-4 h-4' />
           <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
-      
+
       {/* Video Upload Modal */}
-      <VideoUploadModal 
-        isOpen={showUploadModal} 
+      <VideoUploadModal
+        isOpen={showUploadModal}
         onClose={handleUploadModalClose}
       />
-      
+
       {/* PWA Install Modal */}
-      <PWAInstallModal 
-        isOpen={showPWAInstallModal} 
+      <PWAInstallModal
+        isOpen={showPWAInstallModal}
         onClose={() => setShowPWAInstallModal(false)}
+      />
+
+      {/* Logout Warning Modal */}
+      <LogoutWarningModal
+        isOpen={showWarning}
+        onClose={cancelLogout}
+        onConfirmLogout={confirmLogout}
       />
     </DropdownMenu>
   );

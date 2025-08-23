@@ -12,9 +12,10 @@ import { genUserName } from '@/lib/genUserName';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { QRModal } from '@/components/QRModal';
+import { LogoutWarningModal } from '@/components/LogoutWarningModal';
 import { User, Edit, LogOut, Users, QrCode, Zap } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
-import { useLoginActions } from '@/hooks/useLoginActions';
+import { useLogoutWithWarning } from '@/hooks/useLogoutWithWarning';
 import { useToast } from '@/hooks/useToast';
 import { getLightningAddress } from '@/lib/lightning';
 import { QuickZap } from '@/components/QuickZap';
@@ -33,7 +34,7 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
   const author = useAuthor(targetPubkey);
   const following = useFollowing(targetPubkey);
   const metadata = author.data?.metadata;
-  const login = useLoginActions();
+  const { logout, confirmLogout, cancelLogout, showWarning } = useLogoutWithWarning();
   const { toast } = useToast();
   const [showEditForm, setShowEditForm] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
@@ -50,8 +51,7 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
   const nip05 = metadata?.nip05;
 
   const handleLogout = () => {
-    login.logout();
-    onClose();
+    logout();
   };
 
   const handleEditProfile = () => {
@@ -294,6 +294,16 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
         isOpen={showQuickZap}
         onClose={() => setShowQuickZap(false)}
         recipientPubkey={targetPubkey}
+      />
+
+      {/* Logout Warning Modal */}
+      <LogoutWarningModal
+        isOpen={showWarning}
+        onClose={cancelLogout}
+        onConfirmLogout={() => {
+          confirmLogout();
+          onClose();
+        }}
       />
     </>
   );
