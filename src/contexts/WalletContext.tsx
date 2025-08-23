@@ -6,6 +6,7 @@ import type {
   WebLNProvider,
 } from '@/lib/wallet-types';
 import { WalletContext } from './wallet-context';
+import { devLog, devError, bundleLog } from '@/lib/devConsole';
 
 // User-specific Lightning wallet balance storage
 const getUserLightningBalanceKey = (pubkey: string) => `lightning_balance_${pubkey}`;
@@ -73,14 +74,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     // If user changed (including logout), reset wallet state
     if (currentUserPubkey !== previousUserPubkey) {
-      if (import.meta.env.DEV) {
-        console.log('👤 User changed, resetting wallet state:', {
-          previous: previousUserPubkey?.slice(0,8) + '...',
-          current: currentUserPubkey?.slice(0,8) + '...',
-          previousWalletInfo: walletInfo,
-          isConnected: isConnected
-        });
-      }
+      devLog('👤 User changed, resetting wallet state:', {
+        previous: previousUserPubkey?.slice(0,8) + '...',
+        current: currentUserPubkey?.slice(0,8) + '...',
+        previousWalletInfo: walletInfo,
+        isConnected: isConnected
+      });
 
       // Cancel any ongoing async operations
       if (abortControllerRef.current) {
@@ -124,12 +123,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setTransactionSupport(null);
       }
 
-      if (import.meta.env.DEV) {
-        console.log('👤 Wallet state reset complete for user:', {
-          user: currentUserPubkey?.slice(0,8) + '...',
-          hasLightningAccess: currentUserPubkey ? getUserLightningEnabled(currentUserPubkey) : false
-        });
-      }
+      devLog('👤 Wallet state reset complete for user:', {
+        user: currentUserPubkey?.slice(0,8) + '...',
+        hasLightningAccess: currentUserPubkey ? getUserLightningEnabled(currentUserPubkey) : false
+      });
 
       // Update the ref for next comparison
       previousUserRef.current = currentUserPubkey;
@@ -147,13 +144,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         // Check if user has explicitly disabled Lightning access
         const userExplicitlyDisabled = localStorage.getItem(`lightning_disabled_${user.pubkey}`);
         if (userExplicitlyDisabled === 'true') {
-          console.log('[WalletContext] Auto-detection skipped - user explicitly disabled Lightning');
+          bundleLog('walletAutoDetection', '[WalletContext] Auto-detection skipped - user explicitly disabled Lightning');
           return;
         }
 
         // Check if WebLN is available
         if (window.webln) {
-          console.log('[WalletContext] WebLN detected, attempting auto-enable for user:', user.pubkey.slice(0, 8) + '...');
+          bundleLog('walletAutoDetection', '[WalletContext] WebLN detected, attempting auto-enable for user: ' + user.pubkey.slice(0, 8) + '...');
 
           try {
             await window.webln.enable();
@@ -183,19 +180,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
               setTransactionSupport(!!window.webln.listTransactions);
 
-              console.log('[WalletContext] Auto-detection successful for user:', user.pubkey.slice(0, 8) + '...');
+              bundleLog('walletAutoDetection', '[WalletContext] Auto-detection successful for user: ' + user.pubkey.slice(0, 8) + '...');
             } catch (balanceError) {
-              console.log('[WalletContext] Could not load initial wallet data:', balanceError);
+              bundleLog('walletAutoDetection', '[WalletContext] Could not load initial wallet data: ' + balanceError);
             }
           } catch (enableError) {
-            console.log('[WalletContext] WebLN enable failed (user may have rejected):', enableError);
+            bundleLog('walletAutoDetection', '[WalletContext] WebLN enable failed (user may have rejected): ' + enableError);
             // Don't mark as explicitly disabled here - user might try again later
           }
         } else {
-          console.log('[WalletContext] No WebLN provider detected');
+          bundleLog('walletAutoDetection', '[WalletContext] No WebLN provider detected');
         }
       } catch (error) {
-        console.log('[WalletContext] Auto-detection error:', error);
+        bundleLog('walletAutoDetection', '[WalletContext] Auto-detection error: ' + error);
       }
     };
 
@@ -242,7 +239,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           // Check transaction support once during manual connection
           setTransactionSupport(!!window.webln.listTransactions);
         } catch {
-          console.log('Could not load initial wallet data');
+          bundleLog('walletConnection', 'Could not load initial wallet data');
         }
 
         return;
@@ -410,16 +407,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         if (!hasSupport) {
           if (import.meta.env.DEV) {
-          console.log('listTransactions method not available on provider (browser extension limitation)');
+          bundleLog('transactionHistory', 'listTransactions method not available on provider (browser extension limitation)');
           }
           setTransactions([]);
           return [];
         }
       } else if (transactionSupport === false) {
         // Already confirmed no support, skip API call
-        if (import.meta.env.DEV) {
-        console.log('Skipping transaction history call - provider does not support listTransactions');
-        }
+        bundleLog('transactionHistory', 'Skipping transaction history call - provider does not support listTransactions');
         setTransactions([]);
         return [];
       }
@@ -427,7 +422,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Provider supports transactions, proceed with API call
       if (provider.listTransactions) {
         if (import.meta.env.DEV) {
-          console.log('Fetching transaction history with args:', args);
+          bundleLog('transactionHistory', 'Fetching transaction history with args: ' + JSON.stringify(args));
         }
 
         try {
@@ -436,15 +431,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
           // Check if operation was cancelled
           if (currentAbortController.signal.aborted) {
-            if (import.meta.env.DEV) {
-              console.log('Transaction history fetch aborted - user changed');
-            }
+            bundleLog('transactionHistory', 'Transaction history fetch aborted - user changed');
             return [];
           }
 
-          if (import.meta.env.DEV) {
-          console.log('Transaction response:', response);
-          }
+          bundleLog('transactionHistory', 'Transaction response: ' + JSON.stringify(response));
 
           // Map the NWC/NIP-47 transaction format to our internal format
           transactions = response.transactions?.map((tx: Record<string, unknown>) => ({
@@ -458,13 +449,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             settled: tx.settled !== false,
           })) || [];
 
-          if (import.meta.env.DEV) {
-          console.log('Mapped transactions:', transactions);
-          }
+          bundleLog('transactionHistory', 'Mapped transactions: ' + JSON.stringify(transactions));
         } catch (error) {
-          if (import.meta.env.DEV) {
-          console.log('Failed to fetch transactions from provider:', error);
-          }
+          bundleLog('transactionHistory', 'Failed to fetch transactions from provider: ' + error);
           // Fall through to show unsupported message
         }
       }
@@ -476,7 +463,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       return transactions;
     } catch (error) {
-      console.error('Failed to fetch transaction history:', error);
+      devError('Failed to fetch transaction history:', error);
       // Return empty array instead of throwing to prevent UI crashes
       setTransactions([]);
       return [];

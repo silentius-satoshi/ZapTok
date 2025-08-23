@@ -32,6 +32,7 @@ import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
 import { useWalletUiStore } from "@/stores/walletUiStore";
 import { useCashuHistory } from "@/hooks/useCashuHistory";
 import { useCashuPermissions } from "@/hooks/useCashuPermissions";
+import { devLog } from '@/lib/devConsole';
 
 
 export function CashuWalletCard() {
@@ -52,7 +53,7 @@ export function CashuWalletCard() {
 
   // Get wallet total balance (not per-mint, since balance is total across all mints)
   const totalBalance = cashuStore.wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0);
-  
+
   const prevBalances = useRef<Record<string, string>>({});
   const { showSats } = useCurrencyDisplayStore();
 
@@ -98,10 +99,10 @@ export function CashuWalletCard() {
     try {
       // Request Cashu permissions if not already available
       if (!hasCashuSupport) {
-        console.log('CashuWalletCard: Requesting Cashu permissions before wallet creation');
+        devLog('CashuWalletCard: Requesting Cashu permissions before wallet creation');
         await requestCashuPermissions();
       }
-      
+
       // Proceed with wallet creation
       handleCreateWallet(walletData);
     } catch (error) {
@@ -120,12 +121,12 @@ export function CashuWalletCard() {
   // Auto-create wallet configuration when history is detected but no wallet exists
   useEffect(() => {
     const hasTransactionHistory = transactionHistory && transactionHistory.length > 0;
-    
+
     // Only attempt auto-creation once and when all conditions are met
     if (!wallet && hasTransactionHistory && !isLoading && !isHistoryLoading && !isCreatingWallet && user && !autoCreationAttempted) {
-      console.log('CashuWalletCard: Auto-creating wallet configuration for detected transaction history');
+      devLog('CashuWalletCard: Auto-creating wallet configuration for detected transaction history');
       setAutoCreationAttempted(true); // Mark that we've attempted creation
-      
+
       // Auto-trigger wallet creation after a short delay
       const timer = setTimeout(() => {
         handleCreateWalletWithPermissions(undefined);
@@ -160,7 +161,7 @@ export function CashuWalletCard() {
         lastUpdated: Date.now(),
         privkey: wallet.privkey,
       };
-      
+
       createWallet(updatedWalletData);
 
       // Clear input
@@ -195,7 +196,7 @@ export function CashuWalletCard() {
         lastUpdated: Date.now(),
         privkey: wallet.privkey,
       };
-      
+
       createWallet(updatedWalletData);
     } catch {
       setError("Failed to remove mint");
@@ -224,7 +225,7 @@ export function CashuWalletCard() {
     const spentProofs = await cleanSpentProofs(mintUrl);
     const proofSum = spentProofs.reduce((sum, proof) => sum + proof.amount, 0);
     if (import.meta.env.DEV) {
-    console.log(
+    devLog(
       `Removed ${spentProofs.length} spent proofs for ${proofSum} sats`
     );
     }
@@ -303,20 +304,20 @@ export function CashuWalletCard() {
           <Alert className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {isCreatingWallet 
-                ? "Creating wallet configuration from your transaction history..." 
+              {isCreatingWallet
+                ? "Creating wallet configuration from your transaction history..."
                 : "You have transaction history but no wallet configuration found. This can happen if your wallet was created on a different relay."
               }
             </AlertDescription>
           </Alert>
-          <Button 
-            onClick={() => handleCreateWalletWithPermissions(undefined)} 
+          <Button
+            onClick={() => handleCreateWalletWithPermissions(undefined)}
             disabled={!user || isCreatingWallet}
           >
             {isCreatingWallet ? "Creating..." : "Recreate Wallet Configuration"}
           </Button>
           <p className="text-sm text-muted-foreground mt-2">
-            {isCreatingWallet 
+            {isCreatingWallet
               ? "Please wait while we set up your wallet configuration..."
               : "This will create a new wallet configuration while preserving your transaction history."
             }
@@ -360,7 +361,7 @@ export function CashuWalletCard() {
           )}
         </Button>
       </CardHeader>
-      
+
       {isExpanded && (
         <CardContent>
           <div className="space-y-4">
