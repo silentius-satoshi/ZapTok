@@ -8,7 +8,10 @@ export function DeveloperSettings() {
   const isMobile = useIsMobile();
 
   return (
-    <SettingsSection title="Developer">
+    <SettingsSection 
+      title="Developer" 
+      className={`${isMobile ? 'space-y-3 p-4' : 'space-y-4 p-6'}`}
+    >
       <div className={`space-y-6 ${isMobile ? 'space-y-4' : ''}`}>
         <div className="space-y-4">
           <h3 className={`font-medium text-white ${isMobile ? 'text-base' : 'text-lg'}`}>PWA Status & Storage</h3>

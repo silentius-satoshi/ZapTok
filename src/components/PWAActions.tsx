@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { usePWA } from '@/hooks/usePWA';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface PWAActionsProps {
   className?: string;
@@ -32,6 +33,8 @@ export function PWAActions({ className }: PWAActionsProps) {
     sendTestNotification,
     requestPermission,
   } = usePushNotifications();
+
+  const isMobile = useIsMobile();
 
   const triggerManualInstall = async () => {
     try {
@@ -68,27 +71,28 @@ export function PWAActions({ className }: PWAActionsProps) {
 
   return (
     <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Wrench className="w-5 h-5" />
+      <CardHeader className={isMobile ? 'pb-3' : ''}>
+        <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-base' : ''}`}>
+          <Wrench className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} />
           PWA Actions
         </CardTitle>
-        <CardDescription>
+        <CardDescription className={isMobile ? 'text-xs' : ''}>
           Manual controls for testing and debugging PWA functionality
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className={`space-y-4 ${isMobile ? 'space-y-3 pt-0' : ''}`}>
         <div className="grid gap-4">
           <div className="space-y-2">
-            <h4 className="font-medium">Installation</h4>
+            <h4 className={`font-medium ${isMobile ? 'text-sm' : ''}`}>Installation</h4>
             <div className="flex gap-2">
               <Button
                 onClick={triggerManualInstall}
                 disabled={!isInstallable}
                 variant="outline"
                 size="sm"
+                className={isMobile ? 'text-xs' : ''}
               >
-                <Download className="w-4 h-4 mr-2" />
+                <Download className={`${isMobile ? 'w-3 h-3 mr-2' : 'w-4 h-4 mr-2'}`} />
                 Trigger Install
               </Button>
             </div>
@@ -97,15 +101,16 @@ export function PWAActions({ className }: PWAActionsProps) {
           <Separator />
 
           <div className="space-y-2">
-            <h4 className="font-medium">Service Worker</h4>
+            <h4 className={`font-medium ${isMobile ? 'text-sm' : ''}`}>Service Worker</h4>
             <div className="flex gap-2">
               <Button
                 onClick={updateServiceWorker}
                 disabled={!hasUpdate}
                 variant="outline"
                 size="sm"
+                className={isMobile ? 'text-xs' : ''}
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
+                <RefreshCw className={`${isMobile ? 'w-3 h-3 mr-2' : 'w-4 h-4 mr-2'}`} />
                 Update Service Worker
               </Button>
             </div>
@@ -114,15 +119,16 @@ export function PWAActions({ className }: PWAActionsProps) {
           <Separator />
 
           <div className="space-y-2">
-            <h4 className="font-medium">Push Notifications</h4>
-            <div className="flex gap-2 flex-wrap">
+            <h4 className={`font-medium ${isMobile ? 'text-sm' : ''}`}>Push Notifications</h4>
+            <div className={`flex gap-2 ${isMobile ? 'flex-col' : 'flex-wrap'}`}>
               <Button
                 onClick={requestPermission}
                 disabled={permission === 'granted'}
                 variant="outline"
                 size="sm"
+                className={`${isMobile ? 'text-xs w-full' : ''}`}
               >
-                <Bell className="w-4 h-4 mr-2" />
+                <Bell className={`${isMobile ? 'w-3 h-3 mr-2' : 'w-4 h-4 mr-2'}`} />
                 Request Permission
               </Button>
               <Button
@@ -130,18 +136,10 @@ export function PWAActions({ className }: PWAActionsProps) {
                 disabled={!pushSupported || permission !== 'granted'}
                 variant="outline"
                 size="sm"
+                className={`${isMobile ? 'text-xs w-full' : ''}`}
               >
-                <Bell className="w-4 h-4 mr-2" />
+                <Bell className={`${isMobile ? 'w-3 h-3 mr-2' : 'w-4 h-4 mr-2'}`} />
                 Subscribe to Push
-              </Button>
-              <Button
-                onClick={sendTestNotification}
-                disabled={permission !== 'granted'}
-                variant="outline"
-                size="sm"
-              >
-                <Bell className="w-4 h-4 mr-2" />
-                Send Test Notification
               </Button>
             </div>
           </div>
@@ -149,10 +147,10 @@ export function PWAActions({ className }: PWAActionsProps) {
           <Separator />
 
           <div className="space-y-2">
-            <h4 className="font-medium">Cache Management</h4>
+            <h4 className={`font-medium ${isMobile ? 'text-sm' : ''}`}>Cache Management</h4>
             <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
+              <AlertCircle className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
+              <AlertDescription className={isMobile ? 'text-xs' : ''}>
                 Warning: This will clear all cached data and reload the page.
               </AlertDescription>
             </Alert>
@@ -160,8 +158,9 @@ export function PWAActions({ className }: PWAActionsProps) {
               onClick={forceCacheRefresh}
               variant="destructive"
               size="sm"
+              className={`${isMobile ? 'text-xs w-full' : ''}`}
             >
-              <RefreshCw className="w-4 h-4 mr-2" />
+              <RefreshCw className={`${isMobile ? 'w-3 h-3 mr-2' : 'w-4 h-4 mr-2'}`} />
               Force Cache Refresh & Reload
             </Button>
           </div>

@@ -4,6 +4,7 @@ import { Navigation } from '@/components/Navigation';
 import { LogoHeader } from '@/components/LogoHeader';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useSettingsLogic } from '@/hooks/useSettingsLogic';
+import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import {
   settingsSections,
@@ -16,6 +17,7 @@ import {
 
 export function Settings() {
   const { config } = useAppContext();
+  const navigate = useNavigate();
 
   useSeoMeta({
     title: 'Settings - ZapTok',
@@ -128,9 +130,19 @@ export function Settings() {
   const renderSettingsHeader = () => {
     if (!selectedSection) {
       return (
-        <h1 className="text-3xl font-normal text-white">
-          settings
-        </h1>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(-1)}
+            className="p-2 text-gray-400 hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-3xl font-normal text-white">
+            settings
+          </h1>
+        </div>
       );
     }
 
@@ -178,14 +190,14 @@ export function Settings() {
       </div>
 
   {/* Middle Settings Column - Full width on mobile */}
-  <div className="flex-1 md:border-r border-gray-800 bg-black pt-4 md:pt-0 pb-16 md:pb-0">
+  <div className="flex-1 md:border-r border-gray-800 bg-black pt-4 md:pt-0 pb-16 md:pb-0 min-w-0">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-800">
+        <div className="px-4 md:px-6 py-5 border-b border-gray-800">
           {renderSettingsHeader()}
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto scrollbar-hide" style={{ height: 'calc(100vh - 97px - 4rem)' }}>
+        <div className="overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ height: 'calc(100vh - 97px - 4rem)' }}>
           {renderSettingsContent()}
         </div>
       </div>
