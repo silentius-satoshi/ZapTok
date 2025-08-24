@@ -53,8 +53,10 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection, disabl
 
   const handleConnected = async (provider: any) => {
     try {
-      // Bitcoin Connect should have set up window.webln
-      // Let's trigger the global wallet context to re-detect the connection
+      // Bitcoin Connect should have set up window.webln, but it might need a moment
+      // Wait a bit for window.webln to be available
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       if (window.webln) {
         await connect(); // This will detect the new WebLN provider
         toast({
@@ -62,7 +64,17 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection, disabl
           description: `Successfully connected to your Lightning wallet`,
         });
       } else {
-        throw new Error("WebLN provider not available after Bitcoin Connect");
+        // Try again after a longer delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        if (window.webln) {
+          await connect();
+          toast({
+            title: "Wallet Connected",
+            description: `Successfully connected to your Lightning wallet`,
+          });
+        } else {
+          throw new Error("WebLN provider not available after Bitcoin Connect");
+        }
       }
     } catch (error) {
       console.error('Connection failed:', error);

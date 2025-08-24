@@ -7,13 +7,14 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLogoutWithWarning } from '@/hooks/useLogoutWithWarning';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
 import { useAuthor } from '@/hooks/useAuthor';
+import { useDefaultZap } from '@/hooks/useDefaultZap';
+import { getLightningAddress } from '@/lib/lightning';
 import { genUserName } from '@/lib/genUserName';
 import { VideoUploadModal } from '@/components/VideoUploadModal';
 import { UserSearchModal } from '@/components/UserSearchModal';
 import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { LoginArea } from '@/components/auth/LoginArea';
-import { QuickZap } from '@/components/QuickZap';
 import { LogoutWarningModal } from '@/components/LogoutWarningModal';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useFeedRefresh } from '@/contexts/FeedRefreshContext';
@@ -24,16 +25,20 @@ export function MobileNavigation() {
   const { currentVideo } = useCurrentVideo();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
+  
+  // Get current video author data for zapping
+  const currentVideoAuthor = useAuthor(currentVideo?.pubkey || '');
+  
   const location = useLocation();
   const navigate = useNavigate();
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
   const { refreshCurrentFeed } = useFeedRefresh();
   const { logout, confirmLogout, cancelLogout, showWarning } = useLogoutWithWarning();
+  const { sendDefaultZap } = useDefaultZap();
 
   const [isOpen, setIsOpen] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
-  const [showQuickZap, setShowQuickZap] = useState(false);
 
   const handleNavigateToPage = (path: string) => {
     setIsOpen(false); // Always close side nav when navigating
@@ -88,11 +93,22 @@ export function MobileNavigation() {
     }
   };
 
-  const handleZapClick = () => {
-    // Zap the current video author if available
-    if (currentVideo && user) {
-      pauseAllVideos();
-      setShowQuickZap(true);
+    const handleZapClick = async () => {
+    if (!user || !currentVideo || !currentVideoAuthor.data?.metadata) {
+      console.warn('Missing required data for zapping');
+      return;
+    }
+
+    try {
+      const lightningAddress = getLightningAddress(currentVideoAuthor.data.metadata);
+      if (!lightningAddress) {
+        console.warn('No Lightning address found for video author');
+        return;
+      }
+
+      await sendDefaultZap(lightningAddress, currentVideo.id);
+    } catch (error) {
+      console.error('Failed to send zap:', error);
     }
   };
 
@@ -388,18 +404,6 @@ export function MobileNavigation() {
         open={showUserSearchModal}
         onOpenChange={handleUserSearchModalClose}
       />
-
-      {/* QuickZap Modal for current video author */}
-      {showQuickZap && currentVideo && (
-        <QuickZap
-          isOpen={showQuickZap}
-          recipientPubkey={currentVideo.pubkey}
-          onClose={() => {
-            setShowQuickZap(false);
-            resumeAllVideos();
-          }}
-        />
-      )}
 
       {/* Logout Warning Modal */}
       <LogoutWarningModal

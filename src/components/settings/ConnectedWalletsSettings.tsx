@@ -50,6 +50,9 @@ export function ConnectedWalletsSettings({
   const hasBitcoinConnect = userHasLightningAccess && walletInfo?.implementation === 'WebLN';
   const hasNWC = nwcConnected; // Use actual NWC connection state
 
+  // Override the passed isConnected with our more accurate detection
+  const actualIsConnected = hasBitcoinConnect || hasNWC;
+
   // Determine which components to show based on signer type and current connections
   const shouldShowEnhancedBitcoinConnect = (isBunkerSigner || isNsecSigner) && isMobile;
   const shouldShowStandardBitcoinConnect = isExtensionSigner || (!isMobile && (isBunkerSigner || isNsecSigner));
@@ -85,7 +88,7 @@ export function ConnectedWalletsSettings({
           <BitcoinConnectCard
             isConnecting={isConnecting === 'btc'}
             onConnect={onBitcoinConnect}
-            isConnected={isConnected}
+            isConnected={actualIsConnected && hasBitcoinConnect}
             onDisconnect={onDisconnect}
             onTestConnection={onTestConnection}
             userHasLightningAccess={userHasLightningAccess}
