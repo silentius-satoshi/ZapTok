@@ -7,6 +7,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useNWC } from '@/hooks/useNWC';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useNostrLogin } from '@nostrify/react/login';
 
 interface ConnectedWalletsSettingsProps {
   isConnecting: string | null;
@@ -30,15 +31,20 @@ export function ConnectedWalletsSettings({
   const { userHasLightningAccess, walletInfo } = useWallet();
   const { isConnected: nwcConnected } = useNWC(); // Add NWC connection detection
   const { user } = useCurrentUser();
+  const { logins } = useNostrLogin();
   const isMobile = useIsMobile();
 
-  // Detect signer type
-  const isExtensionSigner = !!(window.nostr && user?.signer?.constructor?.name?.includes('NIP07'));
-  const isBunkerSigner = user?.signer?.constructor?.name?.includes('bunker') ||
-                        (user as any)?.loginType === 'bunker' ||
-                        (user as any)?.loginType === 'x-bunker-nostr-tools';
-  const isNsecSigner = user?.signer?.constructor?.name?.includes('nsec') ||
-                      (user as any)?.loginType === 'nsec';
+  // Get the current user's login type from the login objects
+  const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
+  const loginType = currentUserLogin?.type;
+
+  // Detect signer type based on login type and constructor name
+  const isExtensionSigner = loginType === 'extension' || !!(window.nostr && user?.signer?.constructor?.name?.includes('NIP07'));
+  const isBunkerSigner = loginType === 'bunker' || 
+                        loginType === 'x-bunker-nostr-tools' ||
+                        user?.signer?.constructor?.name?.includes('bunker');
+  const isNsecSigner = loginType === 'nsec' || 
+                      user?.signer?.constructor?.name?.includes('nsec');
 
   // Detect current Lightning connection type
   const hasBitcoinConnect = userHasLightningAccess && walletInfo?.implementation === 'WebLN';
