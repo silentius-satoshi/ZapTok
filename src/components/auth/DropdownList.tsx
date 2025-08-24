@@ -143,13 +143,16 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
 
         <DropdownMenuSeparator />
 
-        {/* Account switching section */}
-        <div className='font-medium text-sm px-2 py-1.5'>Switch Account</div>
+        {/* Account switching section - DISABLED due to wallet isolation bug */}
+        <div className='font-medium text-sm px-2 py-1.5 text-muted-foreground/70'>Switch Account</div>
+        <div className='px-2 py-1 text-xs text-muted-foreground/60 mb-2'>
+          Account switching temporarily disabled due to wallet connection issues
+        </div>
         {otherUsers.map((user) => (
           <DropdownMenuItem
             key={user.id}
-            onClick={() => setLogin(user.id)}
-            className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+            disabled={true}
+            className='flex items-center gap-2 p-2 rounded-md opacity-40 cursor-not-allowed'
           >
             <Avatar className='w-8 h-8'>
               <AvatarImage src={user.metadata.picture} alt={getDisplayName(user)} />
@@ -165,11 +168,8 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
-          onClick={() => {
-            console.log('Add another account clicked');
-            onAddAccountClick();
-          }}
-          className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+          disabled={true}
+          className='flex items-center gap-2 p-2 rounded-md opacity-40 cursor-not-allowed'
         >
           <UserPlus className='w-4 h-4' />
           <span>Add another account</span>

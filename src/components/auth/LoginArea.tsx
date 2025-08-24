@@ -152,7 +152,10 @@ export function LoginArea({ className }: LoginAreaProps) {
 
           {/* Account Switcher */}
           <div className="flex-shrink-0">
-            <DropdownList onAddAccountClick={() => setAddAccountDialogOpen(true)} />
+            <DropdownList onAddAccountClick={() => {
+              // Account switching temporarily disabled due to wallet isolation bug
+              console.log('Add account disabled due to wallet isolation bug');
+            }} />
           </div>
         </div>
       ) : (

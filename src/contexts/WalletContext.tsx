@@ -148,9 +148,51 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // Determine signer type to choose the right WebLN provider
+        const isExtensionSigner = user.signer?.constructor?.name?.includes('NIP07') ||
+                                 user.signer?.constructor?.name?.includes('Extension');
+
+        bundleLog('walletAutoDetection', '[WalletContext] Signer type detection - Extension signer: ' + isExtensionSigner + ', Constructor: ' + user.signer?.constructor?.name);
+
         // Check if WebLN is available
         if (window.webln) {
           bundleLog('walletAutoDetection', '[WalletContext] WebLN detected, attempting auto-enable for user: ' + user.pubkey.slice(0, 8) + '...');
+
+          // For extension signers, check if this is Bitcoin Connect's WebLN
+          if (isExtensionSigner) {
+            // Check if this is Bitcoin Connect's WebLN by looking for specific properties
+            const isBitcoinConnect = window.webln.constructor?.name?.includes('BitcoinConnect') ||
+                                   'requestProvider' in window.webln ||
+                                   window.webln.constructor?.name === 'WebLNProvider' ||
+                                   'connectors' in window.webln;
+
+            bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect detection - isBitcoinConnect: ' + isBitcoinConnect + ', WebLN constructor: ' + window.webln.constructor?.name);
+
+            if (isBitcoinConnect) {
+              bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect WebLN detected for extension signer - clearing Bitcoin Connect to allow extension WebLN priority');
+
+              // Clear Bitcoin Connect's WebLN to allow extension WebLN to take priority
+              if (window.webln && 'disconnect' in window.webln && typeof window.webln.disconnect === 'function') {
+                try {
+                  await window.webln.disconnect();
+                } catch (disconnectError) {
+                  bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect disconnect failed: ' + disconnectError);
+                }
+              }
+
+              // Clear the global webln to allow extension to set it up
+              delete (window as any).webln;
+
+              // Wait a moment for extension to potentially set up webln again
+              await new Promise(resolve => setTimeout(resolve, 500));
+
+              // If still no webln or still Bitcoin Connect, skip auto-detection
+              if (!window.webln || window.webln.constructor?.name?.includes('BitcoinConnect')) {
+                bundleLog('walletAutoDetection', '[WalletContext] Extension WebLN not available after Bitcoin Connect cleanup - skipping auto-detection');
+                return;
+              }
+            }
+          }
 
           try {
             await window.webln.enable();
