@@ -1,34 +1,92 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bitcoin, Loader2, CheckCircle, AlertCircle, Zap, RefreshCw } from 'lucide-react';
+import { Bitcoin, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Button as BitcoinConnectButton, init } from '@getalby/bitcoin-connect-react';
 import { useToast } from '@/hooks/useToast';
+import { useWallet } from '@/hooks/useWallet';
 import { cn } from '@/lib/utils';
+import { useEffect } from 'react';
 
 interface BitcoinConnectCardProps {
-  isConnecting: boolean;
-  onConnect: () => void;
-  isConnected?: boolean;
-  onDisconnect?: () => void;
   onTestConnection?: () => Promise<void>;
-  userHasLightningAccess?: boolean;
-  onEnableNWC?: () => void;
   disabled?: boolean;
   disabledReason?: string;
 }
 
 const BitcoinConnectCard = ({
-  isConnecting,
-  onConnect,
-  isConnected = false,
-  onDisconnect,
   onTestConnection,
-  userHasLightningAccess = false,
-  onEnableNWC,
   disabled = false,
   disabledReason
 }: BitcoinConnectCardProps) => {
   const { toast } = useToast();
-  // If user doesn't have Lightning access, show NWC option
+  const {
+    isConnected,
+    userHasLightningAccess,
+    connect,
+    disconnect
+  } = useWallet();
+
+  // Initialize Bitcoin Connect
+  useEffect(() => {
+    init({
+      appName: 'ZapTok',
+      filters: ['nwc'],
+      showBalance: false,
+    });
+  }, []);
+
+  const handleConnected = async () => {
+    try {
+      // Wait for window.webln to be available
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      if (window.webln) {
+        await connect(); // This will detect the new WebLN provider
+        toast({
+          title: "Wallet Connected",
+          description: "Successfully connected your Lightning wallet",
+        });
+      } else {
+        // Try again after a longer delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        if (window.webln) {
+          await connect();
+          toast({
+            title: "Wallet Connected",
+            description: "Successfully connected your Lightning wallet",
+          });
+        } else {
+          throw new Error("WebLN provider not available after Bitcoin Connect");
+        }
+      }
+    } catch (error) {
+      console.error('Connection failed:', error);
+      toast({
+        title: "Connection Failed",
+        description: error instanceof Error ? error.message : "Failed to connect wallet",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDisconnected = async () => {
+    try {
+      await disconnect();
+      toast({
+        title: "Wallet Disconnected",
+        description: "Lightning wallet has been disconnected successfully",
+        variant: "destructive",
+      });
+    } catch (error) {
+      console.error('Disconnect failed:', error);
+      toast({
+        title: "Disconnect Failed",
+        description: error instanceof Error ? error.message : "Failed to disconnect wallet",
+        variant: "destructive",
+      });
+    }
+  };
+  // If user doesn't have Lightning access, show unavailable state
   if (!userHasLightningAccess) {
     return (
       <div className={cn("flex items-center justify-between p-4 bg-gray-900 rounded-lg border border-gray-700",
@@ -46,17 +104,6 @@ const BitcoinConnectCard = ({
         </div>
 
         <div className="flex items-center space-x-3">
-          {onEnableNWC && !disabled && (
-            <Button
-              onClick={onEnableNWC}
-              variant="outline"
-              size="sm"
-              className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10 hover:border-blue-400"
-            >
-              <Zap className="w-4 h-4 mr-2" />
-              Enable NWC
-            </Button>
-          )}
           <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">
             <AlertCircle className="w-3 h-3 mr-1" />
             {disabled ? "Disabled" : "Unavailable"}
@@ -95,37 +142,25 @@ const BitcoinConnectCard = ({
               <RefreshCw className="w-4 h-4 mr-2" />
               Test
             </Button>
-            {onDisconnect && (
-              <Button
-                onClick={onDisconnect}
-                variant="ghost"
-                size="sm"
-                className="text-pink-400 hover:text-pink-300 hover:bg-pink-400/10"
-                disabled={disabled}
-              >
-                Disconnect
-              </Button>
-            )}
+            <Button
+              onClick={handleDisconnected}
+              variant="ghost"
+              size="sm"
+              className="text-pink-400 hover:text-pink-300 hover:bg-pink-400/10"
+              disabled={disabled}
+            >
+              Disconnect
+            </Button>
             <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/20">
               <CheckCircle className="w-3 h-3 mr-1" />
               Active
             </Badge>
           </>
         ) : (
-          <Button
-            onClick={onConnect}
-            disabled={isConnecting || disabled}
-            className="bg-pink-500 hover:bg-pink-600 text-white px-6"
-          >
-            {isConnecting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Connecting...
-              </>
-            ) : (
-              "Connect"
-            )}
-          </Button>
+          <BitcoinConnectButton
+            onConnected={handleConnected}
+            onDisconnected={handleDisconnected}
+          />
         )}
       </div>
     </div>

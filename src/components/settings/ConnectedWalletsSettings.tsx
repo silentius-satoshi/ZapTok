@@ -88,13 +88,7 @@ export function ConnectedWalletsSettings({
           />
         ) : shouldShowStandardBitcoinConnect ? (
           <BitcoinConnectCard
-            isConnecting={isConnecting === 'btc'}
-            onConnect={onBitcoinConnect}
-            isConnected={actualIsConnected && hasBitcoinConnect}
-            onDisconnect={onDisconnect}
             onTestConnection={onTestConnection}
-            userHasLightningAccess={shouldAllowBitcoinConnect}
-            onEnableNWC={onEnableNWC}
             disabled={bitcoinConnectDisabled}
             disabledReason={getBitcoinConnectDisabledReason()}
           />
