@@ -59,7 +59,7 @@ export function ConnectedWalletsSettings({
 
   // Apply mutual exclusivity rules
   const bitcoinConnectDisabled = hasNWC; // Rule 3 & 5: If NWC connected, disable Bitcoin Connect
-  const nwcDisabled = isExtensionSigner || hasBitcoinConnect; // Rule 1 & 2 & 4: If extension or Bitcoin Connect, disable NWC
+  const nwcDisabled = hasBitcoinConnect; // Rule 2 & 4: If Bitcoin Connect is active, disable NWC
 
   // Determine disabled reasons
   const getBitcoinConnectDisabledReason = () => {
@@ -68,7 +68,6 @@ export function ConnectedWalletsSettings({
   };
 
   const getNWCDisabledReason = () => {
-    if (isExtensionSigner) return "Browser extension wallet is connected";
     if (hasBitcoinConnect) return "Bitcoin Connect is already connected";
     return undefined;
   };
@@ -98,8 +97,8 @@ export function ConnectedWalletsSettings({
           />
         ) : null}
 
-        {/* Nostr Wallet Connect - Only show for non-extension signers */}
-        {!isExtensionSigner && (
+        {/* Nostr Wallet Connect - Only show for extension and nsec signers (NOT bunker) */}
+        {(isExtensionSigner || isNsecSigner) && !isBunkerSigner && (
           <NostrWalletConnectCard
             isConnecting={isConnecting === 'nwc'}
             onConnect={onNostrWalletConnect}
@@ -108,8 +107,10 @@ export function ConnectedWalletsSettings({
           />
         )}
 
-        {/* Cashu Wallet - Always available regardless of Lightning connection */}
-        <CashuRelaySettings alwaysExpanded={true} />
+        {/* Cashu Wallet - Only show for extension and nsec signers (NOT bunker) */}
+        {(isExtensionSigner || isNsecSigner) && !isBunkerSigner && (
+          <CashuRelaySettings alwaysExpanded={true} />
+        )}
       </div>
     </SettingsSection>
   );

@@ -27,17 +27,26 @@ import { QRModal } from '@/components/QRModal';
 import { ZapButton } from '@/components/ZapButton';
 import { NutzapButton } from '@/components/NutzapButton';
 import { useToast } from '@/hooks/useToast';
+import { useNostrLogin } from '@nostrify/react/login';
 import { nip19 } from 'nostr-tools';
 
 const Profile = () => {
   const { pubkey: paramPubkey } = useParams();
   const { user } = useCurrentUser();
+  const { logins } = useNostrLogin();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'bookmarks'>('posts');
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const isMobile = useIsMobile();
+  
+  // Detect signer type to hide Cashu features for bunker signers
+  const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
+  const loginType = currentUserLogin?.type;
+  const isBunkerSigner = loginType === 'bunker' || 
+                        loginType === 'x-bunker-nostr-tools' ||
+                        user?.signer?.constructor?.name?.includes('bunker');
 
   // Prevent body scrolling when edit form is shown
   useEffect(() => {
@@ -278,13 +287,15 @@ const Profile = () => {
                               className="w-10 h-10"
                             />
 
-                            {/* 3b. Nutzap Button */}
-                            <NutzapButton
-                              userPubkey={targetPubkey}
-                              variant="outline"
-                              size="icon"
-                              className="w-10 h-10"
-                            />
+                            {/* 3b. Nutzap Button - Only for non-bunker signers */}
+                            {!isBunkerSigner && (
+                              <NutzapButton
+                                userPubkey={targetPubkey}
+                                variant="outline"
+                                size="icon"
+                                className="w-10 h-10"
+                              />
+                            )}
 
                             {/* 4. Direct Message Button */}
                             <Button

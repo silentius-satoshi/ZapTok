@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrLogin } from '@nostrify/react/login';
 import { useLogoutWithWarning } from '@/hooks/useLogoutWithWarning';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
 import { useAuthor } from '@/hooks/useAuthor';
@@ -22,12 +23,27 @@ import { bundleLog } from '@/lib/logBundler';
 
 export function MobileNavigation() {
   const { user } = useCurrentUser();
+  const { logins } = useNostrLogin();
   const { currentVideo } = useCurrentVideo();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
   
   // Get current video author data for zapping
   const currentVideoAuthor = useAuthor(currentVideo?.pubkey || '');
+  
+  // Check if current user is using a bunker signer
+  const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
+  const loginType = currentUserLogin?.type;
+  const isBunkerSigner = loginType === 'bunker' || loginType === 'x-bunker-nostr-tools' || user?.signer?.constructor?.name?.includes('bunker');
+  
+  // Detect potential signer conflicts (respect user's choice)
+  const isExtensionAvailable = !!(window.nostr);
+  const hasMultipleSigners = isExtensionAvailable && isBunkerSigner;
+  
+  // Optional: Log conflict detection for debugging (respects user's active choice)
+  if (hasMultipleSigners && user?.pubkey) {
+    console.info('Multiple signers detected - showing interface for active login choice:', loginType);
+  }
   
   const location = useLocation();
   const navigate = useNavigate();
@@ -131,7 +147,13 @@ export function MobileNavigation() {
     { id: 'following', icon: Users, label: 'Following', path: '/' },
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    { id: 'wallet', icon: Wallet, label: 'Cashu Wallet', path: '/wallet' },
+    // Conditional wallet item based on signer type (respects user's login choice)
+    {
+      id: 'wallet',
+      icon: isBunkerSigner ? Zap : Wallet,
+      label: isBunkerSigner ? 'Bitcoin Connect Wallet' : 'Cashu Wallet',
+      path: '/wallet'
+    },
     { id: 'live-stream', icon: Radio, label: 'Live Stream', action: 'liveStream' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
     { id: 'upload-video', icon: PlusSquare, label: 'Upload Video', action: 'uploadVideo' },
@@ -187,13 +209,17 @@ export function MobileNavigation() {
                   <UserPlus className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
                 </button>
 
-                {/* Wallet Icon */}
+                {/* Wallet Icon - respects user's login choice */}
                 <button
                   onClick={() => navigate('/wallet')}
-                  aria-label="Cashu Wallet"
+                  aria-label={isBunkerSigner ? "Bitcoin Connect Wallet" : "Cashu Wallet"}
                   className="text-white/80 hover:text-white transition-colors"
                 >
-                  <Wallet className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                  {isBunkerSigner ? (
+                    <Zap className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                  ) : (
+                    <Wallet className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                  )}
                 </button>
 
                 {/* Upload Icon */}

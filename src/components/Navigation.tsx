@@ -1,9 +1,10 @@
-import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Crown } from 'lucide-react';
+import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Crown, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
+import { useNostrLogin } from '@nostrify/react/login';
 import { genUserName } from '@/lib/genUserName';
 import { VideoUploadModal } from '@/components/VideoUploadModal';
 import { UserSearchModal } from '@/components/UserSearchModal';
@@ -12,11 +13,26 @@ import { useState, useEffect } from 'react';
 
 export function Navigation() {
   const { user } = useCurrentUser();
+  const { logins } = useNostrLogin();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
   const location = useLocation();
   const navigate = useNavigate();
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
+
+  // Check if current user is using a bunker signer
+  const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
+  const loginType = currentUserLogin?.type;
+  const isBunkerSigner = loginType === 'bunker' || loginType === 'x-bunker-nostr-tools' || user?.signer?.constructor?.name?.includes('bunker');
+  
+  // Detect potential signer conflicts (respect user's choice)
+  const isExtensionAvailable = !!(window.nostr);
+  const hasMultipleSigners = isExtensionAvailable && isBunkerSigner;
+  
+  // Optional: Log conflict detection for debugging (respects user's active choice)
+  if (hasMultipleSigners && user?.pubkey) {
+    console.info('Multiple signers detected - showing interface for active login choice:', loginType);
+  }
 
   // Set activeTab based on current route
   const [activeTab, setActiveTab] = useState(() => {
@@ -69,15 +85,22 @@ export function Navigation() {
     navigate(path);
   };
 
-  const navItems = [
-    { id: 'discover', icon: Search, label: 'Discover', onClick: () => handleNavigateToPage('/discover'), path: '/discover' },
-    { id: 'following', icon: Users, label: 'Following', onClick: () => handleNavigateToPage('/'), path: '/' },
-    { id: 'global', icon: Globe, label: 'Global', onClick: () => handleNavigateToPage('/global'), path: '/global' },
-    { id: 'userSearch', icon: UserPlus, label: 'Search Users', onClick: handleUserSearchClick },
-    { id: 'pro', icon: Crown, label: 'Pro Mode', onClick: () => handleNavigateToPage('/pro'), path: '/pro' },
-    { id: 'notifications', icon: Heart, label: 'Notifications', onClick: () => handleNavigateToPage('/notifications'), path: '/notifications' },
-    { id: 'wallet', icon: Zap, label: 'Cashu Wallet', onClick: () => handleNavigateToPage('/wallet'), path: '/wallet' },
-    { id: 'settings', icon: Settings, label: 'Settings', onClick: () => handleNavigateToPage('/settings'), path: '/settings' },
+    const navItems = [
+    { id: 'search', icon: Search, label: 'Discover', path: '/discover' },
+    { id: 'global', icon: Globe, label: 'Global', path: '/global' },
+    { id: 'following', icon: Users, label: 'Following', path: '/' },
+    { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
+    // Conditional wallet item based on signer type (respects user's login choice)
+    {
+      id: 'wallet',
+      icon: isBunkerSigner ? Zap : Wallet,
+      label: isBunkerSigner ? 'Bitcoin Connect Wallet' : 'Cashu Wallet',
+      path: '/wallet'
+    },
+    { id: 'upload', icon: PlusSquare, label: 'Upload Video', action: 'upload' },
+    { id: 'stream', icon: Radio, label: 'Live Stream', path: '/stream' },
+    { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
+    { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
   // Update activeTab when location changes
@@ -126,7 +149,7 @@ export function Navigation() {
                         ? 'text-gray-400 hover:text-white'
                         : 'text-gray-400 hover:text-white'
                     }`}
-                    onClick={item.onClick}
+                    onClick={() => setActiveTab(item.id)}
                     onMouseEnter={() => setHoveredItem(item.id)}
                     onMouseLeave={() => setHoveredItem(null)}
                   >
@@ -165,7 +188,7 @@ export function Navigation() {
                     ? 'text-gray-400 hover:text-white'
                     : 'text-gray-400 hover:text-white'
                 }`}
-                onClick={item.onClick}
+                onClick={() => setActiveTab(item.id)}
                 onMouseEnter={() => setHoveredItem(item.id)}
                 onMouseLeave={() => setHoveredItem(null)}
               >
