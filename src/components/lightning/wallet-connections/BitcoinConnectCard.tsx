@@ -1,11 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Bitcoin, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
-import { Button as BitcoinConnectButton, init } from '@getalby/bitcoin-connect-react';
+import { Button as BitcoinConnectButton, init, disconnect as bitcoinConnectDisconnect } from '@getalby/bitcoin-connect-react';
 import { useToast } from '@/hooks/useToast';
 import { useWallet } from '@/hooks/useWallet';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrLogin } from '@nostrify/react/login';
 import { cn } from '@/lib/utils';
 import { useEffect } from 'react';
+import { useBitcoinConnectConsent } from '@/hooks/useBitcoinConnectConsent';
+import { BitcoinConnectConsentDialog } from '@/components/lightning/BitcoinConnectConsentDialog';
 
 interface BitcoinConnectCardProps {
   onTestConnection?: () => Promise<void>;
@@ -19,6 +23,8 @@ const BitcoinConnectCard = ({
   disabledReason
 }: BitcoinConnectCardProps) => {
   const { toast } = useToast();
+  const { user } = useCurrentUser();
+  const { logins } = useNostrLogin();
   const {
     isConnected,
     userHasLightningAccess,
@@ -26,20 +32,59 @@ const BitcoinConnectCard = ({
     disconnect
   } = useWallet();
 
-  // Initialize Bitcoin Connect
+  // Use consent hook for bunker signers
+  const {
+    isDialogOpen,
+    detectedWallet,
+    signerType,
+    isBunkerSigner,
+    closeDialog,
+    hasUserConsent,
+    hasUserDeclined
+  } = useBitcoinConnectConsent();
+
+  // Initialize Bitcoin Connect only for appropriate signer types
   useEffect(() => {
-    init({
-      appName: 'ZapTok',
-      filters: ['nwc'],
-      showBalance: false,
-    });
-  }, []);
+    if (!user?.pubkey) return;
+
+    // Get user's login type to determine signer type
+    const currentUserLogin = logins.find(login => login.pubkey === user.pubkey);
+    const loginType = currentUserLogin?.type;
+
+    // Only initialize for bunker signers
+    const isBunkerSigner = loginType === 'bunker' ||
+                          loginType === 'x-bunker-nostr-tools' ||
+                          user?.signer?.constructor?.name?.includes('bunker');
+
+    if (isBunkerSigner) {
+      console.log('[BitcoinConnect] Bunker signer detected, Bitcoin Connect will initialize on demand:', loginType);
+      // Don't initialize here - let the Bitcoin Connect Button handle it
+      // Consent dialog will handle any auto-connection scenarios
+    } else {
+      console.log('[BitcoinConnect] Non-bunker signer - Bitcoin Connect disabled:', loginType);
+      // For non-bunker signers, ensure Bitcoin Connect is disconnected
+      try {
+        bitcoinConnectDisconnect();
+        console.log('[BitcoinConnect] Disconnected Bitcoin Connect for non-bunker signer');
+      } catch (error) {
+        console.log('[BitcoinConnect] No active Bitcoin Connect connection to disconnect');
+      }
+    }
+  }, [user?.pubkey, logins]);
 
   const handleConnected = async () => {
     try {
+      // Initialize Bitcoin Connect with proper settings before handling connection
+      init({
+        appName: 'ZapTok',
+        filters: ['nwc'],
+        showBalance: false,
+        autoConnect: false, // Ensure auto-connect is disabled
+      });
+
       // Wait for window.webln to be available
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       if (window.webln) {
         await connect(); // This will detect the new WebLN provider
         toast({
@@ -163,6 +208,16 @@ const BitcoinConnectCard = ({
           />
         )}
       </div>
+
+      {/* Consent Dialog for Bunker Signers */}
+      {isBunkerSigner && (
+        <BitcoinConnectConsentDialog
+          isOpen={isDialogOpen}
+          onClose={closeDialog}
+          detectedWallet={detectedWallet || undefined}
+          signerType={signerType}
+        />
+      )}
     </div>
   );
 };
