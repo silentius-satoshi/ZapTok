@@ -54,8 +54,8 @@ export function ConnectedWalletsSettings({
   const actualIsConnected = hasBitcoinConnect || hasNWC;
 
   // Determine which components to show based on signer type and current connections
-  const shouldShowEnhancedBitcoinConnect = (isBunkerSigner || isNsecSigner) && isMobile;
-  const shouldShowStandardBitcoinConnect = isExtensionSigner || (!isMobile && (isBunkerSigner || isNsecSigner));
+  const shouldShowEnhancedBitcoinConnect = isBunkerSigner || isNsecSigner; // Show Enhanced for all bunker/nsec signers
+  const shouldShowStandardBitcoinConnect = isExtensionSigner; // Only show Standard for extension signers
 
   // Apply mutual exclusivity rules
   const bitcoinConnectDisabled = hasNWC; // Rule 3 & 5: If NWC connected, disable Bitcoin Connect
@@ -71,6 +71,9 @@ export function ConnectedWalletsSettings({
     if (hasBitcoinConnect) return "Bitcoin Connect is already connected";
     return undefined;
   };
+
+  // Override userHasLightningAccess for bunker signers - they should always be able to connect via Bitcoin Connect
+  const shouldAllowBitcoinConnect = isBunkerSigner || userHasLightningAccess;
 
   return (
     <SettingsSection
@@ -90,7 +93,7 @@ export function ConnectedWalletsSettings({
             isConnected={actualIsConnected && hasBitcoinConnect}
             onDisconnect={onDisconnect}
             onTestConnection={onTestConnection}
-            userHasLightningAccess={userHasLightningAccess}
+            userHasLightningAccess={shouldAllowBitcoinConnect}
             onEnableNWC={onEnableNWC}
             disabled={bitcoinConnectDisabled}
             disabledReason={getBitcoinConnectDisabledReason()}
