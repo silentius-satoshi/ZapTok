@@ -1,5 +1,6 @@
 import { useEffect, useState, ReactNode, useRef } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrLogin } from '@nostrify/react/login';
 import type {
   Transaction,
   WalletInfo,
@@ -50,6 +51,7 @@ const setUserLightningEnabled = (pubkey: string, enabled: boolean): void => {
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const { user } = useCurrentUser(); // Only auto-connect if user is logged in
+  const { logins } = useNostrLogin(); // Access user login information for signer type detection
   const [provider, setProvider] = useState<WebLNProvider | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +150,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Determine signer type to choose the right WebLN provider
+        // Get user's login type to determine signer type  
+        const currentUserLogin = logins.find(login => login.pubkey === user.pubkey);
+        const loginType = currentUserLogin?.type;
+
+        // Detect if this is a bunker signer - bunker signers should NOT auto-detect extension wallets
+        const isBunkerSigner = loginType === 'bunker' || 
+                              loginType === 'x-bunker-nostr-tools' ||
+                              user?.signer?.constructor?.name?.includes('bunker');
+
+        if (isBunkerSigner) {
+          bundleLog('walletAutoDetection', '[WalletContext] Auto-detection skipped - bunker signer should only use Bitcoin Connect deliberately');
+          return;
+        }
+
+        // Determine signer type to choose the right WebLN provider (only for non-bunker signers)
         const isExtensionSigner = user.signer?.constructor?.name?.includes('NIP07') ||
                                  user.signer?.constructor?.name?.includes('Extension');
 
