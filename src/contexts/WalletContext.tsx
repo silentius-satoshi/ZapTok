@@ -150,12 +150,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Get user's login type to determine signer type  
+        // Get user's login type to determine signer type
         const currentUserLogin = logins.find(login => login.pubkey === user.pubkey);
         const loginType = currentUserLogin?.type;
 
         // Detect if this is a bunker signer - bunker signers should NOT auto-detect extension wallets
-        const isBunkerSigner = loginType === 'bunker' || 
+        const isBunkerSigner = loginType === 'bunker' ||
                               loginType === 'x-bunker-nostr-tools' ||
                               user?.signer?.constructor?.name?.includes('bunker');
 
@@ -176,15 +176,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
           // For extension signers, check if this is Bitcoin Connect's WebLN
           if (isExtensionSigner) {
+            // Check if Bitcoin Connect is intentionally active (user chose it deliberately)
+            const bitcoinConnectIntentionallyActive = (window as any).__bitcoinConnectActive;
+
             // Check if this is Bitcoin Connect's WebLN by looking for specific properties
             const isBitcoinConnect = window.webln.constructor?.name?.includes('BitcoinConnect') ||
                                    'requestProvider' in window.webln ||
                                    window.webln.constructor?.name === 'WebLNProvider' ||
                                    'connectors' in window.webln;
 
-            bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect detection - isBitcoinConnect: ' + isBitcoinConnect + ', WebLN constructor: ' + window.webln.constructor?.name);
+            bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect detection - isBitcoinConnect: ' + isBitcoinConnect + ', intentionallyActive: ' + bitcoinConnectIntentionallyActive + ', WebLN constructor: ' + window.webln.constructor?.name);
 
-            if (isBitcoinConnect) {
+            if (isBitcoinConnect && !bitcoinConnectIntentionallyActive) {
               bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect WebLN detected for extension signer - clearing Bitcoin Connect to allow extension WebLN priority');
 
               // Clear Bitcoin Connect's WebLN to allow extension WebLN to take priority
@@ -207,7 +210,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 bundleLog('walletAutoDetection', '[WalletContext] Extension WebLN not available after Bitcoin Connect cleanup - skipping auto-detection');
                 return;
               }
+            } else if (isBitcoinConnect && bitcoinConnectIntentionallyActive) {
+              bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect is intentionally active - respecting user choice and proceeding with Bitcoin Connect');
+              // Don't clear Bitcoin Connect - user chose it deliberately
             }
+          }
+
+          // Additional check: Don't proceed with auto-detection if Bitcoin Connect is intentionally active
+          if ((window as any).__bitcoinConnectActive) {
+            bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect is intentionally active - skipping auto-detection to respect user choice');
+            return;
           }
 
           try {
@@ -280,24 +292,62 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setUserLightningEnabled(user.pubkey, true);
         setUserHasLightningAccess(true);
 
-        // Load initial wallet data
+        // Load initial wallet data with retry logic for Bitcoin Connect
         try {
-          const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
-          const actualBalance = balance.balance || 0;
+          // For Bitcoin Connect connections, we need to be more patient
+          // as NWC connections can take time to establish
+          let retryCount = 0;
+          const maxRetries = 3;
+          let hasWalletData = false;
 
-          // Store the actual balance for this user
-          setUserLightningBalance(user.pubkey, actualBalance);
+          while (retryCount < maxRetries && !hasWalletData) {
+            try {
+              const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
+              const actualBalance = balance.balance || 0;
 
-          setWalletInfo({
-            alias: 'WebLN Wallet',
-            balance: actualBalance,
-            implementation: 'WebLN',
-          });
+              // Try to get wallet info if available
+              let walletAlias = 'WebLN Wallet';
+              if ('getInfo' in window.webln && typeof window.webln.getInfo === 'function') {
+                try {
+                  const info = await (window.webln as any).getInfo();
+                  walletAlias = info.alias || info.node?.alias || 'Lightning Wallet';
+                } catch (infoError) {
+                  bundleLog('walletConnection', 'Could not get wallet info, using default alias');
+                }
+              }
 
-          // Check transaction support once during manual connection
-          setTransactionSupport(!!window.webln.listTransactions);
-        } catch {
-          bundleLog('walletConnection', 'Could not load initial wallet data');
+              // Store the actual balance for this user
+              setUserLightningBalance(user.pubkey, actualBalance);
+
+              setWalletInfo({
+                alias: walletAlias,
+                balance: actualBalance,
+                implementation: 'WebLN',
+              });
+
+              // Check transaction support once during manual connection
+              setTransactionSupport(!!window.webln.listTransactions);
+
+              hasWalletData = true; // Success, exit retry loop
+              bundleLog('walletConnection', `Successfully loaded wallet data on attempt ${retryCount + 1}`);
+            } catch (attempt) {
+              retryCount++;
+              bundleLog('walletConnection', `Wallet data load attempt ${retryCount} failed: ${attempt}`);
+
+              if (retryCount < maxRetries) {
+                // Wait longer between retries for NWC connections
+                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+              }
+            }
+          }
+
+          if (!hasWalletData) {
+            bundleLog('walletConnection', 'Could not load initial wallet data after all retries');
+            // Still mark as connected even if we can't get initial data
+            // The wallet may work for payments even if getBalance/getInfo fails
+          }
+        } catch (error) {
+          bundleLog('walletConnection', 'Could not load initial wallet data: ' + error);
         }
 
         return;
