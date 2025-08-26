@@ -86,31 +86,102 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection, disabl
 
   const handleConnected = async (provider: any) => {
     try {
-      // Bitcoin Connect should have set up window.webln, but it might need a moment
-      // Wait a bit for window.webln to be available
-      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('[EnhancedBitcoinConnect] Bitcoin Connect connected, provider:', provider);
 
-      if (window.webln) {
-        await connect(); // This will detect the new WebLN provider
-        toast({
-          title: "Wallet Connected",
-          description: `Successfully connected to your Lightning wallet`,
-        });
-      } else {
-        // Try again after a longer delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        if (window.webln) {
+      // PREEMPTIVE PROTECTION: Immediately mark Bitcoin Connect as active to prevent browser extension interference
+      (window as any).__bitcoinConnectActive = true;
+
+      // Store any existing browser extension WebLN before Bitcoin Connect overwrites it
+      const existingWebLN = window.webln;
+      if (existingWebLN && !existingWebLN.constructor?.name?.includes('BitcoinConnect')) {
+        console.log('[EnhancedBitcoinConnect] 🚨 Browser extension WebLN detected, storing reference:', existingWebLN.constructor?.name);
+        (window as any).__browserExtensionWebLN = existingWebLN;
+      }
+
+      // Give Bitcoin Connect time to fully establish the NWC connection
+      // NWC connections need time to establish relay communication
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Multi-attempt connection with progressive delays
+      const maxAttempts = 3;
+      let lastError: Error | null = null;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          console.log(`[EnhancedBitcoinConnect] Connection attempt ${attempt}/${maxAttempts}`);
+
+          // Wait progressively longer for each attempt
+          if (attempt > 1) {
+            const delay = attempt * 1000; // 1s, 2s, 3s
+            console.log(`[EnhancedBitcoinConnect] Waiting ${delay}ms before attempt ${attempt}`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+
+          // Check if WebLN is available
+          if (!window.webln) {
+            throw new Error(`WebLN provider not available (attempt ${attempt}/${maxAttempts})`);
+          }
+
+          console.log('[EnhancedBitcoinConnect] WebLN available, testing connection...');
+
+          // CRITICAL: Store a reference to Bitcoin Connect's WebLN to prevent browser extension override
+          const bitcoinConnectWebLN = window.webln;
+          (window as any).__bitcoinConnectWebLN = bitcoinConnectWebLN;
+
+          // Set up a protection mechanism against browser extension override
+          const protectBitcoinConnect = () => {
+            if ((window as any).__bitcoinConnectActive && window.webln !== bitcoinConnectWebLN) {
+              console.log('[EnhancedBitcoinConnect] ⚠️ Browser extension tried to override Bitcoin Connect WebLN - restoring Bitcoin Connect');
+              window.webln = bitcoinConnectWebLN;
+            }
+          };
+
+          // Check for override attempts every 50ms for the first 10 seconds (more aggressive protection)
+          const protectionInterval = setInterval(protectBitcoinConnect, 50);
+          setTimeout(() => clearInterval(protectionInterval), 10000);
+
+          // Test the connection
+          await window.webln.enable();
+
+          // Test basic functionality to ensure the connection is working
+          if ('getInfo' in window.webln && typeof window.webln.getInfo === 'function') {
+            const info = await (window.webln as any).getInfo();
+            console.log('[EnhancedBitcoinConnect] WebLN info:', info);
+          }
+
+          // Now that we've verified the connection works, connect via WalletContext
           await connect();
+
           toast({
             title: "Wallet Connected",
-            description: `Successfully connected to your Lightning wallet`,
+            description: `Successfully connected to your Lightning wallet via Bitcoin Connect`,
           });
-        } else {
-          throw new Error("WebLN provider not available after Bitcoin Connect");
+
+          // Success! Break out of the retry loop
+          return;
+
+        } catch (attemptError) {
+          lastError = attemptError instanceof Error ? attemptError : new Error(String(attemptError));
+          console.error(`[EnhancedBitcoinConnect] Attempt ${attempt} failed:`, lastError.message);
+          
+          // If this isn't the last attempt, continue to retry
+          if (attempt < maxAttempts) {
+            console.log(`[EnhancedBitcoinConnect] Retrying connection (${maxAttempts - attempt} attempts remaining)...`);
+            continue;
+          }
         }
       }
+
+      // If we get here, all attempts failed
+      throw lastError || new Error("All connection attempts failed");
+
     } catch (error) {
-      console.error('Connection failed:', error);
+      console.error('[EnhancedBitcoinConnect] Connection failed:', error);
+      
+      // Clean up on failure
+      (window as any).__bitcoinConnectActive = false;
+      delete (window as any).__bitcoinConnectWebLN;
+      
       toast({
         title: "Connection Failed",
         description: error instanceof Error ? error.message : "Failed to connect wallet",
@@ -121,15 +192,38 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection, disabl
 
   const handleDisconnected = async () => {
     try {
-      // Use the global disconnect function
+      console.log('[EnhancedBitcoinConnect] Disconnecting...');
+
+      // First disable Bitcoin Connect protection
+      (window as any).__bitcoinConnectActive = false;
+      delete (window as any).__bitcoinConnectWebLN;
+
+      // First disconnect via WalletContext
       await disconnect();
+
+      // Then clear Bitcoin Connect's WebLN provider
+      if (window.webln && 'disconnect' in window.webln && typeof window.webln.disconnect === 'function') {
+        try {
+          await window.webln.disconnect();
+          console.log('[EnhancedBitcoinConnect] Bitcoin Connect WebLN disconnected');
+        } catch (bcDisconnectError) {
+          console.warn('[EnhancedBitcoinConnect] Bitcoin Connect disconnect failed:', bcDisconnectError);
+        }
+      }
+
+      // Clear window.webln to prevent stale connections
+      if (window.webln) {
+        delete (window as any).webln;
+        console.log('[EnhancedBitcoinConnect] Cleared window.webln');
+      }
+
       toast({
         title: "Wallet Disconnected",
         description: "Lightning wallet has been disconnected successfully",
         variant: "destructive",
       });
     } catch (error) {
-      console.error('Disconnect failed:', error);
+      console.error('[EnhancedBitcoinConnect] Disconnect failed:', error);
       toast({
         title: "Disconnect Failed",
         description: error instanceof Error ? error.message : "Failed to disconnect wallet",
