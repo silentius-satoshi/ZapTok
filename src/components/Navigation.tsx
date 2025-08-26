@@ -9,7 +9,7 @@ import { genUserName } from '@/lib/genUserName';
 import { VideoUploadModal } from '@/components/VideoUploadModal';
 import { UserSearchModal } from '@/components/UserSearchModal';
 import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function Navigation() {
   const { user } = useCurrentUser();
@@ -24,14 +24,18 @@ export function Navigation() {
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
   const loginType = currentUserLogin?.type;
   const isBunkerSigner = loginType === 'bunker' || loginType === 'x-bunker-nostr-tools' || user?.signer?.constructor?.name?.includes('bunker');
-  
+
   // Detect potential signer conflicts (respect user's choice)
   const isExtensionAvailable = !!(window.nostr);
   const hasMultipleSigners = isExtensionAvailable && isBunkerSigner;
-  
-  // Optional: Log conflict detection for debugging (respects user's active choice)
-  if (hasMultipleSigners && user?.pubkey) {
+
+  // Track if we've already logged the multiple signers detection to prevent spam
+  const loggedMultipleSigners = useRef<string | null>(null);
+
+  // Optional: Log conflict detection for debugging (respects user's active choice) - only once per user session
+  if (hasMultipleSigners && user?.pubkey && loggedMultipleSigners.current !== user.pubkey) {
     console.info('Multiple signers detected - showing interface for active login choice:', loginType);
+    loggedMultipleSigners.current = user.pubkey;
   }
 
   // Set activeTab based on current route
