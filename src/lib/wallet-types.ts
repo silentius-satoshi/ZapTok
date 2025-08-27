@@ -79,4 +79,8 @@ export interface WalletContextType {
   isLoading: boolean;
   transactionSupport: boolean | null;
   userHasLightningAccess: boolean;
+  // Signer detection and compatibility
+  isBunkerSigner: boolean;
+  isCashuCompatible: boolean;
+  isExtensionSigner: boolean;
 }

@@ -51,7 +51,7 @@ const setUserLightningEnabled = (pubkey: string, enabled: boolean): void => {
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const { user } = useCurrentUser(); // Only auto-connect if user is logged in
-  const { logins } = useNostrLogin(); // Access user login information for signer type detection
+  const { logins } = useNostrLogin();
   const [provider, setProvider] = useState<WebLNProvider | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +68,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   // Ref to track ongoing async operations
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Get the current user's login type from the login objects
+  const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
+  const loginType = currentUserLogin?.type;
+
+  // Centralized bunker signer detection
+  const isBunkerSigner = !!(loginType === 'bunker' ||
+                           loginType === 'x-bunker-nostr-tools' ||
+                           user?.signer?.constructor?.name?.includes('bunker'));
+
+  // Extension signer detection - only these should get WebLN auto-enable
+  const isExtensionSigner = !!(loginType === 'extension' ||
+                              user?.signer?.constructor?.name?.includes('NIP07') ||
+                              user?.signer?.constructor?.name?.includes('Extension'));
+
+  // Cashu compatibility check - bunker signers cannot sign Cashu events due to remote signing limitations
+  const isCashuCompatible = !isBunkerSigner;
 
   // Reset wallet state when user changes
   useEffect(() => {
@@ -136,8 +153,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [user?.pubkey, walletInfo]);
 
   useEffect(() => {
-    // Auto-detect WebLN for all logged-in users
-    if (!user?.pubkey) {
+    // Auto-detect WebLN only for extension signers (not bunker or other remote signers)
+    if (!user?.pubkey || !isExtensionSigner) {
+      bundleLog('walletAutoDetection', '[WalletContext] Skipping WebLN auto-detection - Extension signer: ' + isExtensionSigner + ', User: ' + !!user?.pubkey);
       return;
     }
 
@@ -150,76 +168,43 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Get user's login type to determine signer type
-        const currentUserLogin = logins.find(login => login.pubkey === user.pubkey);
-        const loginType = currentUserLogin?.type;
-
-        // Detect if this is a bunker signer - bunker signers should NOT auto-detect extension wallets
-        const isBunkerSigner = loginType === 'bunker' ||
-                              loginType === 'x-bunker-nostr-tools' ||
-                              user?.signer?.constructor?.name?.includes('bunker');
-
-        if (isBunkerSigner) {
-          bundleLog('walletAutoDetection', '[WalletContext] Auto-detection skipped - bunker signer should only use Bitcoin Connect deliberately');
-          return;
-        }
-
-        // Determine signer type to choose the right WebLN provider (only for non-bunker signers)
-        const isExtensionSigner = user.signer?.constructor?.name?.includes('NIP07') ||
-                                 user.signer?.constructor?.name?.includes('Extension');
-
         bundleLog('walletAutoDetection', '[WalletContext] Signer type detection - Extension signer: ' + isExtensionSigner + ', Constructor: ' + user.signer?.constructor?.name);
 
         // Check if WebLN is available
         if (window.webln) {
-          bundleLog('walletAutoDetection', '[WalletContext] WebLN detected, attempting auto-enable for user: ' + user.pubkey.slice(0, 8) + '...');
+          bundleLog('walletAutoDetection', '[WalletContext] WebLN detected, attempting auto-enable for extension signer: ' + user.pubkey.slice(0, 8) + '...');
 
-          // For extension signers, check if this is Bitcoin Connect's WebLN
-          if (isExtensionSigner) {
-            // Check if Bitcoin Connect is intentionally active (user chose it deliberately)
-            const bitcoinConnectIntentionallyActive = (window as any).__bitcoinConnectActive;
+          // Check if this is Bitcoin Connect's WebLN by looking for specific properties
+          const isBitcoinConnect = window.webln.constructor?.name?.includes('BitcoinConnect') ||
+                                 'requestProvider' in window.webln ||
+                                 window.webln.constructor?.name === 'WebLNProvider' ||
+                                 'connectors' in window.webln;
 
-            // Check if this is Bitcoin Connect's WebLN by looking for specific properties
-            const isBitcoinConnect = window.webln.constructor?.name?.includes('BitcoinConnect') ||
-                                   'requestProvider' in window.webln ||
-                                   window.webln.constructor?.name === 'WebLNProvider' ||
-                                   'connectors' in window.webln;
+          bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect detection - isBitcoinConnect: ' + isBitcoinConnect + ', WebLN constructor: ' + window.webln.constructor?.name);
 
-            bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect detection - isBitcoinConnect: ' + isBitcoinConnect + ', intentionallyActive: ' + bitcoinConnectIntentionallyActive + ', WebLN constructor: ' + window.webln.constructor?.name);
+          if (isBitcoinConnect) {
+            bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect WebLN detected for extension signer - clearing Bitcoin Connect to allow extension WebLN priority');
 
-            if (isBitcoinConnect && !bitcoinConnectIntentionallyActive) {
-              bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect WebLN detected for extension signer - clearing Bitcoin Connect to allow extension WebLN priority');
-
-              // Clear Bitcoin Connect's WebLN to allow extension WebLN to take priority
-              if (window.webln && 'disconnect' in window.webln && typeof window.webln.disconnect === 'function') {
-                try {
-                  await window.webln.disconnect();
-                } catch (disconnectError) {
-                  bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect disconnect failed: ' + disconnectError);
-                }
+            // Clear Bitcoin Connect's WebLN to allow extension WebLN to take priority
+            if (window.webln && 'disconnect' in window.webln && typeof window.webln.disconnect === 'function') {
+              try {
+                await window.webln.disconnect();
+              } catch (disconnectError) {
+                bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect disconnect failed: ' + disconnectError);
               }
-
-              // Clear the global webln to allow extension to set it up
-              delete (window as any).webln;
-
-              // Wait a moment for extension to potentially set up webln again
-              await new Promise(resolve => setTimeout(resolve, 500));
-
-              // If still no webln or still Bitcoin Connect, skip auto-detection
-              if (!window.webln || window.webln.constructor?.name?.includes('BitcoinConnect')) {
-                bundleLog('walletAutoDetection', '[WalletContext] Extension WebLN not available after Bitcoin Connect cleanup - skipping auto-detection');
-                return;
-              }
-            } else if (isBitcoinConnect && bitcoinConnectIntentionallyActive) {
-              bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect is intentionally active - respecting user choice and proceeding with Bitcoin Connect');
-              // Don't clear Bitcoin Connect - user chose it deliberately
             }
-          }
 
-          // Additional check: Don't proceed with auto-detection if Bitcoin Connect is intentionally active
-          if ((window as any).__bitcoinConnectActive) {
-            bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect is intentionally active - skipping auto-detection to respect user choice');
-            return;
+            // Clear the global webln to allow extension to set it up
+            delete (window as any).webln;
+
+            // Wait a moment for extension to potentially set up webln again
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // If still no webln or still Bitcoin Connect, skip auto-detection
+            if (!window.webln || window.webln.constructor?.name?.includes('BitcoinConnect')) {
+              bundleLog('walletAutoDetection', '[WalletContext] Extension WebLN not available after Bitcoin Connect cleanup - skipping auto-detection');
+              return;
+            }
           }
 
           try {
@@ -250,7 +235,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
               setTransactionSupport(!!window.webln.listTransactions);
 
-              bundleLog('walletAutoDetection', '[WalletContext] Auto-detection successful for user: ' + user.pubkey.slice(0, 8) + '...');
+              bundleLog('walletAutoDetection', '[WalletContext] Auto-detection successful for extension signer: ' + user.pubkey.slice(0, 8) + '...');
             } catch (balanceError) {
               bundleLog('walletAutoDetection', '[WalletContext] Could not load initial wallet data: ' + balanceError);
             }
@@ -259,7 +244,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             // Don't mark as explicitly disabled here - user might try again later
           }
         } else {
-          bundleLog('walletAutoDetection', '[WalletContext] No WebLN provider detected');
+          bundleLog('walletAutoDetection', '[WalletContext] No WebLN provider detected for extension signer');
         }
       } catch (error) {
         bundleLog('walletAutoDetection', '[WalletContext] Auto-detection error: ' + error);
@@ -267,7 +252,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
 
     attemptAutoDetection();
-  }, [user?.pubkey]); // Run when user changes
+  }, [user?.pubkey, isExtensionSigner]); // Run when user or signer type changes
 
   const connect = async () => {
     if (!user?.pubkey) {
@@ -280,7 +265,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       // Try to use WebLN first
       if (window.webln) {
-        await window.webln.enable();
+        try {
+          await window.webln.enable();
+        } catch (enableError) {
+          console.warn('[WalletContext] WebLN enable failed (non-critical):', enableError);
+          // Don't fail the entire connection for WebLN enable errors
+          // This commonly happens when browser extension prompts are closed
+        }
+
         const webln = window.webln;
         setProvider({
           ...webln,
@@ -292,62 +284,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setUserLightningEnabled(user.pubkey, true);
         setUserHasLightningAccess(true);
 
-        // Load initial wallet data with retry logic for Bitcoin Connect
+        // Load initial wallet data
         try {
-          // For Bitcoin Connect connections, we need to be more patient
-          // as NWC connections can take time to establish
-          let retryCount = 0;
-          const maxRetries = 3;
-          let hasWalletData = false;
+          const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
+          const actualBalance = balance.balance || 0;
 
-          while (retryCount < maxRetries && !hasWalletData) {
-            try {
-              const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
-              const actualBalance = balance.balance || 0;
+          // Store the actual balance for this user
+          setUserLightningBalance(user.pubkey, actualBalance);
 
-              // Try to get wallet info if available
-              let walletAlias = 'WebLN Wallet';
-              if ('getInfo' in window.webln && typeof window.webln.getInfo === 'function') {
-                try {
-                  const info = await (window.webln as any).getInfo();
-                  walletAlias = info.alias || info.node?.alias || 'Lightning Wallet';
-                } catch (infoError) {
-                  bundleLog('walletConnection', 'Could not get wallet info, using default alias');
-                }
-              }
+          setWalletInfo({
+            alias: 'WebLN Wallet',
+            balance: actualBalance,
+            implementation: 'WebLN',
+          });
 
-              // Store the actual balance for this user
-              setUserLightningBalance(user.pubkey, actualBalance);
-
-              setWalletInfo({
-                alias: walletAlias,
-                balance: actualBalance,
-                implementation: 'WebLN',
-              });
-
-              // Check transaction support once during manual connection
-              setTransactionSupport(!!window.webln.listTransactions);
-
-              hasWalletData = true; // Success, exit retry loop
-              bundleLog('walletConnection', `Successfully loaded wallet data on attempt ${retryCount + 1}`);
-            } catch (attempt) {
-              retryCount++;
-              bundleLog('walletConnection', `Wallet data load attempt ${retryCount} failed: ${attempt}`);
-
-              if (retryCount < maxRetries) {
-                // Wait longer between retries for NWC connections
-                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-              }
-            }
-          }
-
-          if (!hasWalletData) {
-            bundleLog('walletConnection', 'Could not load initial wallet data after all retries');
-            // Still mark as connected even if we can't get initial data
-            // The wallet may work for payments even if getBalance/getInfo fails
-          }
-        } catch (error) {
-          bundleLog('walletConnection', 'Could not load initial wallet data: ' + error);
+          // Check transaction support once during manual connection
+          setTransactionSupport(!!window.webln.listTransactions);
+        } catch {
+          bundleLog('walletConnection', 'Could not load initial wallet data');
         }
 
         return;
@@ -646,6 +600,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       isLoading,
       transactionSupport,
       userHasLightningAccess,
+      isBunkerSigner,
+      isCashuCompatible,
+      isExtensionSigner,
     }}>
       {children}
     </WalletContext.Provider>

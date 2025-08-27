@@ -69,6 +69,12 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection, disabl
     try {
       console.log('[EnhancedBitcoinConnect] Bitcoin Connect connected, initializing...');
 
+      // Skip if we're already connected to avoid re-enabling an already working provider
+      if (isConnected && userHasLightningAccess) {
+        console.log('[EnhancedBitcoinConnect] Already connected, skipping re-connection process');
+        return;
+      }
+
       // Set Bitcoin Connect as active to enable protection
       (window as any).__bitcoinConnectActive = true;
 
@@ -105,13 +111,40 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection, disabl
       // Store Bitcoin Connect WebLN reference for protection
       (window as any).__bitcoinConnectWebLN = window.webln;
 
-      // Test WebLN enable before proceeding
+      // Test WebLN enable before proceeding (optional - Bitcoin Connect can work without WebLN)
+      let weblnFailed = false;
       try {
-        await window.webln.enable();
+        // Check if WebLN is already enabled to avoid re-enabling
+        if (window.webln.isEnabled) {
+          console.log('[EnhancedBitcoinConnect] WebLN already enabled, skipping enable() call');
+        } else {
+          console.log('[EnhancedBitcoinConnect] Enabling WebLN...');
+          await window.webln.enable();
+        }
         console.log('[EnhancedBitcoinConnect] WebLN enabled successfully');
       } catch (enableError) {
-        console.error('[EnhancedBitcoinConnect] WebLN enable failed:', enableError);
-        throw new Error("Failed to enable WebLN provider. Check wallet connection.");
+        console.warn('[EnhancedBitcoinConnect] WebLN enable failed (non-critical):', enableError);
+        weblnFailed = true;
+
+        // Temporarily disable WebLN to prevent Bitcoin Connect's internal enable() calls from failing
+        if (window.webln) {
+          const originalWebln = window.webln;
+          const originalEnable = originalWebln.enable;
+
+          // Override enable() to prevent further failures during Bitcoin Connect operations
+          originalWebln.enable = async () => {
+            console.log('[EnhancedBitcoinConnect] Preventing WebLN re-enable after previous failure');
+            return Promise.resolve(); // Return resolved promise instead of throwing
+          };
+
+          // Restore after Bitcoin Connect's internal operations complete
+          setTimeout(() => {
+            if (originalWebln && originalEnable) {
+              originalWebln.enable = originalEnable;
+              console.log('[EnhancedBitcoinConnect] Restored WebLN enable() function');
+            }
+          }, 3000); // Longer timeout to ensure all Bitcoin Connect operations complete
+        }
       }
 
       // Now connect via WalletContext
@@ -131,6 +164,15 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection, disabl
 
       // Provide specific error messages for common issues
       let errorMessage = error instanceof Error ? error.message : "Failed to connect wallet";
+
+      // Don't fail for WebLN-specific errors that were already handled above
+      if (errorMessage.includes("Prompt was closed") ||
+          errorMessage.includes("webln.enable() failed") ||
+          errorMessage.includes("Enable was rejected") ||
+          errorMessage.includes("rejecting further window.webln calls")) {
+        console.log('[EnhancedBitcoinConnect] WebLN prompt error handled gracefully');
+        return; // Don't show error toast for these cases
+      }
 
       if (errorMessage.includes("undefined") && errorMessage.includes("enabled")) {
         errorMessage = "Browser extension conflict detected. Please disable WebLN browser extensions and try again.";

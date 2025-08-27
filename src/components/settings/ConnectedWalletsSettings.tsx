@@ -28,31 +28,25 @@ export function ConnectedWalletsSettings({
   onTestConnection,
   onEnableNWC
 }: ConnectedWalletsSettingsProps) {
-  const { userHasLightningAccess, walletInfo } = useWallet();
+  const { userHasLightningAccess, walletInfo, isBunkerSigner, isCashuCompatible, isExtensionSigner } = useWallet();
   const { isConnected: nwcConnected } = useNWC(); // Add NWC connection detection
   const { user } = useCurrentUser();
-  const { logins } = useNostrLogin();
   const isMobile = useIsMobile();
 
-  // Get the current user's login type from the login objects
+  // Detect nsec signer type (still needed locally)
+  const { logins } = useNostrLogin();
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
-  const loginType = currentUserLogin?.type;
-
-  // Detect signer type based on login type and constructor name
-  const isExtensionSigner = loginType === 'extension' || !!(window.nostr && user?.signer?.constructor?.name?.includes('NIP07'));
-  const isBunkerSigner = loginType === 'bunker' || 
-                        loginType === 'x-bunker-nostr-tools' ||
-                        user?.signer?.constructor?.name?.includes('bunker');
-  const isNsecSigner = loginType === 'nsec' || 
+  const isNsecSigner = currentUserLogin?.type === 'nsec' ||
                       user?.signer?.constructor?.name?.includes('nsec');
 
   // Debug: Log signer detection for troubleshooting
-  console.log('[ConnectedWalletsSettings] Signer Detection Debug:', {
-    loginType,
+  console.log('[ConnectedWalletsSettings] Signer Detection Debug (using WalletContext):', {
+    loginType: currentUserLogin?.type,
     signerConstructorName: user?.signer?.constructor?.name,
     isExtensionSigner,
     isBunkerSigner,
     isNsecSigner,
+    isCashuCompatible,
     userPubkey: user?.pubkey?.slice(0, 8) + '...',
     isMobile
   });
@@ -97,13 +91,7 @@ export function ConnectedWalletsSettings({
           />
         ) : shouldShowStandardBitcoinConnect ? (
           <BitcoinConnectCard
-            isConnecting={isConnecting === 'btc'}
-            onConnect={onBitcoinConnect}
-            isConnected={isConnected}
-            onDisconnect={onDisconnect}
             onTestConnection={onTestConnection}
-            userHasLightningAccess={userHasLightningAccess}
-            onEnableNWC={onEnableNWC}
             disabled={bitcoinConnectDisabled}
             disabledReason={getBitcoinConnectDisabledReason()}
           />
@@ -119,8 +107,10 @@ export function ConnectedWalletsSettings({
           />
         )}
 
-        {/* Cashu Wallet - Always available regardless of Lightning connection */}
-        <CashuRelaySettings alwaysExpanded={true} />
+        {/* Cashu Wallet - Use centralized compatibility check from WalletContext */}
+        {isCashuCompatible && (
+          <CashuRelaySettings alwaysExpanded={true} />
+        )}
       </div>
     </SettingsSection>
   );
