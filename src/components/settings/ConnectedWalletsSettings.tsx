@@ -46,12 +46,20 @@ export function ConnectedWalletsSettings({
   const isNsecSigner = loginType === 'nsec' || 
                       user?.signer?.constructor?.name?.includes('nsec');
 
+  // Debug: Log signer detection for troubleshooting
+  console.log('[ConnectedWalletsSettings] Signer Detection Debug:', {
+    loginType,
+    signerConstructorName: user?.signer?.constructor?.name,
+    isExtensionSigner,
+    isBunkerSigner,
+    isNsecSigner,
+    userPubkey: user?.pubkey?.slice(0, 8) + '...',
+    isMobile
+  });
+
   // Detect current Lightning connection type
   const hasBitcoinConnect = userHasLightningAccess && walletInfo?.implementation === 'WebLN';
   const hasNWC = nwcConnected; // Use actual NWC connection state
-
-  // Override the passed isConnected with our more accurate detection
-  const actualIsConnected = hasBitcoinConnect || hasNWC;
 
   // Determine which components to show based on signer type and current connections
   const shouldShowEnhancedBitcoinConnect = isBunkerSigner || isNsecSigner; // Show Enhanced for all bunker/nsec signers
@@ -80,15 +88,22 @@ export function ConnectedWalletsSettings({
       description="To enable zapping from the ZapTok web app, connect a wallet:"
     >
       <div className="space-y-3">
-        {/* Bitcoin Connect - Show Enhanced for mobile bunker/nsec, Standard for extension/desktop */}
+        {/* Bitcoin Connect - Show Enhanced for bunker/nsec, Standard for extension */}
         {shouldShowEnhancedBitcoinConnect ? (
           <EnhancedBitcoinConnectCard
             onTestConnection={onTestConnection}
-            className={bitcoinConnectDisabled ? "opacity-50 pointer-events-none" : ""}
+            disabled={bitcoinConnectDisabled}
+            disabledReason={getBitcoinConnectDisabledReason()}
           />
         ) : shouldShowStandardBitcoinConnect ? (
           <BitcoinConnectCard
+            isConnecting={isConnecting === 'btc'}
+            onConnect={onBitcoinConnect}
+            isConnected={isConnected}
+            onDisconnect={onDisconnect}
             onTestConnection={onTestConnection}
+            userHasLightningAccess={userHasLightningAccess}
+            onEnableNWC={onEnableNWC}
             disabled={bitcoinConnectDisabled}
             disabledReason={getBitcoinConnectDisabledReason()}
           />
@@ -104,10 +119,8 @@ export function ConnectedWalletsSettings({
           />
         )}
 
-        {/* Cashu Wallet - Only show for extension and nsec signers (NOT bunker) */}
-        {(isExtensionSigner || isNsecSigner) && !isBunkerSigner && (
-          <CashuRelaySettings alwaysExpanded={true} />
-        )}
+        {/* Cashu Wallet - Always available regardless of Lightning connection */}
+        <CashuRelaySettings alwaysExpanded={true} />
       </div>
     </SettingsSection>
   );
