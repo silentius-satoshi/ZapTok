@@ -44,43 +44,103 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection, disabl
 
   // Initialize Bitcoin Connect for mobile PWA
   useEffect(() => {
+    // Clear any broken WebLN objects before initializing
+    if (window.webln && !(window as any).__bitcoinConnectActive) {
+      const requiredMethods = ['enable', 'getInfo'];
+      const hasValidMethods = requiredMethods.every(method =>
+        typeof (window.webln as any)?.[method] === 'function'
+      );
+
+      if (!hasValidMethods) {
+        console.log('[EnhancedBitcoinConnect] Clearing broken WebLN before initialization');
+        delete (window as any).webln;
+      }
+    }
+
     init({
       appName: 'ZapTok',
       filters: ['nwc'],
       showBalance: true,
+      autoConnect: false, // Prevent auto-connection to avoid conflicts
     });
   }, []);
 
   const handleConnected = async (provider: any) => {
     try {
-      // Bitcoin Connect should have set up window.webln, but it might need a moment
-      // Wait a bit for window.webln to be available
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      if (window.webln) {
-        await connect(); // This will detect the new WebLN provider
-        toast({
-          title: "Wallet Connected",
-          description: `Successfully connected to your Lightning wallet`,
-        });
-      } else {
-        // Try again after a longer delay
+      console.log('[EnhancedBitcoinConnect] Bitcoin Connect connected, initializing...');
+
+      // Set Bitcoin Connect as active to enable protection
+      (window as any).__bitcoinConnectActive = true;
+
+      // Wait for Bitcoin Connect to establish WebLN
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Check if we have a valid WebLN provider
+      if (!window.webln) {
+        throw new Error("WebLN provider not available after Bitcoin Connect");
+      }
+
+      // Validate the WebLN object has required methods
+      const requiredMethods = ['enable', 'getInfo'];
+      const missingMethods = requiredMethods.filter(method =>
+        typeof (window.webln as any)?.[method] !== 'function'
+      );
+
+      if (missingMethods.length > 0) {
+        console.error('[EnhancedBitcoinConnect] WebLN provider missing methods:', missingMethods);
+
+        // Clear the broken WebLN object
+        delete (window as any).webln;
+
+        // Wait a bit and check if Bitcoin Connect provides a new one
         await new Promise(resolve => setTimeout(resolve, 500));
-        if (window.webln) {
-          await connect();
-          toast({
-            title: "Wallet Connected",
-            description: `Successfully connected to your Lightning wallet`,
-          });
-        } else {
-          throw new Error("WebLN provider not available after Bitcoin Connect");
+
+        if (!window.webln || missingMethods.some(method =>
+          typeof (window.webln as any)?.[method] !== 'function'
+        )) {
+          throw new Error("Browser extension conflict detected. Please disable WebLN extensions and retry.");
         }
       }
+
+      // Store Bitcoin Connect WebLN reference for protection
+      (window as any).__bitcoinConnectWebLN = window.webln;
+
+      // Test WebLN enable before proceeding
+      try {
+        await window.webln.enable();
+        console.log('[EnhancedBitcoinConnect] WebLN enabled successfully');
+      } catch (enableError) {
+        console.error('[EnhancedBitcoinConnect] WebLN enable failed:', enableError);
+        throw new Error("Failed to enable WebLN provider. Check wallet connection.");
+      }
+
+      // Now connect via WalletContext
+      await connect();
+
+      toast({
+        title: "Wallet Connected",
+        description: `Successfully connected to your Lightning wallet`,
+      });
+
     } catch (error) {
-      console.error('Connection failed:', error);
+      console.error('[EnhancedBitcoinConnect] Connection failed:', error);
+
+      // Clean up on failure
+      (window as any).__bitcoinConnectActive = false;
+      delete (window as any).__bitcoinConnectWebLN;
+
+      // Provide specific error messages for common issues
+      let errorMessage = error instanceof Error ? error.message : "Failed to connect wallet";
+
+      if (errorMessage.includes("undefined") && errorMessage.includes("enabled")) {
+        errorMessage = "Browser extension conflict detected. Please disable WebLN browser extensions and try again.";
+      } else if (errorMessage.includes("WebLN provider missing methods")) {
+        errorMessage = "Invalid WebLN provider. Please try a different wallet or disable browser extensions.";
+      }
+
       toast({
         title: "Connection Failed",
-        description: error instanceof Error ? error.message : "Failed to connect wallet",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -88,15 +148,32 @@ export function EnhancedBitcoinConnectCard({ className, onTestConnection, disabl
 
   const handleDisconnected = async () => {
     try {
+      console.log('[EnhancedBitcoinConnect] Disconnecting...');
+
+      // Clean up Bitcoin Connect protection
+      (window as any).__bitcoinConnectActive = false;
+      delete (window as any).__bitcoinConnectWebLN;
+
       // Use the global disconnect function
       await disconnect();
+
+      // Clear window.webln to prevent stale connections
+      if (window.webln) {
+        delete (window as any).webln;
+      }
+
       toast({
         title: "Wallet Disconnected",
         description: "Lightning wallet has been disconnected successfully",
         variant: "destructive",
       });
     } catch (error) {
-      console.error('Disconnect failed:', error);
+      console.error('[EnhancedBitcoinConnect] Disconnect failed:', error);
+
+      // Still clean up protection even if disconnect fails
+      (window as any).__bitcoinConnectActive = false;
+      delete (window as any).__bitcoinConnectWebLN;
+
       toast({
         title: "Disconnect Failed",
         description: error instanceof Error ? error.message : "Failed to disconnect wallet",
