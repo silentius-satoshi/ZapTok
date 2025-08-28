@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { genUserName } from '@/lib/genUserName';
 import { useWallet } from '@/hooks/useWallet';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useAppContext } from '@/hooks/useAppContext';
 
 interface QuickZapProps {
   isOpen: boolean;
@@ -31,14 +32,25 @@ export function QuickZap({
 }: QuickZapProps) {
   const { user } = useCurrentUser();
   const navigate = useNavigate();
+  const { config } = useAppContext(); // Access zap settings
   const { isConnected: bitcoinConnectConnected, userHasLightningAccess, walletInfo } = useWallet();
-  
+
   // Use more accurate Bitcoin Connect detection
   const actualBitcoinConnectConnected = userHasLightningAccess && walletInfo?.implementation === 'WebLN';
-  
+
   const isMobile = useIsMobile();
-  const [zapAmount, setZapAmount] = useState(21);
+  // Initialize with default zap amount from settings
+  const [zapAmount, setZapAmount] = useState(config.defaultZap.amount);
+  const [zapMessage, setZapMessage] = useState(config.defaultZap.message);
   const [paymentMethod, setPaymentMethod] = useState<'webln' | 'bitcoin-connect'>('webln');
+
+  // Update zap amount when config changes or modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setZapAmount(config.defaultZap.amount);
+      setZapMessage(config.defaultZap.message);
+    }
+  }, [isOpen, config.defaultZap.amount, config.defaultZap.message]);
 
   // Get recipient info for display
   const { data: authorData } = useAuthor(recipientPubkey);
@@ -90,10 +102,16 @@ export function QuickZap({
   const updateZapAmount = (value: string) => {
     const amount = parseInt(value.replace(/,/g, ''));
     if (isNaN(amount) || amount < 1) {
-      setZapAmount(21);
+      setZapAmount(config.defaultZap.amount);
       return;
     }
     setZapAmount(amount);
+  };
+
+  // Handle quick zap option selection
+  const selectZapOption = (option: typeof config.availableZapOptions[0]) => {
+    setZapAmount(option.amount);
+    setZapMessage(option.message);
   };
 
   const quickZap = async () => {
@@ -125,7 +143,7 @@ export function QuickZap({
         result = await zapPayment({
           lightningAddress,
           amountSats: zapAmount,
-          comment: `Zap from ZapTok user`,
+          comment: zapMessage || `Zap from ZapTok user`,
           nostr: eventId ? {
             eventId,
             pubkey: recipientPubkey
@@ -138,7 +156,7 @@ export function QuickZap({
         result = await zapPayment({
           lightningAddress,
           amountSats: zapAmount,
-          comment: `Zap from ZapTok user`,
+          comment: zapMessage || `Zap from ZapTok user`,
           nostr: eventId ? {
             eventId,
             pubkey: recipientPubkey
@@ -161,7 +179,7 @@ export function QuickZap({
 
   const navigateToZapSettings = () => {
     onClose();
-    navigate('/settings?section=lightning');
+    navigate('/settings?section=zaps');
   };
 
   const handleCancel = () => {
@@ -172,8 +190,8 @@ export function QuickZap({
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className={`bg-gray-900 border-gray-700 max-h-[85vh] overflow-y-auto ${
-          isMobile 
-            ? 'max-w-[95vw] w-[95vw] mx-2 my-4' 
+          isMobile
+            ? 'max-w-[95vw] w-[95vw] mx-2 my-4'
             : 'max-w-sm w-full mx-4'
         }`}>
           <DialogHeader className={isMobile ? 'pb-2' : 'pb-4'}>
@@ -263,6 +281,54 @@ export function QuickZap({
                 />
               </div>
 
+              {/* Quick Zap Options from Settings */}
+              <div className={`space-y-2 ${isMobile ? 'mb-2' : 'mb-3'}`}>
+                <Label className={`text-gray-300 ${
+                  isMobile ? 'text-xs' : 'text-sm'
+                }`}>
+                  Quick Options
+                </Label>
+                <div className={`grid gap-2 ${
+                  isMobile ? 'grid-cols-2' : 'grid-cols-3'
+                }`}>
+                  {config.availableZapOptions.map((option, index) => (
+                    <Button
+                      key={index}
+                      variant={zapAmount === option.amount ? 'default' : 'outline'}
+                      onClick={() => selectZapOption(option)}
+                      className={`${isMobile ? 'h-8 text-xs' : 'h-9 text-sm'} ${
+                        zapAmount === option.amount
+                          ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                          : 'border-gray-600 text-gray-300 hover:text-white hover:border-gray-500'
+                      }`}
+                      disabled={isZapping}
+                    >
+                      <span className="mr-1">{option.emoji}</span>
+                      {option.amount}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Message input */}
+              <div className={`space-y-2 ${isMobile ? 'mb-2' : 'mb-3'}`}>
+                <Label htmlFor="zapMessage" className={`text-gray-300 ${
+                  isMobile ? 'text-xs' : 'text-sm'
+                }`}>
+                  Message (optional)
+                </Label>
+                <Input
+                  id="zapMessage"
+                  type="text"
+                  value={zapMessage}
+                  onChange={(e) => setZapMessage(e.target.value)}
+                  placeholder="Onward 👍"
+                  className={`bg-gray-700 border-gray-600 text-white ${
+                    isMobile ? 'h-9 text-sm' : 'h-10'
+                  }`}
+                />
+              </div>
+
               {/* Quick zap button */}
               <Button
                 onClick={quickZap}
@@ -322,7 +388,7 @@ export function QuickZap({
                   }`}
                 >
                   <Settings className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-3 h-3 mr-1'}`} />
-                  Lightning Settings
+                  Zap Settings
                 </Button>
               </div>
             </div>

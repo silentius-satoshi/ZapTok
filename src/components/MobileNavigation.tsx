@@ -6,10 +6,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrLogin } from '@nostrify/react/login';
 import { useLogoutWithWarning } from '@/hooks/useLogoutWithWarning';
-import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
 import { useAuthor } from '@/hooks/useAuthor';
-import { useDefaultZap } from '@/hooks/useDefaultZap';
-import { getLightningAddress } from '@/lib/lightning';
 import { genUserName } from '@/lib/genUserName';
 import { VideoUploadModal } from '@/components/VideoUploadModal';
 import { UserSearchModal } from '@/components/UserSearchModal';
@@ -24,33 +21,28 @@ import { bundleLog } from '@/lib/logBundler';
 export function MobileNavigation() {
   const { user } = useCurrentUser();
   const { logins } = useNostrLogin();
-  const { currentVideo } = useCurrentVideo();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
-  
-  // Get current video author data for zapping
-  const currentVideoAuthor = useAuthor(currentVideo?.pubkey || '');
-  
+
   // Check if current user is using a bunker signer
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
   const loginType = currentUserLogin?.type;
   const isBunkerSigner = loginType === 'bunker' || loginType === 'x-bunker-nostr-tools' || user?.signer?.constructor?.name?.includes('bunker');
-  
+
   // Detect potential signer conflicts (respect user's choice)
   const isExtensionAvailable = !!(window.nostr);
   const hasMultipleSigners = isExtensionAvailable && isBunkerSigner;
-  
+
   // Optional: Log conflict detection for debugging (respects user's active choice)
   if (hasMultipleSigners && user?.pubkey) {
     console.info('Multiple signers detected - showing interface for active login choice:', loginType);
   }
-  
+
   const location = useLocation();
   const navigate = useNavigate();
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
   const { refreshCurrentFeed } = useFeedRefresh();
   const { logout, confirmLogout, cancelLogout, showWarning } = useLogoutWithWarning();
-  const { sendDefaultZap } = useDefaultZap();
 
   const [isOpen, setIsOpen] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -109,25 +101,6 @@ export function MobileNavigation() {
     }
   };
 
-    const handleZapClick = async () => {
-    if (!user || !currentVideo || !currentVideoAuthor.data?.metadata) {
-      console.warn('Missing required data for zapping');
-      return;
-    }
-
-    try {
-      const lightningAddress = getLightningAddress(currentVideoAuthor.data.metadata);
-      if (!lightningAddress) {
-        console.warn('No Lightning address found for video author');
-        return;
-      }
-
-      await sendDefaultZap(lightningAddress, currentVideo.id);
-    } catch (error) {
-      console.error('Failed to send zap:', error);
-    }
-  };
-
   const handleLogout = () => {
     setIsOpen(false); // Close the sheet
     logout();
@@ -139,6 +112,8 @@ export function MobileNavigation() {
     label: string;
     path?: string;
     action?: string;
+    isUserProfile?: boolean;
+    isCenter?: boolean;
   }
 
   const navItems: NavItem[] = [
@@ -159,11 +134,11 @@ export function MobileNavigation() {
     { id: 'upload-video', icon: PlusSquare, label: 'Upload Video', action: 'uploadVideo' },
   ];
 
-  // Core items for bottom navigation in the requested order
+  // Core items for bottom navigation
   const bottomNavItems = [
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'following', icon: Users, label: 'Following', path: '/' },
-    { id: 'zap', icon: Zap, label: 'Zap', isCenter: true, isZapButton: true },
+    { id: 'lightning', icon: Zap, label: 'Wallet', path: '/wallet', isCenter: true },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
     { id: 'profile', icon: User, label: 'Profile', isUserProfile: true },
   ];
@@ -364,15 +339,7 @@ export function MobileNavigation() {
         <div className="flex items-center justify-around px-4" style={{ paddingTop: '2px', paddingBottom: '2px' }}>
           {bottomNavItems.map((item) => (
             <div key={item.id} className="flex justify-center">
-              {item.isCenter ? (
-                // Center zap button with elevated styling
-                <button
-                  className={`h-14 w-14 flex items-center justify-center rounded-full transition-all transform bg-gradient-to-br from-orange-400 to-yellow-500 text-white shadow-md shadow-orange-400/20 hover:scale-105 hover:shadow-lg hover:shadow-orange-500/30`}
-                  onClick={handleZapClick}
-                >
-                  <item.icon size={24} className="drop-shadow-sm" />
-                </button>
-              ) : item.isUserProfile ? (
+              {item.isUserProfile ? (
                 // Profile button with user avatar
                 user ? (
                   <button
@@ -402,6 +369,18 @@ export function MobileNavigation() {
                     <item.icon size={20} />
                   </button>
                 )
+              ) : item.isCenter ? (
+                // Center lightning button - larger and highlighted
+                <button
+                  className={`h-14 w-14 flex items-center justify-center rounded-full transition-colors ${
+                    isActive(item.path!)
+                      ? 'text-white bg-orange-600 shadow-lg shadow-orange-600/30'
+                      : 'text-orange-400 bg-gray-800/50 hover:text-white hover:bg-orange-600/20 border border-orange-400/20'
+                  }`}
+                  onClick={() => handleBottomNavClick(item.path!)}
+                >
+                  <item.icon size={24} />
+                </button>
               ) : (
                 // Regular navigation buttons - icon only
                 <button

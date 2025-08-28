@@ -8,7 +8,7 @@ import { CashuWalletLightningCard } from '@/components/lightning/CashuWalletLigh
 import { NutzapCard } from '@/components/lightning/NutzapCard';
 import { RelayContextIndicator } from '@/components/RelayContextIndicator';
 import { Button } from '@/components/ui/button';
-import { Bitcoin } from 'lucide-react';
+import { Bitcoin, ArrowLeft } from 'lucide-react';
 import { useCashuStore } from '@/stores/cashuStore';
 import { formatBalance } from '@/lib/cashu';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
@@ -17,6 +17,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrLogin } from '@nostrify/react/login';
 import { useSeoMeta } from '@unhead/react';
+import { useNavigate } from 'react-router-dom';
 
 export function LightningWallet() {
   useSeoMeta({
@@ -30,6 +31,7 @@ export function LightningWallet() {
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
   const { logins } = useNostrLogin();
+  const navigate = useNavigate();
   
   // Get the current user's login type and detect signer type
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
@@ -65,14 +67,27 @@ export function LightningWallet() {
               <div className={`max-w-7xl mx-auto ${isMobile ? 'p-4' : 'p-6'}`}>
                 <div className="mb-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-white`}>Lightning Wallet</h1>
-                      <p className={`text-gray-400 mt-2 ${isMobile ? 'text-sm' : ''}`}>
-                        {isBunkerSigner 
-                          ? 'Bitcoin Connect wallet (Cashu not available with remote signing)'
-                          : 'Manage your Bitcoin Lightning and Cashu wallets'
-                        }
-                      </p>
+                    <div className="flex items-center gap-4">
+                      {/* Back Button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(-1)}
+                        className="text-gray-400 hover:text-white hover:bg-gray-800"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        {!isMobile && <span className="ml-2">Back</span>}
+                      </Button>
+                      
+                      <div>
+                        <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-white`}>Lightning Wallet</h1>
+                        <p className={`text-gray-400 mt-2 ${isMobile ? 'text-sm' : ''}`}>
+                          {isBunkerSigner 
+                            ? 'Bitcoin Connect wallet (Cashu not available with remote signing)'
+                            : 'Manage your Bitcoin Lightning and Cashu wallets'
+                          }
+                        </p>
+                      </div>
                     </div>
                     {!isMobile && <RelayContextIndicator className="text-right" />}
                   </div>

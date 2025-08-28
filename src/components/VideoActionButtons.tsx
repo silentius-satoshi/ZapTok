@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MessageCircle, Bookmark, Plus, Repeat2, Zap } from 'lucide-react';
+import { MessageCircle, Bookmark, Plus, Repeat2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -26,7 +26,6 @@ interface VideoActionButtonsProps {
   profilePicture?: string;
   isBookmarked?: boolean;
   isFollowing?: boolean;
-  onZap?: () => void;
   onComment?: () => void;
   onBookmark?: () => void;
   onFollow?: () => void;
@@ -37,7 +36,6 @@ export function VideoActionButtons({
   event,
   displayName,
   profilePicture,
-  onZap: _onZap,
   onComment,
   onBookmark,
   onFollow,
@@ -56,11 +54,11 @@ export function VideoActionButtons({
   const { mutate: followUser, isPending: isFollowPending } = useFollowUser();
   const { mutate: bookmarkVideo, isPending: isBookmarkPending } = useBookmarkVideo();
   const navigate = useNavigate();
-  
+
   // Detect signer type to hide Cashu features for bunker signers
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
   const loginType = currentUserLogin?.type;
-  const isBunkerSigner = loginType === 'bunker' || 
+  const isBunkerSigner = loginType === 'bunker' ||
                         loginType === 'x-bunker-nostr-tools' ||
                         user?.signer?.constructor?.name?.includes('bunker');
 
@@ -160,33 +158,19 @@ export function VideoActionButtons({
           )}
         </div>
 
-        {/* 2. Zap Button - Display Only on Mobile, Interactive on Desktop */}
+        {/* 2. Zap Button - Interactive on both Mobile and Desktop */}
         <div className="flex flex-col items-center gap-1">
-          {isMobile ? (
-            // Mobile: Display-only zap button (no click action)
-            <div className={`rounded-full bg-transparent text-white flex items-center justify-center ${
+          <ZapButton
+            recipientPubkey={event.pubkey}
+            eventId={event.id}
+            iconStyle={{
+              width: isMobile ? '28px' : '30px',
+              height: isMobile ? '28px' : '30px'
+            }}
+            className={`rounded-full bg-transparent hover:bg-white/10 text-white p-0 ${
               isMobile ? 'h-12 w-12' : 'h-20 w-20'
-            }`}>
-              <Zap
-                className={`text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]`}
-                style={isMobile ? { width: '1.75rem', height: '1.75rem' } : { width: '4.5rem', height: '4.5rem' }}
-                fill="currentColor"
-              />
-            </div>
-          ) : (
-            // Desktop: Interactive zap button
-            <ZapButton
-              recipientPubkey={event.pubkey}
-              eventId={event.id}
-              iconStyle={{
-                width: isMobile ? '28px' : '30px',
-                height: isMobile ? '28px' : '30px'
-              }}
-              className={`rounded-full bg-transparent hover:bg-white/10 text-white p-0 ${
-                isMobile ? 'h-12 w-12' : 'h-20 w-20'
-              }`}
-            />
-          )}
+            }`}
+          />
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
             {reactions.data ? formatCount(reactions.data.zaps) : '0'}
           </span>
