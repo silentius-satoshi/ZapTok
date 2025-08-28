@@ -6,7 +6,7 @@ import { CashuHistoryCard } from '@/components/lightning/CashuHistoryCard';
 import { CashuTokenCard } from '@/components/lightning/CashuTokenCard';
 import { CashuWalletLightningCard } from '@/components/lightning/CashuWalletLightningCard';
 import { NutzapCard } from '@/components/lightning/NutzapCard';
-import { BunkerWalletDashboard } from '@/components/lightning/BunkerWalletDashboard-phase1';
+import { BunkerWalletDashboard } from '@/components/lightning/BunkerWalletDashboard';
 import { RelayContextIndicator } from '@/components/RelayContextIndicator';
 import { Button } from '@/components/ui/button';
 import { Bitcoin, ArrowLeft } from 'lucide-react';

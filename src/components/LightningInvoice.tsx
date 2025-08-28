@@ -57,7 +57,8 @@ export function LightningInvoice({
 
     const updateTimer = () => {
       const now = Math.floor(Date.now() / 1000);
-      const timeLeft = invoiceData.expiry - now;
+      const expiryTime = invoiceData.expiry || 0;
+      const timeLeft = expiryTime - now;
 
       if (timeLeft <= 0) {
         setTimeLeft('Expired');
@@ -236,15 +237,15 @@ export function LightningInvoice({
           <div className="space-y-2 text-xs text-muted-foreground">
             <div className="flex justify-between">
               <span>Payment Hash:</span>
-              <span className="font-mono">{invoiceData.paymentHash.slice(0, 16)}...</span>
+              <span className="font-mono">{invoiceData.paymentHash ? invoiceData.paymentHash.slice(0, 16) + '...' : 'N/A'}</span>
             </div>
             <div className="flex justify-between">
               <span>Created:</span>
-              <span>{new Date(invoiceData.created * 1000).toLocaleString()}</span>
+              <span>{invoiceData.created ? new Date(invoiceData.created * 1000).toLocaleString() : 'N/A'}</span>
             </div>
             <div className="flex justify-between">
               <span>Expires:</span>
-              <span>{new Date(invoiceData.expiry * 1000).toLocaleString()}</span>
+              <span>{invoiceData.expiry ? new Date(invoiceData.expiry * 1000).toLocaleString() : 'N/A'}</span>
             </div>
           </div>
         )}
