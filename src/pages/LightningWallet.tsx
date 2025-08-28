@@ -6,6 +6,7 @@ import { CashuHistoryCard } from '@/components/lightning/CashuHistoryCard';
 import { CashuTokenCard } from '@/components/lightning/CashuTokenCard';
 import { CashuWalletLightningCard } from '@/components/lightning/CashuWalletLightningCard';
 import { NutzapCard } from '@/components/lightning/NutzapCard';
+import { BunkerWalletDashboard } from '@/components/lightning/BunkerWalletDashboard-phase1';
 import { RelayContextIndicator } from '@/components/RelayContextIndicator';
 import { Button } from '@/components/ui/button';
 import { Bitcoin, ArrowLeft } from 'lucide-react';
@@ -24,7 +25,7 @@ export function LightningWallet() {
     title: 'Lightning Wallet - ZapTok',
     description: 'Manage your Bitcoin lightning wallet, send and receive zaps, and view transaction history.',
   });
-  
+
   const cashuStore = useCashuStore();
   const { data: btcPrice } = useBitcoinPrice();
   const { showSats, toggleCurrency } = useCurrencyDisplayStore();
@@ -32,16 +33,16 @@ export function LightningWallet() {
   const { user } = useCurrentUser();
   const { logins } = useNostrLogin();
   const navigate = useNavigate();
-  
+
   // Get the current user's login type and detect signer type
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
   const loginType = currentUserLogin?.type;
-  
+
   // Detect if this is a bunker signer (can't access Cashu due to remote signing)
-  const isBunkerSigner = loginType === 'bunker' || 
+  const isBunkerSigner = loginType === 'bunker' ||
                         loginType === 'x-bunker-nostr-tools' ||
                         user?.signer?.constructor?.name?.includes('bunker');
-  
+
   // Calculate total balance manually from wallets and pending proofs (only for non-bunker signers)
   const walletProofs = !isBunkerSigner ? cashuStore.wallets.flatMap(wallet => wallet.proofs || []) : [];
   const allProofs = !isBunkerSigner ? [...walletProofs, ...cashuStore.pendingProofs] : [];
@@ -61,7 +62,7 @@ export function LightningWallet() {
                 </div>
               </div>
             )}
-            
+
             {/* Main Content - Full Width on Mobile */}
             <div className={`flex-1 overflow-y-auto scrollbar-hide ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
               <div className={`max-w-7xl mx-auto ${isMobile ? 'p-4' : 'p-6'}`}>
@@ -78,11 +79,11 @@ export function LightningWallet() {
                         <ArrowLeft className="h-4 w-4" />
                         {!isMobile && <span className="ml-2">Back</span>}
                       </Button>
-                      
+
                       <div>
                         <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-white`}>Lightning Wallet</h1>
                         <p className={`text-gray-400 mt-2 ${isMobile ? 'text-sm' : ''}`}>
-                          {isBunkerSigner 
+                          {isBunkerSigner
                             ? 'Bitcoin Connect wallet (Cashu not available with remote signing)'
                             : 'Manage your Bitcoin Lightning and Cashu wallets'
                           }
@@ -92,7 +93,7 @@ export function LightningWallet() {
                     {!isMobile && <RelayContextIndicator className="text-right" />}
                   </div>
                 </div>
-                
+
                 {/* Total Balance Display - Only for non-bunker signers with Cashu wallets */}
                 {!isBunkerSigner && totalBalance >= 0 && (
                   <div className={`text-center space-y-2 ${isMobile ? 'mb-6' : 'mb-8'}`}>
@@ -115,7 +116,7 @@ export function LightningWallet() {
                     </Button>
                   </div>
                 )}
-                
+
                 {/* Bunker Signer Notice */}
                 {isBunkerSigner && (
                   <div className={`text-center space-y-2 ${isMobile ? 'mb-6' : 'mb-8'} p-4 bg-amber-900/20 border border-amber-700/50 rounded-lg`}>
@@ -125,7 +126,7 @@ export function LightningWallet() {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Wallet Cards Grid */}
                 <div className={`grid ${isMobile ? 'grid-cols-1 gap-4' : 'grid-cols-1 lg:grid-cols-2 gap-6'}`}>
                   {!isBunkerSigner ? (
@@ -138,19 +139,8 @@ export function LightningWallet() {
                       <CashuHistoryCard className={isMobile ? '' : 'lg:col-span-2'} />
                     </>
                   ) : (
-                    // Show only Bitcoin Connect info for bunker signers
-                    <div className="col-span-full">
-                      <div className={`p-6 bg-gray-900/50 border border-gray-700 rounded-lg text-center`}>
-                        <h3 className="text-lg font-medium text-white mb-2">Bitcoin Connect Only</h3>
-                        <p className="text-gray-400 text-sm mb-4">
-                          With remote signing, only Bitcoin Connect is available for Lightning payments.
-                          Cashu wallets require local private key access for token operations.
-                        </p>
-                        <div className="text-xs text-gray-500">
-                          To access Cashu features, switch to an extension wallet (like Alby) or use an nsec login.
-                        </div>
-                      </div>
-                    </div>
+                    // Show enhanced Bitcoin Connect dashboard for bunker signers
+                    <BunkerWalletDashboard className="col-span-full" />
                   )}
                 </div>
               </div>

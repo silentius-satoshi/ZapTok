@@ -1,38 +1,42 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from '@tanstack/react-query';
+
+interface BitcoinPrice {
+  USD: number;
+  EUR: number;
+  GBP: number;
+}
+
+const COINGECKO_API = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,eur,gbp';
 
 export function useBitcoinPrice() {
-  return useQuery({
-    queryKey: ["bitcoin-price"],
+  return useQuery<BitcoinPrice>({
+    queryKey: ['bitcoin-price'],
     queryFn: async () => {
-      const response = await fetch("https://api.coinbase.com/v2/exchange-rates?currency=BTC");
-
+      const response = await fetch(COINGECKO_API);
       if (!response.ok) {
-        throw new Error("Failed to fetch Bitcoin price");
+        throw new Error('Failed to fetch Bitcoin price');
       }
-
       const data = await response.json();
-      const usdPrice = parseFloat(data.data.rates.USD);
-
-      return { USD: usdPrice };
+      return {
+        USD: data.bitcoin.usd,
+        EUR: data.bitcoin.eur,
+        GBP: data.bitcoin.gbp,
+      };
     },
-    refetchInterval: 10000, // Refetch every 10 seconds
-    staleTime: 5000, // Consider data fresh for 5 seconds
+    staleTime: 60000, // Cache for 1 minute
+    refetchInterval: 300000, // Refetch every 5 minutes
   });
 }
 
-export function satsToUSD(sats: number, bitcoinPrice: number | null): number {
-  if (!bitcoinPrice) return 0;
-  // Convert sats to BTC (1 BTC = 100,000,000 sats)
-  const btc = sats / 100_000_000;
-  // Convert BTC to USD
-  return btc * bitcoinPrice;
+export function satsToUSD(sats: number, btcPriceUSD: number): number {
+  return (sats / 100000000) * btcPriceUSD;
 }
 
 export function formatUSD(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: amount < 1 ? 4 : 2,
+    maximumFractionDigits: amount < 1 ? 4 : 2,
   }).format(amount);
 }

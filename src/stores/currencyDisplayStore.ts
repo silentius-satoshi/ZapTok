@@ -1,21 +1,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface CurrencyDisplayStore {
+interface CurrencyDisplayState {
   showSats: boolean;
-  setShowSats: (showSats: boolean) => void;
   toggleCurrency: () => void;
+  setShowSats: (show: boolean) => void;
 }
 
-export const useCurrencyDisplayStore = create<CurrencyDisplayStore>()(
+export const useCurrencyDisplayStore = create<CurrencyDisplayState>()(
   persist(
     (set) => ({
-      showSats: false, // Default to USD
-      setShowSats: (showSats) => set({ showSats }),
+      showSats: true, // Default to showing sats
       toggleCurrency: () => set((state) => ({ showSats: !state.showSats })),
+      setShowSats: (show: boolean) => set({ showSats: show }),
     }),
     {
-      name: 'currency-display-preference',
+      name: 'currency-display-storage',
     }
   )
 );
