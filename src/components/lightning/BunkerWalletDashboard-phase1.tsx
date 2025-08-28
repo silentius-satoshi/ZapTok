@@ -50,7 +50,6 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
   // Check if Bitcoin Connect is available
   const checkBitcoinConnect = useCallback(async () => {
     try {
-      // @ts-ignore - Bitcoin Connect API
       if (typeof window !== 'undefined' && window.webln) {
         setConnectionHealth('healthy');
         setWalletData(prev => ({ ...prev, connected: true }));

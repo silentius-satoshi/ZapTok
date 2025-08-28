@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+// Removed Alert components after simplifying connection gating
+// import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,24 +13,18 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import {
   Wallet,
   Zap,
-  CheckCircle,
-  AlertCircle,
   RefreshCw,
   Activity,
   ArrowUpRight,
   ArrowDownLeft,
   Clock,
-  Wifi,
-  WifiOff,
-  Info,
   Bitcoin,
-  ExternalLink,
   Send,
   QrCode,
   Copy,
   Plus
 } from 'lucide-react';
-import { Button as BitcoinConnectButton, init, launchPaymentModal } from '@getalby/bitcoin-connect-react';
+import { init, launchPaymentModal } from '@getalby/bitcoin-connect-react';
 import { useToast } from '@/hooks/useToast';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -68,7 +63,6 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [connectionHealth, setConnectionHealth] = useState<'excellent' | 'good' | 'poor' | 'unknown'>('unknown');
   const [walletCapabilities, setWalletCapabilities] = useState<string[]>([]);
 
   // Payment state
@@ -88,14 +82,12 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
   const { showSats, toggleCurrency } = useCurrencyDisplayStore();
 
   const {
-    isConnected,
-    userHasLightningAccess,
-    walletInfo,
-    provider,
-    connect,
-    disconnect,
-    getBalance,
-    testConnection
+  isConnected,
+  walletInfo,
+  provider,
+  connect,
+  disconnect,
+  getBalance
   } = useWallet();
 
   // Initialize Bitcoin Connect for bunker signers
@@ -117,36 +109,9 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
     }
   }, [user?.pubkey]);
 
-  // Check connection health periodically
-  useEffect(() => {
-    if (!isConnected || !provider) return;
-
-    const checkHealth = async () => {
-      try {
-        const start = Date.now();
-        await testConnection();
-        const latency = Date.now() - start;
-
-        if (latency < 1000) {
-          setConnectionHealth('excellent');
-        } else if (latency < 3000) {
-          setConnectionHealth('good');
-        } else {
-          setConnectionHealth('poor');
-        }
-      } catch {
-        setConnectionHealth('poor');
-      }
-    };
-
-    checkHealth();
-    const interval = setInterval(checkHealth, 30000); // Check every 30 seconds
-    return () => clearInterval(interval);
-  }, [isConnected, provider, testConnection]);
-
   // Load wallet capabilities
   useEffect(() => {
-    if (isConnected && provider) {
+    if (provider) {
       const capabilities: string[] = [];
       if (typeof provider.getBalance === 'function') capabilities.push('Balance');
       if (typeof provider.sendPayment === 'function') capabilities.push('Send');
@@ -154,10 +119,10 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
       if (typeof provider.listTransactions === 'function') capabilities.push('History');
       setWalletCapabilities(capabilities);
     }
-  }, [isConnected, provider]);
+  }, [provider]);
 
   const refreshWalletData = useCallback(async () => {
-    if (!isConnected || !provider) return;
+    if (!provider) return;
 
     setIsRefreshing(true);
     try {
@@ -199,7 +164,7 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
     } finally {
       setIsRefreshing(false);
     }
-  }, [isConnected, provider, getBalance, toast]);
+  }, [provider, getBalance, toast]);
 
   // Payment Functions
   const handleSendPayment = async () => {
@@ -365,7 +330,6 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
     try {
       await disconnect();
       setTransactions([]);
-      setConnectionHealth('unknown');
       setWalletCapabilities([]);
       setLastRefresh(null);
     } catch (error) {
@@ -384,19 +348,6 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
       return formatUSD(satsToUSD(amount, btcPrice.USD));
     }
     return `${amount.toLocaleString()} sats`;
-  };
-
-  const getHealthColor = (health: string) => {
-    switch (health) {
-      case 'excellent': return 'text-green-500';
-      case 'good': return 'text-yellow-500';
-      case 'poor': return 'text-red-500';
-      default: return 'text-gray-500';
-    }
-  };
-
-  const getHealthIcon = (health: string) => {
-    return health === 'poor' || health === 'unknown' ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />;
   };
 
   return (
@@ -419,74 +370,16 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
                 </Badge>
               </CardTitle>
               <CardDescription>
-                {isConnected ? (
-                  <span className="flex items-center space-x-2">
-                    <span>Connected to {walletInfo?.alias || 'Lightning Wallet'}</span>
-                    <div className={cn("flex items-center space-x-1", getHealthColor(connectionHealth))}>
-                      {getHealthIcon(connectionHealth)}
-                      <span className="text-xs capitalize">{connectionHealth}</span>
-                    </div>
-                  </span>
-                ) : (
-                  "Connect your Lightning wallet via Nostr Wallet Connect"
-                )}
+                {walletInfo?.alias || 'Lightning Wallet via Bitcoin Connect'}
               </CardDescription>
             </div>
-          </div>
-
-          {/* Connection status indicator */}
-          <div className="flex items-center space-x-2">
-            {isConnected && userHasLightningAccess ? (
-              <Badge variant="default" className="bg-green-500">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                Connected
-              </Badge>
-            ) : (
-              <Badge variant="outline">
-                <AlertCircle className="w-3 h-3 mr-1" />
-                Disconnected
-              </Badge>
-            )}
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="relative space-y-6">
-        {!isConnected || !userHasLightningAccess ? (
-          /* Connection Section */
-          <div className="space-y-4">
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                Connect to your Lightning wallet using Nostr Wallet Connect (NWC) for secure remote access to your funds.
-              </AlertDescription>
-            </Alert>
-
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium flex items-center space-x-2">
-                <Zap className="w-4 h-4" />
-                <span>Supported Wallet Types</span>
-              </h4>
-              <div className="grid grid-cols-1 gap-2 text-xs">
-                <div className="flex items-center space-x-2 p-2 bg-muted rounded-lg">
-                  <ExternalLink className="w-3 h-3" />
-                  <span>Alby Hub & Alby Extension</span>
-                </div>
-                <div className="flex items-center space-x-2 p-2 bg-muted rounded-lg">
-                  <ExternalLink className="w-3 h-3" />
-                  <span>LNbits & Other NWC Wallets</span>
-                </div>
-              </div>
-            </div>
-
-            <BitcoinConnectButton
-              onConnected={handleConnect}
-              onDisconnected={handleDisconnect}
-            />
-          </div>
-        ) : (
-          /* Connected Wallet Dashboard */
-          <div className="space-y-6">
+        {/* Connected Wallet Dashboard */}
+        <div className="space-y-6">
             {/* Balance Section */}
             <div className="text-center space-y-3">
               <div className="space-y-1">
@@ -842,26 +735,41 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
 
             {/* Connection Management */}
             <div className="flex flex-col space-y-2">
-              <Button
-                onClick={refreshWalletData}
-                disabled={isRefreshing}
-                className="w-full"
-                variant="outline"
-              >
-                <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing && "animate-spin")} />
-                {isRefreshing ? 'Refreshing...' : 'Refresh Wallet Data'}
-              </Button>
-
-              <Button
-                onClick={handleDisconnect}
-                variant="destructive"
-                className="w-full"
-              >
-                Disconnect Wallet
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  onClick={refreshWalletData}
+                  disabled={isRefreshing || !isConnected}
+                  className="flex-1"
+                  variant="outline"
+                >
+                  <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing && "animate-spin")} />
+                  {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                </Button>
+                {isConnected ? (
+                  <Button
+                    onClick={handleDisconnect}
+                    variant="destructive"
+                    className="flex-1"
+                  >
+                    Disconnect
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleConnect}
+                    variant="default"
+                    className="flex-1"
+                  >
+                    Connect Wallet
+                  </Button>
+                )}
+              </div>
+              {!isConnected && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Not connected. You can still browse, but actions are disabled until you connect.
+                </p>
+              )}
             </div>
-          </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   );
