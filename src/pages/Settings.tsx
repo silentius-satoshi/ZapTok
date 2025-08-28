@@ -36,8 +36,6 @@ export function Settings() {
     knownRelays,
     setKnownRelays,
     isConnected,
-    handleBitcoinConnect,
-    handleDisconnect,
     handleNostrWalletConnect,
     handleTestConnection
   } = useSettingsLogic();
@@ -66,7 +64,7 @@ export function Settings() {
           {settingsSections.map((section, index) => (
             <button
               key={section.id}
-              onClick={() => setSelectedSection(section.id)}
+              onClick={() => navigate(`/settings?section=${section.id}`)}
               className={`w-full flex items-center justify-between h-16 px-6 rounded-none border-b border-gray-800 hover:bg-gray-800/50 transition-colors text-left ${
                 index === 0 ? 'border-t border-gray-800' : ''
               }`}
@@ -91,10 +89,7 @@ export function Settings() {
       return (
         <ConnectedWalletsSettings
           isConnecting={isConnecting}
-          onBitcoinConnect={handleBitcoinConnect}
           onNostrWalletConnect={handleNostrWalletConnect}
-          isConnected={isConnected}
-          onDisconnect={handleDisconnect}
           onTestConnection={handleTestConnection}
         />
       );
@@ -134,7 +129,7 @@ export function Settings() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/')}
             className="p-2 text-gray-400 hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -158,14 +153,14 @@ export function Settings() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setSelectedSection(null)}
+          onClick={() => navigate('/settings')}
           className="p-2 text-gray-400 hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-3xl font-normal text-white">
           <button
-            onClick={() => setSelectedSection(null)}
+            onClick={() => navigate('/settings')}
             className="hover:underline hover:text-gray-300 transition-colors"
           >
             settings

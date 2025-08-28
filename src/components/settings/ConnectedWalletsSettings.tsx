@@ -11,20 +11,14 @@ import { useNostrLogin } from '@nostrify/react/login';
 
 interface ConnectedWalletsSettingsProps {
   isConnecting: string | null;
-  onBitcoinConnect: () => Promise<void>;
   onNostrWalletConnect: () => Promise<void>;
-  isConnected: boolean;
-  onDisconnect: () => Promise<void>;
   onTestConnection: () => Promise<void>;
   onEnableNWC?: () => void;
 }
 
 export function ConnectedWalletsSettings({
   isConnecting,
-  onBitcoinConnect,
   onNostrWalletConnect,
-  isConnected,
-  onDisconnect,
   onTestConnection,
   onEnableNWC
 }: ConnectedWalletsSettingsProps) {
@@ -85,13 +79,11 @@ export function ConnectedWalletsSettings({
         {/* Bitcoin Connect - Show Enhanced for bunker/nsec, Standard for extension */}
         {shouldShowEnhancedBitcoinConnect ? (
           <EnhancedBitcoinConnectCard
-            onTestConnection={onTestConnection}
             disabled={bitcoinConnectDisabled}
             disabledReason={getBitcoinConnectDisabledReason()}
           />
         ) : shouldShowStandardBitcoinConnect ? (
           <BitcoinConnectCard
-            onTestConnection={onTestConnection}
             disabled={bitcoinConnectDisabled}
             disabledReason={getBitcoinConnectDisabledReason()}
           />
