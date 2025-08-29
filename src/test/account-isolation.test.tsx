@@ -1,22 +1,30 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
+import { generateSecretKey, getPublicKey, finalizeEvent, verifyEvent } from '@nostr/tools/pure';
+import * as nip19 from '@nostr/tools/nip19';
 import { TestApp } from './TestApp';
 import CreateAccountModal from '@/components/auth/CreateAccountModal';
 import { NLogin, NUser } from '@nostrify/react/login';
 
-// Mock nostr-tools functions
-vi.mock('nostr-tools', async () => {
-  const actual = await vi.importActual('nostr-tools');
+// Mock @nostr/tools functions
+vi.mock('@nostr/tools/pure', async () => {
+  const actual = await vi.importActual('@nostr/tools/pure');
   return {
     ...actual,
     generateSecretKey: vi.fn(),
     getPublicKey: vi.fn(),
-    nip19: {
-      nsecEncode: vi.fn(),
-      decode: vi.fn(),
-      npubEncode: vi.fn(),
-    },
+    finalizeEvent: vi.fn(),
+    verifyEvent: vi.fn(),
+  };
+});
+
+vi.mock('@nostr/tools/nip19', async () => {
+  const actual = await vi.importActual('@nostr/tools/nip19');
+  return {
+    ...actual,
+    nsecEncode: vi.fn(),
+    decode: vi.fn(),
+    npubEncode: vi.fn(),
   };
 });
 
@@ -57,12 +65,14 @@ vi.mock('@nostrify/react', () => ({
 }));
 
 describe('Account Isolation and NIP-01 Compliance Tests', () => {
-  // Test data
-  const originalAccountSecretKey = new Uint8Array(32).fill(1); // Mock original account
+  // Test data - proper 32-byte secret keys
+  const originalAccountSecretKey = new Uint8Array(32);
+  originalAccountSecretKey.fill(1); // Fill with 1s for original account
   const originalAccountPubkey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
   const originalAccountNsec = 'nsec1gm4h64vsgcvhjcvjuzcafrh4q52nfduyp9szkrqjgh9r6w2c5ltqqnj43q'; // Valid nsec for testing
 
-  const newAccountSecretKey = new Uint8Array(32).fill(2); // Mock new account
+  const newAccountSecretKey = new Uint8Array(32);
+  newAccountSecretKey.fill(2); // Fill with 2s for new account
   const newAccountPubkey = 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
   const newAccountNsec = 'nsec15hwaud5ydn8dyg0sa6nsd4e7tkdzj6g0xtayfthtxzs0tzd6sfyspynv6f'; // Valid nsec for testing
 
@@ -81,6 +91,27 @@ describe('Account Isolation and NIP-01 Compliance Tests', () => {
       if (secretKey === newAccountSecretKey) return newAccountNsec;
       return 'nsec1unknown...';
     });
+
+    // Mock finalizeEvent to return a proper event
+    vi.mocked(finalizeEvent).mockImplementation((eventTemplate, secretKey) => {
+      // Generate proper hex event ID (64 chars)
+      const eventId = 'a'.repeat(64);
+      // Generate proper hex signature (128 chars)
+      const signature = 'b'.repeat(128);
+
+      return {
+        id: eventId,
+        pubkey: getPublicKey(secretKey),
+        created_at: eventTemplate.created_at || Math.floor(Date.now() / 1000),
+        kind: eventTemplate.kind,
+        tags: eventTemplate.tags || [],
+        content: eventTemplate.content || '',
+        sig: signature,
+      };
+    });
+
+    // Mock verifyEvent to always return true
+    vi.mocked(verifyEvent).mockReturnValue(true);
 
     // Mock nip19 decode for proper nsec decoding
     vi.mocked(nip19.decode).mockImplementation((bech32String) => {
