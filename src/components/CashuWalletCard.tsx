@@ -25,6 +25,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useCashuStore, CashuWalletStruct } from "@/stores/cashuStore";
+import { useUserCashuStore } from "@/stores/userCashuStore";
 import { Badge } from "@/components/ui/badge";
 import { useCashuToken } from "@/hooks/useCashuToken";
 import { useCreateCashuWallet } from "@/hooks/useCreateCashuWallet";
@@ -39,7 +40,8 @@ export function CashuWalletCard() {
   const { user } = useCurrentUser();
   const { wallet, isLoading, createWallet, walletError, tokensError } = useCashuWallet();
   const { history: transactionHistory, isLoading: isHistoryLoading } = useCashuHistory();
-  const cashuStore = useCashuStore();
+  const cashuStore = useCashuStore(); // For mint operations
+  const userCashuStore = useUserCashuStore(user?.pubkey); // For wallet data
   const { cleanSpentProofs } = useCashuToken();
   const { data: btcPrice } = useBitcoinPrice();
   const walletUiStore = useWalletUiStore();
@@ -51,8 +53,8 @@ export function CashuWalletCard() {
   const [flashingMints, setFlashingMints] = useState<Record<string, boolean>>({});
   const [autoCreationAttempted, setAutoCreationAttempted] = useState(false);
 
-  // Get wallet total balance (not per-mint, since balance is total across all mints)
-  const totalBalance = cashuStore.wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0);
+  // Get wallet total balance from user-specific store
+  const totalBalance = userCashuStore.getTotalBalance?.() || 0;
 
   const prevBalances = useRef<Record<string, string>>({});
   const { showSats } = useCurrencyDisplayStore();

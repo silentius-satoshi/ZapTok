@@ -12,6 +12,7 @@ import { DropdownList } from './DropdownList';
 import { useWallet } from '@/hooks/useWallet';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCashuStore } from '@/stores/cashuStore';
+import { useUserCashuStore } from '@/stores/userCashuStore';
 import { cn } from '@/lib/utils';
 import { bundleLog } from '@/lib/logBundler';
 import { devLog } from '@/lib/devConsole';
@@ -24,7 +25,11 @@ export function LoginArea({ className }: LoginAreaProps) {
   const { currentUser } = useLoggedInAccounts();
   const { walletInfo, isConnected, getBalance, provider, userHasLightningAccess } = useWallet();
   const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
-  const cashuStore = useCashuStore();
+  
+  // Get both stores for comparison
+  const globalCashuStore = useCashuStore();
+  const userCashuStore = useUserCashuStore(currentUser?.pubkey);
+  
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [addAccountDialogOpen, setAddAccountDialogOpen] = useState(false);
   const [currency, setCurrency] = useState<'BTC' | 'USD'>('BTC');
@@ -62,20 +67,30 @@ export function LoginArea({ className }: LoginAreaProps) {
   const formatBalance = useCallback(() => {
     // Only include Lightning balance if user has Lightning access
     const lightningBalance = userHasLightningAccess ? (walletInfo?.balance || 0) : 0;
-    const cashuBalance = cashuStore.getTotalBalance();
+    const cashuBalance = userCashuStore?.getTotalBalance?.() || 0;
+    const globalCashuBalance = globalCashuStore?.getTotalBalance?.() || 0;
     const totalBalance = lightningBalance + cashuBalance;
 
-    // Only log when values actually change (reduce console spam)
+    // Only log when values actually change to reduce console spam
     const currentState = JSON.stringify({
       userHasLightningAccess,
-      lightningBalance: lightningBalance > 0,
-      cashuBalance: cashuBalance > 0,
-      totalBalance: totalBalance > 0
+      lightningBalance,
+      cashuBalance,
+      totalBalance
     });
 
     if (balanceLogRef.current !== currentState) {
       balanceLogRef.current = currentState;
-      bundleLog('walletBalanceChanges', `Balance update: ${userHasLightningAccess ? 'Lightning connected' : 'Lightning disconnected'}, Total: ${totalBalance} sats`);
+      
+      // Only show detailed debug when there's a significant change or mismatch
+      if (cashuBalance !== globalCashuBalance) {
+        console.log('💰 Balance Calculation Debug');
+        console.log('Lightning Balance:', lightningBalance, 'sats');
+        console.log('User Cashu Balance (used):', cashuBalance, 'sats');
+        console.log('Global Cashu Balance (reference):', globalCashuBalance, 'sats');
+        console.log('Total Balance:', totalBalance, 'sats');
+        console.log('Balance Difference (User vs Global Cashu):', cashuBalance - globalCashuBalance, 'sats');
+      }
     }
 
     if (currency === 'BTC') {
@@ -89,7 +104,7 @@ export function LoginArea({ className }: LoginAreaProps) {
         return `${totalBalance.toLocaleString()} sats (price loading...)`;
       }
     }
-  }, [walletInfo?.balance, cashuStore, currency, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
+  }, [walletInfo?.balance, userCashuStore, globalCashuStore, currency, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
 
   // Cashu wallet button - Enhanced with better styling
   const LightningWalletButton = () => (

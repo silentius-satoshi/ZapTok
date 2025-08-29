@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS, CashuToken, activateMint, defaultMints } from '@/lib/cashu';
 import { NostrEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
 import { useCashuStore, Nip60TokenEvent, CashuWalletStruct } from '@/stores/cashuStore';
+import { useUserCashuStore } from '@/stores/userCashuStore';
 import { useCashuRelayStore } from '@/stores/cashuRelayStore';
 import { Proof } from '@cashu/cashu-ts';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
@@ -27,7 +28,8 @@ export function useCashuWallet() {
   const { user } = useCurrentUser();
   const { isAnyRelayConnected } = useNostrConnection();
   const queryClient = useQueryClient();
-  const cashuStore = useCashuStore();
+  const cashuStore = useCashuStore(); // For shared mint data
+  const userCashuStore = useUserCashuStore(user?.pubkey); // For personal wallet data
   const cashuRelayStore = useCashuRelayStore();
   const { createNutzapInfo } = useNutzaps();
   const { config } = useAppContext();
@@ -143,9 +145,10 @@ export function useCashuWallet() {
         privkey: walletData.privkey
       };
 
-      cashuStore.addWallet(walletForStore);
+      // Write wallet to user-specific store instead of global store
+      userCashuStore.addWallet?.(walletForStore);
 
-      // if no active mint is set, set the first mint as active
+      // if no active mint is set, set the first mint as active (shared state)
       if (!cashuStore.getActiveMintUrl()) {
         cashuStore.setActiveMintUrl(walletData.mints[0]);
       }
@@ -277,9 +280,9 @@ export function useCashuWallet() {
             createdAt: event.created_at
           });
           
-          // add proofs to store
+          // add proofs to user-specific store
           if (tokenData.proofs && tokenData.proofs.length > 0) {
-            cashuStore.addProofs(tokenData.proofs, event.id);
+            userCashuStore.addProofs?.(tokenData.proofs, event.id);
           }
 
         } catch (error) {
@@ -342,8 +345,8 @@ export function useCashuWallet() {
           created_at: Math.floor(Date.now() / 1000)
         });
 
-        // add proofs to store
-        cashuStore.addProofs(newProofs, newTokenEvent?.id || '');
+        // add proofs to user-specific store
+        userCashuStore.addProofs?.(newProofs, newTokenEvent?.id || '');
 
         // publish token event
         try {
@@ -352,9 +355,9 @@ export function useCashuWallet() {
           console.error('Failed to publish token event:', error);
         }
 
-        // update local event IDs on all newProofs
+        // update local event IDs on all newProofs in user store
         newProofs.forEach(proof => {
-          cashuStore.setProofEventId(proof, newTokenEvent.id);
+          userCashuStore.setProofEventId?.(proof, newTokenEvent.id);
         });
 
         eventToReturn = newTokenEvent;

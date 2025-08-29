@@ -120,13 +120,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         if (hasLightningAccess) {
           // User has Lightning access - maintain connection and load their balance
-          const userBalance = getUserLightningBalance(currentUserPubkey);
+          const userLightningBalance = getUserLightningBalance(currentUserPubkey);
+          
+          // For extension signers, include Cashu balance in total
+          const cashuBalance = 0; // Note: Cashu balance integration removed due to hook ordering issues
+          const totalBalance = userLightningBalance + cashuBalance;
+          
           setWalletInfo(prev => prev ? {
             ...prev,
-            balance: userBalance
+            balance: totalBalance
           } : {
             alias: 'WebLN Wallet',
-            balance: userBalance,
+            balance: totalBalance,
             implementation: 'WebLN',
           });
         } else {
@@ -228,16 +233,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             // Load initial wallet data
             try {
               const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
-              const userBalance = getUserLightningBalance(user.pubkey) || balance.balance || 0;
+              const userLightningBalance = getUserLightningBalance(user.pubkey) || balance.balance || 0;
+              
+              // For extension signers, also include Cashu balance in total
+              const cashuBalance = 0; // Note: Cashu balance integration removed due to hook ordering issues
+              const totalBalance = userLightningBalance + cashuBalance;
 
               setWalletInfo({
                 alias: 'WebLN Wallet',
-                balance: userBalance,
+                balance: totalBalance, // Combined Lightning + Cashu balance
                 implementation: 'WebLN',
               });
 
+              // Store the Lightning balance separately for user-specific tracking
+              setUserLightningBalance(user.pubkey, userLightningBalance);
+
               setTransactionSupport(!!window.webln.listTransactions);
 
+              bundleLog('walletBalanceChanges', `Balance update: Lightning connected, Lightning: ${userLightningBalance} sats, Cashu: ${cashuBalance} sats, Total: ${totalBalance} sats`);
               bundleLog('walletAutoDetection', '[WalletContext] Auto-detection successful for extension signer: ' + user.pubkey.slice(0, 8) + '...');
             } catch (balanceError) {
               bundleLog('walletAutoDetection', '[WalletContext] Could not load initial wallet data: ' + balanceError);
@@ -357,6 +370,46 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     return () => clearTimeout(timeoutId);
   }, [user?.pubkey, isBunkerSigner, isNsecSigner]); // Run when user or signer state changes
+
+  // Track Cashu balance changes for extension signers to update total balance
+  // Note: Removed due to hook ordering issues - needs different implementation approach
+  /*
+  useEffect(() => {
+    if (!user?.pubkey || !isExtensionSigner || !isConnected) {
+      return;
+    }
+
+    // Update the wallet info to include current Cashu balance
+    const updateTotalBalance = () => {
+      try {
+        const lightningBalance = getUserLightningBalance(user.pubkey);
+        // Get a fresh Cashu store instance and safely call getTotalBalance
+        const currentCashuStore = useUserCashuStore.getState?.(user.pubkey);
+        const cashuBalance = currentCashuStore?.getTotalBalance?.() || 0;
+        const totalBalance = lightningBalance + cashuBalance;
+
+        setWalletInfo(prev => prev ? {
+          ...prev,
+          balance: totalBalance
+        } : null);
+
+        bundleLog('walletBalanceChanges', `Balance update: Cashu balance changed, Lightning: ${lightningBalance} sats, Cashu: ${cashuBalance} sats, Total: ${totalBalance} sats`);
+      } catch (error) {
+        // Silently handle any Cashu store access errors
+        bundleLog('walletBalanceChanges', 'Error accessing Cashu store, using Lightning balance only');
+      }
+    };
+
+    // Update immediately
+    updateTotalBalance();
+
+    // Since Zustand doesn't provide a subscription method that we can easily access here,
+    // we'll set up a periodic check. This is not ideal but ensures the balance stays in sync.
+    const interval = setInterval(updateTotalBalance, 2000); // Check every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [user?.pubkey, isExtensionSigner, isConnected]);
+  */
 
   const connect = async () => {
     if (!user?.pubkey) {
@@ -594,22 +647,29 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       if (provider.getBalance && user?.pubkey) {
         const response = await provider.getBalance();
-        const actualBalance = response.balance;
+        const lightningBalance = response.balance;
 
-        // Store the actual balance from WebLN for this user
-        setUserLightningBalance(user.pubkey, actualBalance);
+        // Store the Lightning balance for this user
+        setUserLightningBalance(user.pubkey, lightningBalance);
 
-        // Update walletInfo with the new balance
+        // For extension signers, include Cashu balance in total
+        const cashuBalance = 0; // Note: Cashu balance integration removed due to hook ordering issues
+        const totalBalance = lightningBalance + cashuBalance;
+
+        // Update walletInfo with the combined balance
         setWalletInfo(prev => prev ? {
           ...prev,
-          balance: actualBalance
+          balance: totalBalance
         } : {
           alias: 'WebLN Wallet',
-          balance: actualBalance,
+          balance: totalBalance,
           implementation: 'WebLN',
         });
 
-        return actualBalance;
+        bundleLog('walletBalanceChanges', `Balance update: Lightning refreshed, Lightning: ${lightningBalance} sats, Cashu: ${cashuBalance} sats, Total: ${totalBalance} sats`);
+
+        // Return the Lightning balance only (for API compatibility)
+        return lightningBalance;
       }
 
       // Return stored user balance if WebLN getBalance not available

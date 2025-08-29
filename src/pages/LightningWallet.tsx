@@ -15,6 +15,7 @@ import { formatBalance } from '@/lib/cashu';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useWallet } from '@/hooks/useWallet';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrLogin } from '@nostrify/react/login';
 import { useSeoMeta } from '@unhead/react';
@@ -43,10 +44,15 @@ export function LightningWallet() {
                         loginType === 'x-bunker-nostr-tools' ||
                         user?.signer?.constructor?.name?.includes('bunker');
 
-  // Calculate total balance manually from wallets and pending proofs (only for non-bunker signers)
+  // Calculate total balance for extension signers: Cashu + Lightning
+  const { walletInfo, isExtensionSigner } = useWallet();
   const walletProofs = !isBunkerSigner ? cashuStore.wallets.flatMap(wallet => wallet.proofs || []) : [];
   const allProofs = !isBunkerSigner ? [...walletProofs, ...cashuStore.pendingProofs] : [];
-  const totalBalance = allProofs.reduce((sum, proof) => sum + proof.amount, 0);
+  const cashuBalance = allProofs.reduce((sum, proof) => sum + proof.amount, 0);
+  // Lightning wallet balance (extension signer only)
+  const lightningBalance = isExtensionSigner && walletInfo?.balance ? walletInfo.balance : 0;
+  // Combined total balance for extension signers
+  const totalBalance = isExtensionSigner ? cashuBalance + lightningBalance : cashuBalance;
 
   return (
     <AuthGate>
@@ -94,7 +100,7 @@ export function LightningWallet() {
                   </div>
                 </div>
 
-                {/* Total Balance Display - Only for non-bunker signers with Cashu wallets */}
+                {/* Total Balance Display - For extension signers, show combined Cashu + Lightning balance */}
                 {!isBunkerSigner && totalBalance >= 0 && (
                   <div className={`text-center space-y-2 ${isMobile ? 'mb-6' : 'mb-8'}`}>
                     <div className={`${isMobile ? 'text-3xl' : 'text-4xl'} font-bold text-white`}>
@@ -104,7 +110,9 @@ export function LightningWallet() {
                         ? formatUSD(satsToUSD(totalBalance, btcPrice.USD))
                         : formatBalance(totalBalance)}
                     </div>
-                    <div className="text-sm text-gray-400">Total Cashu Balance</div>
+                    <div className="text-sm text-gray-400">
+                      {isExtensionSigner ? 'Total Balance (Cashu + Lightning)' : 'Total Cashu Balance'}
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
