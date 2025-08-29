@@ -13,12 +13,14 @@ import { ZapsSettings } from './ZapsSettings';
 import { GenericSettings } from './GenericSettings';
 import { DeveloperSettings } from './DeveloperSettings';
 import { KeysSettings } from './KeysSettings';
+import { CacheManagementSettings } from './CacheManagementSettings';
+import { PWAManagementSettings } from './PWAManagementSettings';
 
 export interface SettingsSectionConfig {
   id: string;
   title: string;
   component: ComponentType<unknown>;
-  category: 'interface' | 'content' | 'network' | 'monetization' | 'moderation';
+  category: 'interface' | 'content' | 'network' | 'monetization' | 'moderation' | 'developer';
   requiresProps?: boolean;
 }
 
@@ -105,10 +107,22 @@ export const settingsSections: SettingsSectionConfig[] = [
 
   // Developer Settings
   {
+    id: 'cache-management',
+    title: 'Cache Management',
+    component: CacheManagementSettings,
+    category: 'developer'
+  },
+  {
+    id: 'pwa-management',
+    title: 'PWA Management',
+    component: PWAManagementSettings,
+    category: 'developer'
+  },
+  {
     id: 'developer',
-    title: 'Developer',
+    title: 'Developer Debug',
     component: DeveloperSettings,
-    category: 'interface'
+    category: 'developer'
   },
 
   // Monetization Settings

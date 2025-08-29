@@ -14,6 +14,8 @@ export { ZapsSettings } from './ZapsSettings';
 export { GenericSettings } from './GenericSettings';
 export { DeveloperSettings } from './DeveloperSettings';
 export { KeysSettings } from './KeysSettings';
+export { CacheManagementSettings } from './CacheManagementSettings';
+export { PWAManagementSettings } from './PWAManagementSettings';
 
 // Settings Configuration
 export { 
