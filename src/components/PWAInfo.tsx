@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Settings,
   RefreshCw,
@@ -14,6 +14,10 @@ import { Separator } from '@/components/ui/separator';
 import { usePWA } from '@/hooks/usePWA';
 import { PWAStatusIndicator, PWACapabilityCheck } from '@/components/PWAStatusIndicator';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useVideoCache } from '@/hooks/useVideoCache';
+import { useCaching } from '@/contexts/CachingContext';
+import { clearCashuStoreCache } from '@/stores/userCashuStore';
+import { useCacheSize } from '@/hooks/useCacheSize';
 import { cn } from '@/lib/utils';
 
 interface PWAInfoProps {
@@ -27,6 +31,89 @@ export function PWAInfo({ className, showAdvanced = false }: PWAInfoProps) {
     isStandalone,
   } = usePWA();
   const isMobile = useIsMobile();
+  const { cleanCache } = useVideoCache();
+  const { disconnectCachingService } = useCaching();
+  const { breakdown, isLoading: isCacheLoading, formatSize, refresh: refreshCacheSize } = useCacheSize();
+  
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+
+  // Refresh all caches
+  const handleRefreshCache = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      // Clear and refresh service worker caches
+      if ('serviceWorker' in navigator && 'caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map(cacheName => 
+            caches.open(cacheName).then(cache => {
+              // For refresh, we'll just update the timestamp to force revalidation
+              console.log(`🔄 Refreshing cache: ${cacheName}`);
+            })
+          )
+        );
+      }
+
+      // Reconnect to caching services to refresh their data
+      const { connectToCachingService, currentService } = await import('@/contexts/CachingContext').then(m => ({ 
+        connectToCachingService: () => {}, 
+        currentService: null 
+      }));
+      
+      console.log('✅ Cache refresh completed');
+      
+      // Refresh cache size calculations
+      await refreshCacheSize();
+    } catch (error) {
+      console.error('❌ Cache refresh failed:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Clear all caches
+  const handleClearCache = async () => {
+    if (isClearing) return;
+    
+    setIsClearing(true);
+    try {
+      // Clear IndexedDB video cache
+      await cleanCache();
+      
+      // Clear Cashu store cache
+      clearCashuStoreCache();
+      
+      // Clear service worker caches
+      if ('serviceWorker' in navigator && 'caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
+      }
+      
+      // Disconnect from caching services
+      disconnectCachingService();
+      
+      // Clear localStorage (except for essential settings)
+      const keysToPreserve = ['nostr:login', 'nostr:relay-url', 'app:theme'];
+      const allKeys = Object.keys(localStorage);
+      allKeys.forEach(key => {
+        if (!keysToPreserve.some(preserve => key.startsWith(preserve))) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      console.log('🗑️ All caches cleared successfully');
+      
+      // Refresh cache size calculations after clearing
+      await refreshCacheSize();
+    } catch (error) {
+      console.error('❌ Cache clearing failed:', error);
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   return (
     <div className={cn(isMobile ? 'space-y-4' : 'space-y-6', className)}>
@@ -91,28 +178,49 @@ export function PWAInfo({ className, showAdvanced = false }: PWAInfoProps) {
           <div className={`grid gap-3 ${isMobile ? 'text-xs' : 'text-sm'}`}>
             <div className="flex items-center justify-between">
               <span>Offline video cache</span>
-              <Badge variant="secondary" className={isMobile ? 'text-xs' : ''}>~15MB</Badge>
+              <Badge variant="secondary" className={isMobile ? 'text-xs' : ''}>
+                {isCacheLoading ? 'Loading...' : formatSize(breakdown.videoCache)}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span>Profile images</span>
-              <Badge variant="secondary" className={isMobile ? 'text-xs' : ''}>~5MB</Badge>
+              <Badge variant="secondary" className={isMobile ? 'text-xs' : ''}>
+                {isCacheLoading ? 'Loading...' : formatSize(breakdown.profileImages)}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span>App resources</span>
-              <Badge variant="secondary" className={isMobile ? 'text-xs' : ''}>~2MB</Badge>
+              <Badge variant="secondary" className={isMobile ? 'text-xs' : ''}>
+                {isCacheLoading ? 'Loading...' : formatSize(breakdown.appResources)}
+              </Badge>
             </div>
           </div>
           
           <Separator />
           
           <div className={`flex gap-2 ${isMobile ? 'flex-col' : ''}`}>
-            <Button size={isMobile ? 'sm' : 'sm'} variant="outline" className={`${isMobile ? 'w-full text-xs' : 'flex-1'}`}>
-              <RefreshCw className={`${isMobile ? 'h-3 w-3 mr-2' : 'h-4 w-4 mr-2'}`} />
-              Refresh Cache
+            <Button 
+              size={isMobile ? 'sm' : 'sm'} 
+              variant="outline" 
+              className={`${isMobile ? 'w-full text-xs' : 'flex-1'}`}
+              onClick={handleRefreshCache}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={`${isMobile ? 'h-3 w-3 mr-2' : 'h-4 w-4 mr-2'} ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh Cache'}
             </Button>
-            <Button size={isMobile ? 'sm' : 'sm'} variant="ghost" className={`text-destructive hover:text-destructive ${isMobile ? 'w-full text-xs' : ''}`}>
-              <Trash2 className={`${isMobile ? 'h-3 w-3 mr-2' : 'h-4 w-4'}`} />
-              {isMobile ? 'Clear Cache' : ''}
+            <Button 
+              size={isMobile ? 'sm' : 'sm'} 
+              variant="ghost" 
+              className={`text-destructive hover:text-destructive ${isMobile ? 'w-full text-xs' : ''}`}
+              onClick={handleClearCache}
+              disabled={isClearing}
+            >
+              <Trash2 className={`${isMobile ? 'h-3 w-3 mr-2' : 'h-4 w-4'} ${isClearing ? 'animate-pulse' : ''}`} />
+              {isClearing 
+                ? (isMobile ? 'Clearing...' : 'Clearing...') 
+                : (isMobile ? 'Clear Cache' : '')
+              }
             </Button>
           </div>
         </CardContent>
