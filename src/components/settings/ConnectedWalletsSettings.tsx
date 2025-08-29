@@ -22,7 +22,7 @@ export function ConnectedWalletsSettings({
   onTestConnection,
   onEnableNWC
 }: ConnectedWalletsSettingsProps) {
-  const { userHasLightningAccess, walletInfo, isBunkerSigner, isCashuCompatible, isExtensionSigner } = useWallet();
+  const { userHasLightningAccess, walletInfo, isBunkerSigner, isCashuCompatible, isExtensionSigner, isConnected } = useWallet();
   const { isConnected: nwcConnected } = useNWC(); // Add NWC connection detection
   const { user } = useCurrentUser();
   const isMobile = useIsMobile();
@@ -45,9 +45,22 @@ export function ConnectedWalletsSettings({
     isMobile
   });
 
-  // Detect current Lightning connection type
-  const hasBitcoinConnect = userHasLightningAccess && walletInfo?.implementation === 'WebLN';
+  // Detect current Lightning connection type with enhanced Bitcoin Connect detection
+  const hasBitcoinConnect = userHasLightningAccess && 
+    (walletInfo?.implementation === 'WebLN' || 
+     (isConnected && !!(window as any).__bitcoinConnectActive) ||
+     (!!(window as any).__bitcoinConnectActive));  // Check the flag directly
   const hasNWC = nwcConnected; // Use actual NWC connection state
+
+  // Debug logging for wallet connection detection
+  console.log('[ConnectedWalletsSettings] Wallet Connection Detection Debug:', {
+    userHasLightningAccess,
+    walletInfo,
+    hasBitcoinConnect,
+    hasNWC,
+    hasWindowWebln: !!window.webln,
+    weblnConstructor: window.webln?.constructor?.name
+  });
 
   // Determine which components to show based on signer type and current connections
   const shouldShowEnhancedBitcoinConnect = isBunkerSigner || isNsecSigner; // Show Enhanced for all bunker/nsec signers
@@ -76,6 +89,45 @@ export function ConnectedWalletsSettings({
       description="To enable zapping from the ZapTok web app, connect a wallet:"
     >
       <div className="space-y-3">
+        {/* Debug Panel - Development Only */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700 text-xs">
+            <h4 className="font-medium text-orange-400 mb-2">🔧 Debug: Wallet Connection Status</h4>
+            <div className="space-y-1 text-gray-300">
+              <div>userHasLightningAccess: <span className="text-blue-400">{userHasLightningAccess.toString()}</span></div>
+              <div>walletInfo?.implementation: <span className="text-blue-400">{walletInfo?.implementation || 'none'}</span></div>
+              <div>walletInfo?.balance: <span className="text-blue-400">{walletInfo?.balance || 0} sats</span></div>
+              <div>hasBitcoinConnect: <span className="text-blue-400">{hasBitcoinConnect.toString()}</span></div>
+              <div>hasNWC: <span className="text-blue-400">{hasNWC.toString()}</span></div>
+              <div>window.webln available: <span className="text-blue-400">{(!!window.webln).toString()}</span></div>
+              <div>WebLN constructor: <span className="text-blue-400">{window.webln?.constructor?.name || 'none'}</span></div>
+              
+              {/* Bitcoin Connect specific debugging */}
+              <div className="mt-2 pt-2 border-t border-gray-600">
+                <div className="text-yellow-400 font-medium">Bitcoin Connect Debug:</div>
+                <div>__bitcoinConnectActive: <span className="text-green-400">{((window as any).__bitcoinConnectActive || false).toString()}</span></div>
+                <div>__bitcoinConnectWebLN: <span className="text-green-400">{(!!(window as any).__bitcoinConnectWebLN).toString()}</span></div>
+                <div>BC provider constructor: <span className="text-green-400">{(window as any).__bitcoinConnectWebLN?.constructor?.name || 'none'}</span></div>
+                
+                {/* Show which provider would be used for balance operations */}
+                <div className="mt-1">
+                  <span className="text-orange-400">Balance provider would be: </span>
+                  <span className="text-cyan-400">
+                    {(window as any).__bitcoinConnectActive && (window as any).__bitcoinConnectWebLN 
+                      ? 'Bitcoin Connect WebLN' 
+                      : 'Standard WebLN'}
+                  </span>
+                </div>
+                
+                {/* Provider conflict warning */}
+                {(window as any).__bitcoinConnectActive && window.webln?.constructor?.name === 'i' && (
+                  <div className="text-red-400 mt-1">⚠️ Alby extension detected - using BC provider to avoid conflicts</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Bitcoin Connect - Show Enhanced for bunker/nsec, Standard for extension */}
         {shouldShowEnhancedBitcoinConnect ? (
           <EnhancedBitcoinConnectCard

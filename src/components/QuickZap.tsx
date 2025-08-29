@@ -12,6 +12,7 @@ import { Settings, Zap, CreditCard, Bitcoin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { genUserName } from '@/lib/genUserName';
 import { useWallet } from '@/hooks/useWallet';
+import { bundleLog } from '@/lib/devConsole';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useAppContext } from '@/hooks/useAppContext';
 
@@ -37,6 +38,9 @@ export function QuickZap({
 
   // Use more accurate Bitcoin Connect detection
   const actualBitcoinConnectConnected = userHasLightningAccess && walletInfo?.implementation === 'WebLN';
+
+  // Debug logging for Bitcoin Connect detection
+  bundleLog('quickZapDebug', '[QuickZap] Bitcoin Connect Detection: userHasLightningAccess=' + userHasLightningAccess + ', walletInfo=' + JSON.stringify(walletInfo) + ', actualBitcoinConnectConnected=' + actualBitcoinConnectConnected + ', hasWindowWebln=' + !!window.webln + ', weblnConstructor=' + window.webln?.constructor?.name);
 
   const isMobile = useIsMobile();
   // Initialize with default zap amount from settings
@@ -80,9 +84,13 @@ export function QuickZap({
 
   // Auto-select payment method based on provider capabilities
   if (!hasAutoSelected && paymentSuggestion && isOpen) {
+    bundleLog('quickZapDebug', '[QuickZap] Auto-selecting payment method: shouldShowBitcoinConnect=' + shouldShowBitcoinConnect + ', actualBitcoinConnectConnected=' + actualBitcoinConnectConnected + ', hasWebLN=' + !!window.webln + ', canUseWebLN=' + paymentSuggestion.canUseWebLN);
+    
     if (shouldShowBitcoinConnect && actualBitcoinConnectConnected) {
+      bundleLog('quickZapDebug', '[QuickZap] Auto-selecting Bitcoin Connect');
       setPaymentMethod('bitcoin-connect');
     } else if (paymentSuggestion.canUseWebLN && window.webln) {
+      bundleLog('quickZapDebug', '[QuickZap] Auto-selecting WebLN');
       setPaymentMethod('webln');
     }
     setHasAutoSelected(true);
@@ -375,6 +383,12 @@ export function QuickZap({
                         isMobile ? 'text-xs' : 'text-xs'
                       }`}>
                         {actualBitcoinConnectConnected ? '💡 Ready to pay with Bitcoin Connect' : '⚠️ Bitcoin Connect not connected - connect in settings'}
+                        {/* Debug info in development */}
+                        {process.env.NODE_ENV === 'development' && (
+                          <span className="block text-xs opacity-50 mt-1">
+                            Debug: userHasLightningAccess={userHasLightningAccess.toString()}, implementation={walletInfo?.implementation || 'none'}
+                          </span>
+                        )}
                       </p>
                     ) : null}
                 </div>

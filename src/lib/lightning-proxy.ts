@@ -448,7 +448,23 @@ export async function makeZapPayment(
   // Strategy 1: Try WebLN first (works with Alby, Bitcoin Connect, etc.)
   if (window.webln && suggestion.canUseWebLN) {
     try {
-      await window.webln.enable();
+      // Check if Bitcoin Connect is active - if so, we can safely call enable()
+      const bitcoinConnectActive = (window as any).__bitcoinConnectActive;
+      console.log('[lightning-proxy] Checking Bitcoin Connect status:', bitcoinConnectActive);
+      
+      if (bitcoinConnectActive) {
+        console.log('[lightning-proxy] Calling webln.enable() for Bitcoin Connect - safe from extension prompts');
+        await window.webln.enable();
+      } else {
+        // For browser extensions, check if previously rejected to avoid conflicts
+        const isAlbyRejected = (window.webln as any).__albyRejected;
+        if (!isAlbyRejected) {
+          console.log('[lightning-proxy] Calling webln.enable() for browser extension');
+          await window.webln.enable();
+        } else {
+          console.log('[lightning-proxy] Skipping webln.enable() - browser extension previously rejected');
+        }
+      }
 
       const invoice = await generateLightningInvoice(lightningAddress, amountSats, comment, nostr);
       const payment = await window.webln.sendPayment(invoice.pr);

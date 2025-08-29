@@ -83,4 +83,5 @@ export interface WalletContextType {
   isBunkerSigner: boolean;
   isCashuCompatible: boolean;
   isExtensionSigner: boolean;
+  isNsecSigner: boolean;
 }

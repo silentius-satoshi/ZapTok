@@ -86,6 +86,10 @@ const BitcoinConnectCard = ({
       await new Promise(resolve => setTimeout(resolve, 100));
 
       if (window.webln) {
+        // Store Bitcoin Connect's WebLN provider separately to avoid browser extension conflicts
+        (window as any).__bitcoinConnectWebLN = window.webln;
+        console.log('[BitcoinConnectCard] Stored Bitcoin Connect WebLN provider to avoid extension conflicts');
+        
         await connect(); // This will detect the new WebLN provider
         toast({
           title: "Wallet Connected",
@@ -95,6 +99,10 @@ const BitcoinConnectCard = ({
         // Try again after a longer delay
         await new Promise(resolve => setTimeout(resolve, 500));
         if (window.webln) {
+          // Store Bitcoin Connect's WebLN provider separately
+          (window as any).__bitcoinConnectWebLN = window.webln;
+          console.log('[BitcoinConnectCard] Stored Bitcoin Connect WebLN provider to avoid extension conflicts (after delay)');
+          
           await connect();
           toast({
             title: "Wallet Connected",

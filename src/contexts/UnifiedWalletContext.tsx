@@ -143,11 +143,36 @@ export function UnifiedWalletProvider({ children }: { children: ReactNode }) {
           if (!window.webln) {
             throw new Error('WebLN wallet not available. Please install Alby or another WebLN wallet.');
           }
-          await window.webln.enable();
-          const webln = window.webln;
+          
+          // Check if Bitcoin Connect is active and use its provider directly
+          const bitcoinConnectActive = (window as any).__bitcoinConnectActive;
+          const bitcoinConnectWebLN = (window as any).__bitcoinConnectWebLN;
+          console.log('[UnifiedWalletContext] Checking Bitcoin Connect status:', bitcoinConnectActive);
+          
+          // Use Bitcoin Connect's WebLN provider directly if available to avoid extension conflicts
+          let weblnProvider = window.webln;
+          if (bitcoinConnectActive && bitcoinConnectWebLN) {
+            console.log('[UnifiedWalletContext] Using Bitcoin Connect WebLN provider directly to avoid extension conflicts');
+            weblnProvider = bitcoinConnectWebLN;
+          }
+          
+          if (bitcoinConnectActive) {
+            console.log('[UnifiedWalletContext] Bitcoin Connect is active, enabling its provider directly');
+            await weblnProvider.enable();
+          } else {
+            // For browser extensions, check if previously rejected to avoid conflicts
+            const isAlbyRejected = (window.webln as any).__albyRejected;
+            if (!isAlbyRejected) {
+              console.log('[UnifiedWalletContext] Calling webln.enable() for browser extension');
+              await window.webln.enable();
+            } else {
+              console.log('[UnifiedWalletContext] Skipping webln.enable() - browser extension previously rejected');
+            }
+          }
+          
           setWebLNProvider({
-            ...webln,
-            isEnabled: webln.isEnabled ?? true
+            ...weblnProvider,
+            isEnabled: weblnProvider.isEnabled ?? true
           });
           setWebLNConnected(true);
           break;
