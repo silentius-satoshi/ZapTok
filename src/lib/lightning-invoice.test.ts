@@ -4,9 +4,9 @@ import { decodeLightningInvoice, formatSats } from '@/lib/lightning-invoice';
 describe('Lightning Invoice Utils', () => {
   describe('formatSats', () => {
     it('should format numbers with thousands separators', () => {
-      expect(formatSats(21)).toBe('21');
-      expect(formatSats(1000)).toBe('1,000');
-      expect(formatSats(1000000)).toBe('1,000,000');
+      expect(formatSats(21)).toBe('21 sats');
+      expect(formatSats(1000)).toBe('1.000 k sats');
+      expect(formatSats(1000000)).toBe('1000.000 k sats');
     });
   });
 
