@@ -124,7 +124,7 @@ export function VideoActionButtons({
 
   return (
     <>
-      <div className={`flex items-center ${isMobile ? 'flex-col gap-1.5 w-16' : 'flex-col gap-2.5 w-28'}`}>
+      <div className={`flex items-center ${isMobile ? 'flex-col gap-2.5 w-16' : 'flex-col gap-4 w-28'}`}>
         {/* 1. Profile Picture with Follow Button (no click functionality on profile picture) */}
         <div className="relative">
           <div className={`rounded-full p-0 overflow-hidden bg-transparent ${

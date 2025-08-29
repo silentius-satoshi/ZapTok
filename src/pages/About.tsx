@@ -18,7 +18,7 @@ export function About() {
   });
 
   const handleGoBack = () => {
-    navigate(-1);
+    navigate('/');
   };
 
   return (
@@ -117,15 +117,15 @@ export function About() {
                 <h2 className="text-2xl font-semibold">Support ZapTok</h2>
                 <div className="space-y-4 text-muted-foreground">
                   <p>
-                    Help us continue building and improving ZapTok. Your support enables us to maintain the platform, 
+                    Help us continue building and improving ZapTok. Your support enables us to maintain the platform,
                     add new features, and keep the community growing.
                   </p>
-                  
+
                   <div className="flex flex-col items-center space-y-4 pt-4">
                     <div className="bg-white p-4 rounded-lg shadow-lg">
-                      <img 
+                      <img
                         src={`${import.meta.env.BASE_URL}images/qr-code-donation.png`}
-                        alt="Donation QR Code" 
+                        alt="Donation QR Code"
                         className="w-48 h-48 object-contain border"
                         onError={(e) => {
                           console.error('Image failed to load. Attempted URL:', e.currentTarget.src);
@@ -157,19 +157,19 @@ export function About() {
                   <div className="pt-4">
                     <Tabs defaultValue="soapbox" className="w-full">
                       <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger 
+                        <TabsTrigger
                           value="soapbox"
                           onClick={() => window.open('https://soapbox.pub/mkstack', '_blank')}
                         >
                           Soapbox Communities
                         </TabsTrigger>
-                        <TabsTrigger 
+                        <TabsTrigger
                           value="chorus"
                           onClick={() => window.open('https://chorus.community/group/34550%3A8b12bddc423189c660156eab1ea04e1d44cc6621c550c313686705f704dda895%3Azaptok-mdgpgdbb', '_blank')}
                         >
                           ZapTok on +Chorus
                         </TabsTrigger>
-                        <TabsTrigger 
+                        <TabsTrigger
                           value="github"
                           disabled
                           className="opacity-50 cursor-not-allowed"

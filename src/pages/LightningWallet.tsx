@@ -73,7 +73,7 @@ export function LightningWallet() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => navigate(-1)}
+                        onClick={() => navigate('/')}
                         className="text-gray-400 hover:text-white hover:bg-gray-800"
                       >
                         <ArrowLeft className="h-4 w-4" />

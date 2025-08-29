@@ -74,7 +74,7 @@ export default function Notifications() {
   }, [notifications]);
 
   const handleBack = () => {
-    navigate(-1); // Go back to previous page
+    navigate('/'); // Go back to home page
   };
 
   const handleSettingsClick = () => {

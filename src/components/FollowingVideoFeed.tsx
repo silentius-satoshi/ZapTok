@@ -540,12 +540,12 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
                 : "h-screen flex items-center justify-center snap-start"
             }
             >
-              <div className={`flex w-full items-end h-full ${isMobile ? 'flex-col relative' : 'gap-8 max-w-4xl py-4'}`}>
+              <div className={`flex w-full items-end h-full ${isMobile ? 'flex-col relative' : 'gap-6 justify-center'}`}>
                 {/* Video Container - Full height from top to bottom */}
                 <div className={`overflow-hidden bg-black shadow-2xl hover:shadow-3xl transition-all duration-300 ${
                   isMobile
                     ? 'w-full h-full border-none'
-                    : 'flex-1 h-full rounded-3xl border-2 border-gray-800'
+                    : 'h-full rounded-3xl border-2 border-gray-800 max-w-[min(85vh,90vw)] w-auto'
                 }`}>
                   <VideoCard
                     event={video}

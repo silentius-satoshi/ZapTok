@@ -335,10 +335,10 @@ export function MobileNavigation() {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-md">
-        <div className="flex items-center justify-around px-4" style={{ paddingTop: '2px', paddingBottom: '2px' }}>
+      <div className="md:hidden fixed left-0 right-0 z-50 bg-black/95 backdrop-blur-md" style={{ bottom: '16px' }}>
+        <div className="flex items-center justify-around px-6 py-3 gap-4">
           {bottomNavItems.map((item) => (
-            <div key={item.id} className="flex justify-center">
+            <div key={item.id} className="flex justify-center flex-1 max-w-[64px]">
               {item.isUserProfile ? (
                 // Profile button with user avatar
                 user ? (
