@@ -11,6 +11,7 @@ import { RelayContextIndicator } from '@/components/RelayContextIndicator';
 import { Button } from '@/components/ui/button';
 import { Bitcoin, ArrowLeft } from 'lucide-react';
 import { useCashuStore } from '@/stores/cashuStore';
+import { useUserCashuStore } from '@/stores/userCashuStore';
 import { formatBalance } from '@/lib/cashu';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
@@ -46,9 +47,8 @@ export function LightningWallet() {
 
   // Calculate total balance for extension signers: Cashu + Lightning
   const { walletInfo, isExtensionSigner } = useWallet();
-  const walletProofs = !isBunkerSigner ? cashuStore.wallets.flatMap(wallet => wallet.proofs || []) : [];
-  const allProofs = !isBunkerSigner ? [...walletProofs, ...cashuStore.pendingProofs] : [];
-  const cashuBalance = allProofs.reduce((sum, proof) => sum + proof.amount, 0);
+  const userCashuStore = useUserCashuStore(user?.pubkey);
+  const cashuBalance = !isBunkerSigner ? (userCashuStore?.getTotalBalance?.() || 0) : 0;
   // Lightning wallet balance (extension signer only)
   const lightningBalance = isExtensionSigner && walletInfo?.balance ? walletInfo.balance : 0;
   // Combined total balance for extension signers
