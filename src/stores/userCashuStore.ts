@@ -24,7 +24,7 @@ const defaultStoreInstance = create<Partial<CashuStore>>(() => ({
   pendingProofEvents: [],
   mintQuotes: new Map(),
   meltQuotes: new Map(),
-  getTotalBalance: () => 0,
+  getTotalBalance: () => 0, // No user logged in, no balance
   addWallet: () => {},
   removeWallet: () => {},
   updateWallet: () => {},
@@ -91,7 +91,11 @@ function getUserCashuStore(userPubkey: string) {
         // Utility methods that the LoginArea needs
         getTotalBalance: () => {
           const state = get();
-          return (state.wallets || []).reduce((sum, wallet) => sum + (wallet.balance || 0), 0);
+          // Calculate balance from wallets
+          const walletBalance = (state.wallets || []).reduce((sum, wallet) => sum + (wallet.balance || 0), 0);
+          // Add balance from pending proofs (when no wallet exists yet)
+          const pendingBalance = (state.pendingProofs || []).reduce((sum, proof) => sum + proof.amount, 0);
+          return walletBalance + pendingBalance;
         },
 
         addWallet: (wallet: CashuWalletStruct) => {
