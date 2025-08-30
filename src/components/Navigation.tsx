@@ -101,8 +101,6 @@ export function Navigation() {
       label: isBunkerSigner ? 'Bitcoin Connect Wallet' : 'Cashu Wallet',
       path: '/wallet'
     },
-    { id: 'upload', icon: PlusSquare, label: 'Upload Video', action: 'upload' },
-    { id: 'stream', icon: Radio, label: 'Live Stream', path: '/stream' },
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
   ];
