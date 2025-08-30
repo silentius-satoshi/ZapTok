@@ -190,7 +190,13 @@ export function Navigation() {
                     ? 'text-gray-400 hover:text-white'
                     : 'text-gray-400 hover:text-white'
                 }`}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  // Handle specific actions
+                  if (item.action === 'searchUsers') {
+                    handleUserSearchClick();
+                  }
+                }}
                 onMouseEnter={() => setHoveredItem(item.id)}
                 onMouseLeave={() => setHoveredItem(null)}
               >
