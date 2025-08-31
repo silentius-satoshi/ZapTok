@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useSendNutzap, useFetchNutzapInfo, useVerifyMintCompatibility } from '@/hooks/useSendNutzap';
 import { useCashuToken } from '@/hooks/useCashuToken';
-import { useCashuStore } from '@/stores/cashuStore';
+import { useUserCashuStore } from '@/stores/userCashuStore';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { formatBalance } from '@/lib/cashu';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,11 +35,12 @@ export function NutzapForm({
   const [amount, setAmount] = useState<number>(21);
   const [comment, setComment] = useState('');
 
+  const { user } = useCurrentUser();
   const { sendNutzap, isSending } = useSendNutzap();
   const { fetchNutzapInfo } = useFetchNutzapInfo();
   const { verifyMintCompatibility } = useVerifyMintCompatibility();
   const { sendToken } = useCashuToken();
-  const cashuStore = useCashuStore();
+  const userCashuStore = useUserCashuStore(user?.pubkey);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

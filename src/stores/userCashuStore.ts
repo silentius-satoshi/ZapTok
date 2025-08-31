@@ -38,6 +38,7 @@ const defaultStoreInstance = create<Partial<CashuStore>>(() => ({
   storeProofs: () => {},
   spendProofs: () => {},
   getAvailableProofs: () => [],
+  getMintProofs: async () => [],
   clearAllData: () => {},
   addPendingProofEvent: () => {},
   removePendingProofEvent: () => {},
@@ -189,6 +190,36 @@ function getUserCashuStore(userPubkey: string) {
               state.pendingProofEvents.push(...newProofs.map(() => eventId));
             }
           });
+        },
+
+        // Get proofs for a specific mint
+        getMintProofs: async (mintUrl: string) => {
+          const state = get();
+          const mints = state.mints || [];
+          const mint = mints.find(m => m.url === mintUrl);
+          if (!mint) return [];
+
+          // Get all proofs from wallets that use this mint
+          const allProofs: Proof[] = [];
+          (state.wallets || []).forEach(wallet => {
+            if (wallet.mints?.includes(mintUrl)) {
+              allProofs.push(...(wallet.proofs || []));
+            }
+          });
+
+          // Also include pending proofs (when no wallet exists yet)
+          if (state.pendingProofs) {
+            allProofs.push(...state.pendingProofs);
+          }
+
+          // Filter by mint's keysets if available
+          if (mint.keysets?.length) {
+            return allProofs.filter(proof => {
+              return mint.keysets?.some(keyset => keyset.id === proof.id);
+            });
+          }
+
+          return allProofs;
         },
 
         setProofEventId: (proof: Proof, eventId: string) => {

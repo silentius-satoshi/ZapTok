@@ -6,6 +6,7 @@ import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { Proof } from '@cashu/cashu-ts';
 import { useNutzapStore, NutzapInformationalEvent } from '@/stores/nutzapStore';
 import { useCashuStore } from '@/stores/cashuStore';
+import { useUserCashuStore } from '@/stores/userCashuStore';
 
 /**
  * Hook to verify mint compatibility between sender and recipient
@@ -13,10 +14,13 @@ import { useCashuStore } from '@/stores/cashuStore';
  * If not, tries to find a compatible mint from sender's mints list
  */
 export function useVerifyMintCompatibility() {
-  const cashuStore = useCashuStore();
+  const { user } = useCurrentUser();
+  const cashuStore = useCashuStore(); // For shared mint data
+  const userCashuStore = useUserCashuStore(user?.pubkey); // For user's mint preferences
 
   const verifyMintCompatibility = (recipientInfo: NutzapInformationalEvent): string => {
-    const activeMintUrl = cashuStore.activeMintUrl || '';
+    // Get active mint from user store, fallback to global store
+    const activeMintUrl = userCashuStore.activeMintUrl || cashuStore.activeMintUrl || '';
     const recipientMints = recipientInfo.mints.map(mint => mint.url);
 
     // Check if recipient accepts the active mint
@@ -24,14 +28,15 @@ export function useVerifyMintCompatibility() {
       return activeMintUrl;
     }
 
-    // If not, try to find a compatible mint
+    // If not, try to find a compatible mint from user's mints
+    const userMints = userCashuStore.mints?.map(m => m.url) || cashuStore.mints.map(m => m.url);
     const compatibleMint = recipientMints.find(mintUrl =>
-      cashuStore.mints.map(m => m.url).includes(mintUrl)
+      userMints.includes(mintUrl)
     );
 
     if (compatibleMint) {
-      // Update the active mint to the compatible one
-      cashuStore.setActiveMintUrl(compatibleMint);
+      // Update the active mint in user store
+      userCashuStore.setActiveMintUrl?.(compatibleMint);
       return compatibleMint;
     }
 

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useCashuStore, CashuWalletStruct } from '@/stores/cashuStore';
+import { useUserCashuStore } from '@/stores/userCashuStore';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
 import { CashuMint, CashuWallet, Proof, getDecodedToken, CheckStateEnum } from '@cashu/cashu-ts';
@@ -9,7 +11,9 @@ import { hashToCurve } from "@cashu/crypto/modules/common";
 export function useCashuToken() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const cashuStore = useCashuStore();
+  const { user } = useCurrentUser();
+  const cashuStore = useCashuStore(); // For shared mint data
+  const userCashuStore = useUserCashuStore(user?.pubkey); // For user's wallet data
   const { wallet, createWallet, updateProofs } = useCashuWallet();
 
   const { createHistory } = useCashuHistory();
@@ -32,8 +36,14 @@ export function useCashuToken() {
       // Load mint keysets
       await wallet.loadMint();
 
-      // Get all proofs from store
-      let proofs = await cashuStore.getMintProofs(mintUrl);
+      // Get all proofs from user-specific store, fallback to global store
+      let proofs: Proof[] = [];
+      if (userCashuStore.getMintProofs) {
+        proofs = await userCashuStore.getMintProofs(mintUrl);
+      } else {
+        // Fallback to global store if user store doesn't have the method
+        proofs = await cashuStore.getMintProofs(mintUrl);
+      }
 
       const proofsAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
       if (proofsAmount < amount) {
@@ -43,7 +53,7 @@ export function useCashuToken() {
       try {
         // For regular token, create a token string
         // Perform coin selection
-        const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: cashuStore.privkey });
+        const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: userCashuStore.privkey || cashuStore.privkey });
 
         // Create new token for the proofs we're keeping
         if (proofsToKeep.length > 0) {
@@ -77,8 +87,12 @@ export function useCashuToken() {
           // Clean spent proofs
           await cleanSpentProofs(mintUrl);
           
-          // Get fresh proofs after cleanup
-          proofs = await cashuStore.getMintProofs(mintUrl);
+          // Get fresh proofs after cleanup from user store
+          if (userCashuStore.getMintProofs) {
+            proofs = await userCashuStore.getMintProofs(mintUrl);
+          } else {
+            proofs = await cashuStore.getMintProofs(mintUrl);
+          }
           
           // Check if we still have enough funds after cleanup
           const newProofsAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
@@ -87,7 +101,7 @@ export function useCashuToken() {
           }
           
           // Retry the send operation with fresh proofs
-          const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: cashuStore.privkey });
+          const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: userCashuStore.privkey || cashuStore.privkey });
 
           // Create new token for the proofs we're keeping
           if (proofsToKeep.length > 0) {
