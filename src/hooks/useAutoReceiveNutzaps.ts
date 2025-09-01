@@ -2,15 +2,13 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNutzapInfo } from '@/hooks/useNutzaps';
-import { useReceivedNutzaps, ReceivedNutzap } from '@/hooks/useReceivedNutzaps';
-import { useNutzapRedemption } from '@/hooks/useNutzapRedemption';
+import { useReceivedNutzaps, useRedeemNutzap, ReceivedNutzap } from '@/hooks/useReceivedNutzaps';
 import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
 import { useWalletUiStore } from '@/stores/walletUiStore';
 import { formatBalance } from '@/lib/cashu';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
-import { useAppContext } from '@/hooks/useAppContext';
 import { toast } from 'sonner';
 
 /**
@@ -21,34 +19,15 @@ export function useAutoReceiveNutzaps() {
   const { user } = useCurrentUser();
   const { nostr } = useNostr();
   const nutzapInfoQuery = useNutzapInfo(user?.pubkey);
-  const { nutzaps: fetchedNutzaps, refetch: refetchNutzaps } = useReceivedNutzaps();
-  const { redeemNutzap } = useNutzapRedemption();
+  const { data: fetchedNutzaps, refetch: refetchNutzaps } = useReceivedNutzaps();
+  const { mutateAsync: redeemNutzap } = useRedeemNutzap();
   const walletUiStore = useWalletUiStore();
   const { showSats } = useCurrencyDisplayStore();
   const { data: btcPrice } = useBitcoinPrice();
-  const { config } = useAppContext();
   
   // Keep track of processed event IDs to avoid duplicates
   const processedEventIds = useRef<Set<string>>(new Set());
   const subscriptionController = useRef<AbortController | null>(null);
-
-  // Check if Cashu operations should run in the current context
-  const shouldRunCashuOperations = config.relayContext === 'all' || 
-    config.relayContext === 'wallet' || 
-    config.relayContext === 'cashu-only' || 
-    config.relayContext === 'settings-cashu';
-
-  // Early return if Cashu operations shouldn't run
-  useEffect(() => {
-    if (!shouldRunCashuOperations) {
-      // Clean up any existing subscriptions
-      if (subscriptionController.current) {
-        subscriptionController.current.abort();
-        subscriptionController.current = null;
-      }
-      return;
-    }
-  }, [shouldRunCashuOperations]);
 
   // Format amount based on user preference
   const formatAmount = useCallback((sats: number) => {
@@ -62,25 +41,20 @@ export function useAutoReceiveNutzaps() {
 
   // Process and auto-redeem a nutzap
   const processNutzap = useCallback(async (nutzap: ReceivedNutzap) => {
-    if (nutzap.status === 'claimed' || processedEventIds.current.has(nutzap.id)) {
+    if (nutzap.redeemed || processedEventIds.current.has(nutzap.id)) {
       return;
     }
 
     processedEventIds.current.add(nutzap.id);
 
     try {
-      await redeemNutzap({
-        nutzapEventIds: [nutzap.id],
-        direction: 'in',
-        amount: nutzap.amount.toString(),
-        createdTokenEventId: nutzap.id
-      });
+      await redeemNutzap(nutzap);
       
       const amount = nutzap.proofs.reduce((sum, p) => sum + p.amount, 0);
       
       // Show success notification
       toast.success(`eCash received! ${formatAmount(amount)}`, {
-        description: nutzap.comment || 'Auto-redeemed to your wallet',
+        description: nutzap.content || 'Auto-redeemed to your wallet',
         duration: 4000,
       });
 
@@ -107,10 +81,10 @@ export function useAutoReceiveNutzaps() {
 
   // Process initial nutzaps on load
   useEffect(() => {
-    if (!shouldRunCashuOperations || !fetchedNutzaps || fetchedNutzaps.length === 0) return;
+    if (!fetchedNutzaps || fetchedNutzaps.length === 0) return;
 
     // Process any unredeemed nutzaps
-    const unredeemedNutzaps = fetchedNutzaps.filter(n => n.status === 'pending');
+    const unredeemedNutzaps = fetchedNutzaps.filter(n => !n.redeemed);
     
     unredeemedNutzaps.forEach(nutzap => {
       processNutzap(nutzap);
@@ -118,11 +92,11 @@ export function useAutoReceiveNutzaps() {
 
     // Add all fetched nutzap IDs to processed set
     fetchedNutzaps.forEach(n => processedEventIds.current.add(n.id));
-  }, [shouldRunCashuOperations, fetchedNutzaps, processNutzap]);
+  }, [fetchedNutzaps, processNutzap]);
 
   // Set up real-time subscription
   useEffect(() => {
-    if (!shouldRunCashuOperations || !user || !nutzapInfoQuery.data) return;
+    if (!user || !nutzapInfoQuery.data) return;
 
     // Get trusted mints from nutzap info
     const trustedMints = nutzapInfoQuery.data.mints.map((mint) => mint.url);
@@ -196,14 +170,17 @@ export function useAutoReceiveNutzaps() {
             // Create nutzap object
             const nutzap: ReceivedNutzap = {
               id: event.id,
+              pubkey: event.pubkey,
               senderPubkey: event.pubkey,
-              amount: proofs.reduce((sum, p) => sum + p.amount, 0),
-              comment: event.content,
-              mintUrl,
+              createdAt: event.created_at,
               timestamp: event.created_at,
+              content: event.content,
+              comment: event.content,
+              amount: proofs.reduce((sum, p) => sum + p.amount, 0),
+              mintUrl,
               status: 'pending',
+              redeemed: false,
               proofs,
-              originalEvent: event,
             };
 
             // Process the nutzap
@@ -240,7 +217,7 @@ export function useAutoReceiveNutzaps() {
         subscriptionController.current = null;
       }
     };
-  }, [shouldRunCashuOperations, user, nutzapInfoQuery.data, nostr, processNutzap, refetchNutzaps]);
+  }, [user, nutzapInfoQuery.data, nostr, processNutzap, refetchNutzaps]);
 
   return {
     // Expose refetch in case manual refresh is needed

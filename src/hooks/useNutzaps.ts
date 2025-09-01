@@ -45,7 +45,7 @@ export function useNutzapInfo(pubkey?: string) {
 
       // Otherwise fetch it from the network
       const events = await nostr.query([
-        { kinds: [CASHU_EVENT_KINDS.INFO], authors: [pubkey], limit: 1 }
+        { kinds: [CASHU_EVENT_KINDS.ZAPINFO], authors: [pubkey], limit: 1 }
       ], { signal });
 
       if (events.length === 0) {
