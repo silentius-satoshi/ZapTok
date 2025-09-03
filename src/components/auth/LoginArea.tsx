@@ -25,11 +25,11 @@ export function LoginArea({ className }: LoginAreaProps) {
   const { currentUser } = useLoggedInAccounts();
   const { walletInfo, isConnected, getBalance, provider, userHasLightningAccess } = useWallet();
   const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
-  
+
   // Get both stores for comparison
   const globalCashuStore = useCashuStore();
   const userCashuStore = useUserCashuStore(currentUser?.pubkey);
-  
+
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [addAccountDialogOpen, setAddAccountDialogOpen] = useState(false);
   const [currency, setCurrency] = useState<'BTC' | 'USD'>('BTC');
@@ -65,30 +65,32 @@ export function LoginArea({ className }: LoginAreaProps) {
   }, [isConnected, provider, refreshBalance]);
 
   const formatBalance = useCallback(() => {
-    // Only include Lightning balance if user has Lightning access
-    const lightningBalance = userHasLightningAccess ? (walletInfo?.balance || 0) : 0;
+    // walletInfo.balance already includes both Lightning + Cashu, so use it directly
+    // But if user doesn't have Lightning access, only show Cashu balance
     const cashuBalance = userCashuStore?.getTotalBalance?.() || 0;
     const globalCashuBalance = globalCashuStore?.getTotalBalance?.() || 0;
-    const totalBalance = lightningBalance + cashuBalance;
+
+    const totalBalance = userHasLightningAccess
+      ? (walletInfo?.balance || 0)  // This already includes Lightning + Cashu
+      : cashuBalance;  // Cashu only for users without Lightning access
 
     // Only log when values actually change to reduce console spam
     const currentState = JSON.stringify({
       userHasLightningAccess,
-      lightningBalance,
-      cashuBalance,
-      totalBalance
+      totalBalance,
+      cashuBalance
     });
 
     if (balanceLogRef.current !== currentState) {
       balanceLogRef.current = currentState;
-      
+
       // Only show detailed debug when there's a significant change or mismatch
       if (cashuBalance !== globalCashuBalance) {
         console.log('💰 Balance Calculation Debug');
-        console.log('Lightning Balance:', lightningBalance, 'sats');
-        console.log('User Cashu Balance (used):', cashuBalance, 'sats');
+        console.log('WalletInfo Balance (Lightning + Cashu):', walletInfo?.balance || 0, 'sats');
+        console.log('User Cashu Balance (standalone):', cashuBalance, 'sats');
         console.log('Global Cashu Balance (reference):', globalCashuBalance, 'sats');
-        console.log('Total Balance:', totalBalance, 'sats');
+        console.log('Final Total Balance:', totalBalance, 'sats');
         console.log('Balance Difference (User vs Global Cashu):', cashuBalance - globalCashuBalance, 'sats');
       }
     }

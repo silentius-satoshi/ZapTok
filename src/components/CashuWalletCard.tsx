@@ -374,8 +374,11 @@ export function CashuWalletCard() {
               {wallet.mints && wallet.mints.length > 0 ? (
                 <div className="space-y-2">
                   {wallet.mints.map((mint) => {
-                    const amount = totalBalance; // Show total wallet balance for each mint
+                    // Get balance specific to this mint
+                    // For now, show total balance only for active mint, 0 for others
+                    // TODO: Implement proper per-mint balance calculation
                     const isActive = cashuStore.activeMintUrl === mint;
+                    const amount = isActive ? totalBalance : 0; // Only show balance on active mint
                     const isExpanded = expandedMint === mint;
 
                     return (
