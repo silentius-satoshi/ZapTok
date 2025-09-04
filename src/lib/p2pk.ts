@@ -7,15 +7,26 @@ import { sha256 } from '@noble/hashes/sha256';
  * Used for locking ecash to specific public keys (e.g., in nutzaps)
  */
 
-export interface P2PKSecret {
+// NUT-11 compliant P2PK secret data structure
+export interface P2PKSecretData {
+  nonce: string;    // Random nonce for uniqueness
+  data: string;     // Recipient's compressed public key (with 02 prefix)
+  tags?: string[][]; // Optional tags (sigflag, etc.)
+}
+
+// Full NUT-11 P2PK secret structure: ["P2PK", P2PKSecretData]
+export type P2PKSecret = ["P2PK", P2PKSecretData];
+
+// Wallet-specific P2PK keypair (separate from secret format)
+export interface P2PKKeypair {
   privateKey: string;
   pubkey: string;
 }
 
 /**
- * Generate a new P2PK keypair
+ * Generate a new P2PK keypair for wallet operations
  */
-export function generateP2PKSecret(): P2PKSecret {
+export function generateP2PKKeypair(): P2PKKeypair {
   const privateKey = secp256k1.utils.randomPrivateKey();
   const pubkey = secp256k1.getPublicKey(privateKey, true);
 
@@ -26,9 +37,9 @@ export function generateP2PKSecret(): P2PKSecret {
 }
 
 /**
- * Create P2PK secret from existing private key
+ * Create P2PK keypair from existing private key
  */
-export function createP2PKSecretFromPrivateKey(privateKeyHex: string): P2PKSecret {
+export function createP2PKKeypairFromPrivateKey(privateKeyHex: string): P2PKKeypair {
   const privateKey = hexToBytes(privateKeyHex);
   const pubkey = secp256k1.getPublicKey(privateKey, true);
 
@@ -39,29 +50,29 @@ export function createP2PKSecretFromPrivateKey(privateKeyHex: string): P2PKSecre
 }
 
 /**
- * Create P2PK secret for locking to a specific recipient
- * This generates the secret that locks ecash to the recipient's pubkey
+ * Create NUT-11 compliant P2PK secret for locking ecash to a recipient
+ * This generates the secret structure that locks ecash to the recipient's pubkey
  */
-export function createP2PKSecret(recipientPubkey?: string): [string, P2PKSecret] {
-  if (recipientPubkey) {
-    // Create a deterministic secret for this recipient
-    // In practice, this would use proper key derivation
-    const recipientBytes = hexToBytes(recipientPubkey);
-    const hash = sha256(recipientBytes);
-    const secret = bytesToHex(hash);
+export function createP2PKSecret(recipientPubkey: string): [string, P2PKSecret] {
+  // Generate random nonce (32 bytes hex)
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 
-    return [
-      secret,
-      {
-        privateKey: secret,
-        pubkey: recipientPubkey
-      }
-    ];
-  } else {
-    // Generate a random secret
-    const p2pkSecret = generateP2PKSecret();
-    return [p2pkSecret.privateKey, p2pkSecret];
-  }
+  // Ensure pubkey has 02 prefix for compressed format
+  const data = recipientPubkey.startsWith('02') ? recipientPubkey : '02' + recipientPubkey;
+
+  // Create NUT-11 compliant secret structure
+  const p2pkSecretData: P2PKSecretData = {
+    nonce,
+    data,
+    tags: [["sigflag", "SIG_INPUTS"]] // Default to SIG_INPUTS as per NUT-11
+  };
+
+  const p2pkSecret: P2PKSecret = ["P2PK", p2pkSecretData];
+  const secretString = JSON.stringify(p2pkSecret);
+
+  return [secretString, p2pkSecret];
 }
 
 /**
@@ -103,18 +114,14 @@ export function verifyP2PKSignature(
 }
 
 /**
- * Create P2PK witness data for unlocking
+ * Create P2PK witness data for unlocking tokens
+ * Returns witness in NUT-11 compliant format
  */
-export function createP2PKWitness(privateKeyHex: string, challenge?: string): string {
-  const data = challenge || 'unlock';
-  const signature = signWithP2PK(data, privateKeyHex);
-  const pubkey = getPublicKeyFromPrivate(privateKeyHex);
-
-  // P2PK witness format: signature + pubkey
-  return JSON.stringify({
-    signature,
-    pubkey
-  });
+export function createP2PKWitness(signatures: string[]): string {
+  const witness = {
+    signatures
+  };
+  return JSON.stringify(witness);
 }
 
 /**
@@ -150,17 +157,17 @@ export function compressPublicKey(pubkeyHex: string): string {
 }
 
 /**
- * Generate P2PK secret for wallet creation
+ * Generate P2PK keypair for wallet creation
  * This creates a wallet-specific P2PK key for receiving nutzaps
  */
-export function generateWalletP2PKSecret(walletName?: string): P2PKSecret {
+export function generateWalletP2PKKeypair(walletName?: string): P2PKKeypair {
   if (walletName) {
     // Derive deterministic key from wallet name
     const nameBytes = new TextEncoder().encode(walletName);
     const hash = sha256(nameBytes);
-    return createP2PKSecretFromPrivateKey(bytesToHex(hash));
+    return createP2PKKeypairFromPrivateKey(bytesToHex(hash));
   } else {
     // Generate random key
-    return generateP2PKSecret();
+    return generateP2PKKeypair();
   }
 }

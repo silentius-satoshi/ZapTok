@@ -29,8 +29,9 @@ export interface NutzapEvent extends NostrEvent {
 export interface P2PKProof {
   amount: number;
   id: string;
-  secret: string; // Contains P2PK data: ["P2PK", {"nonce": "...", "data": "02..."}]
+  secret: string; // NUT-11 P2PK secret: ["P2PK", {"nonce": "...", "data": "02...", "tags": [...]}]
   C: string;
+  witness?: string; // P2PKWitness for spending: {"signatures": ["..."]}
 }
 
 /**
@@ -144,9 +145,18 @@ function isValidUrl(url: string): boolean {
 }
 
 /**
- * Helper function to create P2PK secret for nutzaps
+ * NUT-11 compliant P2PK secret data for nutzaps
  */
-export function createP2PKSecret(recipientPubkey: string): [string, P2PKSecret] {
+export interface P2PKSecretData {
+  nonce: string;
+  data: string; // Recipient's compressed pubkey
+  tags?: string[][];
+}
+
+/**
+ * Helper function to create NUT-11 compliant P2PK secret for nutzaps
+ */
+export function createP2PKSecret(recipientPubkey: string): [string, P2PKSecretData] {
   // Generate random nonce
   const nonce = Array.from(crypto.getRandomValues(new Uint8Array(32)))
     .map(b => b.toString(16).padStart(2, '0'))
@@ -155,7 +165,12 @@ export function createP2PKSecret(recipientPubkey: string): [string, P2PKSecret] 
   // Ensure pubkey has 02 prefix
   const data = recipientPubkey.startsWith('02') ? recipientPubkey : '02' + recipientPubkey;
 
-  const p2pkData: P2PKSecret = { nonce, data };
+  const p2pkData: P2PKSecretData = {
+    nonce,
+    data,
+    tags: [["sigflag", "SIG_INPUTS"]]
+  };
+
   const secret = JSON.stringify(['P2PK', p2pkData]);
 
   return [secret, p2pkData];
