@@ -1,6 +1,12 @@
 import * as secp256k1 from '@noble/secp256k1';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { sha256 } from '@noble/hashes/sha256';
+import { hmac } from '@noble/hashes/hmac';
+
+// Configure secp256k1 v2.x hashing - set hmacSha256Sync for signing operations
+secp256k1.etc.hmacSha256Sync = (key: Uint8Array, message: Uint8Array): Uint8Array => {
+  return hmac(sha256, key, message);
+};
 
 /**
  * P2PK (Pay-to-Public-Key) utilities for Cashu
