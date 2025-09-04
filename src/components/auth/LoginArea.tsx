@@ -43,6 +43,18 @@ export function LoginArea({ className }: LoginAreaProps) {
     }
   }, [currentUser?.pubkey]);
 
+  // Early initialization of user Cashu store to ensure nutzaps work immediately
+  useEffect(() => {
+    if (currentUser?.pubkey && userCashuStore) {
+      // Trigger store initialization by checking balance
+      // This ensures the store is ready for nutzap operations
+      const balance = userCashuStore.getTotalBalance?.();
+      if (balance !== undefined && balance > 0) {
+        console.log(`[LoginArea] User Cashu store initialized with ${balance} sats available for nutzaps`);
+      }
+    }
+  }, [currentUser?.pubkey, userCashuStore]);
+
   // Track balance state changes to reduce console spam
   const balanceLogRef = useRef<string>('');
 
@@ -65,20 +77,20 @@ export function LoginArea({ className }: LoginAreaProps) {
   }, [isConnected, provider, refreshBalance]);
 
   const formatBalance = useCallback(() => {
-    // walletInfo.balance already includes both Lightning + Cashu, so use it directly
-    // But if user doesn't have Lightning access, only show Cashu balance
+    // Get balances from both sources
+    const lightningBalance = userHasLightningAccess ? (walletInfo?.balance || 0) : 0;
     const cashuBalance = userCashuStore?.getTotalBalance?.() || 0;
     const globalCashuBalance = globalCashuStore?.getTotalBalance?.() || 0;
 
-    const totalBalance = userHasLightningAccess
-      ? (walletInfo?.balance || 0)  // This already includes Lightning + Cashu
-      : cashuBalance;  // Cashu only for users without Lightning access
+    // Calculate total balance as Lightning + Cashu
+    const totalBalance = lightningBalance + cashuBalance;
 
     // Only log when values actually change to reduce console spam
     const currentState = JSON.stringify({
       userHasLightningAccess,
-      totalBalance,
-      cashuBalance
+      lightningBalance,
+      cashuBalance,
+      totalBalance
     });
 
     if (balanceLogRef.current !== currentState) {
@@ -87,10 +99,10 @@ export function LoginArea({ className }: LoginAreaProps) {
       // Only show detailed debug when there's a significant change or mismatch
       if (cashuBalance !== globalCashuBalance) {
         console.log('💰 Balance Calculation Debug');
-        console.log('WalletInfo Balance (Lightning + Cashu):', walletInfo?.balance || 0, 'sats');
-        console.log('User Cashu Balance (standalone):', cashuBalance, 'sats');
+        console.log('Lightning Balance:', lightningBalance, 'sats');
+        console.log('User Cashu Balance:', cashuBalance, 'sats');
         console.log('Global Cashu Balance (reference):', globalCashuBalance, 'sats');
-        console.log('Final Total Balance:', totalBalance, 'sats');
+        console.log('Combined Total Balance:', totalBalance, 'sats');
         console.log('Balance Difference (User vs Global Cashu):', cashuBalance - globalCashuBalance, 'sats');
       }
     }

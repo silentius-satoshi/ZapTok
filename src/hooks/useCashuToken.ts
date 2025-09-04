@@ -40,14 +40,25 @@ export function useCashuToken() {
       let proofs: Proof[] = [];
       if (userCashuStore.getMintProofs) {
         proofs = await userCashuStore.getMintProofs(mintUrl);
+        
+        // If no proofs found for this specific mint, try getting all proofs
+        // This helps with cases where proofs exist but aren't properly associated with the mint
+        if (proofs.length === 0) {
+          console.warn(`[useCashuToken] No proofs found for mint ${mintUrl}, trying all user proofs`);
+          const allUserProofs = userCashuStore.getAllProofs?.() || [];
+          proofs = allUserProofs;
+          console.log(`[useCashuToken] Found ${proofs.length} total user proofs as fallback`);
+        }
       } else {
         // Fallback to global store if user store doesn't have the method
         proofs = await cashuStore.getMintProofs(mintUrl);
       }
 
       const proofsAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
+      console.log(`[useCashuToken] Checking mint ${mintUrl}: ${proofs.length} proofs, ${proofsAmount} sats available, ${amount} sats needed`);
+      
       if (proofsAmount < amount) {
-        throw new Error(`Not enough funds on mint ${mintUrl}`);
+        throw new Error(`Not enough funds on mint ${mintUrl}. Available: ${proofsAmount} sats, needed: ${amount} sats`);
       }
 
       try {

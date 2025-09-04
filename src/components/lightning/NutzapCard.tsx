@@ -85,9 +85,9 @@ export function NutzapCard() {
     }
   };
 
-  const handleRedeemNutzap = async (nutzapId: string) => {
+  const handleRedeemNutzap = async (nutzap: any) => {
     try {
-      await redeemNutzap({ nutzapId });
+      await redeemNutzap(nutzap);
       refetchNutzaps();
     } catch (error) {
       console.error('Failed to redeem nutzap:', error);
@@ -195,10 +195,11 @@ export function NutzapCard() {
                       </div>
                       <Button
                         size="sm"
-                        onClick={() => handleRedeemNutzap(nutzap.id)}
-                        disabled={isRedeemingNutzap}
+                        onClick={() => handleRedeemNutzap(nutzap)}
+                        disabled={isRedeemingNutzap || nutzap.redeemed}
+                        variant={nutzap.redeemed ? "secondary" : "default"}
                       >
-                        {isRedeemingNutzap ? "..." : "Redeem"}
+                        {isRedeemingNutzap ? "..." : nutzap.redeemed ? "Redeemed" : "Redeem"}
                       </Button>
                     </div>
                   ))

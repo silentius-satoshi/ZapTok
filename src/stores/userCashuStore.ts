@@ -14,39 +14,41 @@ const storeCache = new Map<string, any>();
 // Single store instance for when no user is logged in
 const defaultStoreInstance = create<Partial<CashuStore>>(() => ({
   wallets: [],
+  tokens: [],
   wallet: null,
-  activeWalletId: null,
   mints: [],
-  events: [],
+  activeWalletId: null,
   activeMintUrl: null,
+  processingPayment: false,
+  invoices: [],
+  transactions: [],
+  proof: null,
+  proofs: [],
   proofEventMap: new Map(),
   pendingProofs: [],
   pendingProofEvents: [],
-  mintQuotes: new Map(),
-  meltQuotes: new Map(),
-  getTotalBalance: () => 0, // No user logged in, no balance
+  getTotalBalance: () => 0,
+  getTotalUSDBalance: () => 0,
+  getBalanceForMint: () => 0,
+  getProofsForMint: () => [],
   addWallet: () => {},
-  removeWallet: () => {},
-  updateWallet: () => {},
   setActiveWallet: () => {},
+  removeWallet: () => {},
   addMint: () => {},
-  updateMint: () => {},
-  addEvent: () => {},
-  updateEvent: () => {},
-  removeEvent: () => {},
-  setActiveMintUrl: () => {},
-  storeProofs: () => {},
-  spendProofs: () => {},
-  getAvailableProofs: () => [],
+  setActiveMint: () => {},
+  removeMint: () => {},
+  updateWalletWithToken: () => {},
+  savePendingProofs: () => {},
+  processTransaction: () => {},
+  setProcessingPayment: () => {},
+  setProofs: () => {},
+  addProofs: () => {},
+  removeProofs: () => {},
+  updateBalance: () => {},
+  addTransactionToHistory: () => {},
+  addInvoice: () => {},
   getMintProofs: async () => [],
-  clearAllData: () => {},
-  addPendingProofEvent: () => {},
-  removePendingProofEvent: () => {},
-  clearPendingProofEvents: () => {},
-  addMintQuote: () => {},
-  getMintQuote: () => undefined as any,
-  removeMintQuote: () => {},
-  addMeltQuote: () => {},
+  getAllProofs: () => [],
   getMeltQuote: () => undefined as any,
   removeMeltQuote: () => {},
 }));
@@ -217,6 +219,24 @@ function getUserCashuStore(userPubkey: string) {
             return allProofs.filter(proof => {
               return mint.keysets?.some(keyset => keyset.id === proof.id);
             });
+          }
+
+          return allProofs;
+        },
+
+        // Get all proofs from all wallets (for fallback when mint-specific lookup fails)
+        getAllProofs: () => {
+          const state = get();
+          const allProofs: Proof[] = [];
+          
+          // Get all proofs from all wallets
+          (state.wallets || []).forEach(wallet => {
+            allProofs.push(...(wallet.proofs || []));
+          });
+
+          // Also include pending proofs
+          if (state.pendingProofs) {
+            allProofs.push(...state.pendingProofs);
           }
 
           return allProofs;
