@@ -8,6 +8,9 @@
     "dev": "npm i && vite",
     "build": "npm i && vite build && cp dist/index.html dist/404.html",
     "test": "npm i && tsc -p tsconfig.app.json --noEmit && eslint && vitest run && vite build",
+    "test:nuts": "node src/test/nuts-compliance.test.js",
+    "test:p2pk": "node src/test/p2pk-format.test.js",
+    "test:cashu": "npm run test:nuts && npm run test:p2pk",
     "deploy": "npm run build && npx -y nostr-deploy-cli deploy --skip-setup"
   },
   "dependencies": {
