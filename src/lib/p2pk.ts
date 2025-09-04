@@ -65,8 +65,10 @@ export function createP2PKSecret(recipientPubkey: string): [string, P2PKSecret] 
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 
-  // Ensure pubkey has 02 prefix for compressed format
-  const data = recipientPubkey.startsWith('02') ? recipientPubkey : '02' + recipientPubkey;
+  // Ensure pubkey has compressed format (02 or 03 prefix)
+  const data = (recipientPubkey.startsWith('02') || recipientPubkey.startsWith('03'))
+    ? recipientPubkey
+    : '02' + recipientPubkey;
 
   // Create NUT-11 compliant secret structure
   const p2pkSecretData: P2PKSecretData = {
