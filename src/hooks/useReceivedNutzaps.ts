@@ -53,17 +53,17 @@ export function useRedeemNutzap() {
         proofsToRemove: [],
       });
 
-      if (!tokenEvent) {
-        throw new Error("Failed to add proofs to wallet");
+      // If tokenEvent is null, it means proofs were already stored
+      // In this case, we'll skip creating a redemption record to avoid duplicates
+      if (tokenEvent) {
+        // Record the redemption only if a new token event was created
+        await createRedemption({
+          nutzapEventIds: [nutzap.id],
+          direction: "in",
+          amount: proofs.reduce((sum, p) => sum + p.amount, 0).toString(),
+          createdTokenEventId: tokenEvent.id,
+        });
       }
-
-      // Record the redemption
-      await createRedemption({
-        nutzapEventIds: [nutzap.id],
-        direction: "in",
-        amount: proofs.reduce((sum, p) => sum + p.amount, 0).toString(),
-        createdTokenEventId: tokenEvent.id,
-      });
 
       // Return the successful redemption
       return {

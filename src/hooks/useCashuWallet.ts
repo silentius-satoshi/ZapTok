@@ -308,6 +308,14 @@ export function useCashuWallet() {
         throw new Error('NIP-44 encryption not supported by your signer');
       }
 
+      console.log('[updateProofs] Called with:', {
+        mintUrl,
+        proofsToAddCount: proofsToAdd.length,
+        proofsToRemoveCount: proofsToRemove.length,
+        proofsToAdd: proofsToAdd.map(p => ({ amount: p.amount, secret: p.secret?.slice(0, 8) + '...' })),
+        proofsToRemove: proofsToRemove.map(p => ({ amount: p.amount, secret: p.secret?.slice(0, 8) + '...' }))
+      });
+
       // get all event IDs of proofsToRemove
       const eventIdsToRemoveUnfiltered = proofsToRemove.map(proof => cashuStore.getProofEventId(proof));
       const eventIdsToRemove = [...new Set(eventIdsToRemoveUnfiltered.filter(id => id !== undefined) as string[])];
@@ -320,6 +328,48 @@ export function useCashuWallet() {
 
       // combine proofsToAdd and proofsToKeepWithEventIds
       const newProofs = [...proofsToAdd, ...proofsToKeepWithEventIds];
+
+      console.log('[updateProofs] Processing:', {
+        newProofsCount: newProofs.length,
+        eventIdsToRemove,
+        hasChanges: proofsToAdd.length > 0 || proofsToRemove.length > 0
+      });
+
+      // Skip creating token event if there are no actual changes
+      if (proofsToAdd.length === 0 && proofsToRemove.length === 0) {
+        console.log('[updateProofs] No changes detected, skipping token event creation');
+        return null;
+      }
+
+      // Additional check: Skip if we're only adding proofs that are already stored
+      if (proofsToRemove.length === 0 && proofsToAdd.length > 0) {
+        // Check both global store and user store for existing proofs
+        const globalProofs = cashuStore.proofs;
+        const userProofs = userCashuStore.getAllProofs?.() || [];
+        const allExistingProofs = [...globalProofs, ...userProofs];
+        
+        console.log('[updateProofs] Checking for duplicate proofs:', {
+          globalProofsCount: globalProofs.length,
+          userProofsCount: userProofs.length,
+          totalExistingProofs: allExistingProofs.length,
+          proofsToAddCount: proofsToAdd.length
+        });
+        
+        const proofsAlreadyStored = proofsToAdd.filter(newProof => 
+          allExistingProofs.some(existing => 
+            existing.secret === newProof.secret && existing.amount === newProof.amount
+          )
+        );
+        
+        if (proofsAlreadyStored.length === proofsToAdd.length) {
+          console.log('[updateProofs] All proofs to add are already stored, skipping token event creation');
+          return null;
+        }
+        
+        if (proofsAlreadyStored.length > 0) {
+          console.log(`[updateProofs] ${proofsAlreadyStored.length}/${proofsToAdd.length} proofs already stored, filtering duplicates`);
+        }
+      }
 
       let eventToReturn: NostrEvent | null = null;
 

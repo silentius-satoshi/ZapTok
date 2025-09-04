@@ -121,8 +121,16 @@ export function useNutzaps(): UseNutzapsResult {
         units: ['sat']
       }));
 
-      // Create tags
-      const tags = [
+      console.log('[createNutzapInfo] Debug info:', {
+        mintsToUse,
+        relays,
+        p2pkPubkey,
+        cashuStoreMints: cashuStore.mints,
+        mintOverrides
+      });
+
+      // Create tags for the new event
+      const newTags = [
         ...(relays || []).map(relay => ['relay', relay]),
         ...mintsToUse.map(mint => {
           const units = mint.units?.join(',') || 'sat';
@@ -131,11 +139,47 @@ export function useNutzaps(): UseNutzapsResult {
         ['pubkey', p2pkPubkey]
       ];
 
-      // Create nutzap info event
+      console.log('[createNutzapInfo] Generated tags:', newTags);
+
+      // Check if we already have a nutzap info event with the same content
+      try {
+        const existingEvents = await nostr.query([
+          { kinds: [CASHU_EVENT_KINDS.ZAPINFO], authors: [user.pubkey], limit: 1 }
+        ], { signal: AbortSignal.timeout(5000) });
+
+        if (existingEvents.length > 0) {
+          const existingEvent = existingEvents[0];
+          
+          // Compare tags to see if content has changed
+          const existingTagsString = JSON.stringify(existingEvent.tags.sort());
+          const newTagsString = JSON.stringify(newTags.sort());
+          
+          if (existingTagsString === newTagsString) {
+            console.log('[createNutzapInfo] Existing nutzap info is up to date, skipping creation');
+            
+            // Store the existing event in local store and return
+            const nutzapInfo: NutzapInformationalEvent = {
+              event: existingEvent,
+              relays: relays || [],
+              mints: mintsToUse,
+              p2pkPubkey
+            };
+            
+            nutzapStore.setNutzapInfo(user.pubkey, nutzapInfo);
+            return existingEvent;
+          }
+          
+          console.log('[createNutzapInfo] Nutzap info content has changed, updating...');
+        }
+      } catch (error) {
+        console.log('[createNutzapInfo] Could not fetch existing nutzap info, creating new one:', error);
+      }
+
+      // Create nutzap info event (only if no existing event or content changed)
       const event = await user.signer.signEvent({
         kind: CASHU_EVENT_KINDS.ZAPINFO,
         content: '',
-        tags,
+        tags: newTags,
         created_at: Math.floor(Date.now() / 1000)
       });
 

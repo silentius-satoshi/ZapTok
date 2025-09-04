@@ -62,8 +62,7 @@ export function useCashuToken() {
       }
 
       try {
-        // For regular token, create a token string
-        // Perform coin selection
+        // Perform coin selection with p2pk support
         const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: userCashuStore.privkey || cashuStore.privkey });
 
         // Create new token for the proofs we're keeping

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { generateSecretKey } from 'nostr-tools';
+import { bytesToHex } from '@noble/hashes/utils';
 import { Proof } from '@cashu/cashu-ts';
 import type {
   CashuStore,
@@ -250,6 +252,20 @@ function getUserCashuStore(userPubkey: string) {
         },
 
         privkey: undefined,
+
+        // Initialize privkey if not set
+        initializePrivkey: () => {
+          const state = get();
+          if (!state.privkey) {
+            const newPrivkey = bytesToHex(generateSecretKey());
+            set((state) => {
+              state.privkey = newPrivkey;
+            });
+            console.log(`[UserCashuStore] Generated new privkey for user ${userPubkey.slice(0, 8)}...`);
+            return newPrivkey;
+          }
+          return state.privkey;
+        },
       })),
       {
         name: `cashu-store-${userPubkey}`, // User-specific storage key
@@ -263,6 +279,7 @@ function getUserCashuStore(userPubkey: string) {
           events: state.events,
           pendingProofs: state.pendingProofs,
           pendingProofEvents: state.pendingProofEvents,
+          privkey: state.privkey, // Persist privkey for p2pk operations
         }),
       }
     )

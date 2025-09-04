@@ -46,6 +46,11 @@ export function LoginArea({ className }: LoginAreaProps) {
   // Early initialization of user Cashu store to ensure nutzaps work immediately
   useEffect(() => {
     if (currentUser?.pubkey && userCashuStore) {
+      // Initialize privkey for p2pk operations if not set
+      if (userCashuStore.initializePrivkey) {
+        userCashuStore.initializePrivkey();
+      }
+      
       // Trigger store initialization by checking balance
       // This ensures the store is ready for nutzap operations
       const balance = userCashuStore.getTotalBalance?.();
