@@ -7,13 +7,23 @@
 
 import { CashuClient } from '../lib/cashu-client.ts';
 
-// Test mint URLs - add more as needed
+// Test mint URLs - mix of production and test mints
 const TEST_MINTS = [
-  'https://mint.minibits.cash/Bitcoin',
-  'https://legend.lnbits.com/cashu/api/v1/4gr9Xcmz3XEkUNwiBiQKrsvHNcW',
-  'https://cashu.me',
-  'https://testnut.cashu.space', // Testing mint
-  'https://nutshell.space', // Another testing mint
+  // Production mints (from bitcoinmints.com and known sources)
+  'https://mint.minibits.cash/Bitcoin',           // Minibits - popular mobile wallet mint
+  'https://mint.coinos.io',                       // Coinos mint
+  'https://wallet.nutstash.app',                  // Nutstash wallet mint
+  'https://mint.bitcoinmints.com',               // BitcoinMints.com community mint
+  'https://mint.envoy.rocks',                     // Envoy wallet mint
+  'https://mint.sovereign.app',                   // Sovereign Engineering mint
+
+  // Testing/development mints
+  'https://testnut.cashu.space',                  // Official test mint
+  'https://legend.lnbits.com/cashu/api/v1/4gr9Xcmz3XEkUNwiBiQKrsvHNcW', // LNbits example
+
+  // Historical/legacy mints (might be down)
+  'https://cashu.me',                             // Original Cashu mint
+  'https://nutshell.space',                       // Development mint
 ];
 
 /**
