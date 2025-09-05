@@ -24,10 +24,42 @@ export function useAutoReceiveNutzaps() {
   const walletUiStore = useWalletUiStore();
   const { showSats } = useCurrencyDisplayStore();
   const { data: btcPrice } = useBitcoinPrice();
-  
-  // Keep track of processed event IDs to avoid duplicates
+
+  // Keep track of processed event IDs to avoid duplicates - now persistent across sessions
   const processedEventIds = useRef<Set<string>>(new Set());
   const subscriptionController = useRef<AbortController | null>(null);
+
+  // Load processed event IDs from localStorage on mount
+  useEffect(() => {
+    if (!user?.pubkey) return;
+
+    const storageKey = `processedNutzapIds_${user.pubkey}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        const ids = JSON.parse(stored);
+        processedEventIds.current = new Set(ids);
+        console.log(`[useAutoReceiveNutzaps] Loaded ${ids.length} processed nutzap IDs from storage`);
+      } catch (error) {
+        console.error('Failed to load processed nutzap IDs:', error);
+        processedEventIds.current = new Set();
+      }
+    }
+  }, [user?.pubkey]);
+
+  // Save processed event IDs to localStorage
+  const saveProcessedIds = useCallback(() => {
+    if (!user?.pubkey) return;
+
+    const storageKey = `processedNutzapIds_${user.pubkey}`;
+    const ids = Array.from(processedEventIds.current);
+
+    // Keep only recent IDs (last 1000) to prevent unlimited growth
+    const recentIds = ids.slice(-1000);
+    processedEventIds.current = new Set(recentIds);
+
+    localStorage.setItem(storageKey, JSON.stringify(recentIds));
+  }, [user?.pubkey]);
 
   // Format amount based on user preference
   const formatAmount = useCallback((sats: number) => {
@@ -42,16 +74,21 @@ export function useAutoReceiveNutzaps() {
   // Process and auto-redeem a nutzap
   const processNutzap = useCallback(async (nutzap: ReceivedNutzap) => {
     if (nutzap.redeemed || processedEventIds.current.has(nutzap.id)) {
+      console.log(`[processNutzap] Skipping already processed nutzap: ${nutzap.id}`);
       return;
     }
 
+    console.log(`[processNutzap] Processing nutzap: ${nutzap.id}`);
     processedEventIds.current.add(nutzap.id);
+
+    // Save to localStorage immediately to persist across sessions
+    saveProcessedIds();
 
     try {
       await redeemNutzap(nutzap);
-      
+
       const amount = nutzap.proofs.reduce((sum, p) => sum + p.amount, 0);
-      
+
       // Show success notification
       toast.success(`eCash received! ${formatAmount(amount)}`, {
         description: nutzap.content || 'Auto-redeemed to your wallet',
@@ -61,12 +98,12 @@ export function useAutoReceiveNutzaps() {
       // Animate the balance in the header
       walletUiStore.setBalanceAnimation(true);
       setTimeout(() => walletUiStore.setBalanceAnimation(false), 1000);
-      
+
     } catch (error) {
       console.error('Failed to auto-redeem nutzap:', error);
-      
+
       const amount = nutzap.proofs.reduce((sum, p) => sum + p.amount, 0);
-      
+
       // Show notification that eCash was received but manual redemption needed
       toast.info(`eCash received! ${formatAmount(amount)}`, {
         description: 'Manual redemption required - check your wallet',
@@ -85,7 +122,7 @@ export function useAutoReceiveNutzaps() {
 
     // Process any unredeemed nutzaps
     const unredeemedNutzaps = fetchedNutzaps.filter(n => !n.redeemed);
-    
+
     unredeemedNutzaps.forEach(nutzap => {
       processNutzap(nutzap);
     });
@@ -123,7 +160,7 @@ export function useAutoReceiveNutzaps() {
       user.pubkey,
       CASHU_EVENT_KINDS.HISTORY
     );
-    
+
     if (lastRedemptionTimestamp) {
       Object.assign(filter, { since: lastRedemptionTimestamp });
     }
@@ -133,10 +170,10 @@ export function useAutoReceiveNutzaps() {
       try {
         // Initial query to catch any recent events
         const events = await nostr.query([filter], { signal });
-        
+
         for (const event of events) {
           if (processedEventIds.current.has(event.id)) continue;
-          
+
           try {
             // Get the mint URL from tags
             const mintTag = event.tags.find((tag) => tag[0] === "u");
@@ -185,10 +222,10 @@ export function useAutoReceiveNutzaps() {
 
             // Process the nutzap
             await processNutzap(nutzap);
-            
+
             // Refresh the nutzaps list
             refetchNutzaps();
-            
+
           } catch (error) {
             console.error("Error processing nutzap event:", error);
           }

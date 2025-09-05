@@ -40,7 +40,7 @@ export function useCashuToken() {
       let proofs: Proof[] = [];
       if (userCashuStore.getMintProofs) {
         proofs = await userCashuStore.getMintProofs(mintUrl);
-        
+
         // If no proofs found for this specific mint, try getting all proofs
         // This helps with cases where proofs exist but aren't properly associated with the mint
         if (proofs.length === 0) {
@@ -56,7 +56,7 @@ export function useCashuToken() {
 
       const proofsAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
       console.log(`[useCashuToken] Checking mint ${mintUrl}: ${proofs.length} proofs, ${proofsAmount} sats available, ${amount} sats needed`);
-      
+
       if (proofsAmount < amount) {
         throw new Error(`Not enough funds on mint ${mintUrl}. Available: ${proofsAmount} sats, needed: ${amount} sats`);
       }
@@ -89,27 +89,27 @@ export function useCashuToken() {
         return proofsToSend;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        
+
         // Check if error is "Token already spent"
         if (message.includes("Token already spent")) {
           console.log("Detected spent tokens, cleaning up and retrying...");
-          
+
           // Clean spent proofs
           await cleanSpentProofs(mintUrl);
-          
+
           // Get fresh proofs after cleanup from user store
           if (userCashuStore.getMintProofs) {
             proofs = await userCashuStore.getMintProofs(mintUrl);
           } else {
             proofs = await cashuStore.getMintProofs(mintUrl);
           }
-          
+
           // Check if we still have enough funds after cleanup
           const newProofsAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
           if (newProofsAmount < amount) {
             throw new Error(`Not enough funds on mint ${mintUrl} after cleaning spent proofs`);
           }
-          
+
           // Retry the send operation with fresh proofs
           const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: userCashuStore.privkey || cashuStore.privkey });
 
@@ -136,7 +136,7 @@ export function useCashuToken() {
           }
           return proofsToSend;
         }
-        
+
         // Re-throw the error if it's not a "Token already spent" error
         throw error;
       }
@@ -167,7 +167,7 @@ export function useCashuToken() {
       lastUpdated: Date.now(),
       privkey: wallet.privkey,
     };
-    
+
     createWallet(updatedWalletData);
   }
 
@@ -219,12 +219,22 @@ export function useCashuToken() {
         console.error('Error storing token in Nostr:', err);
       }
 
-      // Create history event
+      // Create history event only if proofs were actually added (not duplicates)
       const totalAmount = receivedProofs.reduce((sum, p) => sum + p.amount, 0);
-      await createHistory({
-        direction: 'in',
-        amount: totalAmount.toString(),
-      });
+
+      // Check if these proofs already exist in our wallet to avoid duplicate history
+      const existingProofs = userCashuStore.getMintProofs ? await userCashuStore.getMintProofs(mintUrl) : [];
+      const existingSecrets = new Set(existingProofs.map(p => p.secret));
+      const newProofs = receivedProofs.filter(p => !existingSecrets.has(p.secret));
+
+      // Only create history entry if we actually received new proofs
+      if (newProofs.length > 0) {
+        await createHistory({
+          direction: 'in',
+          amount: totalAmount.toString(),
+          redeemedTokens: receivedProofs.map(p => p.secret), // Track which tokens were redeemed
+        });
+      }
 
       return receivedProofs;
     } catch (error) {
