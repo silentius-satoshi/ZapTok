@@ -8,11 +8,11 @@
 
 ## Overview
 
-ZapTok is an open-sourced, decentralized video platform powered by Bitcoin — built using the MKStack platform framework on the open Nostr protocol.
+ZapTok is an open-source, decentralized short-form video platform where instant Bitcoin meets endless swipeable content — enabling direct creator monetization through value-for-value on Nostr.
 
-We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips (aka zaps), giving creators and users complete control over their data and earnings. Experience familiar social media with true ownership and privacy - where your content and earnings are actually yours.
+We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips (aka zaps), giving creators and users complete control over their data and earnings. Experience familiar social media with true ownership and privacy — where your content and earnings are actually yours.
 
-***Keep 100% of your earnings. No percentage of your earnings is distributed to the platform.***
+***You keep 100% of your earnings. No percentage of your earnings is distributed to the platform.***
 
 ### 🎯 Phase 1: Foundation (Completed ✅)
 **Core Platform & Authentication**
@@ -28,6 +28,8 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 - [x] Lightning Network integration for instant zap functionality (NIP-57)
 - [x] Cashu wallet integration for eCash payments (NIP-60)
 - [x] Nutzaps for peer-to-peer eCash tips (NIP-61)
+- [x] Supporter donation system with multiple payment pathways
+- [x] Creator-first monetization with zero platform fees
 
 **Infrastructure**
 - [x] Decentralized storage integration (NIP-94 file metadata)
@@ -35,28 +37,50 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 - [x] DNS-based verification (NIP-05)
 - [x] Client-side video compression for mobile data optimization
 
+**Progressive Web App Features**
+- [x] Full PWA support with service worker
+- [x] Offline video caching and playback
+- [x] Push notifications for Lightning payments
+- [x] App installation on mobile and desktop
+- [x] Background sync for failed transactions
 
-### 🌟 Phase 2: Social Features (In Progress 🚧)
+**Advanced Video Experience**
+- [x] Infinite scroll with snap-to-video behavior
+- [x] Keyboard navigation (arrow keys)
+- [x] Auto-loading and background prefetching
+- [x] Mobile-optimized player with gesture controls
+- [x] Performance caching for smooth playback
+- [x] Native share functionality (Web Share API with clipboard fallback)
+
+
+### 🌟 Phase 2: Social Features (Completed ✅)
 **Essential Social**
 - [x] Follow Lists (NIP-02)
 - [x] Reactions & Engagement (NIP-25)
 - [x] User Profiles & Metadata (NIP-01, kind 0)
-- [ ] Replies, Mentions, & Notifications (NIP-10)
-- [ ] Private Direct Messages (NIP-17)
+- [x] Threaded comments system with NIP-22 (replies, mentions & notifications)
+- [x] Native share functionality across platforms
 
 **Content & Discovery**
 - [x] Video Events (NIP-71)
 - [x] File metadata support (NIP-94)
-- [ ] Hashtag Following and Custom Hashtags
-- [ ] Reposts & Quotes (NIP-18)
-- [ ] Content Search (NIP-50)
+- [x] Hashtag Following and Custom Hashtags
+- [x] Reposts & Share functionality (NIP-18)
+- [x] Content Search and filtering capabilities
 
 **Infrastructure Improvements**
 - [x] Enhanced video upload with progress indicators
 - [x] Improved error handling and user feedback
 - [x] Performance optimizations for faster load times
 - [x] Scalability improvements for larger user base
-- [x] Mobile-responsive design and basic PWA support/enhancements
+- [x] Full PWA implementation with offline capabilities
+- [x] Advanced caching system with video prefetching
+- [x] Mobile-responsive design and PWA enhancements
+
+**Future Social Features**
+- [ ] Private Direct Messages (NIP-17)
+- [ ] Advanced Content Search (NIP-50)
+- [ ] Enhanced notification system
 
 ### 🏗️ Phase 3: Advanced Platform (Planned 📋)
 **Enhanced Creator Tools**
@@ -111,7 +135,7 @@ True Privacy & Control
 For Everyone:
 Bulletproof & Transparent
 
-- No single company can shut down the network or your account
+- No single company can shut down the network of relays or your nostr account
 - Open source code - verify security and suggest improvements
 - Real-time interactions without corporate algorithms deciding what you see
 - Global access - works the same no matter the location as long as you have internet access 
@@ -135,10 +159,13 @@ Bulletproof & Transparent
 - NIP-02: Contact List and Petnames  
 - NIP-05: DNS-based verification
 - NIP-07: Browser extension interface
+- NIP-10: Conventions for `e` and `p` tags (replies/mentions)
+- NIP-18: Reposts and Share functionality
 - NIP-19: Bech32-encoded entities
+- NIP-22: Comments (threaded discussion system)
 - NIP-25: Reactions
 - NIP-46: Nostr Connect
-- NIP-47: Wallet Connect (partial)
+- NIP-47: Wallet Connect
 - NIP-57: Lightning Zaps
 - NIP-60: Cashu Wallets
 - NIP-61: Nutzaps
@@ -146,12 +173,10 @@ Bulletproof & Transparent
 - NIP-94: File Metadata
 
 **🚧 Partially Implemented**
-- NIP-47: Wallet Connect (core features complete, advanced features pending)
+- NIP-50: Search Capability (basic filtering implemented, advanced search planned)
 
 **📋 Planned for Implementation**
-- NIP-10: Conventions for `e` and `p` tags (replies/mentions)  
-- NIP-18: Reposts
-- NIP-50: Search Capability
+- NIP-17: Private Direct Messages
 - NIP-53: Live Activities
 - NIP-75: Zap Goals
 
@@ -193,7 +218,7 @@ ZapTok is licensed under the **MIT License**.
 
 ### Copyright Notice
 
-Copyright (c) 2025 @silentius (silentius@nostrplebs.com)
+Copyright (c) 2025 @silentius
 
 For the complete license text, see the [LICENSE](./LICENSE) file.
 
@@ -217,32 +242,28 @@ Help us continue building and improving ZapTok. Your support enables us to maint
 
 ZapTok stands on the shoulders of giants. We're deeply grateful to the open-source communities and visionary builders who made this platform possible:
 
-### Protocol Pioneers
-- **[fiatjaf](https://fiatjaf.com/)** - Creator of the Nostr protocol, enabling truly decentralized social networks (nostr: [pubkey](https://nostr.band/?q=npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6))
-- **Satoshi Nakamoto** - Creator of Bitcoin, the foundation of our censorship-resistant payments
-- **Bitcoin Contributors** - Maintaining the world's most robust decentralized money
-- **[Lightning Labs](https://lightning.engineering/)** - Developers of LND, a leading Lightning Network implementation
-
 ### Nostr Ecosystem Builders
-- **[Primal](https://primal.net/)** 
-- **[Damus](https://damus.io/)** 
-- **[Amethyst](https://amethyst.nostr.land/)**
-- **[Snort](https://snort.social/)**
-- **[Zap.stream](https://github.com/v0l/zap.stream)** **([Zap.stream](https://zap.stream/)** - Nostr Live-Streaming OG client trail blazer for the open source communities (nostr: [pubkey](https://njump.me/npub1eaz6dwsnvwkha5sn5puwwyxjgy26uusundrm684lg3vw4ma5c2jsqarcgz))
-- **[Derek Ross](https://github.com/derekross/zappix)** **([Zappix.app](https://zappix.app/home))** - THE OG Nostr advocate and community builder (nostr: [pubkey](https://nostr.band/?q=npub18ams6ewn5aj2n3wt2qawzglx9mr4nzksxhvrdc4gzrecw7n5tvjqctp424))
-- **[@Luxas](https://github.com/Spl0itable/plebs-app)** **([Plebs.app](https://plebs.app/))** - Video-first Nostr client showing the way forward (nostr: [pubkey](https://nostr.band/?q=npub16jdfqgazrkapk0yrqm9rdxlnys7ck39c7zmdzxtxqlmmpxg04r0sd733sv))
+- **[Amethyst](https://github.com/vitorpamplona/amethyst)** **((https://www.amethyst.social/))** - Nostr client for Android
+- **[Chorus](https://chorus.community/)** - Grow your community and gather support on the decentralized Nostr protocol with eCash
+- **[Damus](https://github.com/damus-io)** **([damus.io](https://damus.io/))** - iOS nostr client
+- **[Nostr Band](https://nostr.band/)** - Nostr profile viewer and search engine
+- **[Plebs](https://github.com/Spl0itable/plebs-app)** **([Plebs.app](https://plebs.app/))** - Plebs is a censorship-resistant, decentralized video platform powered by the Nostr social protocol
+- **[Primal](https://github.com/PrimalHQ)** **([primal.net](https://primal.net/))** - Primal's iOS/web app for Nostr; as experienced on primal.net
+- **[Snort](https://github.com/v0l/snort)** **([phoenix.social](https://phoenix.social/))** - Feature packed nostr web UI, Mirror of https://git.v0l.io/Kieran/snort 
+- **[Zappix](https://github.com/derekross/zappix)** **([Zappix.app](https://zappix.app/home))** - A nostr image sharing application for browsing, sharing, and zapping visual content
+- **[Zap.stream](https://github.com/v0l/zap.stream)** **([Zap.stream](https://zap.stream/))** - Nostr live streaming
 
-
-### Privacy & Payments Innovation
-- **[Cashu Protocol](https://cashu.space/)** - Enabling private eCash transactions
-- **[Calle](https://github.com/callebtc)** - Cashu dev and community lead (nostr: [pubkey](https://nostr.band/?q=npub12rv5lskctqxxs2c8rf2zlzc7xx3qpvzs3w4etgemauy9thegr43sf485vg)) 
-- **[Jack Dorsey](https://github.com/jackjackbits)** **([+Chorus](https://chorus.community/))** - Supporting decentralized social infrastructure (nostr: [pubkey](https://nostr.band/npub1sg6plzptd64u62a878hep2kev88swjh3tw00gjsfl8f237lmu63q0uf63m))
-- **[Blossom Protocol: hzrd149](https://github.com/hzrd149/blossom)** - Decentralized file storage solutions using nostr public / private keys (nostr: [pubkey](https://njump.me/npub1ye5ptcxfyyxl5vjvdjar2ua3f0hynkjzpx552mu5snj3qmx5pzjscpknpr))
 
 ### Technical Foundation
 - **React Team** - The UI framework powering our interface
 - **Vite & Tailwind CSS** - Development tools enabling rapid iteration
-- **All NIPs Authors** - Collectively building the Nostr specification
+- **[Nostr Protocol](https://github.com/nostr-protocol/nips)** - Collectively building the Nostr specification
+- **[Bitcoin Connect](https://github.com/getAlby/bitcoin-connect)** **([Alby/Bitcoin-Connect](https://bitcoin-connect.com/))** - Connecting lightning wallets to your webapp has never been easier. Enable WebLN in all browsers with a single button
+- **[Cashu Protocol](https://github.com/cashubtc)** **[cashu.space](https://cashu.space/)** - Cashu is ecash for Bitcoin
+- **[Blossom Protocol](https://github.com/hzrd149/blossom)** - Decentralized file storage solutions using nostr public / private keys 
+- **[Nostr Logins](https://github.com/nostrband/nostr-login)** -  powerful window.nostr provider
+- **[NoAuth](https://github.com/nostrband/noauth)** **[nsec.app](https://nsec.app/))** - Noauth Nostr key manager
+- **[MKStack](https://soapbox.pub/mkstack)** **([Gitlab](https://gitlab.com/soapbox-pub/mkstack))** - Nostr client framework for web. (Goose + Nostr: https://mkstack.xyz/)
 
 *Building on Nostr means building together. Every contribution to the ecosystem benefits everyone.*
 
