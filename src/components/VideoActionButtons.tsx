@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { MessageCircle, Bookmark, Plus, Repeat2 } from 'lucide-react';
+import { MessageCircle, Bookmark, Plus, Repeat2, ArrowUpRight } from 'lucide-react';
+import { nip19 } from 'nostr-tools';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -11,6 +12,7 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useFollowUser } from '@/hooks/useFollowUser';
 import { useBookmarkVideo } from '@/hooks/useBookmarks';
+import { useToast } from '@/hooks/useToast';
 import { genUserName } from '@/lib/genUserName';
 import { ZapButton } from '@/components/ZapButton';
 import { NutzapButton } from '@/components/NutzapButton';
@@ -30,6 +32,7 @@ interface VideoActionButtonsProps {
   onBookmark?: () => void;
   onFollow?: () => void;
   onProfileClick?: () => void;
+  onShare?: () => void;
 }
 
 export function VideoActionButtons({
@@ -40,9 +43,11 @@ export function VideoActionButtons({
   onBookmark,
   onFollow,
   onProfileClick,
+  onShare,
 }: VideoActionButtonsProps) {
   const { user } = useCurrentUser();
   const { logins } = useNostrLogin();
+  const { toast } = useToast();
   const isMobile = useIsMobile();
   const reactions = useVideoReactions(event.id);
   const { data: commentsData } = useVideoComments(event.id);
@@ -106,6 +111,43 @@ export function VideoActionButtons({
       pubkeyToFollow: event.pubkey,
       isCurrentlyFollowing: isCurrentlyFollowing,
     });
+  });
+
+  const handleShare = onShare || (async () => {
+    try {
+      const nevent = nip19.neventEncode({
+        id: event.id,
+        author: event.pubkey,
+        kind: event.kind,
+      });
+
+      const url = `${window.location.origin}/${nevent}`;
+
+      if (navigator.share) {
+        // Use native device share API when available
+        await navigator.share({
+          title: "ZapTok Video Post",
+          url: url,
+        });
+      } else {
+        // Fallback to copying URL to clipboard
+        await navigator.clipboard.writeText(url);
+        toast({
+          title: "Copied!",
+          description: "Post URL copied to clipboard",
+        });
+      }
+    } catch (error) {
+      // Handle errors gracefully
+      if ((error as Error).name !== 'AbortError') {
+        // AbortError occurs when user cancels the share dialog, which is normal
+        toast({
+          title: "Error",
+          description: "Failed to share post",
+          variant: "destructive",
+        });
+      }
+    }
   });
 
   const handleProfileClick = onProfileClick || (() => {
@@ -265,6 +307,29 @@ export function VideoActionButtons({
           </Button>
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
             0
+          </span>
+        </div>
+
+        {/* 7. Share Button */}
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`group rounded-full bg-transparent hover:bg-white/10 text-white transition-all duration-200 ${
+              isMobile ? 'h-12 w-12' : 'h-20 w-20'
+            }`}
+            onClick={handleShare}
+          >
+            <ArrowUpRight
+              className="text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200"
+              style={{
+                width: isMobile ? '28px' : '30px',
+                height: isMobile ? '28px' : '30px'
+              }}
+            />
+          </Button>
+          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
+            Share
           </span>
         </div>
       </div>
