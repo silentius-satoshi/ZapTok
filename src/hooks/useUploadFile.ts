@@ -5,12 +5,15 @@ import { finalizeEvent } from "nostr-tools";
 import { useCurrentUser } from "./useCurrentUser";
 import { useAppContext } from "./useAppContext";
 
-export function useUploadFile() {
+export function useUploadFile(options?: { 
+  onProgress?: (progress: number) => void;
+  onRetry?: (attemptNumber: number, server: string, error: string) => void;
+}) {
   const { user } = useCurrentUser();
   const { config } = useAppContext();
 
   return useMutation({
-    mutationFn: async (file: File, options?: { onProgress?: (progress: number) => void }) => {
+    mutationFn: async (file: File) => {
       console.log('useUploadFile: Starting upload mutation');
       
       if (!user) {
@@ -59,8 +62,11 @@ export function useUploadFile() {
 
       const uploader = new CustomBlossomUploader({
         servers: config.blossomServers,
-        signer: blossomSigner, // Use our browser extension adapter
+        signer: blossomSigner,
         onProgress: options?.onProgress,
+        onRetry: options?.onRetry || ((attempt, server, error) => {
+          console.log(`useUploadFile: Retry attempt ${attempt} on ${server}: ${error}`);
+        }),
         // You can extend this to include membership tier from user profile
         // membershipTier: user.membershipTier,
       });

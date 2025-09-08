@@ -73,6 +73,18 @@ export async function checkBlossomServer(url: string): Promise<boolean> {
  */
 export const primalBlossom = 'https://blossom.primal.net/';
 
+/**
+ * Default Blossom servers for file uploads
+ * Ordered by reliability and performance
+ */
+export const DEFAULT_BLOSSOM_SERVERS = [
+  'https://blossom.primal.net/',
+  'https://blossom.stacker.news/',
+  'https://cdn.satellite.earth/',
+  'https://blossom.nostr.band/',
+  'https://blossom.void.cat/',
+];
+
 export const uploadLimit = {
   regular: 10,
   premium: 50,

@@ -1,5 +1,5 @@
 import { BlossomClient, SignedEvent, BlobDescriptor } from "blossom-client-sdk";
-import { sha256File, uuidv4, encodeAuthorizationHeader, primalBlossom, uploadLimit, fetchWithTimeout } from './blossomUtils';
+import { sha256File, uuidv4, encodeAuthorizationHeader, DEFAULT_BLOSSOM_SERVERS, uploadLimit, fetchWithTimeout } from './blossomUtils';
 
 const MB = 1024 * 1024;
 
@@ -19,23 +19,34 @@ export interface BlossomUploaderConfig {
   };
   onProgress?: (progress: number) => void;
   membershipTier?: string;
+  onRetry?: (attemptNumber: number, server: string, error: string) => void;
+}
+
+export interface UploadAttempt {
+  server: string;
+  attempt: number;
+  error?: string;
+  success?: boolean;
 }
 
 export class CustomBlossomUploader {
   private servers: string[];
   private signer: { signEvent: (event: any) => Promise<SignedEvent> };
   private onProgress?: (progress: number) => void;
+  private onRetry?: (attemptNumber: number, server: string, error: string) => void;
   private membershipTier?: string;
+  private attempts: UploadAttempt[] = [];
 
   constructor(config: BlossomUploaderConfig) {
-    this.servers = config.servers || [primalBlossom];
+    this.servers = config.servers.length > 0 ? config.servers : DEFAULT_BLOSSOM_SERVERS;
     this.signer = config.signer;
     this.onProgress = config.onProgress;
+    this.onRetry = config.onRetry;
     this.membershipTier = config.membershipTier;
   }
 
   async upload(file: File): Promise<string[][]> {
-    const mainServer = this.servers[0] || primalBlossom;
+    this.attempts = [];
     
     // Check upload limits
     let uploadLimitMB = uploadLimit.regular;
@@ -50,6 +61,79 @@ export class CustomBlossomUploader {
       throw new Error(`File too large. Maximum size is ${uploadLimitMB}MB`);
     }
 
+    // Calculate SHA-256 once for all attempts
+    const fileSha = await sha256File(file);
+
+    // Try uploading to servers in order with retry logic
+    let lastError: Error = new Error('No servers available');
+    
+    for (let serverIndex = 0; serverIndex < this.servers.length; serverIndex++) {
+      const server = this.servers[serverIndex];
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const result = await this.attemptUpload(server, file, fileSha, attempt);
+          
+          // Success! Mirror to other servers if possible
+          await this.mirrorUpload({
+            sha256: fileSha,
+            url: result.url,
+            size: file.size,
+            type: file.type,
+            uploaded: Date.now() / 1000
+          });
+
+          // Return NIP-94 compatible tags
+          return [
+            ['url', result.url],
+            ['m', file.type || 'application/octet-stream'],
+            ['x', fileSha],
+            ['size', file.size.toString()],
+          ];
+          
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          
+          this.attempts.push({
+            server,
+            attempt,
+            error: errorMessage,
+            success: false
+          });
+
+          lastError = error instanceof Error ? error : new Error(errorMessage);
+          
+          if (this.onRetry) {
+            this.onRetry(attempt, server, errorMessage);
+          }
+
+          // For permanent errors (CORS, 401, 403), don't retry on same server
+          if (this.isPermanentError(error)) {
+            break;
+          }
+
+          // For temporary errors, wait before retrying
+          if (attempt < 3) {
+            await this.delay(1000 * attempt); // exponential backoff
+          }
+        }
+      }
+    }
+
+    // All servers failed
+    const attemptSummary = this.attempts.map(a => 
+      `${a.server} (attempt ${a.attempt}): ${a.error}`
+    ).join('; ');
+    
+    throw new Error(`Upload failed on all servers. Attempts: ${attemptSummary}`);
+  }
+
+  private async attemptUpload(
+    server: string, 
+    file: File, 
+    fileSha: string, 
+    attemptNumber: number
+  ): Promise<BlossomUploadResult> {
     // Create upload authorization
     const auth = await BlossomClient.createUploadAuth(
       this.signer.signEvent,
@@ -58,7 +142,6 @@ export class CustomBlossomUploader {
     );
 
     const encodedAuthHeader = encodeAuthorizationHeader(auth);
-    const fileSha = await sha256File(file);
     
     const headers = {
       "X-SHA-256": fileSha,
@@ -74,8 +157,8 @@ export class CustomBlossomUploader {
     if (file.type) checkHeaders["X-Content-Type"] = file.type;
 
     // Try media endpoint first, then upload endpoint
-    const mediaUrl = mainServer.endsWith('/') ? `${mainServer}media` : `${mainServer}/media`;
-    const uploadUrl = mainServer.endsWith('/') ? `${mainServer}upload` : `${mainServer}/upload`;
+    const mediaUrl = server.endsWith('/') ? `${server}media` : `${server}/media`;
+    const uploadUrl = server.endsWith('/') ? `${server}upload` : `${server}/upload`;
 
     let targetUrl = uploadUrl;
 
@@ -90,28 +173,32 @@ export class CustomBlossomUploader {
         targetUrl = mediaUrl;
       }
     } catch (e) {
-      console.warn('Media endpoint check failed, using upload endpoint');
+      console.warn(`Media endpoint check failed for ${server}, using upload endpoint`);
     }
 
     // Upload the file
-    const result = await this.uploadToServer(targetUrl, file, headers);
-    
-    // Mirror to other servers
-    await this.mirrorUpload({
-      sha256: fileSha,
-      url: result.url,
-      size: file.size,
-      type: file.type,
-      uploaded: Date.now() / 1000
-    });
+    return await this.uploadToServer(targetUrl, file, headers);
+  }
 
-    // Return NIP-94 compatible tags
-    return [
-      ['url', result.url],
-      ['m', file.type || 'application/octet-stream'],
-      ['x', fileSha],
-      ['size', file.size.toString()],
-    ];
+  private isPermanentError(error: unknown): boolean {
+    if (!(error instanceof Error)) return false;
+    
+    const message = error.message.toLowerCase();
+    
+    // CORS errors are permanent for this origin
+    if (message.includes('cors')) return true;
+    
+    // Authentication/authorization errors are permanent
+    if (message.includes('401') || message.includes('403') || message.includes('unauthorized')) return true;
+    
+    // Bad request errors are permanent
+    if (message.includes('400') || message.includes('bad request')) return true;
+    
+    return false;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   private uploadToServer(url: string, file: File, headers: Record<string, string>): Promise<BlossomUploadResult> {

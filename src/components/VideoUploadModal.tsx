@@ -31,7 +31,6 @@ interface VideoMetadata {
 
 export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const { user } = useCurrentUser();
-  const { mutateAsync: uploadFile } = useUploadFile();
   const { mutate: createEvent } = useNostrPublish();
   const { toast } = useToast();
 
@@ -48,6 +47,30 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadStep, setUploadStep] = useState<'select' | 'metadata' | 'uploading' | 'complete'>('select');
   const [isDragging, setIsDragging] = useState(false);
+  const [retryInfo, setRetryInfo] = useState<string>('');
+  const [currentServer, setCurrentServer] = useState<string>('');
+  const [uploadAttempts, setUploadAttempts] = useState<{server: string, attempt: number, error?: string}[]>([]);
+
+  // Upload hooks with retry callbacks
+  const { mutateAsync: uploadFileWithThumbnailRetry } = useUploadFile({
+    onRetry: (attempt, server, error) => {
+      setRetryInfo(`Retrying thumbnail upload (attempt ${attempt}) on ${server.replace('https://', '').replace('http://', '').split('/')[0]}...`);
+      setCurrentServer(server);
+    }
+  });
+
+  const { mutateAsync: uploadFileWithVideoRetry } = useUploadFile({
+    onProgress: (progress) => {
+      // Update progress between 50% and 80%
+      setUploadProgress(50 + (progress * 0.3));
+    },
+    onRetry: (attempt, server, error) => {
+      const serverName = server.replace('https://', '').replace('http://', '').split('/')[0];
+      setRetryInfo(`Retrying video upload (attempt ${attempt}) on ${serverName}: ${error}`);
+      setCurrentServer(server);
+      setUploadAttempts(prev => [...prev, { server: serverName, attempt, error }]);
+    }
+  });
   const [compressionProgress, setCompressionProgress] = useState(0);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionResult, setCompressionResult] = useState<{ originalSize: number; compressedSize: number; } | null>(null);
@@ -228,6 +251,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     setIsProcessing(true);
     setUploadStep('uploading');
     setUploadProgress(0);
+    setRetryInfo('');
+    setCurrentServer('');
+    setUploadAttempts([]);
 
     try {
       // Generate thumbnail if video is loaded
@@ -241,11 +267,12 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         const blob = await response.blob();
         const thumbnailFile = new File([blob], `${selectedFile.name}_thumbnail.jpg`, { type: 'image/jpeg' });
 
-        // Upload thumbnail to Blossom
+        // Upload thumbnail to Blossom with retry info
         console.log('Uploading thumbnail...');
-        const thumbnailTags = await uploadFile(thumbnailFile);
+        const thumbnailTags = await uploadFileWithThumbnailRetry(thumbnailFile);
         thumbnailUrl = thumbnailTags[0][1]; // First tag contains URL
         console.log('Thumbnail uploaded:', thumbnailUrl);
+        setRetryInfo('');
       }
 
       // Check if video should be compressed
@@ -302,8 +329,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       // Upload video to Blossom
       console.log('Uploading main video file...' + compressionInfo);
       setUploadProgress(50);
-      const videoTags = await uploadFile(fileToUpload);
+      const videoTags = await uploadFileWithVideoRetry(fileToUpload);
       console.log('Video uploaded successfully, tags:', videoTags);
+      setRetryInfo('');
       // videoUrl is the first tag - we'll use it in the tags array below
 
       setUploadProgress(80);
@@ -376,31 +404,49 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       console.error('Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : 'No stack trace',
-        user: user ? { pubkey: user.pubkey, signerAvailable: !!user.signer } : 'No user'
+        user: user ? { pubkey: user.pubkey, signerAvailable: !!user.signer } : 'No user',
+        attempts: uploadAttempts
       });
 
       let errorMessage = 'There was an error uploading your video. Please try again.';
+      let errorDetails = '';
 
       if (error instanceof Error) {
-        if (error.message.includes('signer') || error.message.includes('nostr')) {
+        const message = error.message.toLowerCase();
+        
+        if (message.includes('upload failed on all servers')) {
+          errorMessage = 'Upload failed on all available servers. Please try again later.';
+          if (uploadAttempts.length > 0) {
+            const serverList = [...new Set(uploadAttempts.map(a => a.server))];
+            errorDetails = `Tried servers: ${serverList.join(', ')}`;
+          }
+        } else if (message.includes('cors')) {
+          errorMessage = 'Network access blocked. This may be a temporary server issue.';
+          errorDetails = 'Please try again in a few minutes.';
+        } else if (message.includes('503') || message.includes('service unavailable')) {
+          errorMessage = 'Server temporarily unavailable. Trying backup servers...';
+          errorDetails = 'This usually resolves within a few minutes.';
+        } else if (message.includes('signer') || message.includes('nostr')) {
           errorMessage = 'Authentication error. Please try logging out and back in.';
-        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        } else if (message.includes('network') || message.includes('fetch')) {
           errorMessage = 'Network error. Please check your connection and try again.';
-        } else if (error.message.includes('file') || error.message.includes('size')) {
+        } else if (message.includes('file') || message.includes('size')) {
           errorMessage = 'File upload error. Please try a smaller file or different format.';
         }
       }
 
       toast({
         title: 'Upload failed',
-        description: errorMessage,
+        description: errorDetails ? `${errorMessage} ${errorDetails}` : errorMessage,
         variant: 'destructive',
       });
       setUploadStep('metadata');
     } finally {
       setIsProcessing(false);
+      setRetryInfo('');
+      setCurrentServer('');
     }
-  }, [selectedFile, user, videoMetadata, uploadFile, createEvent, toast, generateThumbnail, handleClose]);
+  }, [selectedFile, user, videoMetadata, uploadFileWithThumbnailRetry, uploadFileWithVideoRetry, createEvent, toast, generateThumbnail, handleClose]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -605,6 +651,24 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
                   <Progress value={uploadProgress} className="w-full mb-2" />
                   <p className="text-xs text-gray-500">{uploadProgress}% complete</p>
+                  
+                  {retryInfo && (
+                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                      <p>{retryInfo}</p>
+                      {currentServer && (
+                        <p className="text-yellow-600">Server: {currentServer.replace('https://', '').replace('http://', '').split('/')[0]}</p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {uploadAttempts.length > 0 && (
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                      <p>Trying multiple servers for reliability...</p>
+                      <p className="text-blue-600">
+                        Attempted: {[...new Set(uploadAttempts.map(a => a.server))].join(', ')}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-left space-y-2 text-sm text-gray-600">

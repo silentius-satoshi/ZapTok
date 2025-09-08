@@ -16,7 +16,11 @@ interface ServerAvailability {
 }
 
 const recomendedBlossomServers = [
+  'https://blossom.primal.net/',
+  'https://blossom.stacker.news/',
   'https://cdn.satellite.earth/',
+  'https://blossom.nostr.band/',
+  'https://blossom.void.cat/',
   'https://blossom.oxtr.dev/',
   'https://blossom.nostrage.com/',
   'https://files.v0l.io/',

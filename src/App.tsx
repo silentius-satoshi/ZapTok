@@ -9,7 +9,7 @@ import { CurrentVideoProvider } from '@/contexts/CurrentVideoContext';
 import { FeedRefreshProvider } from '@/contexts/FeedRefreshContext';
 import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
-import { primalBlossom } from '@/lib/blossomUtils';
+import { DEFAULT_BLOSSOM_SERVERS } from '@/lib/blossomUtils';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import AppRouter from './AppRouter';
 
@@ -43,7 +43,7 @@ const defaultConfig: AppConfig = {
   relayContext: 'all', // Start with all relays, will be optimized automatically
   defaultZap,
   availableZapOptions: defaultZapOptions,
-  blossomServers: [primalBlossom],
+  blossomServers: DEFAULT_BLOSSOM_SERVERS,
 };
 
 const presetRelays = [
