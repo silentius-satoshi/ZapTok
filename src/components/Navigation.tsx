@@ -10,6 +10,7 @@ import { VideoUploadModal } from '@/components/VideoUploadModal';
 import { UserSearchModal } from '@/components/UserSearchModal';
 import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
 import { useState, useEffect, useRef } from 'react';
+import { SupporterButton } from '@/components/SupporterButton';
 
 export function Navigation() {
   const { user } = useCurrentUser();
@@ -297,9 +298,12 @@ export function Navigation() {
           )}
         </div>
 
-        {/* Profile Section at Bottom */}
+        {/* Bottom Section with Supporter and Profile */}
         {user && (
-          <div className="mt-auto pt-4">
+          <div className="mt-auto pt-4 space-y-3">
+            <SupporterButton />
+            
+            {/* Profile Section */}
             <button
               className={`flex items-center gap-3 p-3 rounded-2xl transition-all w-full text-foreground ${
                 hoveredItem === 'profile'

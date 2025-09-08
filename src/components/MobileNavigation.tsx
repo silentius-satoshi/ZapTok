@@ -17,6 +17,7 @@ import { LogoutWarningModal } from '@/components/LogoutWarningModal';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useFeedRefresh } from '@/contexts/FeedRefreshContext';
 import { bundleLog } from '@/lib/logBundler';
+import { MobileSupporterButton } from '@/components/MobileSupporterButton';
 
 export function MobileNavigation() {
   const { user } = useCurrentUser();
@@ -289,6 +290,13 @@ export function MobileNavigation() {
                       }
                     })}
                   </div>
+
+                  {/* Supporter Section */}
+                  {user && (
+                    <div className="px-4 py-2">
+                      <MobileSupporterButton onClose={() => setIsOpen(false)} />
+                    </div>
+                  )}
 
                   {/* Profile Section */}
                   <div className="p-4 border-t border-gray-800">

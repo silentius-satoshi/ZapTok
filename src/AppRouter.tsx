@@ -25,6 +25,8 @@ import { Stream } from "./components/stream/Stream";
 import { NostrEntity } from "./pages/NostrEntity";
 import About from "./pages/About";
 import { ProModePage } from "./pages/ProModePage";
+import SupporterPage from "./pages/SupporterPage";
+import DonationPage from "./pages/DonationPage";
 import NotFound from "./pages/NotFound";
 
 function RouteHandler() {
@@ -57,6 +59,8 @@ function RouteHandler() {
       <Route path="/global" element={<Global />} />
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/settings" element={<Settings />} />
+      <Route path="/support" element={<SupporterPage />} />
+      <Route path="/donate" element={<DonationPage />} />
       <Route path="/about" element={<About />} />
       <Route path="/wallet" element={<LightningWallet />} />
       <Route path="/stream" element={<Stream />} />
