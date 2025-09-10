@@ -41,15 +41,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const allowedOrigins = [
     'https://zaptok.vercel.app', // Production domain
     'https://silentius-satoshi.github.io', // GitHub Pages
+    'https://zaptok-labs-cukp0oxws-zaptok-labs.vercel.app', // Current Vercel deployment
     'http://localhost:5173', // Development
     'http://localhost:3000', // Alternative dev port
   ];
 
-  // Also allow any *.vercel.app subdomain for your deployments
-  const isVercelDomain = origin && origin.match(/^https:\/\/.*\.vercel\.app$/);
+  // Also allow any ZapTok-related Vercel deployment
+  const isZapTokVercelDomain = origin && origin.match(/^https:\/\/zaptok.*\.vercel\.app$/);
   const isGitHubPages = origin && origin.includes('silentius-satoshi.github.io');
 
-  if (allowedOrigins.includes(origin || '') || isVercelDomain || isGitHubPages) {
+  if (allowedOrigins.includes(origin || '') || isZapTokVercelDomain || isGitHubPages) {
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
   }
 
