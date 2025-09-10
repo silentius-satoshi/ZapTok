@@ -35,10 +35,14 @@ export function useCashuWallet() {
   const { config } = useAppContext();
 
   // Check if Cashu operations should run in the current context
-  const shouldRunCashuOperations = config.relayContext === 'all' || 
-    config.relayContext === 'wallet' || 
-    config.relayContext === 'cashu-only' || 
-    config.relayContext === 'settings-cashu';
+  // Also check if the signer supports NIP-44 encryption (required for Cashu)
+  const shouldRunCashuOperations = Boolean(
+    (config.relayContext === 'all' || 
+     config.relayContext === 'wallet' || 
+     config.relayContext === 'cashu-only' || 
+     config.relayContext === 'settings-cashu') && 
+    user?.signer.nip44
+  );
 
   // Fetch wallet information (kind 17375)
   const walletQuery = useQuery({

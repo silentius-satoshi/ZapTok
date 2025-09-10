@@ -15,10 +15,14 @@ export function useWalletAutoLoader() {
   const { config } = useAppContext();
 
   // Check if Cashu operations should run in the current context
-  const shouldRunCashuOperations = config.relayContext === 'all' || 
-    config.relayContext === 'wallet' || 
-    config.relayContext === 'cashu-only' || 
-    config.relayContext === 'settings-cashu';
+  // Also check if the signer supports NIP-44 encryption (required for Cashu)
+  const shouldRunCashuOperations = Boolean(
+    (config.relayContext === 'all' || 
+     config.relayContext === 'wallet' || 
+     config.relayContext === 'cashu-only' || 
+     config.relayContext === 'settings-cashu') && 
+    user?.signer.nip44
+  );
 
   useEffect(() => {
     // Only run when we have a user, Cashu ops should run, and wallet data hasn't been loaded yet
