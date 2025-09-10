@@ -10,6 +10,9 @@ import { checkBlossomServer, primalBlossom } from '@/lib/blossomUtils';
 import { sendBlossomEvent } from '@/lib/notes';
 import { logError } from '@/lib/logger';
 import { SettingsSection } from './SettingsSection';
+import { BlossomServerListSettings } from './BlossomServerListSettings';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 interface ServerAvailability {
   [url: string]: boolean;
@@ -27,6 +30,35 @@ const recomendedBlossomServers = [
 ];
 
 export function BlossomSettings() {
+  return (
+    <SettingsSection title="Blossom Media Storage">
+      <div className="space-y-6">
+        <Tabs defaultValue="published-list" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="published-list" className="flex items-center gap-2">
+              Published List
+              <Badge variant="outline" className="text-xs">NIP-B7</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="app-config" className="flex items-center gap-2">
+              App Config
+              <Badge variant="secondary" className="text-xs">Legacy</Badge>
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="published-list" className="mt-4">
+            <BlossomServerListSettings />
+          </TabsContent>
+          
+          <TabsContent value="app-config" className="mt-4">
+            <LegacyBlossomSettings />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </SettingsSection>
+  );
+}
+
+function LegacyBlossomSettings() {
   const { config, addBlossomServer, appendBlossomServer, removeBlossomServer, removeBlossomMirrors } = useAppContext();
   const { toast } = useToast();
   const [switchServerInput, setSwitchServerInput] = useState('');
@@ -157,177 +189,175 @@ export function BlossomSettings() {
   };
 
   return (
-    <SettingsSection title="Blossom Media Upload">
-      <div className="space-y-6">
-        {/* Media Server Section */}
-        <div>
-          <h4 className="text-lg font-medium mb-4">Media Server</h4>
+    <div className="space-y-6">
+      {/* Media Server Section */}
+      <div>
+        <h4 className="text-lg font-medium mb-4">Media Server</h4>
 
-          {/* Connected Server */}
-          <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-            <ServerStatusIndicator url={config.blossomServers[0] || primalBlossom} />
-            <span className="text-sm font-mono">{config.blossomServers[0] || primalBlossom}</span>
+        {/* Connected Server */}
+        <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <ServerStatusIndicator url={config.blossomServers[0] || primalBlossom} />
+          <span className="text-sm font-mono">{config.blossomServers[0] || primalBlossom}</span>
+        </div>
+
+        {/* Switch Media Server */}
+        <div className="space-y-3">
+          <Label className="text-gray-500">Switch media server</Label>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 relative">
+              <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="enter blossom server url..."
+                value={switchServerInput}
+                onChange={(e) => setSwitchServerInput(e.target.value)}
+                className="pl-10"
+                onKeyDown={(e) => e.key === 'Enter' && handleSwitchServerInput()}
+              />
+              <Button
+                onClick={handleSwitchServerInput}
+                size="sm"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
-          {/* Switch Media Server */}
-          <div className="space-y-3">
-            <Label className="text-gray-500">Switch media server</Label>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 relative">
-                <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="enter blossom server url..."
-                  value={switchServerInput}
-                  onChange={(e) => setSwitchServerInput(e.target.value)}
-                  className="pl-10"
-                  onKeyDown={(e) => e.key === 'Enter' && handleSwitchServerInput()}
-                />
-                <Button
-                  onClick={handleSwitchServerInput}
-                  size="sm"
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+          {invalidServerUrl && (
+            <div className="text-red-500 text-sm">
+              Invalid server URL. Please enter a valid HTTPS URL.
+            </div>
+          )}
+
+          <Button
+            variant="outline"
+            onClick={() => addBlossomServer(primalBlossom)}
+            className="text-sm"
+          >
+            Restore default media server
+          </Button>
+        </div>
+      </div>
+
+      {/* Media Mirrors Section */}
+      <div>
+        <h4 className="text-lg font-medium mb-4">Media Mirrors</h4>
+
+        <div className="flex items-center space-x-2 mb-4">
+          <Switch
+            id="enable-media-mirrors"
+            checked={hasMirrors}
+            onCheckedChange={handleMirrorToggle}
+          />
+          <Label htmlFor="enable-media-mirrors">Enable media mirrors</Label>
+        </div>
+
+        <p className="text-gray-500 text-sm mb-4">
+          Mirror your media to multiple servers for better availability and redundancy.
+        </p>
+
+        {hasMirrors && (
+          <div className="space-y-4">
+            {/* Active Mirror Servers */}
+            {mirrorServers.map((mirror) => (
+              <div key={mirror} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <ServerStatusIndicator url={mirror} />
+                  <span className="text-sm font-mono">{mirror}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => addBlossomServer(mirror)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Set as media server
+                  </Button>
+                  <Button
+                    onClick={() => removeBlossomServer(mirror)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+
+            {/* Add Mirror Input */}
+            <div className="space-y-2">
+              <Label className="text-gray-500">Add mirror</Label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 relative">
+                  <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="enter blossom server url..."
+                    value={addMirrorInput}
+                    onChange={(e) => setAddMirrorInput(e.target.value)}
+                    className="pl-10"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddMirrorInput()}
+                  />
+                  <Button
+                    onClick={handleAddMirrorInput}
+                    size="sm"
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
 
-            {invalidServerUrl && (
-              <div className="text-red-500 text-sm">
-                Invalid server URL. Please enter a valid HTTPS URL.
-              </div>
-            )}
-
-            <Button
-              variant="outline"
-              onClick={() => addBlossomServer(primalBlossom)}
-              className="text-sm"
-            >
-              Restore default media server
-            </Button>
-          </div>
-        </div>
-
-        {/* Media Mirrors Section */}
-        <div>
-          <h4 className="text-lg font-medium mb-4">Media Mirrors</h4>
-
-          <div className="flex items-center space-x-2 mb-4">
-            <Switch
-              id="enable-media-mirrors"
-              checked={hasMirrors}
-              onCheckedChange={handleMirrorToggle}
-            />
-            <Label htmlFor="enable-media-mirrors">Enable media mirrors</Label>
-          </div>
-
-          <p className="text-gray-500 text-sm mb-4">
-            Mirror your media to multiple servers for better availability and redundancy.
-          </p>
-
-          {hasMirrors && (
-            <div className="space-y-4">
-              {/* Active Mirror Servers */}
-              {mirrorServers.map((mirror) => (
+            {/* Suggested Mirrors */}
+            <div className="space-y-2">
+              <Label className="text-gray-400">Suggested mirrors</Label>
+              {getRecommendedMirrors().map((mirror) => (
                 <div key={mirror} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
                   <div className="flex items-center gap-2">
                     <ServerStatusIndicator url={mirror} />
                     <span className="text-sm font-mono">{mirror}</span>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => addBlossomServer(mirror)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      Set as media server
-                    </Button>
-                    <Button
-                      onClick={() => removeBlossomServer(mirror)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={() => appendBlossomServer(mirror)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Add this media mirror server
+                  </Button>
                 </div>
               ))}
-
-              {/* Add Mirror Input */}
-              <div className="space-y-2">
-                <Label className="text-gray-500">Add mirror</Label>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 relative">
-                    <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      type="text"
-                      placeholder="enter blossom server url..."
-                      value={addMirrorInput}
-                      onChange={(e) => setAddMirrorInput(e.target.value)}
-                      className="pl-10"
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddMirrorInput()}
-                    />
-                    <Button
-                      onClick={handleAddMirrorInput}
-                      size="sm"
-                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Suggested Mirrors */}
-              <div className="space-y-2">
-                <Label className="text-gray-400">Suggested mirrors</Label>
-                {getRecommendedMirrors().map((mirror) => (
-                  <div key={mirror} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <ServerStatusIndicator url={mirror} />
-                      <span className="text-sm font-mono">{mirror}</span>
-                    </div>
-                    <Button
-                      onClick={() => appendBlossomServer(mirror)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      Add this media mirror server
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Confirmation Modal for Removing Mirrors */}
-        {confirmNoMirrors && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
-              <h3 className="text-lg font-medium mb-2">Remove Media Mirrors?</h3>
-              <p className="text-gray-500 mb-4">
-                Are you sure? This will remove your mirror media servers.
-              </p>
-              <div className="flex gap-2 justify-end">
-                <Button
-                  onClick={() => setConfirmNoMirrors(false)}
-                  variant="outline"
-                >
-                  No
-                </Button>
-                <Button
-                  onClick={handleConfirmRemoveMirrors}
-                  variant="destructive"
-                >
-                  Yes
-                </Button>
-              </div>
             </div>
           </div>
         )}
       </div>
-    </SettingsSection>
+
+      {/* Confirmation Modal for Removing Mirrors */}
+      {confirmNoMirrors && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-medium mb-2">Remove Media Mirrors?</h3>
+            <p className="text-gray-500 mb-4">
+              Are you sure? This will remove your mirror media servers.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button
+                onClick={() => setConfirmNoMirrors(false)}
+                variant="outline"
+              >
+                No
+              </Button>
+              <Button
+                onClick={handleConfirmRemoveMirrors}
+                variant="destructive"
+              >
+                Yes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

@@ -19,6 +19,7 @@
     "@cashu/cashu-ts": "^2.5.2",
     "@cashu/crypto": "^0.3.4",
     "@getalby/bitcoin-connect-react": "^3.10.0",
+    "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^3.9.0",
     "@noble/hashes": "^1.8.0",
     "@noble/secp256k1": "^2.3.0",

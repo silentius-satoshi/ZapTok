@@ -51,12 +51,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const [currentServer, setCurrentServer] = useState<string>('');
   const [uploadAttempts, setUploadAttempts] = useState<{server: string, attempt: number, error?: string}[]>([]);
 
-  // Upload hooks with retry callbacks
+  // Upload hooks - simplified for hybrid approach (no retry callbacks)
   const { mutateAsync: uploadFileWithThumbnailRetry } = useUploadFile({
-    onRetry: (attempt, server, error) => {
-      setRetryInfo(`Retrying thumbnail upload (attempt ${attempt}) on ${server.replace('https://', '').replace('http://', '').split('/')[0]}...`);
-      setCurrentServer(server);
-    }
+    // Removed onRetry - using simplified approach
   });
 
   const { mutateAsync: uploadFileWithVideoRetry } = useUploadFile({
@@ -64,12 +61,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       // Update progress between 50% and 80%
       setUploadProgress(50 + (progress * 0.3));
     },
-    onRetry: (attempt, server, error) => {
-      const serverName = server.replace('https://', '').replace('http://', '').split('/')[0];
-      setRetryInfo(`Retrying video upload (attempt ${attempt}) on ${serverName}: ${error}`);
-      setCurrentServer(server);
-      setUploadAttempts(prev => [...prev, { server: serverName, attempt, error }]);
-    }
+    // Removed onRetry - using simplified approach
   });
   const [compressionProgress, setCompressionProgress] = useState(0);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -413,7 +405,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
       if (error instanceof Error) {
         const message = error.message.toLowerCase();
-        
+
         if (message.includes('upload failed on all servers')) {
           errorMessage = 'Upload failed on all available servers. Please try again later.';
           if (uploadAttempts.length > 0) {
@@ -651,7 +643,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
                   <Progress value={uploadProgress} className="w-full mb-2" />
                   <p className="text-xs text-gray-500">{uploadProgress}% complete</p>
-                  
+
                   {retryInfo && (
                     <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
                       <p>{retryInfo}</p>
@@ -660,7 +652,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                       )}
                     </div>
                   )}
-                  
+
                   {uploadAttempts.length > 0 && (
                     <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
                       <p>Trying multiple servers for reliability...</p>
