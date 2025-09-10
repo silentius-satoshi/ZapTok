@@ -5,6 +5,7 @@ import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { bytesToHex } from '@noble/hashes/utils';
 import { useNostrLogin } from '@nostrify/react/login';
 import { useToast } from '@/hooks/useToast';
+import { useBunkerPermissions } from '@/hooks/useBunkerPermissions';
 import { useAuthState } from './useAuthState';
 import { createNostrifyBunkerLogin } from './useNostrToolsBridge';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -51,12 +52,21 @@ export function useNostrToolsBunkerLogin() {
   const { addLogin, setLogin } = useNostrLogin();
   const authState = useAuthState();
   const { toast } = useToast();
+  const { requestVideoPermissions, getBunkerConnectionOptions } = useBunkerPermissions();
   const isMobile = useIsMobile();
   const isInPWA = isPWA();
   const { config, addRelay } = useAppContext();
 
   const bunkerLogin = useCallback(async (bunkerUri: string): Promise<BunkerLoginResult> => {
     setState({ loading: true, error: null, success: false });
+
+    // Request video permissions early in the process
+    try {
+      await requestVideoPermissions([1, 21, 22]);
+    } catch (error) {
+      console.warn('Permission request display failed:', error);
+      // Don't fail the login if we can't show the permission toast
+    }
 
     // Show preemptive warning for mobile PWA users
     if (isMobile && isInPWA) {
@@ -97,15 +107,28 @@ export function useNostrToolsBunkerLogin() {
       // Create relay pool
       const pool = new SimplePool();
 
-      // Create bunker signer with timeout handling
+      // Create bunker signer with timeout handling and video permissions
+      const connectionOptions = getBunkerConnectionOptions([1, 21, 22]);
       const bunker = new BunkerSigner(localSecretKey, bunkerPointer, {
         pool,
+        // Include permissions in the connection request
+        ...connectionOptions,
         onauth: (authUrl: string) => {
           console.log('🔗 Auth URL received:', authUrl);
           
-          // Copy auth URL to clipboard for user convenience
+          // Enhance auth URL with permissions if supported
+          const enhancedUrl = authUrl.includes('?') 
+            ? `${authUrl}&perms=${encodeURIComponent(connectionOptions.perms)}`
+            : `${authUrl}?perms=${encodeURIComponent(connectionOptions.perms)}`;
+          
+          console.log('📋 Requesting permissions:', connectionOptions.perms);
+          
+          // Copy enhanced auth URL to clipboard
           if (navigator.clipboard) {
-            navigator.clipboard.writeText(authUrl).catch(console.warn);
+            navigator.clipboard.writeText(enhancedUrl).catch(() => {
+              // Fallback to original URL if enhanced URL fails
+              navigator.clipboard.writeText(authUrl).catch(console.warn);
+            });
           }
           
           // Handle differently based on platform

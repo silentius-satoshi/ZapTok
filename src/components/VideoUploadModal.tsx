@@ -221,16 +221,32 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       return;
     }
 
+    // Enhanced signer validation with better bunker signer support
+    console.log('🔍 [VideoUpload] Signer validation debug:', {
+      signerAvailable: !!user.signer,
+      hasSignEvent: !!user.signer?.signEvent,
+      signerSignEventType: typeof user.signer?.signEvent,
+      signerMethods: user.signer ? Object.keys(user.signer) : 'none',
+      signerConstructor: user.signer?.constructor?.name,
+      signerToString: user.signer?.toString?.() || 'no toString'
+    });
+
     if (!user.signer.signEvent || typeof user.signer.signEvent !== 'function') {
+      console.error('❌ [VideoUpload] Signer validation failed:', {
+        hasSignEvent: !!user.signer?.signEvent,
+        signEventType: typeof user.signer?.signEvent,
+        availableMethods: user.signer ? Object.keys(user.signer) : []
+      });
+      
       toast({
         title: 'Authentication Error',
-        description: 'Invalid signer configuration. Please ensure you are logged in with a Nostr extension or valid key.',
+        description: 'Invalid signer configuration. Please ensure you are logged in with a Nostr signer or valid key.',
         variant: 'destructive',
       });
       return;
     }
 
-    console.log('Starting upload process:', {
+    console.log('✅ [VideoUpload] Starting upload process:', {
       fileSize: selectedFile.size,
       fileName: selectedFile.name,
       userPubkey: user.pubkey,
