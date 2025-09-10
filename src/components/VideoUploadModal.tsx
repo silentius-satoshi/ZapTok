@@ -222,20 +222,32 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     }
 
     // Enhanced signer validation with better bunker signer support
+    const signerAny = user.signer as any; // Type assertion for bunker signer access
+    const isBunkerSigner = signerAny?.bunkerSigner;
+    const effectiveSigner = isBunkerSigner || user.signer;
+    
     console.log('🔍 [VideoUpload] Signer validation debug:', {
       signerAvailable: !!user.signer,
-      hasSignEvent: !!user.signer?.signEvent,
+      isBunkerSigner: !!isBunkerSigner,
+      hasDirectSignEvent: !!user.signer?.signEvent,
+      hasBunkerSignEvent: !!signerAny?.bunkerSigner?.signEvent,
+      effectiveSignEvent: !!effectiveSigner?.signEvent,
       signerSignEventType: typeof user.signer?.signEvent,
+      bunkerSignEventType: typeof signerAny?.bunkerSigner?.signEvent,
       signerMethods: user.signer ? Object.keys(user.signer) : 'none',
+      bunkerMethods: signerAny?.bunkerSigner ? Object.keys(signerAny.bunkerSigner) : 'none',
       signerConstructor: user.signer?.constructor?.name,
-      signerToString: user.signer?.toString?.() || 'no toString'
+      bunkerConstructor: signerAny?.bunkerSigner?.constructor?.name
     });
 
-    if (!user.signer.signEvent || typeof user.signer.signEvent !== 'function') {
+    if (!effectiveSigner?.signEvent || typeof effectiveSigner.signEvent !== 'function') {
       console.error('❌ [VideoUpload] Signer validation failed:', {
-        hasSignEvent: !!user.signer?.signEvent,
-        signEventType: typeof user.signer?.signEvent,
-        availableMethods: user.signer ? Object.keys(user.signer) : []
+        hasDirectSignEvent: !!user.signer?.signEvent,
+        hasBunkerSignEvent: !!signerAny?.bunkerSigner?.signEvent,
+        directSignEventType: typeof user.signer?.signEvent,
+        bunkerSignEventType: typeof signerAny?.bunkerSigner?.signEvent,
+        availableMethods: user.signer ? Object.keys(user.signer) : [],
+        bunkerMethods: signerAny?.bunkerSigner ? Object.keys(signerAny.bunkerSigner) : []
       });
       
       toast({
@@ -251,9 +263,11 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       fileName: selectedFile.name,
       userPubkey: user.pubkey,
       signerAvailable: !!user.signer,
-      hasSignEvent: !!user.signer?.signEvent,
-      signerSignEventType: typeof user.signer?.signEvent,
-      signerMethods: user.signer ? Object.keys(user.signer) : 'none'
+      isBunkerSigner: !!isBunkerSigner,
+      hasDirectSignEvent: !!user.signer?.signEvent,
+      hasBunkerSignEvent: !!signerAny?.bunkerSigner?.signEvent,
+      effectiveSignEvent: !!effectiveSigner?.signEvent,
+      effectiveSignerType: effectiveSigner?.constructor?.name || 'unknown'
     });
 
     setIsProcessing(true);
