@@ -7,6 +7,23 @@ import { useNostrLogin } from '@nostrify/react/login';
 import { useToast } from '@/hooks/useToast';
 import { useAuthState } from './useAuthState';
 import { createNostrifyBunkerLogin } from './useNostrToolsBridge';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useAppContext } from '@/hooks/useAppContext';
+
+/**
+ * Detect if app is running in PWA mode
+ */
+function isPWA(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  // Check for various PWA indicators
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true ||
+    document.referrer.includes('android-app://') ||
+    window.location.search.includes('utm_source=pwa')
+  );
+}
 
 interface BunkerLoginState {
   loading: boolean;
@@ -34,9 +51,21 @@ export function useNostrToolsBunkerLogin() {
   const { addLogin, setLogin } = useNostrLogin();
   const authState = useAuthState();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+  const isInPWA = isPWA();
+  const { config, addRelay } = useAppContext();
 
   const bunkerLogin = useCallback(async (bunkerUri: string): Promise<BunkerLoginResult> => {
     setState({ loading: true, error: null, success: false });
+
+    // Show preemptive warning for mobile PWA users
+    if (isMobile && isInPWA) {
+      toast({
+        title: "🔐 Approval Required",
+        description: "You'll need to approve the connection in nsec.app. We'll open it for you, but you may need to switch apps manually.",
+        duration: 10000, // Show longer for mobile users
+      });
+    }
 
     try {
       // Validate input
@@ -74,21 +103,34 @@ export function useNostrToolsBunkerLogin() {
         onauth: (authUrl: string) => {
           console.log('🔗 Auth URL received:', authUrl);
           
-          // Show user-friendly notification
-          toast({
-            title: "🔐 Approval Required",
-            description: "Please check nsec.app to approve the connection request. The link has been copied to your clipboard.",
-            duration: 8000, // Show for 8 seconds
-          });
-          
           // Copy auth URL to clipboard for user convenience
           if (navigator.clipboard) {
             navigator.clipboard.writeText(authUrl).catch(console.warn);
           }
           
-          // Open nsec.app in a new tab for user convenience
-          if (typeof window !== 'undefined') {
-            window.open(authUrl, '_blank', 'noopener,noreferrer');
+          // Handle differently based on platform
+          if (isMobile && isInPWA) {
+            // For mobile PWA: show different message since we already warned them
+            toast({
+              title: "🔗 Connection Ready",
+              description: "The connection URL has been copied to your clipboard. Please open nsec.app manually to approve.",
+              duration: 12000, // Show longer for mobile users
+            });
+            
+            // Don't try to open automatically on mobile PWA - it often fails
+            console.log('📱 Mobile PWA detected - not opening auth URL automatically');
+          } else {
+            // For desktop browser: show standard notification and auto-open
+            toast({
+              title: "🔐 Approval Required", 
+              description: "Please check nsec.app to approve the connection request. The link has been copied to your clipboard.",
+              duration: 8000,
+            });
+            
+            // Open nsec.app in a new tab for desktop convenience
+            if (typeof window !== 'undefined') {
+              window.open(authUrl, '_blank', 'noopener,noreferrer');
+            }
           }
         }
       });
@@ -139,6 +181,24 @@ export function useNostrToolsBunkerLogin() {
 
       console.log('💾 Integrated with Nostrify login system');
 
+      // Automatically add bunker relay to user's relay configuration if not already present
+      const bunkerRelayUrl = 'wss://relay.nsec.app';
+      if (bunkerPointer.relays && bunkerPointer.relays.length > 0) {
+        const primaryBunkerRelay = bunkerPointer.relays[0];
+        if (!config.relayUrls.includes(primaryBunkerRelay)) {
+          console.log('🔗 Adding bunker relay to user configuration:', primaryBunkerRelay);
+          addRelay(primaryBunkerRelay);
+        } else {
+          console.log('🔗 Bunker relay already in configuration:', primaryBunkerRelay);
+        }
+      } else if (!config.relayUrls.includes(bunkerRelayUrl)) {
+        // Fallback to default bunker relay
+        console.log('🔗 Adding default bunker relay to user configuration:', bunkerRelayUrl);
+        addRelay(bunkerRelayUrl);
+      } else {
+        console.log('🔗 Default bunker relay already in configuration');
+      }
+
       setState({ loading: false, error: null, success: true });
 
       console.log('🎉 Bunker login completed successfully!');
@@ -160,7 +220,7 @@ export function useNostrToolsBunkerLogin() {
       setState({ loading: false, error: errorMessage, success: false });
       throw error;
     }
-  }, [addLogin, setLogin]);
+  }, [addLogin, setLogin, toast, isMobile, isInPWA, addRelay, config.relayUrls]);
 
   const resetState = useCallback(() => {
     setState({ loading: false, error: null, success: false });
