@@ -57,16 +57,18 @@ export function useUserVideos(pubkey?: string): UseQueryResult<VideoEvent[], Err
         }
 
         // Filter events to only include those with video content
-        const videoEvents = events.filter((event) => {
-          const isValid = validateVideoEvent(event);
-          const hasVideo = hasVideoContent(event);
+        const videoEvents = events
+          .map((event) => {
+            const validatedEvent = validateVideoEvent(event);
+            const hasVideo = hasVideoContent(event);
 
-          if (import.meta.env.DEV && (isValid || hasVideo)) {
-            console.log('useUserVideos: Event', event.id, 'isValid:', isValid, 'hasVideo:', hasVideo);
-          }
+            if (import.meta.env.DEV && (validatedEvent || hasVideo)) {
+              console.log('useUserVideos: Event', event.id, 'validatedEvent:', validatedEvent, 'hasVideo:', hasVideo);
+            }
 
-          return isValid && hasVideo;
-        }) as VideoEvent[];
+            return validatedEvent && hasVideo ? validatedEvent : null;
+          })
+          .filter((event): event is VideoEvent => event !== null);
 
         if (import.meta.env.DEV) {
           console.log('useUserVideos: Filtered to', videoEvents.length, 'video events');
