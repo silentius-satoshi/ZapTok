@@ -28,12 +28,35 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [invoice, setInvoice] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'webln' | 'bitcoin-connect'>('webln');
+  const [lightningInfo, setLightningInfo] = useState<{
+    minSendable: number;
+    maxSendable: number;
+    commentAllowed: number;
+  } | null>(null);
 
-  // Initialize Bitcoin Connect
+  // Initialize Bitcoin Connect and fetch Lightning address info
   useEffect(() => {
     init({
       appName: 'ZapTok',
     });
+
+    // Fetch Lightning address capabilities
+    const fetchLightningInfo = async () => {
+      try {
+        const info = await lightningService.getLightningAddressInfo(ZAPTOK_CONFIG.LIGHTNING_ADDRESS);
+        setLightningInfo(info);
+      } catch (error) {
+        console.warn('Could not fetch Lightning address info:', error);
+        // Set fallback limits
+        setLightningInfo({
+          minSendable: 1,
+          maxSendable: 1000000, // 1M sats
+          commentAllowed: 144,
+        });
+      }
+    };
+
+    fetchLightningInfo();
   }, []);
 
   // Jumble-style preset amounts from constants
@@ -57,7 +80,9 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
   };
 
   const handleGenerateInvoice = async () => {
-    if (!amount || parseInt(amount) <= 0) {
+    const amountValue = parseInt(amount);
+    
+    if (!amount || amountValue <= 0) {
       toast({
         title: "Invalid Amount",
         description: "Please enter a valid donation amount.",
@@ -66,11 +91,42 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
       return;
     }
 
+    // Validate against Lightning address limits
+    if (lightningInfo) {
+      if (amountValue < lightningInfo.minSendable) {
+        toast({
+          title: "Amount Too Small",
+          description: `Minimum amount is ${lightningInfo.minSendable} sats.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (amountValue > lightningInfo.maxSendable) {
+        toast({
+          title: "Amount Too Large", 
+          description: `Maximum amount is ${lightningInfo.maxSendable.toLocaleString()} sats.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate comment length
+      if (comment.length > lightningInfo.commentAllowed) {
+        toast({
+          title: "Comment Too Long",
+          description: `Comments are limited to ${lightningInfo.commentAllowed} characters.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setIsProcessing(true);
     
     try {
       const paymentRequest = await lightningService.generateInvoice(
-        parseInt(amount),
+        amountValue,
         comment,
         ZAPTOK_DEV_PUBKEY
       );
@@ -82,9 +138,10 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
         description: "Lightning invoice created successfully!",
       });
     } catch (error) {
+      console.error('Invoice generation error:', error);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate invoice",
+        title: "Invoice Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate invoice. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -212,10 +269,10 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
                   onChange={(e) => setComment(e.target.value)}
                   className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-yellow-400 resize-none"
                   rows={3}
-                  maxLength={144}
+                  maxLength={lightningInfo?.commentAllowed || 144}
                 />
                 <div className="text-xs text-gray-400 text-right">
-                  {comment.length}/144
+                  {comment.length}/{lightningInfo?.commentAllowed || 144}
                 </div>
               </div>
 
@@ -227,6 +284,16 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
               >
                 {isProcessing ? 'Generating...' : 'Generate Lightning Invoice'}
               </Button>
+
+              {/* Lightning Address Info */}
+              {lightningInfo && (
+                <div className="text-xs text-gray-400 text-center space-y-1">
+                  <div>⚡ {ZAPTOK_CONFIG.LIGHTNING_ADDRESS}</div>
+                  <div>
+                    Limits: {lightningInfo.minSendable.toLocaleString()} - {lightningInfo.maxSendable.toLocaleString()} sats
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <>
