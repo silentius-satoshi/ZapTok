@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { devLog, bundleLog } from '@/lib/devConsole';
 
 interface VideoUrlFallbackOptions {
@@ -12,17 +12,46 @@ export function useVideoUrlFallback({ originalUrl, hash, title }: VideoUrlFallba
   const [isTestingUrls, setIsTestingUrls] = useState(false);
   const [testedUrls, setTestedUrls] = useState<Set<string>>(new Set());
 
+  // Use refs to track if we've already processed this combination
+  const processedRef = useRef<string>('');
+  const currentInputs = `${originalUrl || ''}-${hash || ''}-${title || ''}`;
+
   useEffect(() => {
+    // Skip if already processed this exact combination
+    if (processedRef.current === currentInputs) return;
+    processedRef.current = currentInputs;
+
     if (!originalUrl && !hash) return;
+
+    // Special handling for URLs that are known to have CORS restrictions
+    const isCorsRestrictedUrl = (url: string) => {
+      return url.includes('m.primal.net') ||
+             url.includes('r2a.primal.net') ||
+             url.includes('blossom.primal.net') ||
+             url.includes('primal.net');
+    };
+
+    // If we have a CORS-restricted URL, trust it without testing
+    if (originalUrl && isCorsRestrictedUrl(originalUrl)) {
+      if (import.meta.env.DEV) {
+        bundleLog('videoUrlTesting', `🎬 URL [${title?.slice(0, 20) || 'video'}]: Trusting CORS-restricted URL without testing - ${originalUrl.split('/').pop()?.slice(0, 12)}...`);
+      }
+      setWorkingUrl(originalUrl);
+      setTestedUrls(prev => new Set([...prev, originalUrl]));
+      return;
+    }
 
     const testUrls = async () => {
       if (isTestingUrls) return;
       setIsTestingUrls(true);
 
-      // Prepare list of URLs to test
+      // Capture current testedUrls at the time of function call
+      const currentTestedUrls = testedUrls;
+
+      // Prepare list of URLs to test (filter out CORS-restricted URLs)
       const urlsToTest: string[] = [];
 
-      if (originalUrl && !testedUrls.has(originalUrl)) {
+      if (originalUrl && !currentTestedUrls.has(originalUrl) && !isCorsRestrictedUrl(originalUrl)) {
         urlsToTest.push(originalUrl);
       }
 
@@ -30,13 +59,13 @@ export function useVideoUrlFallback({ originalUrl, hash, title }: VideoUrlFallba
         const hashUrls = [
           `https://blossom.band/${hash}`,
           `https://nostr.download/${hash}`,
-          `https://blossom.primal.net/${hash}`,
+          `https://blossom.primal.net/${hash}`, // Note: this might also have CORS issues
           `https://nostrage.com/${hash}.mp4`,
           `https://void.cat/${hash}`,
         ];
 
         hashUrls.forEach(url => {
-          if (!testedUrls.has(url)) {
+          if (!currentTestedUrls.has(url) && !isCorsRestrictedUrl(url)) {
             urlsToTest.push(url);
           }
         });
@@ -95,11 +124,11 @@ export function useVideoUrlFallback({ originalUrl, hash, title }: VideoUrlFallba
       setIsTestingUrls(false);
     };
 
-    // Only test if we don't already have a working URL
-    if (!workingUrl || !testedUrls.has(workingUrl)) {
+    // Only test if we haven't already processed this combination and aren't currently testing
+    if (!isTestingUrls) {
       testUrls();
     }
-  }, [originalUrl, hash, title, isTestingUrls, workingUrl, testedUrls]);
+  }, [originalUrl, hash, title]); // Removed isTestingUrls, workingUrl, and testedUrls from deps
 
   return {
     workingUrl,
