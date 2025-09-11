@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/useToast';
-import { DonationModal } from '@/components/DonationModal';
+import { DonationZap } from '@/components/DonationZap';
 
 interface SupporterModalProps {
   isOpen: boolean;
@@ -177,7 +177,7 @@ export function SupporterModal({ isOpen, onClose }: SupporterModalProps) {
       </DialogContent>
     </Dialog>
 
-    <DonationModal 
+    <DonationZap 
       isOpen={showDonationModal}
       onClose={() => setShowDonationModal(false)}
     />

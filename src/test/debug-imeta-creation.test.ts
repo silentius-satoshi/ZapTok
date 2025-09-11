@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createHybridVideoEvent, type HybridVideoEventData } from './src/lib/hybridEventStrategy';
+import { createHybridVideoEvent, type HybridVideoEventData } from '../lib/hybridEventStrategy';
 
 describe('Imeta Tag Creation', () => {
   it('should create correctly formatted imeta tags', () => {
