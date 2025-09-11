@@ -160,7 +160,7 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
 
   // If we have a hash but no URL, construct Blossom URL
   if (!videoData.videoUrl && videoData.hash) {
-    // Try multiple Blossom servers for better reliability
+    // Use the primary server from our upload service for consistency
     videoData.videoUrl = `https://blossom.band/${videoData.hash}`;
     validationInfo.videoUrl = videoData.videoUrl;
   }
@@ -280,8 +280,8 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
       // For YouTube videos, use the content as-is for now
       videoData.videoUrl = event.content.trim();
     } else if (videoData.hash) {
-      // If we have a hash but no URL, construct Blossom URL
-      videoData.videoUrl = `https://blossom.primal.net/${videoData.hash}`;
+      // If we have a hash but no URL, construct Blossom URL using the primary server
+      videoData.videoUrl = `https://blossom.band/${videoData.hash}`;
     }
   }
 

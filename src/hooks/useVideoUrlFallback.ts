@@ -29,9 +29,9 @@ export function useVideoUrlFallback({ originalUrl, hash, title }: VideoUrlFallba
       if (hash) {
         const hashUrls = [
           `https://blossom.band/${hash}`,
+          `https://nostr.download/${hash}`,
           `https://blossom.primal.net/${hash}`,
           `https://nostrage.com/${hash}.mp4`,
-          `https://nostr.download/${hash}.mp4`,
           `https://void.cat/${hash}`,
         ];
 
