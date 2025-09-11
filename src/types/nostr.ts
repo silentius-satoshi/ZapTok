@@ -12,3 +12,11 @@ export interface NostrEventContent extends NostrEvent {
   id: string;
   sig: string;
 }
+
+export interface TDraftEvent {
+  kind: number;
+  content: string;
+  tags: string[][];
+  created_at?: number;
+  pubkey?: string;
+}

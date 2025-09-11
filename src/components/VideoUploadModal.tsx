@@ -9,11 +9,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Upload, Play, Video, FileVideo, CheckCircle2, Zap } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useUploadFile } from '@/hooks/useUploadFile';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
 import { createHybridVideoEvent, type HybridVideoEventData } from '@/lib/hybridEventStrategy';
 import { compressVideo, shouldCompressVideo, isCompressionSupported } from '@/lib/videoCompression';
+import blossomUploadService from '@/services/blossom-upload.service';
 
 interface VideoUploadModalProps {
   isOpen: boolean;
@@ -51,18 +51,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const [currentServer, setCurrentServer] = useState<string>('');
   const [uploadAttempts, setUploadAttempts] = useState<{server: string, attempt: number, error?: string}[]>([]);
 
-  // Upload hooks - simplified for hybrid approach (no retry callbacks)
-  const { mutateAsync: uploadFileWithThumbnailRetry } = useUploadFile({
-    // Removed onRetry - using simplified approach
-  });
-
-  const { mutateAsync: uploadFileWithVideoRetry } = useUploadFile({
-    onProgress: (progress) => {
-      // Update progress between 50% and 80%
-      setUploadProgress(50 + (progress * 0.3));
-    },
-    // Removed onRetry - using simplified approach
-  });
+  // No longer using old upload hooks - hybrid Blossom service handles all uploads
   const [compressionProgress, setCompressionProgress] = useState(0);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressionResult, setCompressionResult] = useState<{ originalSize: number; compressedSize: number; } | null>(null);
@@ -225,7 +214,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     const signerAny = user.signer as any; // Type assertion for bunker signer access
     const isBunkerSigner = signerAny?.bunkerSigner;
     const effectiveSigner = isBunkerSigner || user.signer;
-    
+
     console.log('🔍 [VideoUpload] Signer validation debug:', {
       signerAvailable: !!user.signer,
       isBunkerSigner: !!isBunkerSigner,
@@ -249,7 +238,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         availableMethods: user.signer ? Object.keys(user.signer) : [],
         bunkerMethods: signerAny?.bunkerSigner ? Object.keys(signerAny.bunkerSigner) : []
       });
-      
+
       toast({
         title: 'Authentication Error',
         description: 'Invalid signer configuration. Please ensure you are logged in with a Nostr signer or valid key.',
@@ -277,11 +266,15 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     setCurrentServer('');
     setUploadAttempts([]);
 
+    // Declare fileToUpload outside try block so it's accessible in catch block
+    let fileToUpload = selectedFile;
+    let compressionInfo = '';
+
     try {
       // Generate thumbnail if video is loaded
       let thumbnailUrl = '';
       if (videoRef.current) {
-        console.log('Generating thumbnail...');
+        console.log('🖼️ [VideoUpload] Generating thumbnail...');
         const thumbnailDataUrl = await generateThumbnail(videoRef.current);
 
         // Convert thumbnail to File for upload
@@ -289,17 +282,32 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         const blob = await response.blob();
         const thumbnailFile = new File([blob], `${selectedFile.name}_thumbnail.jpg`, { type: 'image/jpeg' });
 
-        // Upload thumbnail to Blossom with retry info
-        console.log('Uploading thumbnail...');
-        const thumbnailTags = await uploadFileWithThumbnailRetry(thumbnailFile);
-        thumbnailUrl = thumbnailTags[0][1]; // First tag contains URL
-        console.log('Thumbnail uploaded:', thumbnailUrl);
+        // Upload thumbnail using hybrid Blossom approach
+        console.log('🚀 [VideoUpload] Uploading thumbnail with hybrid Blossom...');
+        setRetryInfo('Uploading thumbnail...');
+        const signerAny = user.signer as any;
+        const isBunkerSigner = signerAny?.bunkerSigner;
+        const effectiveSigner = isBunkerSigner || user.signer;
+
+        const thumbnailResult = await blossomUploadService.upload(
+          thumbnailFile,
+          effectiveSigner.signEvent.bind(effectiveSigner),
+          user.pubkey,
+          {
+            onProgress: (progress) => {
+              const adjustedProgress = 25 + (progress * 0.15); // 25-40%
+              setUploadProgress(adjustedProgress);
+              console.log(`📊 [Blossom] Thumbnail progress: ${progress}% (adjusted: ${adjustedProgress}%)`);
+            }
+          }
+        );
+        thumbnailUrl = thumbnailResult.url;
+        console.log('✅ [Blossom] Thumbnail uploaded:', thumbnailUrl);
         setRetryInfo('');
       }
 
       // Check if video should be compressed
-      let fileToUpload = selectedFile;
-      let compressionInfo = '';
+      // fileToUpload and compressionInfo are already declared outside try block
 
       if (isCompressionSupported() && await shouldCompressVideo(selectedFile)) {
         console.log('Video compression recommended, compressing video...');
@@ -348,11 +356,39 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         console.log('Video compression not needed or not supported');
       }
 
-      // Upload video to Blossom
-      console.log('Uploading main video file...' + compressionInfo);
+      // Upload video using hybrid Blossom approach (SDK + XHR fallback)
+      console.log('🚀 [VideoUpload] Starting hybrid Blossom upload (SDK + XHR fallback)...');
       setUploadProgress(50);
-      const videoTags = await uploadFileWithVideoRetry(fileToUpload);
-      console.log('Video uploaded successfully, tags:', videoTags);
+      setRetryInfo('Uploading with hybrid Blossom protocol...');
+
+      // Use hybrid Blossom upload service as primary method
+      const signerAny = user.signer as any;
+      const isBunkerSigner = signerAny?.bunkerSigner;
+      const effectiveSigner = isBunkerSigner || user.signer;
+
+      const videoResult = await blossomUploadService.upload(
+        fileToUpload,
+        effectiveSigner.signEvent.bind(effectiveSigner),
+        user.pubkey,
+        {
+          onProgress: (progress) => {
+            const adjustedProgress = 50 + (progress * 0.3); // 50-80%
+            setUploadProgress(adjustedProgress);
+            console.log(`📊 [Blossom] Upload progress: ${progress}% (adjusted: ${adjustedProgress}%)`);
+          }
+        }
+      );
+
+      console.log('✅ [Blossom] Video uploaded successfully with hybrid approach:', videoResult);
+      setRetryInfo('Video upload successful!');
+
+      // Convert Blossom result to video tags format
+      const videoTags = [
+        ['url', videoResult.url],
+        ...videoResult.tags
+      ];
+
+      console.log('📝 [Blossom] Generated video tags:', videoTags);
       setRetryInfo('');
       // videoUrl is the first tag - we'll use it in the tags array below
 
@@ -430,36 +466,37 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         attempts: uploadAttempts
       });
 
-      let errorMessage = 'There was an error uploading your video. Please try again.';
+      // Show error message - hybrid service has already tried all available methods
+      let displayErrorMessage = 'There was an error uploading your video. Please try again.';
       let errorDetails = '';
 
       if (error instanceof Error) {
         const message = error.message.toLowerCase();
 
         if (message.includes('upload failed on all servers')) {
-          errorMessage = 'Upload failed on all available servers. Please try again later.';
+          displayErrorMessage = 'Upload failed on all available servers using multiple protocols. Please try again later.';
           if (uploadAttempts.length > 0) {
             const serverList = [...new Set(uploadAttempts.map(a => a.server))];
             errorDetails = `Tried servers: ${serverList.join(', ')}`;
           }
         } else if (message.includes('cors')) {
-          errorMessage = 'Network access blocked. This may be a temporary server issue.';
+          displayErrorMessage = 'Network access blocked. Both primary and fallback upload methods failed.';
           errorDetails = 'Please try again in a few minutes.';
         } else if (message.includes('503') || message.includes('service unavailable')) {
-          errorMessage = 'Server temporarily unavailable. Trying backup servers...';
+          displayErrorMessage = 'Server temporarily unavailable. All upload methods exhausted.';
           errorDetails = 'This usually resolves within a few minutes.';
         } else if (message.includes('signer') || message.includes('nostr')) {
-          errorMessage = 'Authentication error. Please try logging out and back in.';
+          displayErrorMessage = 'Authentication error. Please try logging out and back in.';
         } else if (message.includes('network') || message.includes('fetch')) {
-          errorMessage = 'Network error. Please check your connection and try again.';
+          displayErrorMessage = 'Network error. Please check your connection and try again.';
         } else if (message.includes('file') || message.includes('size')) {
-          errorMessage = 'File upload error. Please try a smaller file or different format.';
+          displayErrorMessage = 'File upload error. Please try a smaller file or different format.';
         }
       }
 
       toast({
         title: 'Upload failed',
-        description: errorDetails ? `${errorMessage} ${errorDetails}` : errorMessage,
+        description: errorDetails ? `${displayErrorMessage} ${errorDetails}` : displayErrorMessage,
         variant: 'destructive',
       });
       setUploadStep('metadata');
@@ -468,7 +505,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       setRetryInfo('');
       setCurrentServer('');
     }
-  }, [selectedFile, user, videoMetadata, uploadFileWithThumbnailRetry, uploadFileWithVideoRetry, createEvent, toast, generateThumbnail, handleClose]);
+  }, [selectedFile, user, videoMetadata, createEvent, toast, generateThumbnail, handleClose]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
