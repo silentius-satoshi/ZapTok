@@ -11,12 +11,9 @@ import { useBlossomServerList } from '@/hooks/useBlossomServerList';
 import { Trash2, Plus, GripVertical, Crown, Shield } from 'lucide-react';
 
 const DEFAULT_SERVERS = [
-  'https://blossom.primal.net/',
-  'https://cdn.satellite.earth/',
-  'https://blossom.oxtr.dev/',
-  'https://files.v0l.io/',
-  'https://blossom.nostrage.com/',
-  'https://blossom.nostr.band/',
+  'https://blossom.band/',
+  'https://nostr.download/',
+  'https://blossom.primal.net/'
 ];
 
 export function BlossomServerListSettings() {

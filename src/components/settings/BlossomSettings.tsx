@@ -18,15 +18,10 @@ interface ServerAvailability {
   [url: string]: boolean;
 }
 
-const recomendedBlossomServers = [
-  'https://blossom.primal.net/',
-  'https://blossom.stacker.news/',
-  'https://cdn.satellite.earth/',
-  'https://blossom.nostr.band/',
-  'https://blossom.void.cat/',
-  'https://blossom.oxtr.dev/',
-  'https://blossom.nostrage.com/',
-  'https://files.v0l.io/',
+const DEFAULT_SERVERS = [
+  'https://blossom.band/',
+  'https://nostr.download/',
+  'https://blossom.primal.net/'
 ];
 
 export function BlossomSettings() {
@@ -155,7 +150,7 @@ function LegacyBlossomSettings() {
 
   const getRecommendedMirrors = () => {
     const activeMirrors = config.blossomServers;
-    const recommended = recomendedBlossomServers.filter(s => !activeMirrors.includes(s));
+    const recommended = DEFAULT_SERVERS.filter(s => !activeMirrors.includes(s));
 
     // Check server availability for recommended servers
     checkServers(recommended);

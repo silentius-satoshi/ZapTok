@@ -77,13 +77,14 @@ export const primalBlossom = 'https://blossom.primal.net/';
  * Default Blossom servers for file uploads
  * Ordered by reliability and performance
  */
-export const DEFAULT_BLOSSOM_SERVERS = [
-  'https://blossom.primal.net/',
-  'https://blossom.stacker.news/',
-  'https://cdn.satellite.earth/',
-  'https://blossom.nostr.band/',
-  'https://blossom.void.cat/',
+export const BLOSSOM_SERVERS = [
+  'https://blossom.band/',
+  'https://nostr.download/',
+  'https://blossom.primal.net/'
 ];
+
+// Export as DEFAULT_BLOSSOM_SERVERS for compatibility
+export const DEFAULT_BLOSSOM_SERVERS = BLOSSOM_SERVERS;
 
 export const uploadLimit = {
   regular: 10,

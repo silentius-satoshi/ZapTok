@@ -6,10 +6,10 @@ interface VideoUrlCache {
   lastChecked: number;
 }
 
-const BLOSSOM_SERVERS = [
-  'https://blossom.primal.net',
-  'https://cdn.satellite.earth',
-  'https://files.nostr.band',
+const FALLBACK_BLOSSOM_SERVERS = [
+  'https://blossom.band',
+  'https://nostr.download',
+  'https://blossom.primal.net'
 ];
 
 export function useVideoUrl(hash: string) {
@@ -25,7 +25,7 @@ export function useVideoUrl(hash: string) {
       
       // Test all servers concurrently with timeout
       const results = await Promise.allSettled(
-        BLOSSOM_SERVERS.map(async (server) => {
+        FALLBACK_BLOSSOM_SERVERS.map(async (server) => {
           const url = `${server}/${hash}`;
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 3000);

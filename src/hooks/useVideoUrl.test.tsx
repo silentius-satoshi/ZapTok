@@ -43,7 +43,7 @@ describe('useVideoUrl', () => {
     expect(result.current.data).toEqual({
       primaryUrl: 'https://blossom.primal.net/test-hash-123',
       fallbackUrls: [
-        'https://cdn.satellite.earth/test-hash-123',
+        'https://blossom.band/test-hash-123',
         'https://files.nostr.band/test-hash-123'
       ],
       lastChecked: expect.any(Number),

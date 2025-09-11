@@ -18,12 +18,12 @@ This document provides comprehensive implementation details for optimizing the e
 
 **Current Server Configuration:**
 ```typescript
+// Default Blossom servers - tiered by CORS friendliness
 export const DEFAULT_BLOSSOM_SERVERS = [
   // Tier 1: Known CORS-friendly servers
   'https://blossom.band/',
   'https://nostr.download/',
   // Tier 2: Popular but potentially restrictive
-  'https://cdn.satellite.earth/',
   'https://blossom.primal.net/'
 ];
 ```

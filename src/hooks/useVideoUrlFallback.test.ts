@@ -68,7 +68,7 @@ describe('useVideoUrlFallback', () => {
       expect(result.current.isTestingUrls).toBe(false);
     }, { timeout: 3000 });
 
-    expect(result.current.workingUrl).toBe('https://cdn.satellite.earth/abc123');
+    expect(result.current.workingUrl).toBe('https://blossom.band/abc123');
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 

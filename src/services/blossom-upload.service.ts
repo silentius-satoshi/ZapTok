@@ -23,7 +23,6 @@ export const DEFAULT_BLOSSOM_SERVERS = [
   'https://blossom.band/',
   'https://nostr.download/',
   // Tier 2: Popular but potentially restrictive
-  'https://cdn.satellite.earth/',
   'https://blossom.primal.net/'
 ];
 
@@ -135,8 +134,11 @@ class BlossomUploadService {
       };
       options?.signal?.addEventListener('abort', abortHandler);
 
+      // Normalize server URL (remove trailing slash)
+      const normalizedServer = server.endsWith('/') ? server.slice(0, -1) : server;
+
       // Configure request
-      xhr.open('PUT', `${server}/upload`);
+      xhr.open('PUT', `${normalizedServer}/upload`);
       xhr.setRequestHeader('Authorization', `Nostr ${authHeader}`);
       xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
       
@@ -336,23 +338,17 @@ class BlossomUploadService {
       Promise.allSettled(
         backupServers.map(async (server) => {
           try {
-            // Try to mirror using the blob URL first (more efficient)
-            const response = await fetch(`${server}/mirror`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Nostr ${btoa(JSON.stringify(auth))}`
-              },
-              body: JSON.stringify({ url: blobUrl })
-            });
+            // Normalize server URL (remove trailing slash)
+            const normalizedServer = server.endsWith('/') ? server.slice(0, -1) : server;
             
-            if (!response.ok) {
-              // Fallback: upload directly to backup server
-              await BlossomClient.uploadBlob(server, file, { auth });
-            }
+            // Skip mirroring for now - most Blossom servers don't support /mirror endpoint
+            // Instead, just attempt direct upload to backup servers
+            console.log(`🔄 Attempting backup upload to ${normalizedServer}`);
+            await BlossomClient.uploadBlob(normalizedServer, file, { auth });
+            console.log(`✅ Successfully mirrored to ${normalizedServer}`);
           } catch (error) {
-            console.warn(`Failed to mirror to ${server}:`, error);
-            // Ignore individual mirror failures
+            console.warn(`⚠️ Failed to mirror to ${server}:`, error);
+            // Ignore individual mirror failures - this is non-critical
           }
         })
       ).catch(console.error);
@@ -368,8 +364,11 @@ class BlossomUploadService {
     const results = await Promise.allSettled(
       DEFAULT_BLOSSOM_SERVERS.map(async (server) => {
         try {
+          // Normalize server URL (remove trailing slash for testing)
+          const normalizedServer = server.endsWith('/') ? server.slice(0, -1) : server;
+          
           // Test basic connectivity first
-          const response = await fetch(`${server}`, { method: 'HEAD' });
+          const response = await fetch(`${normalizedServer}`, { method: 'HEAD', mode: 'cors' });
           return { 
             server, 
             success: response.ok,

@@ -161,7 +161,7 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
   // If we have a hash but no URL, construct Blossom URL
   if (!videoData.videoUrl && videoData.hash) {
     // Try multiple Blossom servers for better reliability
-    videoData.videoUrl = `https://cdn.satellite.earth/${videoData.hash}`;
+    videoData.videoUrl = `https://blossom.band/${videoData.hash}`;
     validationInfo.videoUrl = videoData.videoUrl;
   }
 
