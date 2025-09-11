@@ -53,17 +53,86 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
   validationInfo.imetaCount = imetaTags.length;
 
   for (const imetaTag of imetaTags) {
-    // Parse imeta tag properties
+    // Debug logging for imeta tag structure
+    if (import.meta.env.DEV) {
+      console.log('🔍 Processing imeta tag:', {
+        type: typeof imetaTag,
+        isArray: Array.isArray(imetaTag),
+        length: imetaTag.length,
+        raw: imetaTag
+      });
+
+      imetaTag.forEach((element, index) => {
+        console.log(`  [${index}]:`, typeof element, '=', element);
+      });
+    }
+
+    // Parse imeta tag properties - handle both formats
     const imetaProps: Record<string, string> = {};
 
-    for (let i = 1; i < imetaTag.length; i++) {
-      const prop = imetaTag[i];
-      const spaceIndex = prop.indexOf(' ');
-      if (spaceIndex > 0) {
-        const key = prop.substring(0, spaceIndex);
-        const value = prop.substring(spaceIndex + 1);
-        imetaProps[key] = value;
+    // Check if this is format 1 (all in one string) or format 2 (separate elements)
+    if (imetaTag.length === 2 && imetaTag[1].includes(' ')) {
+      // Format 1: All properties in a single space-delimited string
+      // Example: ["imeta", "url https://... m video/webm x hash123 size 123"]
+      const allProps = imetaTag[1];
+      const parts = allProps.split(' ');
+
+      for (let i = 0; i < parts.length - 1; i++) {
+        const key = parts[i];
+        const value = parts[i + 1];
+
+        // Known property keys that should be extracted
+        if (['url', 'm', 'x', 'size', 'dim', 'alt', 'thumb', 'image'].includes(key)) {
+          // For URL, capture everything until the next known key
+          if (key === 'url') {
+            const urlParts = [value];
+            let j = i + 2;
+            while (j < parts.length && !['m', 'x', 'size', 'dim', 'alt', 'thumb', 'image'].includes(parts[j])) {
+              urlParts.push(parts[j]);
+              j++;
+            }
+            imetaProps[key] = urlParts.join(' ');
+            i = j - 2; // Adjust index to skip processed parts
+          } else {
+            imetaProps[key] = value;
+            i++; // Skip the value we just processed
+          }
+        }
       }
+    } else {
+      // Format 2: Each property as separate array element
+      // Example: ["imeta", "url https://...", "m video/webm", "x hash123", "size 123"]
+      for (let i = 1; i < imetaTag.length; i++) {
+        const prop = imetaTag[i];
+        const spaceIndex = prop.indexOf(' ');
+        if (spaceIndex > 0) {
+          const key = prop.substring(0, spaceIndex);
+          const value = prop.substring(spaceIndex + 1);
+          imetaProps[key] = value;
+
+          if (import.meta.env.DEV) {
+            console.log(`    Parsed property: ${key} = ${value}`);
+          }
+        } else {
+          // Handle standalone values that might be properties
+          const knownKeys = ['url', 'm', 'x', 'size', 'dim', 'alt', 'thumb', 'image'];
+          const prevProp = i > 1 ? imetaTag[i - 1] : '';
+
+          // If previous element was a known key without value, this might be its value
+          if (prevProp && knownKeys.includes(prevProp) && !imetaProps[prevProp]) {
+            imetaProps[prevProp] = prop;
+            if (import.meta.env.DEV) {
+              console.log(`    Assigned standalone value: ${prevProp} = ${prop}`);
+            }
+          } else if (import.meta.env.DEV) {
+            console.log(`    ⚠️ Skipping malformed property (no space): ${prop}`);
+          }
+        }
+      }
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('  📋 Final imetaProps:', imetaProps);
     }
 
     // Extract video URL (prefer primary url over fallback)
@@ -190,7 +259,9 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
                            event.content.includes('youtu.be') ||
                            event.content.includes('vimeo.com') ||
                            event.content.includes('blossom') ||
-                           event.content.includes('satellite.earth');
+                           event.content.includes('satellite.earth') ||
+                           event.content.includes('m.primal.net') ||
+                           /https?:\/\/[^\s]*\.(mp4|webm|mov|avi|mkv)/i.test(event.content);
   const hasVideoTag = tags.some(([tagName, tagValue]) =>
     tagName === 't' && tagValue?.toLowerCase().includes('video')
   );
@@ -272,14 +343,26 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
 
   // If no URL in tags, try to extract from content
   if (!videoData.videoUrl) {
-    // Extract video URL from content
-    const urlMatch = event.content.match(/(https?:\/\/[^\s]+\.(mp4|webm|mov|avi|mkv))/i);
-    if (urlMatch) {
-      videoData.videoUrl = urlMatch[0];
-    } else if (event.content.includes('youtube.com') || event.content.includes('youtu.be')) {
+    // Enhanced video URL extraction from content
+    // Pattern 1: Direct video file URLs with extensions
+    const directVideoMatch = event.content.match(/(https?:\/\/[^\s]+\.(mp4|webm|mov|avi|mkv)(\?[^\s]*)?)/i);
+    if (directVideoMatch) {
+      videoData.videoUrl = directVideoMatch[0];
+    }
+    // Pattern 2: Primal media URLs (m.primal.net)
+    else if (event.content.includes('m.primal.net')) {
+      const primalMatch = event.content.match(/(https?:\/\/m\.primal\.net\/[A-Za-z0-9]+\.mov)/i);
+      if (primalMatch) {
+        videoData.videoUrl = primalMatch[0];
+      }
+    }
+    // Pattern 3: Other video platforms
+    else if (event.content.includes('youtube.com') || event.content.includes('youtu.be')) {
       // For YouTube videos, use the content as-is for now
       videoData.videoUrl = event.content.trim();
-    } else if (videoData.hash) {
+    }
+    // Pattern 4: If we have a hash but no URL, construct Blossom URL
+    else if (videoData.hash) {
       // If we have a hash but no URL, construct Blossom URL using the primary server
       videoData.videoUrl = `https://blossom.band/${videoData.hash}`;
     }
@@ -327,7 +410,9 @@ export function hasVideoContent(event: NostrEvent): boolean {
   const hasVideoInContent = /\.(mp4|webm|mov|avi|mkv)(\?.*)?$/i.test(event.content) ||
                            event.content.includes('youtube.com') ||
                            event.content.includes('youtu.be') ||
-                           event.content.includes('vimeo.com');
+                           event.content.includes('vimeo.com') ||
+                           event.content.includes('m.primal.net') ||
+                           /https?:\/\/[^\s]*\.(mp4|webm|mov|avi|mkv)/i.test(event.content);
 
   return hasHashTag || hasUrlTag || hasVideoTag || hasVideoInContent;
 }
