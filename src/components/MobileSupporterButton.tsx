@@ -10,7 +10,7 @@ export function MobileSupporterButton({ onClose }: MobileSupporterButtonProps) {
   const navigate = useNavigate();
 
   const handleNavigateToSupporter = () => {
-    navigate('/support');
+    navigate('/donate');
     // Close the mobile menu when navigating
     if (onClose) {
       onClose();

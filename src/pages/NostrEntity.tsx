@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/useToast';
 import { useSeoMeta } from '@unhead/react';
 
 export function NostrEntity() {
-  const { nip19: identifier } = useParams<{ nip19: string }>();
+  const { nip19Id: identifier } = useParams<{ nip19Id: string }>();
   const [entityData, setEntityData] = useState<{
     type: string;
     data: unknown;
@@ -76,7 +76,7 @@ export function NostrEntity() {
 
   // Redirect profiles to the profile page
   if (entityData.type === 'npub' || entityData.type === 'nprofile') {
-    const pubkey = entityData.type === 'npub' 
+    const pubkey = entityData.type === 'npub'
       ? entityData.data as string
       : (entityData.data as { pubkey: string }).pubkey;
     return <Navigate to={`/profile/${pubkey}`} replace />;

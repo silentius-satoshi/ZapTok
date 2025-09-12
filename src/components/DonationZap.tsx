@@ -10,21 +10,27 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/useToast';
+import { useAuthor } from '@/hooks/useAuthor';
 import { lightningService, ZAPTOK_DEV_PUBKEY } from '@/lib/lightning.service';
 import { ZAPTOK_CONFIG } from '@/constants';
 import { init, launchPaymentModal } from '@getalby/bitcoin-connect-react';
+import { nip19 } from 'nostr-tools';
+import { useNavigate } from 'react-router-dom';
 
 interface DonationZapProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultAmount?: number;
 }
 
-export function DonationZap({ isOpen, onClose }: DonationZapProps) {
+export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps) {
   const { toast } = useToast();
-  const [amount, setAmount] = useState('');
+  const navigate = useNavigate();
+  const [amount, setAmount] = useState(defaultAmount?.toString() || '');
   const [comment, setComment] = useState('');
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
+  const [selectedAmount, setSelectedAmount] = useState<number | null>(defaultAmount || null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [invoice, setInvoice] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'webln' | 'bitcoin-connect'>('webln');
@@ -33,6 +39,23 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
     maxSendable: number;
     commentAllowed: number;
   } | null>(null);
+
+  // Fetch ZapTok profile information
+  const { data: zapTokProfile } = useAuthor(ZAPTOK_CONFIG.DEV_PUBKEY);
+
+  // Create npub link for profile
+  const handleProfileClick = () => {
+    const npub = nip19.npubEncode(ZAPTOK_CONFIG.DEV_PUBKEY);
+    navigate(`/${npub}`);
+  };
+
+  // Update amount when defaultAmount changes
+  useEffect(() => {
+    if (defaultAmount) {
+      setAmount(defaultAmount.toString());
+      setSelectedAmount(defaultAmount);
+    }
+  }, [defaultAmount]);
 
   // Initialize Bitcoin Connect and fetch Lightning address info
   useEffect(() => {
@@ -81,7 +104,7 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
 
   const handleGenerateInvoice = async () => {
     const amountValue = parseInt(amount);
-    
+
     if (!amount || amountValue <= 0) {
       toast({
         title: "Invalid Amount",
@@ -104,7 +127,7 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
 
       if (amountValue > lightningInfo.maxSendable) {
         toast({
-          title: "Amount Too Large", 
+          title: "Amount Too Large",
           description: `Maximum amount is ${lightningInfo.maxSendable.toLocaleString()} sats.`,
           variant: "destructive",
         });
@@ -123,16 +146,16 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
     }
 
     setIsProcessing(true);
-    
+
     try {
       const paymentRequest = await lightningService.generateInvoice(
         amountValue,
         comment,
         ZAPTOK_DEV_PUBKEY
       );
-      
+
       setInvoice(paymentRequest.invoice);
-      
+
       toast({
         title: "Invoice Generated",
         description: "Lightning invoice created successfully!",
@@ -151,28 +174,28 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
 
   const handlePayInvoice = async () => {
     if (!invoice) return;
-    
+
     setIsProcessing(true);
-    
+
     try {
       let paymentResponse;
-      
+
       if (paymentMethod === 'bitcoin-connect') {
         // Use Bitcoin Connect for payment
         try {
           await launchPaymentModal({ invoice });
           paymentResponse = { success: true };
         } catch (error) {
-          paymentResponse = { 
-            success: false, 
-            error: error instanceof Error ? error.message : 'Bitcoin Connect payment failed' 
+          paymentResponse = {
+            success: false,
+            error: error instanceof Error ? error.message : 'Bitcoin Connect payment failed'
           };
         }
       } else {
         // Use WebLN for payment
         paymentResponse = await lightningService.payInvoice(invoice);
       }
-      
+
       if (paymentResponse.success) {
         toast({
           title: "Payment Successful!",
@@ -199,9 +222,9 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
   };
 
   const resetForm = () => {
-    setAmount('');
+    setAmount(defaultAmount?.toString() || '');
     setComment('');
-    setSelectedAmount(null);
+    setSelectedAmount(defaultAmount || null);
     setInvoice(null);
     setIsProcessing(false);
     setPaymentMethod('webln');
@@ -217,8 +240,22 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
       <DialogContent className="max-w-md bg-gray-900 border border-gray-700">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-yellow-400 flex items-center gap-2">
-            <Zap className="h-5 w-5" />
-            Support ZapTok
+            <div className="shrink-0">Zap to</div>
+            <Avatar
+              className="h-6 w-6 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={handleProfileClick}
+            >
+              <AvatarImage src={zapTokProfile?.metadata?.picture} />
+              <AvatarFallback className="bg-yellow-500 text-black text-xs font-bold">
+                ZT
+              </AvatarFallback>
+            </Avatar>
+            <div
+              className="truncate flex-1 max-w-fit text-start cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={handleProfileClick}
+            >
+              {zapTokProfile?.metadata?.name || zapTokProfile?.metadata?.display_name || 'ZapTok'}
+            </div>
           </DialogTitle>
         </DialogHeader>
 
@@ -230,7 +267,7 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
                 <Label className="text-yellow-400 font-medium">
                   Amount (sats)
                 </Label>
-                
+
                 {/* Preset Amount Grid */}
                 <div className="grid grid-cols-4 gap-2">
                   {presetAmounts.map((sats) => (
@@ -352,7 +389,7 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
                   >
                     {isProcessing ? 'Processing Payment...' : `Pay with ${paymentMethod === 'webln' ? 'WebLN' : 'Bitcoin Connect'}`}
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     onClick={() => navigator.clipboard.writeText(invoice)}
@@ -360,7 +397,7 @@ export function DonationZap({ isOpen, onClose }: DonationZapProps) {
                   >
                     Copy Invoice
                   </Button>
-                  
+
                   <Button
                     variant="ghost"
                     onClick={() => setInvoice(null)}

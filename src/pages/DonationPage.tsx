@@ -1,15 +1,23 @@
 import { useState } from 'react';
-import { ArrowLeft, Zap, Heart, Coffee } from 'lucide-react';
+import { ArrowLeft, Zap, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
-import { DonationZap } from '@/components/DonationZap';
+import { ZAPTOK_CONFIG } from '@/constants';
 import { RecentSupporters } from '@/components/donation/RecentSupporters';
+import { DonationZap } from '@/components/DonationZap';
 
 export function DonationPage() {
   const navigate = useNavigate();
-  const [showDonationModal, setShowDonationModal] = useState(false);
+  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
+  const [selectedAmount, setSelectedAmount] = useState<number | undefined>(undefined);
+
+  const handleAmountSelect = (amount: number) => {
+    setSelectedAmount(amount);
+    setIsDonationModalOpen(true);
+  };
 
   useSeoMeta({
     title: 'Support ZapTok - ZapTok',
@@ -32,126 +40,89 @@ export function DonationPage() {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-2xl mx-auto space-y-8">
         {/* Main Donation Section */}
-        <div className="lg:col-span-2">
-          <Card className="bg-gray-900 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-yellow-400 flex items-center gap-3">
-                <Zap className="h-6 w-6" />
-                Support ZapTok Development
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="text-gray-300 space-y-4">
-                <p>
-                  ZapTok is an open-source, decentralized video platform built on Nostr. 
-                  Your support helps us continue developing innovative features and 
-                  maintaining the infrastructure that makes ZapTok possible.
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div className="flex items-center gap-2 text-yellow-400">
-                    <Heart className="h-4 w-4" />
-                    <span>Open Source</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-yellow-400">
-                    <Zap className="h-4 w-4" />
-                    <span>Lightning Fast</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-yellow-400">
-                    <Coffee className="h-4 w-4" />
-                    <span>Community Driven</span>
-                  </div>
-                </div>
-              </div>
+        <Card className="bg-gray-900 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-yellow-400 flex items-center justify-center gap-3">
+              <Zap className="h-6 w-6" />
+              <span>Support ZapTok Development</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-gray-400 hover:text-yellow-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <div className="text-sm space-y-2">
+                      <div className="font-semibold">How Lightning Donations Work:</div>
+                      <div className="space-y-1">
+                        <div><span className="text-yellow-400">1.</span> Choose an amount or enter a custom donation amount</div>
+                        <div><span className="text-yellow-400">2.</span> A Lightning invoice will be generated instantly</div>
+                        <div><span className="text-yellow-400">3.</span> Pay with your Lightning wallet (WebLN supported)</div>
+                        <div><span className="text-yellow-400">4.</span> Your support directly helps ZapTok development!</div>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-8">
+            <div className="text-gray-300 space-y-4">
+              <p className="text-center">
+                Your support helps us continue developing innovative features and
+                maintaining the infrastructure that makes ZapTok possible.
+              </p>
+            </div>
 
-              <div className="border-t border-gray-700 pt-6">
+            {/* Preset Amount Buttons - Jumble Style */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { amount: 1000, text: '⚡ 1k' },
+                { amount: 10000, text: '🚀 10k' },
+                { amount: 100000, text: '💎 100k' },
+                { amount: 1000000, text: '🌟 1M' }
+              ].map(({ amount, text }) => (
                 <Button
-                  onClick={() => setShowDonationModal(true)}
-                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-4 text-lg"
-                  size="lg"
+                  key={amount}
+                  variant="secondary"
+                  className="h-16 text-lg font-semibold bg-gray-800 border-gray-600 text-gray-300 hover:border-yellow-500 hover:text-yellow-400 hover:bg-gray-700"
+                  onClick={() => handleAmountSelect(amount)}
                 >
-                  <Zap className="h-5 w-5 mr-2" />
-                  Make a Lightning Donation
+                  {text}
                 </Button>
-              </div>
+              ))}
+            </div>
 
-              {/* How it works */}
-              <div className="bg-gray-800 rounded-lg p-4 space-y-3">
-                <h3 className="text-yellow-400 font-semibold">How Lightning Donations Work</h3>
-                <div className="text-sm text-gray-300 space-y-2">
-                  <div className="flex items-start gap-3">
-                    <span className="text-yellow-400 font-bold">1.</span>
-                    <span>Choose an amount or enter a custom donation amount</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <span className="text-yellow-400 font-bold">2.</span>
-                    <span>A Lightning invoice will be generated instantly</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <span className="text-yellow-400 font-bold">3.</span>
-                    <span>Pay with your Lightning wallet (WebLN supported)</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <span className="text-yellow-400 font-bold">4.</span>
-                    <span>Your support directly helps ZapTok development!</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Recent Supporters - Integrated */}
+            <div className="border-t border-gray-700 pt-8">
+              <RecentSupporters />
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Recent Supporters */}
-          <RecentSupporters />
-
-          {/* Development Stats */}
-          <Card className="bg-gray-900 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-yellow-400 text-sm">Development Impact</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-300">Open Source Commits</span>
-                <span className="text-white font-semibold">500+</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-300">Features Released</span>
-                <span className="text-white font-semibold">25+</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-300">Community Members</span>
-                <span className="text-white font-semibold">1,000+</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-300">Videos Shared</span>
-                <span className="text-white font-semibold">10,000+</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Thank You Message */}
-          <Card className="bg-gradient-to-br from-yellow-900/20 to-yellow-800/20 border-yellow-700">
-            <CardContent className="p-4 text-center">
-              <div className="text-yellow-400 text-2xl mb-2">🙏</div>
-              <div className="text-yellow-300 font-semibold text-sm mb-1">
-                Thank You!
-              </div>
-              <div className="text-yellow-200 text-xs">
-                Every donation, no matter the size, helps us build a better decentralized future.
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Thank You Message */}
+        <Card className="bg-gradient-to-br from-yellow-900/20 to-yellow-800/20 border-yellow-700">
+          <CardContent className="p-6 text-center">
+            <div className="text-yellow-400 text-3xl mb-3">🙏</div>
+            <div className="text-yellow-300 font-semibold text-lg mb-2">
+              Thank You!
+            </div>
+            <div className="text-yellow-200 text-sm">
+              Every donation, no matter the size, helps us build a better decentralized future.
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Donation Modal */}
-      <DonationZap 
-        isOpen={showDonationModal}
-        onClose={() => setShowDonationModal(false)}
+      <DonationZap
+        isOpen={isDonationModalOpen}
+        onClose={() => {
+          setIsDonationModalOpen(false);
+          setSelectedAmount(undefined);
+        }}
+        defaultAmount={selectedAmount}
       />
     </div>
   );
