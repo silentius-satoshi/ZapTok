@@ -1,7 +1,38 @@
 import { requestProvider } from 'webln';
-import { nip19 } from 'nostr-tools';
+import { nip19, kinds, type Filter } from 'nostr-tools';
+import { makeZapRequest } from 'nostr-tools/nip57';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { ZAPTOK_CONFIG } from '@/constants';
+import { useNostr } from '@nostrify/react';
+import {
+  init,
+  launchPaymentModal,
+  onConnected,
+  onDisconnected
+} from '@getalby/bitcoin-connect-react';
+import { Invoice } from '@getalby/lightning-tools';
+import { bech32 } from '@scure/base';
+import type { WebLNProvider } from 'webln';
+import dayjs from 'dayjs';
+import type { SubCloser } from 'nostr-tools/abstract-pool';
+
+// LNURL types from @getalby/lightning-tools
+export interface LNURLPayResponse {
+  callback: string;
+  minSendable: number;
+  maxSendable: number;
+  metadata: string;
+  commentAllowed?: number;
+  tag: string;
+  allowsNostr?: boolean;
+}
+
+export interface LNURLPayCallbackResponse {
+  pr?: string;
+  successAction?: any;
+  disposable?: boolean;
+  routes?: any[];
+}
 
 // ZapTok developer pubkey for donations
 export const ZAPTOK_DEV_PUBKEY = ZAPTOK_CONFIG.DEV_PUBKEY;
@@ -19,26 +50,131 @@ export interface PaymentResponse {
   error?: string;
 }
 
-export interface LNURLPayResponse {
-  callback: string;
-  maxSendable: number;
-  minSendable: number;
-  metadata: string;
-  tag: string;
-  commentAllowed?: number;
+export interface ZapInfo {
+  senderPubkey?: string;
+  recipientPubkey?: string;
+  eventId?: string;
+  originalEventId?: string;
+  invoice?: string;
+  amount: number;
+  comment?: string;
+  preimage?: string;
 }
 
-export interface LNURLPayCallbackResponse {
-  pr: string;
-  successAction?: {
-    tag: string;
-    message?: string;
-    url?: string;
-  };
+export type TRecentSupporter = {
+  pubkey: string;
+  amount: number;
+  comment?: string;
+  formattedAmount: string;
+  timestamp: number;
+}
+
+/**
+ * Parse zap receipt event to extract payment information
+ * Based on Jumble's comprehensive implementation
+ */
+export function getZapInfoFromEvent(receiptEvent: NostrEvent): ZapInfo | null {
+  if (receiptEvent.kind !== kinds.Zap) return null;
+
+  let senderPubkey: string | undefined;
+  let recipientPubkey: string | undefined;
+  let originalEventId: string | undefined;
+  let eventId: string | undefined;
+  let invoice: string | undefined;
+  let amount: number | undefined;
+  let comment: string | undefined;
+  let description: string | undefined;
+  let preimage: string | undefined;
+
+  try {
+    receiptEvent.tags.forEach((tag) => {
+      const [tagName, tagValue] = tag;
+      switch (tagName) {
+        case 'P': // Sender pubkey (from zap request)
+          senderPubkey = tagValue;
+          break;
+        case 'p': // Recipient pubkey
+          recipientPubkey = tagValue;
+          break;
+        case 'e': // Original event ID
+          originalEventId = tag[1];
+          eventId = tag[1]; // Could be converted to bech32 if needed
+          break;
+        case 'bolt11': // Lightning invoice
+          invoice = tagValue;
+          break;
+        case 'description': // Zap request (contains comment)
+          description = tagValue;
+          break;
+        case 'preimage': // Payment preimage
+          preimage = tagValue;
+          break;
+        case 'amount': // Amount in millisats (fallback)
+          if (!amount) {
+            amount = parseInt(tagValue) / 1000; // Convert to sats
+          }
+          break;
+      }
+    });
+
+    if (!recipientPubkey || !invoice) return null;
+
+    // Parse amount from invoice (Jumble's strategy)
+    amount = invoice ? getAmountFromInvoice(invoice) : 0;
+
+    // Parse description to get comment from zap request
+    if (description) {
+      try {
+        const zapRequest = JSON.parse(description);
+        comment = zapRequest.content;
+        if (!senderPubkey) {
+          senderPubkey = zapRequest.pubkey;
+        }
+      } catch {
+        // Ignore parsing errors
+      }
+    }
+
+    return {
+      senderPubkey,
+      recipientPubkey,
+      eventId,
+      originalEventId,
+      invoice,
+      amount,
+      comment,
+      preimage
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get amount from Lightning invoice using @getalby/lightning-tools
+ */
+export function getAmountFromInvoice(invoice: string): number {
+  try {
+    const _invoice = new Invoice({ pr: invoice });
+    return _invoice.satoshi;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Format amount like Jumble
+ */
+export function formatAmount(amount: number): string {
+  if (amount < 1000) return amount.toString();
+  if (amount < 1000000) return `${Math.round(amount / 100) / 10}k`;
+  return `${Math.round(amount / 100000) / 10}M`;
 }
 
 export class LightningService {
   private static instance: LightningService;
+  private provider: WebLNProvider | null = null;
+  private recentSupportersCache: TRecentSupporter[] | null = null;
 
   public static getInstance(): LightningService {
     if (!LightningService.instance) {
@@ -47,19 +183,147 @@ export class LightningService {
     return LightningService.instance;
   }
 
-  private constructor() {}
+  private constructor() {
+    // Initialize Bitcoin Connect like Jumble
+    init({
+      appName: 'ZapTok',
+      showBalance: false
+    });
+
+    onConnected((provider) => {
+      this.provider = provider;
+    });
+
+    onDisconnected(() => {
+      this.provider = null;
+    });
+  }
 
   /**
-   * Convert Lightning address to LNURL
+   * Comprehensive NIP-57 zap implementation based on Jumble
    */
-  private lightningAddressToLNURL(lightningAddress: string): string {
-    const [name, domain] = lightningAddress.split('@');
-    if (!name || !domain) {
-      throw new Error('Invalid Lightning address format');
+  async zap(
+    sender: string,
+    recipientOrEvent: string | NostrEvent,
+    sats: number,
+    comment: string,
+    nostr: any, // Nostr client from useNostr hook
+    user: any, // User object with signer from useCurrentUser hook
+    closeOuterModal?: () => void
+  ): Promise<{ preimage: string; invoice: string } | null> {
+    if (!user?.signer) {
+      throw new Error('You need to be logged in to zap');
     }
-    
-    const url = `https://${domain}/.well-known/lnurlp/${name}`;
-    return url;
+
+    const { recipient, event } =
+      typeof recipientOrEvent === 'string'
+        ? { recipient: recipientOrEvent }
+        : { recipient: recipientOrEvent.pubkey, event: recipientOrEvent };
+
+    // Fetch recipient profile to get Lightning address
+    const profile = await this.fetchProfile(recipient, nostr);
+    if (!profile) {
+      throw new Error('Recipient not found');
+    }
+
+    // Get zap endpoint from Lightning address
+    const zapEndpoint = await this.getZapEndpoint(profile);
+    if (!zapEndpoint) {
+      throw new Error("Recipient's lightning address is invalid");
+    }
+
+    const { callback, lnurl } = zapEndpoint;
+    const amount = sats * 1000; // Convert to millisats
+
+    // Create NIP-57 zap request
+    const zapRequestDraft = makeZapRequest({
+      ...(event ? { event } : { pubkey: recipient }),
+      amount,
+      relays: [ZAPTOK_CONFIG.DEFAULT_RELAY_URL], // Use our default relay
+      comment
+    });
+
+    const zapRequest = await user.signer.signEvent(zapRequestDraft);
+
+    // Request invoice from LNURL callback
+    const zapRequestRes = await fetch(
+      `${callback}?amount=${amount}&nostr=${encodeURI(JSON.stringify(zapRequest))}&lnurl=${lnurl}`
+    );
+
+    const zapRequestResBody = await zapRequestRes.json();
+    if (zapRequestResBody.error) {
+      throw new Error(zapRequestResBody.message);
+    }
+
+    const { pr, verify } = zapRequestResBody;
+    if (!pr) {
+      throw new Error('Failed to create invoice');
+    }
+
+    // Pay with WebLN if available
+    if (this.provider) {
+      const { preimage } = await this.provider.sendPayment(pr);
+      closeOuterModal?.();
+      return { preimage, invoice: pr };
+    }
+
+    // Fallback to Bitcoin Connect payment modal
+    return new Promise((resolve) => {
+      closeOuterModal?.();
+      let checkPaymentInterval: ReturnType<typeof setInterval> | undefined;
+      let subCloser: any; // SubCloser type
+
+      const { setPaid } = launchPaymentModal({
+        invoice: pr,
+        onPaid: (response) => {
+          clearInterval(checkPaymentInterval);
+          subCloser?.close();
+          resolve({ preimage: response.preimage, invoice: pr });
+        },
+        onCancelled: () => {
+          clearInterval(checkPaymentInterval);
+          subCloser?.close();
+          resolve(null);
+        }
+      });
+
+      // Monitor for zap receipt if we have verification
+      if (verify) {
+        checkPaymentInterval = setInterval(async () => {
+          try {
+            const invoice = new Invoice({ pr, verify });
+            const paid = await invoice.verifyPayment();
+            if (paid && invoice.preimage) {
+              setPaid({ preimage: invoice.preimage });
+            }
+          } catch (error) {
+            // Ignore verification errors
+          }
+        }, 1000);
+      } else {
+        // Monitor Nostr for zap receipt
+        const filter: Filter = {
+          kinds: [kinds.Zap],
+          '#p': [recipient],
+          since: dayjs().subtract(1, 'minute').unix()
+        };
+
+        if (event) {
+          filter['#e'] = [event.id];
+        }
+
+        subCloser = nostr.subscribe([ZAPTOK_CONFIG.DEFAULT_RELAY_URL], filter, {
+          onevent: (evt: NostrEvent) => {
+            const info = getZapInfoFromEvent(evt);
+            if (!info) return;
+
+            if (info.invoice === pr) {
+              setPaid({ preimage: info.preimage ?? '' });
+            }
+          }
+        });
+      }
+    });
   }
 
   /**
@@ -69,17 +333,17 @@ export class LightningService {
     try {
       const lnurlpUrl = this.lightningAddressToLNURL(lightningAddress);
       const response = await fetch(lnurlpUrl);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch LNURL-pay info: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.tag !== 'payRequest') {
         throw new Error('Invalid LNURL-pay response');
       }
-      
+
       return data;
     } catch (error) {
       console.error('Failed to fetch LNURL-pay info:', error);
@@ -97,54 +361,54 @@ export class LightningService {
   ): Promise<PaymentRequest> {
     try {
       const lightningAddress = ZAPTOK_CONFIG.LIGHTNING_ADDRESS;
-      
+
       // Validate amount is in acceptable range
       if (amount < 1) {
         throw new Error('Amount must be at least 1 sat');
       }
-      
+
       // Convert sats to millisats for LNURL
       const amountMsat = amount * 1000;
-      
+
       // Step 1: Get LNURL-pay info
       const lnurlPayInfo = await this.fetchLNURLPayInfo(lightningAddress);
-      
+
       // Validate amount is within limits
       if (amountMsat < lnurlPayInfo.minSendable) {
         throw new Error(`Amount too small. Minimum: ${lnurlPayInfo.minSendable / 1000} sats`);
       }
-      
+
       if (amountMsat > lnurlPayInfo.maxSendable) {
         throw new Error(`Amount too large. Maximum: ${lnurlPayInfo.maxSendable / 1000} sats`);
       }
-      
+
       // Check if comments are supported
       const commentAllowed = lnurlPayInfo.commentAllowed || 0;
       if (comment.length > commentAllowed) {
         console.warn(`Comment truncated to ${commentAllowed} characters`);
         comment = comment.substring(0, commentAllowed);
       }
-      
+
       // Step 2: Request invoice from callback URL
       const callbackUrl = new URL(lnurlPayInfo.callback);
       callbackUrl.searchParams.set('amount', amountMsat.toString());
-      
+
       if (comment && commentAllowed > 0) {
         callbackUrl.searchParams.set('comment', comment);
       }
-      
+
       const callbackResponse = await fetch(callbackUrl.toString());
-      
+
       if (!callbackResponse.ok) {
         throw new Error(`Failed to get invoice: ${callbackResponse.status}`);
       }
-      
+
       const callbackData: LNURLPayCallbackResponse = await callbackResponse.json();
-      
+
       if (!callbackData.pr) {
         throw new Error('No payment request received from Lightning service');
       }
-      
+
       return {
         invoice: callbackData.pr,
         amount,
@@ -164,7 +428,7 @@ export class LightningService {
     try {
       const webln = await requestProvider();
       const response = await webln.sendPayment(invoice);
-      
+
       return {
         success: true,
         preimage: response.preimage,
@@ -188,12 +452,12 @@ export class LightningService {
       if (!lowerInvoice.startsWith('lnbc') && !lowerInvoice.startsWith('lntb') && !lowerInvoice.startsWith('lnbcrt')) {
         return false;
       }
-      
+
       // Basic length check (Lightning invoices are typically quite long)
       if (invoice.length < 100) {
         return false;
       }
-      
+
       return true;
     } catch (error) {
       return false;
@@ -223,7 +487,7 @@ export class LightningService {
   }> {
     try {
       const lnurlPayInfo = await this.fetchLNURLPayInfo(lightningAddress);
-      
+
       return {
         minSendable: Math.floor(lnurlPayInfo.minSendable / 1000), // Convert to sats
         maxSendable: Math.floor(lnurlPayInfo.maxSendable / 1000), // Convert to sats
@@ -234,6 +498,110 @@ export class LightningService {
       console.error('Failed to get Lightning address info:', error);
       throw error;
     }
+  }
+
+  /**
+   * Fetch user profile from Nostr
+   */
+  private async fetchProfile(pubkey: string, nostr: any): Promise<NostrEvent | null> {
+    try {
+      const events = await nostr.query([{
+        kinds: [kinds.Metadata],
+        authors: [pubkey]
+      }], { signal: AbortSignal.timeout(5000) });
+
+      return events[0] || null;
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get zap endpoint from Lightning address in profile
+   */
+  private async getZapEndpoint(profileEvent: NostrEvent): Promise<{ callback: string; lnurl: string } | null> {
+    try {
+      const metadata = JSON.parse(profileEvent.content);
+      const lightningAddress = metadata.lud16 || metadata.lud06;
+
+      if (!lightningAddress) {
+        return null;
+      }
+
+      const lnurl = this.lightningAddressToLNURL(lightningAddress);
+      const res = await fetch(lnurl);
+      const data = await res.json();
+
+      if (!data.callback || !data.allowsNostr) {
+        return null;
+      }
+
+      return { callback: data.callback, lnurl: lightningAddress };
+    } catch (error) {
+      console.error('Failed to get zap endpoint:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Convert Lightning address to LNURL
+   */
+  private lightningAddressToLNURL(lightningAddress: string): string {
+    const [name, domain] = lightningAddress.split('@');
+    if (!name || !domain) {
+      throw new Error('Invalid Lightning address format');
+    }
+
+    const url = `https://${domain}/.well-known/lnurlp/${name}`;
+    return url;
+  }
+
+  /**
+   * Fetch recent supporters from Nostr zap events with service-level caching
+   */
+  async fetchRecentSupporters(nostr: any): Promise<TRecentSupporter[]> {
+    try {
+      const events = await nostr.query([{
+        kinds: [kinds.Zap],
+        '#p': [ZAPTOK_DEV_PUBKEY],
+        limit: 50
+      }], { signal: AbortSignal.timeout(5000) });
+
+      const supporters = new Map<string, TRecentSupporter>();
+
+      for (const event of events) {
+        const zapInfo = getZapInfoFromEvent(event);
+        if (!zapInfo?.senderPubkey || zapInfo.amount <= 0) continue;
+
+        const existingSupporter = supporters.get(zapInfo.senderPubkey);
+        if (!existingSupporter || zapInfo.amount > existingSupporter.amount) {
+          supporters.set(zapInfo.senderPubkey, {
+            pubkey: zapInfo.senderPubkey,
+            amount: zapInfo.amount,
+            comment: zapInfo.comment,
+            formattedAmount: formatAmount(zapInfo.amount),
+            timestamp: event.created_at
+          });
+        }
+      }
+
+      this.recentSupportersCache = Array.from(supporters.values())
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 20);
+
+      return this.recentSupportersCache;
+    } catch (error) {
+      console.error('Failed to fetch supporters:', error);
+      return this.recentSupportersCache || [];
+    }
+  }
+
+  /**
+   * Get cached recent supporters
+   */
+  getCachedSupporters(): TRecentSupporter[] {
+    return this.recentSupportersCache || [];
   }
 }
 

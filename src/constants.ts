@@ -16,6 +16,8 @@ export const ZAPTOK_CONFIG = {
   DEV_PUBKEY: '3f9296e008ada9a328d176d7fe69d6ebb82dd2d47305229de17f1868e6da5a3d',
   // Replace with actual Lightning address
   LIGHTNING_ADDRESS: 'zaptok@strike.me',
+  // Default relay for NIP-57 zaps
+  DEFAULT_RELAY_URL: 'wss://relay.nostr.band',
   // Donation preset amounts in sats
   DONATION_PRESETS: [21, 77, 210, 777, 1000, 2100, 5000, 10000, 21000, 50000, 100000, 210000],
 } as const;

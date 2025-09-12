@@ -13,9 +13,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/useToast';
 import { useAuthor } from '@/hooks/useAuthor';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostr } from '@nostrify/react';
 import { lightningService, ZAPTOK_DEV_PUBKEY } from '@/lib/lightning.service';
 import { ZAPTOK_CONFIG } from '@/constants';
-import { init, launchPaymentModal } from '@getalby/bitcoin-connect-react';
 import { nip19 } from 'nostr-tools';
 import { useNavigate } from 'react-router-dom';
 
@@ -28,17 +29,12 @@ interface DonationZapProps {
 export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useCurrentUser();
+  const { nostr } = useNostr();
   const [amount, setAmount] = useState(defaultAmount?.toString() || '');
   const [comment, setComment] = useState('');
   const [selectedAmount, setSelectedAmount] = useState<number | null>(defaultAmount || null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [invoice, setInvoice] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'webln' | 'bitcoin-connect'>('webln');
-  const [lightningInfo, setLightningInfo] = useState<{
-    minSendable: number;
-    maxSendable: number;
-    commentAllowed: number;
-  } | null>(null);
 
   // Fetch ZapTok profile information
   const { data: zapTokProfile } = useAuthor(ZAPTOK_CONFIG.DEV_PUBKEY);
@@ -56,31 +52,6 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
       setSelectedAmount(defaultAmount);
     }
   }, [defaultAmount]);
-
-  // Initialize Bitcoin Connect and fetch Lightning address info
-  useEffect(() => {
-    init({
-      appName: 'ZapTok',
-    });
-
-    // Fetch Lightning address capabilities
-    const fetchLightningInfo = async () => {
-      try {
-        const info = await lightningService.getLightningAddressInfo(ZAPTOK_CONFIG.LIGHTNING_ADDRESS);
-        setLightningInfo(info);
-      } catch (error) {
-        console.warn('Could not fetch Lightning address info:', error);
-        // Set fallback limits
-        setLightningInfo({
-          minSendable: 1,
-          maxSendable: 1000000, // 1M sats
-          commentAllowed: 144,
-        });
-      }
-    };
-
-    fetchLightningInfo();
-  }, []);
 
   // Jumble-style preset amounts from constants
   const presetAmounts = ZAPTOK_CONFIG.DONATION_PRESETS;
@@ -102,7 +73,16 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
     return sats.toString();
   };
 
-  const handleGenerateInvoice = async () => {
+  const handleZap = async () => {
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to send zaps.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const amountValue = parseInt(amount);
 
     if (!amount || amountValue <= 0) {
@@ -114,106 +94,64 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
       return;
     }
 
-    // Validate against Lightning address limits
-    if (lightningInfo) {
-      if (amountValue < lightningInfo.minSendable) {
-        toast({
-          title: "Amount Too Small",
-          description: `Minimum amount is ${lightningInfo.minSendable} sats.`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (amountValue > lightningInfo.maxSendable) {
-        toast({
-          title: "Amount Too Large",
-          description: `Maximum amount is ${lightningInfo.maxSendable.toLocaleString()} sats.`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Validate comment length
-      if (comment.length > lightningInfo.commentAllowed) {
-        toast({
-          title: "Comment Too Long",
-          description: `Comments are limited to ${lightningInfo.commentAllowed} characters.`,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const paymentRequest = await lightningService.generateInvoice(
-        amountValue,
-        comment,
-        ZAPTOK_DEV_PUBKEY
-      );
-
-      setInvoice(paymentRequest.invoice);
-
+    if (amountValue < 1) {
       toast({
-        title: "Invoice Generated",
-        description: "Lightning invoice created successfully!",
-      });
-    } catch (error) {
-      console.error('Invoice generation error:', error);
-      toast({
-        title: "Invoice Generation Failed",
-        description: error instanceof Error ? error.message : "Failed to generate invoice. Please try again.",
+        title: "Amount Too Small",
+        description: "Minimum amount is 1 sat.",
         variant: "destructive",
       });
-    } finally {
-      setIsProcessing(false);
+      return;
     }
-  };
 
-  const handlePayInvoice = async () => {
-    if (!invoice) return;
+    if (amountValue > 1000000) {
+      toast({
+        title: "Amount Too Large",
+        description: "Maximum amount is 1M sats.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (comment.length > 144) {
+      toast({
+        title: "Comment Too Long",
+        description: "Comments are limited to 144 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsProcessing(true);
 
     try {
-      let paymentResponse;
+      const result = await lightningService.zap(
+        user.pubkey,
+        ZAPTOK_DEV_PUBKEY,
+        amountValue,
+        comment,
+        nostr,
+        user,
+        onClose
+      );
 
-      if (paymentMethod === 'bitcoin-connect') {
-        // Use Bitcoin Connect for payment
-        try {
-          await launchPaymentModal({ invoice });
-          paymentResponse = { success: true };
-        } catch (error) {
-          paymentResponse = {
-            success: false,
-            error: error instanceof Error ? error.message : 'Bitcoin Connect payment failed'
-          };
-        }
-      } else {
-        // Use WebLN for payment
-        paymentResponse = await lightningService.payInvoice(invoice);
-      }
-
-      if (paymentResponse.success) {
+      if (result) {
         toast({
-          title: "Payment Successful!",
+          title: "Zap Successful!",
           description: "Thank you for supporting ZapTok development!",
         });
-        onClose();
         resetForm();
       } else {
         toast({
-          title: "Payment Failed",
-          description: paymentResponse.error || "Payment could not be processed",
+          title: "Zap Cancelled",
+          description: "Payment was cancelled.",
           variant: "destructive",
         });
       }
     } catch (error) {
+      console.error('Zap error:', error);
       toast({
-        title: "Payment Error",
-        description: error instanceof Error ? error.message : "Payment failed",
+        title: "Zap Failed",
+        description: error instanceof Error ? error.message : "Failed to send zap. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -225,9 +163,7 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
     setAmount(defaultAmount?.toString() || '');
     setComment('');
     setSelectedAmount(defaultAmount || null);
-    setInvoice(null);
     setIsProcessing(false);
-    setPaymentMethod('webln');
   };
 
   const handleClose = () => {
@@ -260,155 +196,71 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
         </DialogHeader>
 
         <div className="space-y-6">
-          {!invoice ? (
-            <>
-              {/* Amount Selection */}
-              <div className="space-y-3">
-                <Label className="text-yellow-400 font-medium">
-                  Amount (sats)
-                </Label>
+          {/* Amount Selection */}
+          <div className="space-y-3">
+            <Label className="text-yellow-400 font-medium">
+              Amount (sats)
+            </Label>
 
-                {/* Preset Amount Grid */}
-                <div className="grid grid-cols-4 gap-2">
-                  {presetAmounts.map((sats) => (
-                    <Button
-                      key={sats}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAmountSelect(sats)}
-                      className={`border-yellow-500 text-yellow-400 hover:bg-yellow-500 hover:text-black text-xs ${
-                        selectedAmount === sats ? 'bg-yellow-500 text-black' : 'bg-transparent'
-                      }`}
-                    >
-                      {formatAmount(sats)}
-                    </Button>
-                  ))}
-                </div>
+            {/* Preset Amount Grid */}
+            <div className="grid grid-cols-4 gap-2">
+              {presetAmounts.map((sats) => (
+                <Button
+                  key={sats}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAmountSelect(sats)}
+                  className={`border-yellow-500 text-yellow-400 hover:bg-yellow-500 hover:text-black text-xs ${
+                    selectedAmount === sats ? 'bg-yellow-500 text-black' : 'bg-transparent'
+                  }`}
+                >
+                  {formatAmount(sats)}
+                </Button>
+              ))}
+            </div>
 
-                {/* Custom Amount Input */}
-                <Input
-                  type="number"
-                  placeholder="Custom amount"
-                  value={amount}
-                  onChange={(e) => handleCustomAmount(e.target.value)}
-                  className="bg-gray-800 border-yellow-500 text-white placeholder-gray-400 focus:border-yellow-400"
-                />
-              </div>
+            {/* Custom Amount Input */}
+            <Input
+              type="number"
+              placeholder="Custom amount"
+              value={amount}
+              onChange={(e) => handleCustomAmount(e.target.value)}
+              className="bg-gray-800 border-yellow-500 text-white placeholder-gray-400 focus:border-yellow-400"
+            />
+          </div>
 
-              {/* Comment Field */}
-              <div className="space-y-2">
-                <Label className="text-yellow-400 font-medium">
-                  Comment (optional)
-                </Label>
-                <Textarea
-                  placeholder="Leave a message..."
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-yellow-400 resize-none"
-                  rows={3}
-                  maxLength={lightningInfo?.commentAllowed || 144}
-                />
-                <div className="text-xs text-gray-400 text-right">
-                  {comment.length}/{lightningInfo?.commentAllowed || 144}
-                </div>
-              </div>
+          {/* Comment Field */}
+          <div className="space-y-2">
+            <Label className="text-yellow-400 font-medium">
+              Comment (optional)
+            </Label>
+            <Textarea
+              placeholder="Leave a message..."
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-yellow-400 resize-none"
+              rows={3}
+              maxLength={144}
+            />
+            <div className="text-xs text-gray-400 text-right">
+              {comment.length}/144
+            </div>
+          </div>
 
-              {/* Generate Invoice Button */}
+              {/* Zap Button */}
               <Button
-                onClick={handleGenerateInvoice}
-                disabled={isProcessing || !amount || parseInt(amount) <= 0}
+                onClick={handleZap}
+                disabled={isProcessing || !amount || parseInt(amount) <= 0 || !user}
                 className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-3"
               >
-                {isProcessing ? 'Generating...' : 'Generate Lightning Invoice'}
+                {isProcessing ? 'Sending Zap...' : user ? 'Send Zap ⚡' : 'Login Required'}
               </Button>
 
               {/* Lightning Address Info */}
-              {lightningInfo && (
-                <div className="text-xs text-gray-400 text-center space-y-1">
-                  <div>⚡ {ZAPTOK_CONFIG.LIGHTNING_ADDRESS}</div>
-                  <div>
-                    Limits: {lightningInfo.minSendable.toLocaleString()} - {lightningInfo.maxSendable.toLocaleString()} sats
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              {/* Invoice Display */}
-              <div className="space-y-4">
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-yellow-400">
-                    ⚡ {amount} sats
-                  </div>
-                  {comment && (
-                    <div className="text-sm text-gray-300 mt-1">
-                      "{comment}"
-                    </div>
-                  )}
-                </div>
-
-                {/* Invoice String */}
-                <div className="bg-gray-800 p-3 rounded border border-gray-600">
-                  <div className="text-xs text-gray-400 mb-1">Lightning Invoice:</div>
-                  <div className="text-xs text-white break-all font-mono">
-                    {invoice}
-                  </div>
-                </div>
-
-                {/* Payment Method Selection */}
-                <div className="bg-gray-800 p-3 rounded border border-gray-600">
-                  <div className="text-xs text-gray-400 mb-2">Payment Method:</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant={paymentMethod === 'webln' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setPaymentMethod('webln')}
-                      className={paymentMethod === 'webln' ? 'bg-yellow-500 text-black' : 'border-gray-600 text-gray-300'}
-                    >
-                      <Zap className="h-3 w-3 mr-1" />
-                      WebLN
-                    </Button>
-                    <Button
-                      variant={paymentMethod === 'bitcoin-connect' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setPaymentMethod('bitcoin-connect')}
-                      className={paymentMethod === 'bitcoin-connect' ? 'bg-yellow-500 text-black' : 'border-gray-600 text-gray-300'}
-                    >
-                      <Wallet className="h-3 w-3 mr-1" />
-                      Bitcoin Connect
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="space-y-2">
-                  <Button
-                    onClick={handlePayInvoice}
-                    disabled={isProcessing}
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-3"
-                  >
-                    {isProcessing ? 'Processing Payment...' : `Pay with ${paymentMethod === 'webln' ? 'WebLN' : 'Bitcoin Connect'}`}
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    onClick={() => navigator.clipboard.writeText(invoice)}
-                    className="w-full border-gray-600 text-gray-300 hover:bg-gray-800"
-                  >
-                    Copy Invoice
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    onClick={() => setInvoice(null)}
-                    className="w-full text-gray-400 hover:text-white"
-                  >
-                    ← Back to Amount
-                  </Button>
-                </div>
+              <div className="text-xs text-gray-400 text-center space-y-1">
+                <div>⚡ NIP-57 Nostr Zaps</div>
+                <div>Limits: 1 - 1M sats • Comments: 144 chars max</div>
               </div>
-            </>
-          )}
         </div>
       </DialogContent>
     </Dialog>
