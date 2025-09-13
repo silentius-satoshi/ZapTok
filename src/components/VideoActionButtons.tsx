@@ -166,9 +166,9 @@ export function VideoActionButtons({
 
   return (
     <>
-      <div className={`flex items-center ${isMobile ? 'flex-col gap-2.5 w-16' : 'flex-col gap-4 w-28'}`}>
+      <div className={`flex items-center ${isMobile ? 'flex-col gap-3 w-16' : 'flex-col gap-4 w-28'}`}>
         {/* 1. Profile Picture with Follow Button (no click functionality on profile picture) */}
-        <div className="relative">
+        <div className={`relative ${isMobile ? 'mb-2' : ''}`}>
           <div className={`rounded-full p-0 overflow-hidden bg-transparent ${
             isMobile ? 'h-12 w-12' : 'h-20 w-20'
           }`}>
@@ -209,9 +209,7 @@ export function VideoActionButtons({
               width: isMobile ? '28px' : '30px',
               height: isMobile ? '28px' : '30px'
             }}
-            className={`rounded-full bg-transparent hover:bg-white/10 text-white p-0 ${
-              isMobile ? 'h-12 w-12' : 'h-20 w-20'
-            }`}
+            className={isMobile ? 'h-12 w-12' : 'h-20 w-20'}
           />
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
             {reactions.data ? formatCount(reactions.data.zaps) : '0'}

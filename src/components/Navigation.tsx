@@ -1,4 +1,5 @@
-import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Crown, Wallet } from 'lucide-react';
+import React from 'react';
+import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -11,6 +12,7 @@ import { UserSearchModal } from '@/components/UserSearchModal';
 import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
 import { useState, useEffect, useRef } from 'react';
 import { SupporterButton } from '@/components/SupporterButton';
+import { useWallet } from '@/hooks/useWallet';
 
 export function Navigation() {
   const { user } = useCurrentUser();
@@ -21,10 +23,12 @@ export function Navigation() {
   const navigate = useNavigate();
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
 
-  // Check if current user is using a bunker signer
+  // Get comprehensive wallet/signer detection
+  const { isBunkerSigner, isNsecSigner, isExtensionSigner } = useWallet();
+
+  // Check current user login for backwards compatibility
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
   const loginType = currentUserLogin?.type;
-  const isBunkerSigner = loginType === 'bunker' || loginType === 'x-bunker-nostr-tools' || user?.signer?.constructor?.name?.includes('bunker');
 
   // Detect potential signer conflicts (respect user's choice)
   const isExtensionAvailable = !!(window.nostr);
@@ -95,13 +99,28 @@ export function Navigation() {
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'following', icon: Users, label: 'Following', path: '/' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    // Conditional wallet item based on signer type (respects user's login choice)
-    {
-      id: 'wallet',
-      icon: isBunkerSigner ? Zap : Wallet,
-      label: isBunkerSigner ? 'Wallet' : 'Cashu Wallet',
-      path: '/wallet'
-    },
+    // Wallet items - nsec signers see both, others see their respective wallet
+    ...(isNsecSigner ? [
+      {
+        id: 'cashu-wallet',
+        icon: () => <img src={`${import.meta.env.BASE_URL}images/cashu-icon.png`} alt="Cashu" className="w-6 h-6 object-contain" />,
+        label: 'Cashu Wallet',
+        path: '/cashu-wallet'
+      },
+      {
+        id: 'bitcoin-connect-wallet',
+        icon: Zap,
+        label: 'Bitcoin Connect',
+        path: '/bitcoin-connect-wallet'
+      }
+    ] : [
+      {
+        id: 'wallet',
+        icon: isBunkerSigner ? Zap : Wallet,
+        label: isBunkerSigner ? 'Bitcoin Connect' : 'Cashu Wallet',
+        path: isBunkerSigner ? '/bitcoin-connect-wallet' : '/cashu-wallet'
+      }
+    ]),
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
   ];
@@ -119,6 +138,10 @@ export function Navigation() {
       setActiveTab('global');
     } else if (pathname === '/settings') {
       setActiveTab('settings');
+    } else if (pathname === '/cashu-wallet') {
+      setActiveTab(isNsecSigner ? 'cashu-wallet' : 'wallet');
+    } else if (pathname === '/bitcoin-connect-wallet') {
+      setActiveTab(isNsecSigner ? 'bitcoin-connect-wallet' : 'wallet');
     } else if (pathname === '/wallet') {
       setActiveTab('wallet');
     } else if (pathname === '/pro') {
@@ -156,7 +179,7 @@ export function Navigation() {
                     onMouseEnter={() => setHoveredItem(item.id)}
                     onMouseLeave={() => setHoveredItem(null)}
                   >
-                    <item.icon size={24} className={`mr-4 ${
+                    <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
                       activeTab === item.id || hoveredItem === item.id
                         ? 'text-orange-500'
                         : 'text-gray-400'
@@ -165,7 +188,13 @@ export function Navigation() {
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
                       backgroundClip: 'text',
-                    } : {}} />
+                    } : {}}>
+                      {typeof item.icon === 'function' ? (
+                        (item.icon as () => JSX.Element)()
+                      ) : (
+                        React.createElement(item.icon as any, { size: 24 })
+                      )}
+                    </div>
                     <span className={`font-medium text-lg ${
                       activeTab === item.id || hoveredItem === item.id
                         ? 'text-orange-500'
@@ -201,7 +230,7 @@ export function Navigation() {
                 onMouseEnter={() => setHoveredItem(item.id)}
                 onMouseLeave={() => setHoveredItem(null)}
               >
-                <item.icon size={24} className={`mr-4 ${
+                <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
                   activeTab === item.id || hoveredItem === item.id
                     ? 'text-orange-500'
                     : 'text-gray-400'
@@ -210,7 +239,13 @@ export function Navigation() {
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
-                } : {}} />
+                } : {}}>
+                  {typeof item.icon === 'function' ? (
+                    (item.icon as () => JSX.Element)()
+                  ) : (
+                    React.createElement(item.icon as any, { size: 24 })
+                  )}
+                </div>
                 <span className={`font-medium text-lg ${
                   activeTab === item.id || hoveredItem === item.id
                     ? 'text-orange-500'
@@ -237,7 +272,7 @@ export function Navigation() {
                 onMouseEnter={() => setHoveredItem('upload')}
                 onMouseLeave={() => setHoveredItem(null)}
               >
-                <PlusSquare size={24} className={`mr-4 ${
+                <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
                   activeTab === 'upload' || hoveredItem === 'upload'
                     ? 'text-orange-500'
                     : 'text-gray-400'
@@ -246,7 +281,9 @@ export function Navigation() {
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
-                } : {}} />
+                } : {}}>
+                  <PlusSquare size={24} />
+                </div>
                 <span className={`font-medium text-lg ${
                   activeTab === 'upload' || hoveredItem === 'upload'
                     ? 'text-orange-500'
@@ -273,7 +310,7 @@ export function Navigation() {
                 onMouseEnter={() => setHoveredItem('stream')}
                 onMouseLeave={() => setHoveredItem(null)}
               >
-                <Radio size={24} className={`mr-4 ${
+                <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
                   activeTab === 'stream' || hoveredItem === 'stream'
                     ? 'text-orange-500'
                     : 'text-gray-400'
@@ -282,7 +319,9 @@ export function Navigation() {
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
-                } : {}} />
+                } : {}}>
+                  <Radio size={24} />
+                </div>
                 <span className={`font-medium text-lg ${
                   activeTab === 'stream' || hoveredItem === 'stream'
                     ? 'text-orange-500'
@@ -302,7 +341,7 @@ export function Navigation() {
         {user && (
           <div className="mt-auto pt-4 space-y-3">
             <SupporterButton />
-            
+
             {/* Profile Section */}
             <button
               className={`flex items-center gap-3 p-3 rounded-2xl transition-all w-full text-foreground ${

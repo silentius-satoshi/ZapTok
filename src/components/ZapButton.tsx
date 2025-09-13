@@ -1,122 +1,300 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useRef, MouseEvent, TouchEvent } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
+import { useNostr } from '@/hooks/useNostr';
+import { useZap } from '@/contexts/ZapProvider';
+import { useNoteStatsById } from '@/hooks/useNoteStatsById';
 import { Button } from '@/components/ui/button';
-import { Zap } from 'lucide-react';
+import { Zap, Loader } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { getLightningAddress } from '@/lib/lightning';
+import { Event } from 'nostr-tools';
+import lightningService from '@/services/lightning.service';
+import noteStatsService from '@/services/note-stats.service';
+import ZapDialog from './ZapDialog';
 
 interface ZapButtonProps {
   recipientPubkey: string;
   eventId?: string;
+  event?: Event;
   className?: string;
+  iconStyle?: { width: string; height: string };
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   size?: "default" | "sm" | "lg" | "icon";
-  iconSize?: string;
-  iconStyle?: React.CSSProperties;
+}
+
+function formatAmount(amount: number): string {
+  if (amount < 1000) return amount.toString();
+  if (amount < 1000000) return `${Math.round(amount / 100) / 10}k`;
+  return `${Math.round(amount / 100000) / 10}M`;
 }
 
 export function ZapButton({
   recipientPubkey,
   eventId,
+  event,
   className,
+  iconStyle = { width: '16px', height: '16px' },
   variant = "ghost",
-  size = "sm",
-  iconSize = "h-4 w-4",
-  iconStyle
+  size = "sm"
 }: ZapButtonProps) {
   const { user } = useCurrentUser();
+  const { nostr } = useNostr();
   const { data: authorData } = useAuthor(recipientPubkey);
   const { toast } = useToast();
+  const { defaultZapSats, defaultZapComment, quickZap } = useZap();
 
-  const [showSparks, setShowSparks] = useState(false);
+  // Use eventId if provided, otherwise fall back to event.id
+  const noteId = eventId || event?.id;
+  const noteStats = noteId ? noteStatsService.getNoteStatsById(noteId) : null;
 
-  const handleClick = async () => {
-    if (!user) {
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [openZapDialog, setOpenZapDialog] = useState(false);
+  const [zapping, setZapping] = useState(false);
+  const [disable, setDisable] = useState(true);
+
+  const { zapAmount, hasZapped } = useMemo(() => {
+    const totalZaps = noteStats?.zaps?.reduce((acc, zap) => acc + zap.amount, 0) || 0;
+    const userHasZapped = user ? noteStats?.zaps?.some((zap) => zap.pubkey === user.pubkey) : false;
+    return {
+      zapAmount: totalZaps,
+      hasZapped: userHasZapped
+    };
+  }, [noteStats, user?.pubkey]);
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPressRef = useRef(false);
+
+  // Check if recipient has Lightning address
+  useEffect(() => {
+    const checkLightningAddress = async () => {
+      if (!authorData?.metadata) return;
+      if (user?.pubkey === recipientPubkey) return;
+
+      const lightningAddress = getLightningAddress(authorData.metadata);
+      if (lightningAddress) {
+        setDisable(false);
+      }
+    };
+
+    checkLightningAddress();
+  }, [recipientPubkey, authorData, user?.pubkey]);
+
+  const handleZap = async () => {
+    try {
+      if (!user) {
+        throw new Error('You need to be logged in to zap');
+      }
+      setZapping(true);
+
+      // Create the proper recipient for the zap call
+      const zapTarget = event || recipientPubkey;
+
+      await lightningService.zap(
+        user.pubkey,
+        zapTarget,
+        defaultZapSats,
+        defaultZapComment,
+        nostr,
+        user
+      );
+
+      // Update local stats immediately for instant feedback
+      if (noteId) {
+        noteStatsService.addZap(
+          user.pubkey,
+          noteId,
+          `temp-${Date.now()}`, // Temporary PR until we get the real one
+          defaultZapSats,
+          defaultZapComment
+        );
+      }
+
       toast({
-        title: "Login Required",
-        description: "Please log in to send zaps",
+        title: "Zap Sent!",
+        description: `Sent ${defaultZapSats} sats`,
+        variant: "default",
+      });
+    } catch (error) {
+      toast({
+        title: "Zap Failed",
+        description: `${(error as Error).message}`,
         variant: "destructive",
       });
-      return;
+    } finally {
+      setZapping(false);
     }
-
-    // Check if recipient has a Lightning address
-    const lightningAddress = getLightningAddress(authorData?.metadata);
-    if (!lightningAddress) {
-      toast({
-        title: "Zap Not Available",
-        description: "This user hasn't set up Lightning payments in their profile. They need to add a Lightning address (lud16) or LNURL (lud06) to their Nostr profile.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Placeholder functionality - show coming soon message
-    toast({
-      title: "Zap Feature Coming Soon",
-      description: "Lightning zap functionality is currently being updated. Stay tuned!",
-      variant: "default",
-    });
-
-    // Trigger sparks animation for visual feedback
-    setShowSparks(true);
-    setTimeout(() => setShowSparks(false), 1000);
   };
 
-  // Callback when zap is successfully sent (placeholder)
-  const handleZapSuccess = () => {
-    // Trigger sparks animation
-    setShowSparks(true);
-    setTimeout(() => setShowSparks(false), 1000);
+  const handleDialogZap = async (amount: number, comment?: string) => {
+    try {
+      if (!user) {
+        throw new Error('You need to be logged in to zap');
+      }
+      setZapping(true);
+
+      // Create the proper recipient for the zap call
+      const zapTarget = event || recipientPubkey;
+
+      await lightningService.zap(user.pubkey, zapTarget, amount, comment || '', nostr, user);
+
+      // Update local stats immediately for instant feedback
+      if (noteId) {
+        noteStatsService.addZap(
+          user.pubkey,
+          noteId,
+          `temp-${Date.now()}`, // Temporary PR until we get the real one
+          amount,
+          comment
+        );
+      }
+
+      setOpenZapDialog(false);
+      toast({
+        title: "Zap Sent!",
+        description: `Sent ${amount} sats`,
+        variant: "default",
+      });
+    } catch (error) {
+      toast({
+        title: "Zap Failed",
+        description: `${(error as Error).message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setZapping(false);
+    }
+  };
+
+  const handleClickStart = (e: MouseEvent | TouchEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (disable) return;
+
+    isLongPressRef.current = false;
+
+    if ('touches' in e) {
+      const touch = e.touches[0];
+      setTouchStart({ x: touch.clientX, y: touch.clientY });
+    }
+
+    if (quickZap) {
+      timerRef.current = setTimeout(() => {
+        isLongPressRef.current = true;
+        if (!user) {
+          toast({
+            title: "Login Required",
+            description: "Please log in to send zaps",
+            variant: "destructive",
+          });
+          return;
+        }
+        setOpenZapDialog(true);
+      }, 500);
+    }
+  };
+
+  const handleClickEnd = (e: MouseEvent | TouchEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    if (disable) return;
+
+    if ('touches' in e) {
+      setTouchStart(null);
+      if (!touchStart) return;
+      const touch = e.changedTouches[0];
+      const diffX = Math.abs(touch.clientX - touchStart.x);
+      const diffY = Math.abs(touch.clientY - touchStart.y);
+      if (diffX > 10 || diffY > 10) return;
+    }
+
+    if (!quickZap) {
+      if (!user) {
+        toast({
+          title: "Login Required",
+          description: "Please log in to send zaps",
+          variant: "destructive",
+        });
+        return;
+      }
+      setOpenZapDialog(true);
+    } else if (!isLongPressRef.current) {
+      if (!user) {
+        toast({
+          title: "Login Required",
+          description: "Please log in to send zaps",
+          variant: "destructive",
+        });
+        return;
+      }
+      handleZap();
+    }
+    isLongPressRef.current = false;
+  };
+
+  const handleMouseLeave = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
   };
 
   // Check if Lightning address is available
   const lightningAddress = getLightningAddress(authorData?.metadata);
-  const canZap = user && lightningAddress;
 
   // Create tooltip message
   const getTooltipMessage = () => {
     if (!lightningAddress) return 'User has no Lightning address';
     if (!user) return 'Login to zap';
-    return 'Zap feature coming soon';
+    return 'Zap';
   };
 
   return (
-    <Button
-      onClick={handleClick}
-      variant={variant}
-      size={size}
-      className={`group relative transition-all duration-200 hover:bg-orange-500/10 ${className} ${showSparks ? 'animate-pulse' : ''}`}
-      disabled={!canZap}
-      title={getTooltipMessage()}
-    >
-      <Zap
-        className={`${iconSize} transition-all duration-200 ${
-          !canZap
-            ? 'text-gray-500'
-            : 'text-orange-500 drop-shadow-[0_0_4px_rgba(255,165,0,0.6)] group-hover:text-orange-400 group-hover:drop-shadow-[0_0_8px_rgba(255,165,0,0.8)] group-hover:scale-110'
-        } ${
-          showSparks ? 'animate-bounce text-yellow-300 drop-shadow-[0_0_12px_rgba(255,255,0,1)]' : ''
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className={`group rounded-full bg-transparent hover:bg-white/10 text-white disabled:opacity-50 transition-all duration-200 ${className} ${
+          disable
+            ? 'cursor-not-allowed opacity-40'
+            : 'cursor-pointer'
         }`}
-        style={iconStyle}
-      />
+        title={getTooltipMessage()}
+        disabled={disable || zapping}
+        onMouseDown={handleClickStart}
+        onMouseUp={handleClickEnd}
+        onMouseLeave={handleMouseLeave}
+        onTouchStart={handleClickStart}
+        onTouchEnd={handleClickEnd}
+      >
+        {zapping ? (
+          <Loader 
+            className="animate-spin text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]" 
+            style={iconStyle} 
+          />
+        ) : (
+          <Zap
+            className={`transition-all duration-200 ${
+              hasZapped
+                ? 'fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]'
+                : 'text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-yellow-300 group-hover:scale-110'
+            }`}
+            style={iconStyle}
+          />
+        )}
+      </Button>
 
-      {/* Electric Sparks Effect */}
-      {showSparks && (
-        <>
-          {/* Spark 1 */}
-          <div className="absolute -top-1 -right-1 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-75" />
-          {/* Spark 2 */}
-          <div className="absolute -bottom-1 -left-1 w-1 h-1 bg-orange-400 rounded-full animate-ping opacity-75" style={{ animationDelay: '0.1s' }} />
-          {/* Spark 3 */}
-          <div className="absolute top-0 left-0 w-0.5 h-0.5 bg-yellow-400 rounded-full animate-ping opacity-75" style={{ animationDelay: '0.2s' }} />
-          {/* Spark 4 */}
-          <div className="absolute bottom-0 right-0 w-0.5 h-0.5 bg-orange-300 rounded-full animate-ping opacity-75" style={{ animationDelay: '0.3s' }} />
-          {/* Central glow */}
-          <div className="absolute inset-0 bg-orange-400/30 rounded-full animate-pulse" />
-        </>
-      )}
-    </Button>
+      <ZapDialog
+        open={openZapDialog}
+        setOpen={(open) => {
+          setOpenZapDialog(open);
+          if (!open) setZapping(false);
+        }}
+        pubkey={recipientPubkey}
+        event={event}
+      />
+    </>
   );
 }
