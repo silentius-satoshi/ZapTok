@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNostr } from '@nostrify/react';
 import { useAuthor } from '@/hooks/useAuthor';
-import { lightningService, type TRecentSupporter } from '@/lib/lightning.service';
+import { lightningService, type TRecentSupporter } from '@/lib/lightning.service.donation';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 

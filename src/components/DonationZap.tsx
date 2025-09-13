@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/useToast';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostr } from '@nostrify/react';
-import { lightningService, ZAPTOK_DEV_PUBKEY } from '@/lib/lightning.service';
+import { lightningService, ZAPTOK_DEV_PUBKEY } from '@/lib/lightning.service.donation';
 import { ZAPTOK_CONFIG } from '@/constants';
 import { nip19 } from 'nostr-tools';
 import { useNavigate } from 'react-router-dom';

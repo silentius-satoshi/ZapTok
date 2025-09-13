@@ -211,7 +211,7 @@ export class LightningService {
     user: any, // User object with signer from useCurrentUser hook
     closeOuterModal?: () => void
   ): Promise<{ preimage: string; invoice: string } | null> {
-    if (!user?.signer) {
+    if (!user?.signEvent) {
       throw new Error('You need to be logged in to zap');
     }
 
@@ -243,7 +243,7 @@ export class LightningService {
       comment
     });
 
-    const zapRequest = await user.signer.signEvent(zapRequestDraft);
+    const zapRequest = await user.signEvent(zapRequestDraft);
 
     // Request invoice from LNURL callback
     const zapRequestRes = await fetch(
