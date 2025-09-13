@@ -127,7 +127,7 @@ export function MobileNavigation() {
     {
       id: 'wallet',
       icon: isBunkerSigner ? Zap : Wallet,
-      label: isBunkerSigner ? 'Bitcoin Connect Wallet' : 'Cashu Wallet',
+      label: isBunkerSigner ? 'Wallet' : 'Cashu Wallet',
       path: '/wallet'
     },
     { id: 'live-stream', icon: Radio, label: 'Live Stream', action: 'liveStream' },
@@ -188,7 +188,7 @@ export function MobileNavigation() {
                 {/* Wallet Icon - respects user's login choice */}
                 <button
                   onClick={() => navigate('/wallet')}
-                  aria-label={isBunkerSigner ? "Bitcoin Connect Wallet" : "Cashu Wallet"}
+                  aria-label={isBunkerSigner ? "Wallet" : "Cashu Wallet"}
                   className="text-white/80 hover:text-white transition-colors"
                 >
                   {isBunkerSigner ? (

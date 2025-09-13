@@ -18,7 +18,6 @@ import { nip19 } from 'nostr-tools';
 import { useLogoutWithWarning } from '@/hooks/useLogoutWithWarning';
 import { useToast } from '@/hooks/useToast';
 import { getLightningAddress } from '@/lib/lightning';
-import { QuickZap } from '@/components/QuickZap';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -39,7 +38,6 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
   const [showEditForm, setShowEditForm] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
-  const [showQuickZap, setShowQuickZap] = useState(false);
 
   if (!targetPubkey) return null;
 
@@ -100,8 +98,12 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
       return;
     }
 
-    // Open QuickZap modal instead of CustomZap
-    setShowQuickZap(true);
+    // Placeholder for zap functionality
+    toast({
+      title: "Zap Feature Coming Soon",
+      description: "Lightning zap functionality is currently being updated. Stay tuned!",
+      variant: "default",
+    });
   };
 
   if (showEditForm && isCurrentUser) {
@@ -287,13 +289,6 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
         pubkey={targetPubkey}
         metadata={metadata}
         displayName={displayName}
-      />
-
-      {/* Quick Zap Modal */}
-      <QuickZap
-        isOpen={showQuickZap}
-        onClose={() => setShowQuickZap(false)}
-        recipientPubkey={targetPubkey}
       />
 
       {/* Logout Warning Modal */}

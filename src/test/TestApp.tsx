@@ -9,7 +9,6 @@ import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
-import { UnifiedWalletProvider } from '@/contexts/UnifiedWalletContext';
 import { CurrentVideoProvider } from '@/contexts/CurrentVideoContext';
 
 interface TestAppProps {
@@ -48,13 +47,11 @@ export function TestApp({ children }: TestAppProps) {
               <NostrProvider>
                 <CachingProvider>
                   <WalletProvider>
-                    <UnifiedWalletProvider>
-                      <VideoPlaybackProvider>
-                        <CurrentVideoProvider>
-                          {children}
-                        </CurrentVideoProvider>
-                      </VideoPlaybackProvider>
-                    </UnifiedWalletProvider>
+                    <VideoPlaybackProvider>
+                      <CurrentVideoProvider>
+                        {children}
+                      </CurrentVideoProvider>
+                    </VideoPlaybackProvider>
                   </WalletProvider>
                 </CachingProvider>
               </NostrProvider>

@@ -1,6 +1,7 @@
 import { SettingsSection } from "./SettingsSection";
 import { LoginDebugInfo } from "@/components/LoginDebugInfo";
 import { CashuStoreDebug } from "@/components/CashuStoreDebug";
+import { WalletDebugInfo } from "@/components/WalletDebugInfo";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 export function DeveloperSettings() {
@@ -23,6 +24,13 @@ export function DeveloperSettings() {
           <h3 className={`font-medium text-white ${isMobile ? 'text-base' : 'text-lg'}`}>Cashu Store Debug</h3>
           <div className={isMobile ? 'text-sm' : ''}>
             <CashuStoreDebug />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className={`font-medium text-white ${isMobile ? 'text-base' : 'text-lg'}`}>Wallet Debug</h3>
+          <div className={isMobile ? 'text-sm' : ''}>
+            <WalletDebugInfo />
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { Navigation } from '@/components/Navigation';
 import { LogoHeader } from '@/components/LogoHeader';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useSettingsLogic } from '@/hooks/useSettingsLogic';
+import { useWallet } from '@/hooks/useWallet';
 import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import {
@@ -17,6 +18,7 @@ import {
 
 export function Settings() {
   const { config } = useAppContext();
+  const { isBunkerSigner } = useWallet();
   const navigate = useNavigate();
 
   useSeoMeta({
@@ -59,9 +61,17 @@ export function Settings() {
 
   const renderSettingsContent = () => {
     if (!selectedSection) {
+      // Filter out connected-wallets section for bunker signers
+      const availableSections = settingsSections.filter(section => {
+        if (section.id === 'connected-wallets' && isBunkerSigner) {
+          return false;
+        }
+        return true;
+      });
+
       return (
         <div className="space-y-0">
-          {settingsSections.map((section, index) => (
+          {availableSections.map((section, index) => (
             <button
               key={section.id}
               onClick={() => navigate(`/settings?section=${section.id}`)}
@@ -86,12 +96,13 @@ export function Settings() {
 
     // Handle sections that require props
     if (selectedSection === 'connected-wallets') {
+      // Redirect bunker signers away from connected-wallets section
+      if (isBunkerSigner) {
+        navigate('/settings');
+        return <GenericSettings sectionId={selectedSection} title="Access Denied" />;
+      }
       return (
-        <ConnectedWalletsSettings
-          isConnecting={isConnecting}
-          onNostrWalletConnect={handleNostrWalletConnect}
-          onTestConnection={handleTestConnection}
-        />
+        <ConnectedWalletsSettings />
       );
     }
 

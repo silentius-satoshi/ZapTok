@@ -5,7 +5,6 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { NIP60WalletManager, type NostrInterface as NIP60NostrInterface } from '@/lib/nip60-wallet';
-import { createNostrAdapter } from '@/lib/nwc-client'; // Reuse the adapter pattern
 import {
   type TokenEventContent,
   type HistoryEventContent,
@@ -86,13 +85,13 @@ export function useNIP60Cashu(): UseNIP60CashuResult {
   const walletManager = useMemo(() => {
     if (!user) return null;
 
-    const createNIP60Adapter = (nostrInstance: unknown): NIP60NostrInterface => {
-      const baseAdapter = createNostrAdapter(nostrInstance as Parameters<typeof createNostrAdapter>[0]);
+    const createNIP60Adapter = (nostrInstance: any): NIP60NostrInterface => {
       return {
-        ...baseAdapter,
+        query: async (filter: any, options?: any) => {
+          return await nostrInstance.query([filter], options);
+        },
         event: async (event: Record<string, unknown>) => {
-          const result = await baseAdapter.event(event);
-          return result; // Return the event itself to match NIP60 interface
+          return await nostrInstance.event(event);
         }
       };
     };

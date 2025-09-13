@@ -99,7 +99,7 @@ export function Navigation() {
     {
       id: 'wallet',
       icon: isBunkerSigner ? Zap : Wallet,
-      label: isBunkerSigner ? 'Bitcoin Connect Wallet' : 'Cashu Wallet',
+      label: isBunkerSigner ? 'Wallet' : 'Cashu Wallet',
       path: '/wallet'
     },
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },

@@ -8,10 +8,9 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { getLightningAddress } from '@/lib/lightning';
 import { useZapPayment, useLightningPaymentSuggestion } from '@/hooks/useZapPayment';
 import { needsVercelProxy } from '@/lib/lightning-proxy';
-import { Settings, Zap, CreditCard, Bitcoin } from 'lucide-react';
+import { Settings, Zap, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { genUserName } from '@/lib/genUserName';
-import { useWallet } from '@/hooks/useWallet';
 import { bundleLog } from '@/lib/devConsole';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useAppContext } from '@/hooks/useAppContext';
@@ -34,19 +33,14 @@ export function QuickZap({
   const { user } = useCurrentUser();
   const navigate = useNavigate();
   const { config } = useAppContext(); // Access zap settings
-  const { isConnected: bitcoinConnectConnected, userHasLightningAccess, walletInfo } = useWallet();
 
-  // Use more accurate Bitcoin Connect detection
-  const actualBitcoinConnectConnected = userHasLightningAccess && walletInfo?.implementation === 'WebLN';
-
-  // Debug logging for Bitcoin Connect detection
-  bundleLog('quickZapDebug', '[QuickZap] Bitcoin Connect Detection: userHasLightningAccess=' + userHasLightningAccess + ', walletInfo=' + JSON.stringify(walletInfo) + ', actualBitcoinConnectConnected=' + actualBitcoinConnectConnected + ', hasWindowWebln=' + !!window.webln + ', weblnConstructor=' + window.webln?.constructor?.name);
+  // Bitcoin Connect removed - WebLN only for now
+  bundleLog('quickZapDebug', '[QuickZap] WebLN only mode - Bitcoin Connect disabled');
 
   const isMobile = useIsMobile();
   // Initialize with default zap amount from settings
   const [zapAmount, setZapAmount] = useState(config.defaultZap.amount);
   const [zapMessage, setZapMessage] = useState(config.defaultZap.message);
-  const [paymentMethod, setPaymentMethod] = useState<'webln' | 'bitcoin-connect'>('webln');
 
   // Update zap amount when config changes or modal opens
   useEffect(() => {
@@ -72,27 +66,13 @@ export function QuickZap({
   // Auto-select best payment method when modal opens
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
 
-  // Check if user qualifies for Bitcoin Connect (bunker signers on mobile PWA)
-  const shouldShowBitcoinConnect = isMobile && user && (
-    user.signer?.constructor?.name?.includes('bunker') ||
-    user.signer?.constructor?.name?.includes('nsec') ||
-    (user as any)?.loginType === 'bunker' ||
-    (user as any)?.loginType === 'nsec' ||
-    (user as any)?.loginType === 'x-bunker-nostr-tools' ||
-    !window.nostr
-  );
+  // Bitcoin Connect wallet logic removed for bunker/nsec signers
+  // TODO: Re-implement Bitcoin Connect integration
+  const shouldShowBitcoinConnect = false;
 
-  // Auto-select payment method based on provider capabilities
+  // Auto-select payment method - Bitcoin Connect disabled for now
   if (!hasAutoSelected && paymentSuggestion && isOpen) {
-    bundleLog('quickZapDebug', '[QuickZap] Auto-selecting payment method: shouldShowBitcoinConnect=' + shouldShowBitcoinConnect + ', actualBitcoinConnectConnected=' + actualBitcoinConnectConnected + ', hasWebLN=' + !!window.webln + ', canUseWebLN=' + paymentSuggestion.canUseWebLN);
-    
-    if (shouldShowBitcoinConnect && actualBitcoinConnectConnected) {
-      bundleLog('quickZapDebug', '[QuickZap] Auto-selecting Bitcoin Connect');
-      setPaymentMethod('bitcoin-connect');
-    } else if (paymentSuggestion.canUseWebLN && window.webln) {
-      bundleLog('quickZapDebug', '[QuickZap] Auto-selecting WebLN');
-      setPaymentMethod('webln');
-    }
+    bundleLog('quickZapDebug', '[QuickZap] Auto-selecting payment method: WebLN only (Bitcoin Connect disabled)');
     setHasAutoSelected(true);
   }
 
@@ -139,40 +119,18 @@ export function QuickZap({
     }
 
     try {
-      let result: any;
-
-      if (paymentMethod === 'bitcoin-connect' && shouldShowBitcoinConnect && actualBitcoinConnectConnected) {
-        // Handle Bitcoin Connect payment using WebLN provider
-        if (!window.webln) {
-          throw new Error('Bitcoin Connect WebLN provider not available');
+      // Bitcoin Connect payment logic removed - using standard WebLN only
+      const result = await zapPayment({
+        lightningAddress,
+        amountSats: zapAmount,
+        comment: zapMessage || `Zap from ZapTok user`,
+        nostr: eventId ? {
+          eventId,
+          pubkey: recipientPubkey
+        } : {
+          pubkey: recipientPubkey
         }
-
-        // Use the existing Lightning payment system, but ensure it uses WebLN
-        result = await zapPayment({
-          lightningAddress,
-          amountSats: zapAmount,
-          comment: zapMessage || `Zap from ZapTok user`,
-          nostr: eventId ? {
-            eventId,
-            pubkey: recipientPubkey
-          } : {
-            pubkey: recipientPubkey
-          }
-        });
-      } else {
-        // Use the existing enhanced Lightning payment system for other methods
-        result = await zapPayment({
-          lightningAddress,
-          amountSats: zapAmount,
-          comment: zapMessage || `Zap from ZapTok user`,
-          nostr: eventId ? {
-            eventId,
-            pubkey: recipientPubkey
-          } : {
-            pubkey: recipientPubkey
-          }
-        });
-      }
+      });
 
       if (result.success) {
         onZapSuccess?.();
@@ -230,38 +188,18 @@ export function QuickZap({
           </DialogHeader>
 
         <div className={`space-y-4 ${isMobile ? 'py-1' : 'py-2'}`}>
-          {/* Payment Method Selection */}
+          {/* Payment Method Selection - Bitcoin Connect removed for bunker/nsec signers */}
           <div className={isMobile ? 'px-3' : 'px-4'}>
             <Label className={`text-gray-300 mb-2 block ${isMobile ? 'text-xs' : 'text-sm'}`}>Payment Method</Label>
-            <div className={`grid gap-2 mb-3 ${shouldShowBitcoinConnect ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className="grid gap-2 mb-3 grid-cols-1">
               <Button
-                variant={paymentMethod === 'webln' ? 'default' : 'outline'}
-                onClick={() => setPaymentMethod('webln')}
-                className={`${isMobile ? 'h-10' : 'h-12'} flex-col gap-1 text-xs ${
-                  paymentMethod === 'webln'
-                    ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                    : 'border-gray-600 text-gray-300 hover:text-white hover:border-gray-500'
-                }`}
+                variant="default"
+                className={`${isMobile ? 'h-10' : 'h-12'} flex-col gap-1 text-xs bg-orange-600 hover:bg-orange-700 text-white`}
                 disabled={isZapping || paymentSuggestion?.isBlocked}
               >
                 <CreditCard className={`${isMobile ? 'w-3 h-3' : 'w-3 h-3'}`} />
                 <span className={isMobile ? 'text-xs' : ''}>WebLN</span>
               </Button>
-              {shouldShowBitcoinConnect && (
-                <Button
-                  variant={paymentMethod === 'bitcoin-connect' ? 'default' : 'outline'}
-                  onClick={() => setPaymentMethod('bitcoin-connect')}
-                  className={`${isMobile ? 'h-10' : 'h-12'} flex-col gap-1 text-xs ${
-                    paymentMethod === 'bitcoin-connect'
-                      ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                      : 'border-gray-600 text-gray-300 hover:text-white hover:border-gray-500'
-                  }`}
-                  disabled={isZapping || paymentSuggestion?.isBlocked}
-                >
-                  <Bitcoin className={`${isMobile ? 'w-3 h-3' : 'w-3 h-3'}`} />
-                  <span className={isMobile ? 'text-xs' : ''}>Bitcoin Connect</span>
-                </Button>
-              )}
             </div>
           </div>
 
@@ -344,8 +282,7 @@ export function QuickZap({
                   isZapping ||
                   !zapAmount ||
                   paymentSuggestion?.isBlocked ||
-                  (paymentMethod === 'webln' && !window.webln) ||
-                  (paymentMethod === 'bitcoin-connect' && !actualBitcoinConnectConnected)
+                  !window.webln
                 }
                 className={`w-full bg-orange-600 hover:bg-orange-700 text-white ${
                   isMobile ? 'mb-2 h-9 text-sm' : 'mb-3 h-10'
@@ -372,26 +309,12 @@ export function QuickZap({
                   </div>
                 ) : (
                   <div>
-                    {paymentMethod === 'webln' ? (
-                      <p className={`text-blue-200 text-center mb-1 ${
-                        isMobile ? 'text-xs' : 'text-xs'
-                      }`}>
-                        {window.webln ? '💡 Ready to pay with WebLN' : '⚠️ WebLN not available - install Alby extension'}
-                      </p>
-                    ) : paymentMethod === 'bitcoin-connect' ? (
-                      <p className={`text-blue-200 text-center mb-1 ${
-                        isMobile ? 'text-xs' : 'text-xs'
-                      }`}>
-                        {actualBitcoinConnectConnected ? '💡 Ready to pay with Bitcoin Connect' : '⚠️ Bitcoin Connect not connected - connect in settings'}
-                        {/* Debug info in development */}
-                        {process.env.NODE_ENV === 'development' && (
-                          <span className="block text-xs opacity-50 mt-1">
-                            Debug: userHasLightningAccess={userHasLightningAccess.toString()}, implementation={walletInfo?.implementation || 'none'}
-                          </span>
-                        )}
-                      </p>
-                    ) : null}
-                </div>
+                    <p className={`text-blue-200 text-center mb-1 ${
+                      isMobile ? 'text-xs' : 'text-xs'
+                    }`}>
+                      {window.webln ? '💡 Ready to pay with WebLN' : '⚠️ WebLN not available - install Alby extension'}
+                    </p>
+                  </div>
                 )}
                 <Button
                   onClick={navigateToZapSettings}

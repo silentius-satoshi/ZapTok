@@ -6,7 +6,6 @@ import { CashuHistoryCard } from '@/components/lightning/CashuHistoryCard';
 import { CashuTokenCard } from '@/components/lightning/CashuTokenCard';
 import { CashuWalletLightningCard } from '@/components/lightning/CashuWalletLightningCard';
 import { NutzapCard } from '@/components/lightning/NutzapCard';
-import { BunkerWalletDashboard } from '@/components/lightning/BunkerWalletDashboard';
 import { RelayContextIndicator } from '@/components/RelayContextIndicator';
 import { Button } from '@/components/ui/button';
 import { Bitcoin, ArrowLeft } from 'lucide-react';
@@ -36,17 +35,8 @@ export function LightningWallet() {
   const { logins } = useNostrLogin();
   const navigate = useNavigate();
 
-  // Get the current user's login type and detect signer type
-  const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
-  const loginType = currentUserLogin?.type;
-
-  // Detect if this is a bunker signer (can't access Cashu due to remote signing)
-  const isBunkerSigner = loginType === 'bunker' ||
-                        loginType === 'x-bunker-nostr-tools' ||
-                        user?.signer?.constructor?.name?.includes('bunker');
-
-  // Calculate total balance for extension signers: Cashu + Lightning
-  const { walletInfo, isExtensionSigner } = useWallet();
+  // Use centralized signer detection from WalletContext
+  const { walletInfo, isExtensionSigner, isBunkerSigner } = useWallet();
   const userCashuStore = useUserCashuStore(user?.pubkey);
   const cashuBalance = !isBunkerSigner ? (userCashuStore?.getTotalBalance?.() || 0) : 0;
   // Lightning wallet balance (extension signer only)
@@ -137,8 +127,8 @@ export function LightningWallet() {
 
                 {/* Wallet Cards Grid */}
                 <div className={`grid ${isMobile ? 'grid-cols-1 gap-4' : 'grid-cols-1 lg:grid-cols-2 gap-6'}`}>
-                  {!isBunkerSigner ? (
-                    // Show all wallet options for extension and nsec signers
+                  {!isBunkerSigner && (
+                    // Show all wallet options for extension and nsec signers only
                     <>
                       <CashuWalletLightningCard />
                       <CashuWalletCard />
@@ -146,10 +136,9 @@ export function LightningWallet() {
                       <NutzapCard />
                       <CashuHistoryCard className={isMobile ? '' : 'lg:col-span-2'} />
                     </>
-                  ) : (
-                    // Show enhanced Bitcoin Connect dashboard for bunker signers
-                    <BunkerWalletDashboard className="col-span-full" />
                   )}
+                  
+                  {/* Bunker signers see no wallet options */}
                 </div>
               </div>
             </div>

@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
-import { useLightningAddressTest } from '@/hooks/useZapPayment';
 import { Button } from '@/components/ui/button';
-import { QuickZap } from '@/components/QuickZap';
 import { Zap } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { getLightningAddress } from '@/lib/lightning';
@@ -30,9 +28,7 @@ export function ZapButton({
   const { user } = useCurrentUser();
   const { data: authorData } = useAuthor(recipientPubkey);
   const { toast } = useToast();
-  const { testAddress } = useLightningAddressTest();
 
-  const [isQuickZapOpen, setIsQuickZapOpen] = useState(false);
   const [showSparks, setShowSparks] = useState(false);
 
   const handleClick = async () => {
@@ -56,95 +52,71 @@ export function ZapButton({
       return;
     }
 
-    // Test the Lightning address with our enhanced system
-    try {
-      const testResult = await testAddress(lightningAddress);
-      if (!testResult.isSupported) {
-        toast({
-          title: "Provider Not Supported",
-          description: testResult.error || "This Lightning provider is not currently supported.",
-          variant: "destructive",
-        });
-        return;
-      }
+    // Placeholder functionality - show coming soon message
+    toast({
+      title: "Zap Feature Coming Soon",
+      description: "Lightning zap functionality is currently being updated. Stay tuned!",
+      variant: "default",
+    });
 
-      // If we get here, the Lightning address is working - open QuickZap
-      setIsQuickZapOpen(true);
-
-    } catch (error) {
-      // Even if the test fails, still allow trying with QuickZap
-      // The user might have a working WebLN setup
-      console.warn('Lightning address test failed, but allowing QuickZap attempt:', error);
-      setIsQuickZapOpen(true);
-    }
+    // Trigger sparks animation for visual feedback
+    setShowSparks(true);
+    setTimeout(() => setShowSparks(false), 1000);
   };
 
-  // Callback when zap is successfully sent
+  // Callback when zap is successfully sent (placeholder)
   const handleZapSuccess = () => {
     // Trigger sparks animation
     setShowSparks(true);
     setTimeout(() => setShowSparks(false), 1000);
   };
 
-  // Check if Lightning address is available and at least one payment method is available
+  // Check if Lightning address is available
   const lightningAddress = getLightningAddress(authorData?.metadata);
-  const hasWebLN = !!window.webln;
   const canZap = user && lightningAddress;
 
   // Create tooltip message
   const getTooltipMessage = () => {
     if (!lightningAddress) return 'User has no Lightning address';
     if (!user) return 'Login to zap';
-    if (!hasWebLN) return 'Install Alby extension or connect wallet for best experience';
-    return 'Click to send zap';
+    return 'Zap feature coming soon';
   };
 
   return (
-    <>
-      <Button
-        onClick={handleClick}
-        variant={variant}
-        size={size}
-        className={`group relative transition-all duration-200 hover:bg-orange-500/10 ${className} ${showSparks ? 'animate-pulse' : ''}`}
-        disabled={!canZap}
-        title={getTooltipMessage()}
-      >
-        <Zap
-          className={`${iconSize} transition-all duration-200 ${
-            !canZap
-              ? 'text-gray-500'
-              : 'text-orange-500 drop-shadow-[0_0_4px_rgba(255,165,0,0.6)] group-hover:text-orange-400 group-hover:drop-shadow-[0_0_8px_rgba(255,165,0,0.8)] group-hover:scale-110'
-          } ${
-            showSparks ? 'animate-bounce text-yellow-300 drop-shadow-[0_0_12px_rgba(255,255,0,1)]' : ''
-          }`}
-          style={iconStyle}
-        />
-
-        {/* Electric Sparks Effect */}
-        {showSparks && (
-          <>
-            {/* Spark 1 */}
-            <div className="absolute -top-1 -right-1 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-75" />
-            {/* Spark 2 */}
-            <div className="absolute -bottom-1 -left-1 w-1 h-1 bg-orange-400 rounded-full animate-ping opacity-75" style={{ animationDelay: '0.1s' }} />
-            {/* Spark 3 */}
-            <div className="absolute top-0 left-0 w-0.5 h-0.5 bg-yellow-400 rounded-full animate-ping opacity-75" style={{ animationDelay: '0.2s' }} />
-            {/* Spark 4 */}
-            <div className="absolute bottom-0 right-0 w-0.5 h-0.5 bg-orange-300 rounded-full animate-ping opacity-75" style={{ animationDelay: '0.3s' }} />
-            {/* Central glow */}
-            <div className="absolute inset-0 bg-orange-400/30 rounded-full animate-pulse" />
-          </>
-        )}
-      </Button>
-
-      {/* Quick Zap Modal */}
-      <QuickZap
-        isOpen={isQuickZapOpen}
-        onClose={() => setIsQuickZapOpen(false)}
-        recipientPubkey={recipientPubkey}
-        eventId={eventId}
-        onZapSuccess={handleZapSuccess}
+    <Button
+      onClick={handleClick}
+      variant={variant}
+      size={size}
+      className={`group relative transition-all duration-200 hover:bg-orange-500/10 ${className} ${showSparks ? 'animate-pulse' : ''}`}
+      disabled={!canZap}
+      title={getTooltipMessage()}
+    >
+      <Zap
+        className={`${iconSize} transition-all duration-200 ${
+          !canZap
+            ? 'text-gray-500'
+            : 'text-orange-500 drop-shadow-[0_0_4px_rgba(255,165,0,0.6)] group-hover:text-orange-400 group-hover:drop-shadow-[0_0_8px_rgba(255,165,0,0.8)] group-hover:scale-110'
+        } ${
+          showSparks ? 'animate-bounce text-yellow-300 drop-shadow-[0_0_12px_rgba(255,255,0,1)]' : ''
+        }`}
+        style={iconStyle}
       />
-    </>
+
+      {/* Electric Sparks Effect */}
+      {showSparks && (
+        <>
+          {/* Spark 1 */}
+          <div className="absolute -top-1 -right-1 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-75" />
+          {/* Spark 2 */}
+          <div className="absolute -bottom-1 -left-1 w-1 h-1 bg-orange-400 rounded-full animate-ping opacity-75" style={{ animationDelay: '0.1s' }} />
+          {/* Spark 3 */}
+          <div className="absolute top-0 left-0 w-0.5 h-0.5 bg-yellow-400 rounded-full animate-ping opacity-75" style={{ animationDelay: '0.2s' }} />
+          {/* Spark 4 */}
+          <div className="absolute bottom-0 right-0 w-0.5 h-0.5 bg-orange-300 rounded-full animate-ping opacity-75" style={{ animationDelay: '0.3s' }} />
+          {/* Central glow */}
+          <div className="absolute inset-0 bg-orange-400/30 rounded-full animate-pulse" />
+        </>
+      )}
+    </Button>
   );
 }

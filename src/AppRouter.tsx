@@ -7,7 +7,6 @@ import { logRoute } from "@/lib/devLogger";
 import NostrProvider from "@/components/NostrProvider";
 import { CachingProvider } from "@/components/CachingProvider";
 import { WalletProvider } from "@/contexts/WalletContext";
-import { UnifiedWalletProvider } from "@/contexts/UnifiedWalletContext";
 import { VideoPlaybackProvider } from "@/contexts/VideoPlaybackContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WalletLoader } from "@/components/WalletLoader";
@@ -83,16 +82,14 @@ export function AppRouter() {
       <NostrProvider>
         <CachingProvider>
           <WalletProvider>
-            <UnifiedWalletProvider>
-              <VideoPlaybackProvider>
-                <TooltipProvider>
-                  <WalletLoader />
-                  <Toaster />
-                  <Sonner />
-                  <RouteHandler />
-                </TooltipProvider>
-              </VideoPlaybackProvider>
-            </UnifiedWalletProvider>
+            <VideoPlaybackProvider>
+              <TooltipProvider>
+                <WalletLoader />
+                <Toaster />
+                <Sonner />
+                <RouteHandler />
+              </TooltipProvider>
+            </VideoPlaybackProvider>
           </WalletProvider>
         </CachingProvider>
       </NostrProvider>

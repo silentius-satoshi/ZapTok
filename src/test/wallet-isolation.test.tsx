@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { TestApp } from './TestApp';
 import { LoginArea } from '@/components/auth/LoginArea';
-import { useWallet } from '@/contexts/UnifiedWalletContext';
+import { useWallet } from '@/hooks/useWallet';
 import { useUserCashuStore } from '@/stores/userCashuStore';
 
 // Mock the user-specific Cashu store
@@ -37,17 +37,6 @@ vi.mock('@/contexts/WalletContext', () => ({
     disconnect: vi.fn()
   })),
   WalletProvider: ({ children }: { children: React.ReactNode }) => children,
-}));
-
-vi.mock('@/contexts/UnifiedWalletContext', () => ({
-  useWallet: vi.fn(() => ({
-    webln: null,
-    isLoading: false,
-    error: null,
-    connect: vi.fn(),
-    disconnect: vi.fn()
-  })),
-  UnifiedWalletProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 // Mock the dedicated wallet hook used by LoginArea. Provide a wrapper function

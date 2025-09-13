@@ -78,6 +78,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                            loginType === 'x-bunker-nostr-tools' ||
                            user?.signer?.constructor?.name?.includes('bunker'));
 
+  // Debug bunker detection in development
+  if (import.meta.env.DEV && user?.pubkey) {
+    devLog('🔍 Bunker Signer Detection:', {
+      loginType,
+      signerConstructorName: user?.signer?.constructor?.name,
+      isBunkerSigner,
+      loginTypeMatch: loginType === 'bunker' || loginType === 'x-bunker-nostr-tools',
+      signerNameMatch: user?.signer?.constructor?.name?.includes('bunker')
+    });
+  }
+
   // Extension signer detection - only these should get WebLN auto-enable
   const isExtensionSigner = !!(loginType === 'extension' ||
                               user?.signer?.constructor?.name?.includes('NIP07') ||
@@ -182,39 +193,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (window.webln) {
           bundleLog('walletAutoDetection', '[WalletContext] WebLN detected, attempting auto-enable for extension signer: ' + user.pubkey.slice(0, 8) + '...');
 
-          // Check if this is Bitcoin Connect's WebLN by looking for specific properties
-          const isBitcoinConnect = window.webln.constructor?.name?.includes('BitcoinConnect') ||
-                                 'requestProvider' in window.webln ||
-                                 window.webln.constructor?.name === 'WebLNProvider' ||
-                                 'connectors' in window.webln;
-
-          bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect detection - isBitcoinConnect: ' + isBitcoinConnect + ', WebLN constructor: ' + window.webln.constructor?.name);
-
-          if (isBitcoinConnect) {
-            bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect WebLN detected for extension signer - clearing Bitcoin Connect to allow extension WebLN priority');
-
-            // Clear Bitcoin Connect's WebLN to allow extension WebLN to take priority
-            if (window.webln && 'disconnect' in window.webln && typeof window.webln.disconnect === 'function') {
-              try {
-                await window.webln.disconnect();
-              } catch (disconnectError) {
-                bundleLog('walletAutoDetection', '[WalletContext] Bitcoin Connect disconnect failed: ' + disconnectError);
-              }
-            }
-
-            // Clear the global webln to allow extension to set it up
-            delete (window as any).webln;
-
-            // Wait a moment for extension to potentially set up webln again
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            // If still no webln or still Bitcoin Connect, skip auto-detection
-            if (!window.webln || window.webln.constructor?.name?.includes('BitcoinConnect')) {
-              bundleLog('walletAutoDetection', '[WalletContext] Extension WebLN not available after Bitcoin Connect cleanup - skipping auto-detection');
-              return;
-            }
-          }
-
           try {
             await window.webln.enable();
             const webln = window.webln;
@@ -270,107 +248,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     attemptAutoDetection();
   }, [user?.pubkey, isExtensionSigner]); // Run when user or signer type changes
 
-  // Bitcoin Connect detection for bunker and nsec signers (non-extension, non-remote)
-  useEffect(() => {
-    if (!user?.pubkey || (!isBunkerSigner && !isNsecSigner)) {
-      bundleLog('bitcoinConnectDetection', '[WalletContext] Skipping Bitcoin Connect detection - Bunker signer: ' + isBunkerSigner + ', Nsec signer: ' + isNsecSigner + ', User: ' + !!user?.pubkey);
-      return;
-    }
-
-    const detectBitcoinConnect = async () => {
-      try {
-        // Check if user has explicitly disabled Lightning access
-        const userExplicitlyDisabled = localStorage.getItem(`lightning_disabled_${user.pubkey}`);
-        if (userExplicitlyDisabled === 'true') {
-          bundleLog('bitcoinConnectDetection', '[WalletContext] Bitcoin Connect detection skipped - user explicitly disabled Lightning');
-          return;
-        }
-
-        bundleLog('bitcoinConnectDetection', '[WalletContext] Bitcoin Connect detection for bunker signer: ' + user.pubkey.slice(0, 8) + '...');
-
-        // Check if Bitcoin Connect is active and has WebLN
-        const isBitcoinConnectActive = !!(window as any).__bitcoinConnectActive;
-        const hasBitcoinConnectWebLN = !!(window as any).__bitcoinConnectWebLN;
-
-        bundleLog('bitcoinConnectDetection', '[WalletContext] Bitcoin Connect state check: isBitcoinConnectActive=' + isBitcoinConnectActive + ', hasBitcoinConnectWebLN=' + hasBitcoinConnectWebLN + ', hasWindowWebln=' + !!window.webln + ', weblnConstructor=' + window.webln?.constructor?.name);
-
-        // If Bitcoin Connect is active and WebLN is available
-        if (isBitcoinConnectActive && window.webln) {
-          try {
-            // Skip webln.enable() entirely for Bitcoin Connect - it manages its own WebLN state
-            bundleLog('bitcoinConnectDetection', '[WalletContext] Bitcoin Connect is active, skipping webln.enable() to avoid prompts');
-
-            const webln = window.webln;
-            setProvider({
-              ...webln,
-              isEnabled: true // Bitcoin Connect handles its own enable state
-            });
-            setIsConnected(true);
-
-            // Mark this user as having Lightning access
-            setUserLightningEnabled(user.pubkey, true);
-            setUserHasLightningAccess(true);
-
-            // Load initial wallet data - handle potential getBalance errors gracefully
-            try {
-              let actualBalance = 0;
-
-              // Try to get balance from Bitcoin Connect if available
-              if (window.webln.getBalance && typeof window.webln.getBalance === 'function') {
-                try {
-                  const balance = await window.webln.getBalance();
-                  actualBalance = balance.balance || 0;
-                } catch (balanceError) {
-                  bundleLog('bitcoinConnectDetection', '[WalletContext] Bitcoin Connect getBalance failed, using stored balance: ' + balanceError);
-                  // Fall back to stored balance
-                  actualBalance = getUserLightningBalance(user.pubkey);
-                }
-              } else {
-                // Use stored balance if getBalance not available
-                actualBalance = getUserLightningBalance(user.pubkey);
-              }
-
-              // Store the actual balance for this user
-              setUserLightningBalance(user.pubkey, actualBalance);
-
-              setWalletInfo({
-                alias: 'Bitcoin Connect', // normalize alias
-                balance: actualBalance,
-                implementation: 'WebLN',
-              });
-
-              setTransactionSupport(!!window.webln.listTransactions);
-
-              bundleLog('bitcoinConnectDetection', '[WalletContext] Bitcoin Connect detection successful for bunker signer: ' + user.pubkey.slice(0, 8) + '...');
-            } catch (balanceError) {
-              bundleLog('bitcoinConnectDetection', '[WalletContext] Could not load Bitcoin Connect wallet data: ' + balanceError);
-
-              // Still set up wallet info with stored balance even if getBalance fails
-              const storedBalance = getUserLightningBalance(user.pubkey);
-              setWalletInfo({
-                alias: 'Bitcoin Connect',
-                balance: storedBalance,
-                implementation: 'WebLN',
-              });
-              setTransactionSupport(false);
-            }
-          } catch (enableError) {
-            bundleLog('bitcoinConnectDetection', '[WalletContext] Bitcoin Connect WebLN enable failed: ' + enableError);
-          }
-        } else {
-          bundleLog('bitcoinConnectDetection', '[WalletContext] Bitcoin Connect not active or WebLN not available for bunker signer');
-        }
-      } catch (error) {
-        bundleLog('bitcoinConnectDetection', '[WalletContext] Bitcoin Connect detection error: ' + error);
-      }
-    };
-
-    // Run detection with a small delay to allow Bitcoin Connect to initialize
-    const timeoutId = setTimeout(detectBitcoinConnect, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [user?.pubkey, isBunkerSigner, isNsecSigner]); // Run when user or signer state changes
-
   // Track Cashu balance changes for extension signers to update total balance
   // Note: Removed due to hook ordering issues - needs different implementation approach
   /*
@@ -420,50 +297,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setError(null);
       setIsLoading(true);
 
-      // Try to use WebLN first - but be smart about when to call enable()
+      // Try to use WebLN first
       if (window.webln) {
-        // Check if Bitcoin Connect is active - declare this at the scope we need it
-        const isBitcoinConnectActive = !!(window as any).__bitcoinConnectActive;
-        const bitcoinConnectWebLN = (window as any).__bitcoinConnectWebLN;
-
-        // If Bitcoin Connect is active, use its WebLN provider directly to avoid extension conflicts
-        let weblnProvider = window.webln;
-        if (isBitcoinConnectActive && bitcoinConnectWebLN) {
-          bundleLog('walletConnection', '[WalletContext] Using Bitcoin Connect WebLN provider directly to avoid extension conflicts');
-          weblnProvider = bitcoinConnectWebLN;
-          bundleLog('walletConnection', `[WalletContext] Provider switch: window.webln constructor=${window.webln?.constructor?.name}, bitcoinConnect constructor=${bitcoinConnectWebLN?.constructor?.name}`);
-        } else if (isBitcoinConnectActive) {
-          bundleLog('walletConnection', '[WalletContext] Bitcoin Connect is active but __bitcoinConnectWebLN not available, using window.webln');
-        }
-
         try {
-          if (isBitcoinConnectActive && bitcoinConnectWebLN) {
-            // For Bitcoin Connect, check if it's already enabled, if not enable it directly
-            bundleLog('walletConnection', `[WalletContext] Bitcoin Connect provider status: isEnabled=${bitcoinConnectWebLN.isEnabled}`);
-            if (!bitcoinConnectWebLN.isEnabled) {
-              bundleLog('walletConnection', '[WalletContext] Enabling Bitcoin Connect provider directly');
-              try {
-                await bitcoinConnectWebLN.enable();
-              } catch (enableError) {
-                bundleLog('walletConnection', `[WalletContext] Bitcoin Connect enable error: ${enableError}`);
-                // If direct enable fails, try enabling via a different approach
-                if (typeof bitcoinConnectWebLN.connect === 'function') {
-                  await bitcoinConnectWebLN.connect();
-                }
-              }
-            } else {
-              bundleLog('walletConnection', '[WalletContext] Bitcoin Connect provider already enabled');
-            }
-          } else {
-            // Only call webln.enable() for non-Bitcoin Connect WebLN providers if not rejected
-            const isAlbyRejected = (window.webln as any).__albyRejected;
-            const isAlbyExtension = window.webln?.constructor?.name === 'i';
+          // Only call webln.enable() if not rejected
+          const isAlbyRejected = (window.webln as any).__albyRejected;
+          const isAlbyExtension = window.webln?.constructor?.name === 'i';
 
-            if (!isAlbyRejected) {
-              await window.webln.enable();
-            } else if (isAlbyExtension) {
-              bundleLog('walletConnection', '[WalletContext] Skipping WebLN enable - Alby extension has been rejected');
-            }
+          if (!isAlbyRejected) {
+            await window.webln.enable();
+          } else if (isAlbyExtension) {
+            bundleLog('walletConnection', '[WalletContext] Skipping WebLN enable - Alby extension has been rejected');
           }
         } catch (enableError) {
           const errorMessage = String(enableError);
@@ -471,7 +315,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
           // Mark Alby as rejected if it's blocking further calls (but only for extension providers)
           const isAlbyExtension = window.webln?.constructor?.name === 'i';
-          if (!isBitcoinConnectActive && isAlbyExtension && (errorMessage.includes('webln.enable() failed') || errorMessage.includes('rejecting further'))) {
+          if (isAlbyExtension && (errorMessage.includes('webln.enable() failed') || errorMessage.includes('rejecting further'))) {
             (window.webln as any).__albyRejected = true;
             bundleLog('walletConnection', '[WalletContext] Marking Alby WebLN as rejected to avoid future conflicts');
           }
@@ -480,8 +324,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           // This commonly happens when browser extension prompts are closed
         }
 
-        // Use the appropriate WebLN provider (Bitcoin Connect's or browser extension's)
-        const webln = weblnProvider;
+        // Use the WebLN provider
+        const webln = window.webln;
         setProvider({
           ...webln,
           isEnabled: webln.isEnabled ?? true
@@ -494,66 +338,47 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         // Load initial wallet data
         try {
-          // CRITICAL: Always use Bitcoin Connect provider when active to avoid extension conflicts
-          let balanceProvider;
-
-          if (isBitcoinConnectActive && bitcoinConnectWebLN) {
-            balanceProvider = bitcoinConnectWebLN;
-            bundleLog('walletConnection', '[WalletContext] FORCING Bitcoin Connect provider for all balance operations to avoid Alby conflicts');
-          } else {
-            balanceProvider = weblnProvider;
-            bundleLog('walletConnection', '[WalletContext] Using standard WebLN provider for balance operations');
-          }
-
-          // Check if the necessary WebLN methods are available
-          if (!balanceProvider.getBalance) {
-            bundleLog('walletConnection', '[WalletContext] WebLN getBalance method not available, using default values');
-
-            setWalletInfo({
-              alias: isBitcoinConnectActive ? 'Bitcoin Connect' : 'WebLN Wallet',
-              balance: 0,
-              implementation: isBitcoinConnectActive ? 'Bitcoin Connect' : 'WebLN',
-            });
-
-            setTransactionSupport(false);
-            return;
-          }
-
-          // Always ensure the selected balance provider is enabled before querying balance.
-          if (!balanceProvider.isEnabled && typeof balanceProvider.enable === 'function') {
+          // Always ensure the provider is enabled before querying balance
+          if (!webln.isEnabled && typeof webln.enable === 'function') {
             try {
-              bundleLog('walletConnection', '[WalletContext] Enabling balance provider before getBalance (constructor=' + balanceProvider.constructor?.name + ')');
-              await balanceProvider.enable();
+              bundleLog('walletConnection', '[WalletContext] Enabling provider before getBalance');
+              await webln.enable();
             } catch (enableErr) {
               bundleLog('walletConnection', '[WalletContext] Provider enable attempt before getBalance failed: ' + enableErr);
               // Continue – some providers may still allow getBalance without explicit enable
             }
           }
 
-          bundleLog('walletConnection', `[WalletContext] About to call getBalance() on provider: ${balanceProvider.constructor?.name}, isBitcoinConnect: ${isBitcoinConnectActive}`);
-          const balance = await balanceProvider.getBalance();
+          bundleLog('walletConnection', `[WalletContext] About to call getBalance() on provider: ${webln.constructor?.name}`);
+          
+          if (!webln.getBalance) {
+            bundleLog('walletConnection', '[WalletContext] WebLN getBalance method not available');
+            throw new Error('WebLN provider does not support getBalance');
+          }
+          
+          const balance = await webln.getBalance();
           const actualBalance = balance?.balance || 0;
 
           // Store the actual balance for this user
           setUserLightningBalance(user.pubkey, actualBalance);
 
           setWalletInfo({
-            alias: isBitcoinConnectActive ? 'Bitcoin Connect' : 'WebLN Wallet',
+            alias: 'WebLN Wallet',
             balance: actualBalance,
-            implementation: isBitcoinConnectActive ? 'Bitcoin Connect' : 'WebLN',
+            implementation: 'WebLN',
           });
 
           // Check transaction support once during manual connection
-          setTransactionSupport(!!balanceProvider.listTransactions);
+          setTransactionSupport(!!webln.listTransactions);
         } catch (dataError) {
           bundleLog('walletConnection', '[WalletContext] Could not load initial wallet data');
           console.warn('[WalletContext] Wallet data loading error:', dataError);
 
           // Set minimal wallet info even if balance loading fails
           setWalletInfo({
-            alias: isBitcoinConnectActive ? 'Bitcoin Connect' : 'WebLN Wallet',
+            alias: 'WebLN Wallet',
             balance: 0,
-            implementation: isBitcoinConnectActive ? 'Bitcoin Connect' : 'WebLN',
+            implementation: 'WebLN',
           });
 
           setTransactionSupport(false);
@@ -562,10 +387,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // If WebLN is not available, we'll need Bitcoin Connect
-      // For now, throw an error to guide users to install a WebLN wallet
+      // If WebLN is not available, throw an error
       throw new Error(
-        'No Lightning wallet found. Please install a WebLN-compatible wallet like Alby, or connect using Bitcoin Connect.'
+        'No Lightning wallet found. Please install a WebLN-compatible wallet like Alby.'
       );
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to connect wallet');
