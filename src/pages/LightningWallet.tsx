@@ -6,6 +6,7 @@ import { CashuHistoryCard } from '@/components/lightning/CashuHistoryCard';
 import { CashuTokenCard } from '@/components/lightning/CashuTokenCard';
 import { CashuWalletLightningCard } from '@/components/lightning/CashuWalletLightningCard';
 import { NutzapCard } from '@/components/lightning/NutzapCard';
+import { Button as BcButton } from '@getalby/bitcoin-connect-react';
 import { RelayContextIndicator } from '@/components/RelayContextIndicator';
 import { Button } from '@/components/ui/button';
 import { Bitcoin, ArrowLeft } from 'lucide-react';
@@ -36,7 +37,7 @@ export function LightningWallet() {
   const navigate = useNavigate();
 
   // Use centralized signer detection from WalletContext
-  const { walletInfo, isExtensionSigner, isBunkerSigner } = useWallet();
+  const { walletInfo, isExtensionSigner, isBunkerSigner, isNsecSigner } = useWallet();
   const userCashuStore = useUserCashuStore(user?.pubkey);
   const cashuBalance = !isBunkerSigner ? (userCashuStore?.getTotalBalance?.() || 0) : 0;
   // Lightning wallet balance (extension signer only)
@@ -127,6 +128,17 @@ export function LightningWallet() {
 
                 {/* Wallet Cards Grid */}
                 <div className={`grid ${isMobile ? 'grid-cols-1 gap-4' : 'grid-cols-1 lg:grid-cols-2 gap-6'}`}>
+                  {/* Bitcoin Connect Button (Jumble's exact pattern) */}
+                  {(isBunkerSigner || isNsecSigner) && (
+                    <div className="p-6 bg-gray-900 border border-gray-700 rounded-lg">
+                      <h3 className="text-lg font-semibold text-white mb-4">Lightning Wallet</h3>
+                      <p className="text-gray-400 text-sm mb-4">
+                        Connect your Lightning wallet to send and receive payments
+                      </p>
+                      <BcButton />
+                    </div>
+                  )}
+                  
                   {!isBunkerSigner && (
                     // Show all wallet options for extension and nsec signers only
                     <>
@@ -138,7 +150,7 @@ export function LightningWallet() {
                     </>
                   )}
                   
-                  {/* Bunker signers see no wallet options */}
+                  {/* Bunker signers see only Bitcoin Connect wallet */}
                 </div>
               </div>
             </div>

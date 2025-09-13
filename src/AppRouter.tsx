@@ -8,6 +8,7 @@ import NostrProvider from "@/components/NostrProvider";
 import { CachingProvider } from "@/components/CachingProvider";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { VideoPlaybackProvider } from "@/contexts/VideoPlaybackContext";
+import { BitcoinConnectInit } from "@/components/wallet/BitcoinConnectInit";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WalletLoader } from "@/components/WalletLoader";
 import { Toaster } from "@/components/ui/toaster";
@@ -82,14 +83,16 @@ export function AppRouter() {
       <NostrProvider>
         <CachingProvider>
           <WalletProvider>
-            <VideoPlaybackProvider>
-              <TooltipProvider>
-                <WalletLoader />
-                <Toaster />
-                <Sonner />
-                <RouteHandler />
-              </TooltipProvider>
-            </VideoPlaybackProvider>
+            <BitcoinConnectInit>
+              <VideoPlaybackProvider>
+                <TooltipProvider>
+                  <WalletLoader />
+                  <Toaster />
+                  <Sonner />
+                  <RouteHandler />
+                </TooltipProvider>
+              </VideoPlaybackProvider>
+            </BitcoinConnectInit>
           </WalletProvider>
         </CachingProvider>
       </NostrProvider>

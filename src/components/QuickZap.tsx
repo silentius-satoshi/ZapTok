@@ -34,8 +34,9 @@ export function QuickZap({
   const navigate = useNavigate();
   const { config } = useAppContext(); // Access zap settings
 
-  // Bitcoin Connect removed - WebLN only for now
-  bundleLog('quickZapDebug', '[QuickZap] WebLN only mode - Bitcoin Connect disabled');
+  // Bitcoin Connect integration ready - following Jumble's payment modal pattern
+  // When reintegrating, use: lightningService.payInvoice() or lightningService.zap()
+  bundleLog('quickZapDebug', '[QuickZap] Bitcoin Connect patterns available via lightningService');
 
   const isMobile = useIsMobile();
   // Initialize with default zap amount from settings
