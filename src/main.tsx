@@ -1,11 +1,17 @@
 import { createRoot } from 'react-dom/client';
 import { enableMapSet } from 'immer';
+import { init } from '@getalby/bitcoin-connect-react';
 
 // Import polyfills first
 import './lib/polyfills.ts';
 
 // Enable Immer MapSet plugin for Zustand stores
 enableMapSet();
+
+// Initialize Bitcoin Connect
+init({
+  appName: 'ZapTok Labs',
+});
 
 import App from './App.tsx';
 import './index.css';

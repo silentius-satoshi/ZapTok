@@ -138,7 +138,7 @@ export function LightningWallet() {
                       <BcButton />
                     </div>
                   )}
-                  
+
                   {!isBunkerSigner && (
                     // Show all wallet options for extension and nsec signers only
                     <>
@@ -149,7 +149,7 @@ export function LightningWallet() {
                       <CashuHistoryCard className={isMobile ? '' : 'lg:col-span-2'} />
                     </>
                   )}
-                  
+
                   {/* Bunker signers see only Bitcoin Connect wallet */}
                 </div>
               </div>

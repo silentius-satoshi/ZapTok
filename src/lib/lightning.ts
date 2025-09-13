@@ -1,10 +1,47 @@
 import type { NostrMetadata } from '@nostrify/nostrify';
+import { Invoice } from '@getalby/lightning-tools';
 import {
   makeZapPayment,
   getPaymentSuggestion,
   testLightningAddress,
   needsVercelProxy
 } from './lightning-proxy';
+
+/**
+ * Get amount from Lightning invoice (following Jumble's pattern)
+ */
+export function getAmountFromInvoice(invoice: string): number {
+  try {
+    const _invoice = new Invoice({ pr: invoice });
+    return _invoice.satoshi;
+  } catch (error) {
+    console.error('Failed to parse invoice:', error);
+    return 0;
+  }
+}
+
+/**
+ * Format amount for display (following Jumble's pattern)
+ */
+export function formatAmount(amount: number) {
+  if (amount < 1000) return amount.toString();
+  if (amount < 1000000) return `${Math.round(amount / 100) / 10}k`;
+  return `${Math.round(amount / 100000) / 10}M`;
+}
+
+/**
+ * Get Lightning address from profile (following Jumble's pattern)
+ */
+export function getLightningAddressFromProfile(profile: any) {
+  if (!profile) return null;
+
+  // Check for Lightning address or LNURL
+  if (profile.lud16) return profile.lud16;
+  if (profile.lud06) return profile.lud06;
+  if (profile.lightningAddress) return profile.lightningAddress;
+
+  return null;
+}
 
 /**
  * Re-export the main payment function for backward compatibility
