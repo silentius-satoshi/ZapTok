@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import React from 'react';
 import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Menu, Wallet, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -18,6 +19,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { useFeedRefresh } from '@/contexts/FeedRefreshContext';
 import { bundleLog } from '@/lib/logBundler';
 import { MobileSupporterButton } from '@/components/MobileSupporterButton';
+import { useWallet } from '@/hooks/useWallet';
 
 export function MobileNavigation() {
   const { user } = useCurrentUser();
@@ -25,10 +27,12 @@ export function MobileNavigation() {
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
 
-  // Check if current user is using a bunker signer
+  // Get comprehensive wallet/signer detection
+  const { isBunkerSigner, isNsecSigner, isExtensionSigner } = useWallet();
+
+  // Check current user login for backwards compatibility
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
   const loginType = currentUserLogin?.type;
-  const isBunkerSigner = loginType === 'bunker' || loginType === 'x-bunker-nostr-tools' || user?.signer?.constructor?.name?.includes('bunker');
 
   // Detect potential signer conflicts (respect user's choice)
   const isExtensionAvailable = !!(window.nostr);
@@ -123,13 +127,28 @@ export function MobileNavigation() {
     { id: 'following', icon: Users, label: 'Following', path: '/' },
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    // Conditional wallet item based on signer type (respects user's login choice)
-    {
-      id: 'wallet',
-      icon: isBunkerSigner ? Zap : Wallet,
-      label: isBunkerSigner ? 'Wallet' : 'Cashu Wallet',
-      path: '/wallet'
-    },
+    // Wallet items - nsec signers see both, others see their respective wallet
+    ...(isNsecSigner ? [
+      {
+        id: 'cashu-wallet',
+        icon: () => <img src={`${import.meta.env.BASE_URL}images/cashu-icon.png`} alt="Cashu" className="w-5 h-5 object-contain" />,
+        label: 'Cashu Wallet',
+        path: '/cashu-wallet'
+      },
+      {
+        id: 'bitcoin-connect-wallet',
+        icon: Zap,
+        label: 'Bitcoin Connect',
+        path: '/bitcoin-connect-wallet'
+      }
+    ] : [
+      {
+        id: 'wallet',
+        icon: isBunkerSigner ? Zap : Wallet,
+        label: isBunkerSigner ? 'Bitcoin Connect' : 'Cashu Wallet',
+        path: isBunkerSigner ? '/bitcoin-connect-wallet' : '/cashu-wallet'
+      }
+    ]),
     { id: 'live-stream', icon: Radio, label: 'Live Stream', action: 'liveStream' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
     { id: 'upload-video', icon: PlusSquare, label: 'Upload Video', action: 'uploadVideo' },
@@ -139,7 +158,7 @@ export function MobileNavigation() {
   const bottomNavItems = [
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'following', icon: Users, label: 'Following', path: '/' },
-    { id: 'lightning', icon: Zap, label: 'Wallet', path: '/wallet', isCenter: true },
+    { id: 'lightning', icon: Zap, label: 'Wallet', path: isBunkerSigner ? '/bitcoin-connect-wallet' : '/cashu-wallet', isCenter: true },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
     { id: 'profile', icon: User, label: 'Profile', isUserProfile: true },
   ];
@@ -185,18 +204,50 @@ export function MobileNavigation() {
                   <UserPlus className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
                 </button>
 
-                {/* Wallet Icon - respects user's login choice */}
-                <button
-                  onClick={() => navigate('/wallet')}
-                  aria-label={isBunkerSigner ? "Wallet" : "Cashu Wallet"}
-                  className="text-white/80 hover:text-white transition-colors"
-                >
-                  {isBunkerSigner ? (
-                    <Zap className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
-                  ) : (
-                    <Wallet className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
-                  )}
-                </button>
+                {/* Wallet Icons - nsec signers see both, others see their respective wallet */}
+                {isNsecSigner ? (
+                  <>
+                    {/* Cashu Wallet Icon */}
+                    <button
+                      onClick={() => navigate('/cashu-wallet')}
+                      aria-label="Cashu Wallet"
+                      className="text-white/80 hover:text-white transition-colors"
+                    >
+                      <img 
+                        src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+                        alt="Cashu" 
+                        className="w-6 h-6" 
+                        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
+                      />
+                    </button>
+
+                    {/* Bitcoin Connect Wallet Icon */}
+                    <button
+                      onClick={() => navigate('/bitcoin-connect-wallet')}
+                      aria-label="Bitcoin Connect Wallet"
+                      className="text-white/80 hover:text-white transition-colors"
+                    >
+                      <Zap className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => navigate(isBunkerSigner ? '/bitcoin-connect-wallet' : '/cashu-wallet')}
+                    aria-label={isBunkerSigner ? "Bitcoin Connect Wallet" : "Cashu Wallet"}
+                    className="text-white/80 hover:text-white transition-colors"
+                  >
+                    {isBunkerSigner ? (
+                      <Zap className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                    ) : (
+                      <img 
+                        src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+                        alt="Cashu" 
+                        className="w-6 h-6" 
+                        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
+                      />
+                    )}
+                  </button>
+                )}
 
                 {/* Upload Icon */}
                 <button
@@ -263,7 +314,13 @@ export function MobileNavigation() {
                             className="w-full justify-start h-12 text-gray-400 hover:text-white hover:bg-gray-800/30"
                             onClick={onClick}
                           >
-                            <item.icon size={20} className="mr-3" />
+                            <div className="w-5 h-5 mr-3 flex items-center justify-center">
+                              {typeof item.icon === 'function' ? (
+                                (item.icon as () => JSX.Element)()
+                              ) : (
+                                React.createElement(item.icon as React.ComponentType<{ size?: number }>, { size: 20 })
+                              )}
+                            </div>
                             <span className="font-medium">{item.label}</span>
                           </Button>
                         );
@@ -282,7 +339,13 @@ export function MobileNavigation() {
                               }`}
                               onClick={() => handleNavigateToPage(item.path!)}
                             >
-                              <item.icon size={20} className="mr-3" />
+                              <div className="w-5 h-5 mr-3 flex items-center justify-center">
+                                {typeof item.icon === 'function' ? (
+                                  (item.icon as () => JSX.Element)()
+                                ) : (
+                                  React.createElement(item.icon as React.ComponentType<{ size?: number }>, { size: 20 })
+                                )}
+                              </div>
                               <span className="font-medium">{item.label}</span>
                             </Button>
                           </Link>

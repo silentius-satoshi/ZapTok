@@ -20,6 +20,8 @@ import Discover from "./pages/Discover";
 import Notifications from "./pages/Notifications";
 import { Settings } from "./pages/Settings";
 import { LightningWallet } from "./pages/LightningWallet";
+import { CashuWallet } from "./pages/CashuWallet";
+import { BitcoinConnectWallet } from "./pages/BitcoinConnectWallet";
 import { Stream } from "./components/stream/Stream";
 import { NostrEntity } from "./pages/NostrEntity";
 import About from "./pages/About";
@@ -60,6 +62,8 @@ function RouteHandler() {
       <Route path="/donate" element={<DonationPage />} />
       <Route path="/about" element={<About />} />
       <Route path="/wallet" element={<LightningWallet />} />
+      <Route path="/cashu-wallet" element={<CashuWallet />} />
+      <Route path="/bitcoin-connect-wallet" element={<BitcoinConnectWallet />} />
       <Route path="/stream" element={<Stream />} />
       <Route path="/pro" element={<ProModePage />} />
       {/* Nostr entity handler - must be after specific routes */}
