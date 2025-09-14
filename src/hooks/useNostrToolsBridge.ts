@@ -2,6 +2,7 @@ import { BunkerSigner } from 'nostr-tools/nip46';
 import { SimplePool } from 'nostr-tools/pool';
 import { hexToBytes } from '@noble/hashes/utils';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { debugLog } from '@/lib/debug';
 
 /**
  * Bridge class that makes nostr-tools BunkerSigner compatible with Nostrify's signer interface
@@ -12,23 +13,77 @@ export class NostrToolsSigner {
   private bunkerSigner: BunkerSigner;
   private pool: SimplePool;
   private _pubkey: string;
+  private _isReady: boolean = false;
 
   constructor(bunkerSigner: BunkerSigner, userPubkey: string) {
     this.bunkerSigner = bunkerSigner;
     this._pubkey = userPubkey;
     this.pool = new SimplePool();
+
+    // Check if bunker is ready
+    this.checkReadiness();
+  }
+
+  private async checkReadiness() {
+    try {
+      // Try to verify the bunker signer has required methods
+      if (this.bunkerSigner && typeof this.bunkerSigner.signEvent === 'function') {
+        this._isReady = true;
+        debugLog.bunker('✅ Bunker signer is ready');
+      } else {
+        debugLog.bunker('⚠️ Bunker signer not ready, methods available:',
+          this.bunkerSigner ? Object.getOwnPropertyNames(this.bunkerSigner).concat(
+            Object.getOwnPropertyNames(Object.getPrototypeOf(this.bunkerSigner))
+          ).filter(name => typeof this.bunkerSigner[name] === 'function') : []
+        );
+      }
+    } catch (error) {
+      debugLog.bunker('Error checking bunker readiness:', error);
+    }
+  }
+
+  // Public method to force readiness check
+  async forceReadinessCheck(): Promise<void> {
+    await this.checkReadiness();
   }
 
   get pubkey(): string {
     return this._pubkey;
   }
 
+  get isReady(): boolean {
+    return this._isReady;
+  }
+
   async signEvent(event: NostrEvent): Promise<NostrEvent> {
     try {
+      debugLog.bunkerVerbose('🔧 NostrToolsSigner.signEvent called:', {
+        isReady: this._isReady,
+        hasBunkerSigner: !!this.bunkerSigner,
+        bunkerSignerType: this.bunkerSigner?.constructor?.name,
+        hasSignEvent: !!this.bunkerSigner?.signEvent,
+        signEventType: typeof this.bunkerSigner?.signEvent
+      });
+
+      if (!this._isReady) {
+        debugLog.bunker('🔄 Bunker signer not ready, rechecking...');
+        await this.checkReadiness();
+      }
+
+      if (!this.bunkerSigner?.signEvent) {
+        debugLog.bunker('❌ Bunker signer missing signEvent method:', {
+          availableMethods: this.bunkerSigner ? Object.getOwnPropertyNames(this.bunkerSigner).concat(
+            Object.getOwnPropertyNames(Object.getPrototypeOf(this.bunkerSigner))
+          ).filter(name => typeof this.bunkerSigner[name] === 'function') : []
+        });
+        throw new Error('Bunker signer does not have signEvent method');
+      }
+
       const signedEvent = await this.bunkerSigner.signEvent(event);
+      debugLog.bunker('✅ Successfully signed event with bunker');
       return signedEvent as NostrEvent;
     } catch (error) {
-      console.error('Failed to sign event with bunker:', error);
+      debugLog.bunker('❌ Failed to sign event with bunker:', error);
       throw error;
     }
   }
@@ -69,6 +124,14 @@ export class NostrToolsSigner {
     }
   }
 
+  // Add nip44 property for compatibility with existing code patterns
+  get nip44() {
+    return {
+      encrypt: this.nip44Encrypt.bind(this),
+      decrypt: this.nip44Decrypt.bind(this)
+    };
+  }
+
   // Cleanup method
   async close(): Promise<void> {
     try {
@@ -104,7 +167,7 @@ export function createNostrifyBunkerLogin(
 
   // Reconstruct the original bunker URL that Nostrify expects
   // Use the original URI if stored, otherwise reconstruct from components
-  const bunkerUrl = bunkerData.originalBunkerUri || 
+  const bunkerUrl = bunkerData.originalBunkerUri ||
     `bunker://${bunkerData.bunkerPubkey}?relay=${encodeURIComponent(bunkerData.relays[0])}&secret=${bunkerData.secret}`;
 
   // Create a login object that mimics Nostrify's NLogin structure

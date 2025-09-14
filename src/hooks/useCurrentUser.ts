@@ -7,7 +7,7 @@ import { useAuthor } from './useAuthor.ts';
 export function useCurrentUser() {
   const { nostr } = useNostr();
   const { logins, removeLogin } = useNostrLogin();
-  
+
   // Track invalid logins that need to be removed
   const invalidLoginsRef = useRef<Set<string>>(new Set());
 
@@ -35,31 +35,23 @@ export function useCurrentUser() {
           invalidLoginsRef.current.add(login.id);
           return null; // Return null instead of throwing to prevent render loops
         }
-        
+
         // If we have a working signer, create a simple user object
         // The new login format already contains a working Nostrify-compatible signer
         if (customLogin.signer && customLogin.pubkey) {
           return {
             pubkey: customLogin.pubkey,
             signer: customLogin.signer,
-            // Add the minimal NUser interface methods
-            async signEvent(event: any) {
-              return await customLogin.signer.signEvent(event);
-            },
-            async encrypt(pubkey: string, plaintext: string) {
-              return await customLogin.signer.nip04Encrypt(pubkey, plaintext);  
-            },
-            async decrypt(pubkey: string, ciphertext: string) {
-              return await customLogin.signer.nip04Decrypt(pubkey, ciphertext);
-            }
+            // Remove wrapper methods - let the signer handle everything directly
+            // This ensures consistency with extension/nsec signers that use user.signer.signEvent
           } as any; // Cast to NUser-compatible type
         }
-        
+
         // Fallback: Parse the bunker URL to extract components for NLoginBunker (for old format)
         const bunkerUrlObj = new URL(bunkerUrl);
         const bunkerPubkey = bunkerUrlObj.pathname.slice(2); // Remove '//' prefix
         const relays = bunkerUrlObj.searchParams.getAll('relay');
-        
+
         // Create proper NLoginBunker structure
         const enhancedLogin = {
           type: 'bunker' as const,

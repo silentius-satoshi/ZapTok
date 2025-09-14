@@ -172,9 +172,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [user?.pubkey, walletInfo]);
 
   useEffect(() => {
-    // Auto-detect WebLN only for extension signers (not bunker or other remote signers)
-    if (!user?.pubkey || !isExtensionSigner) {
-      bundleLog('walletAutoDetection', '[WalletContext] Skipping WebLN auto-detection - Extension signer: ' + isExtensionSigner + ', User: ' + !!user?.pubkey);
+    // Auto-detect WebLN for extension signers AND nsec signers (not bunker or other remote signers)
+    if (!user?.pubkey || (!isExtensionSigner && !isNsecSigner)) {
+      bundleLog('walletAutoDetection', '[WalletContext] Skipping WebLN auto-detection - Extension signer: ' + isExtensionSigner + ', Nsec signer: ' + isNsecSigner + ', User: ' + !!user?.pubkey);
       return;
     }
 
@@ -187,11 +187,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        bundleLog('walletAutoDetection', '[WalletContext] Signer type detection - Extension signer: ' + isExtensionSigner + ', Constructor: ' + user.signer?.constructor?.name);
+        bundleLog('walletAutoDetection', '[WalletContext] Signer type detection - Extension signer: ' + isExtensionSigner + ', Nsec signer: ' + isNsecSigner + ', Constructor: ' + user.signer?.constructor?.name);
 
         // Check if WebLN is available
         if (window.webln) {
-          bundleLog('walletAutoDetection', '[WalletContext] WebLN detected, attempting auto-enable for extension signer: ' + user.pubkey.slice(0, 8) + '...');
+          bundleLog('walletAutoDetection', '[WalletContext] WebLN detected, attempting auto-enable for extension/nsec signer: ' + user.pubkey.slice(0, 8) + '...');
 
           try {
             await window.webln.enable();
