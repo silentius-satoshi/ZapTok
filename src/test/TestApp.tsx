@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { NostrLoginProvider } from '@nostrify/react/login';
 import NostrProvider from '@/components/NostrProvider';
 import { AppProvider } from '@/components/AppProvider';
+import { ZapProvider } from '@/contexts/ZapProvider';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
@@ -43,19 +44,21 @@ export function TestApp({ children }: TestAppProps) {
       <AppProvider storageKey='test-app-config' defaultConfig={defaultConfig}>
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='test-login'>
-            <BrowserRouter>
-              <NostrProvider>
-                <CachingProvider>
-                  <WalletProvider>
-                    <VideoPlaybackProvider>
-                      <CurrentVideoProvider>
-                        {children}
-                      </CurrentVideoProvider>
-                    </VideoPlaybackProvider>
-                  </WalletProvider>
-                </CachingProvider>
-              </NostrProvider>
-            </BrowserRouter>
+            <ZapProvider>
+              <BrowserRouter>
+                <NostrProvider>
+                  <CachingProvider>
+                    <WalletProvider>
+                      <VideoPlaybackProvider>
+                        <CurrentVideoProvider>
+                          {children}
+                        </CurrentVideoProvider>
+                      </VideoPlaybackProvider>
+                    </WalletProvider>
+                  </CachingProvider>
+                </NostrProvider>
+              </BrowserRouter>
+            </ZapProvider>
           </NostrLoginProvider>
         </QueryClientProvider>
       </AppProvider>

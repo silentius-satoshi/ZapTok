@@ -5,6 +5,7 @@ import { Suspense, useEffect } from 'react';
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AuthFilter } from '@/components/auth/AuthFilter';
+import { ZapProvider } from '@/contexts/ZapProvider';
 import { CurrentVideoProvider } from '@/contexts/CurrentVideoContext';
 import { FeedRefreshProvider } from '@/contexts/FeedRefreshContext';
 import { AppConfig } from '@/contexts/AppContext';
@@ -81,13 +82,15 @@ export function App() {
       <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
-            <CurrentVideoProvider>
-              <FeedRefreshProvider>
-                <AuthFilter>
-                  <AppContent />
-                </AuthFilter>
-              </FeedRefreshProvider>
-            </CurrentVideoProvider>
+            <ZapProvider>
+              <CurrentVideoProvider>
+                <FeedRefreshProvider>
+                  <AuthFilter>
+                    <AppContent />
+                  </AuthFilter>
+                </FeedRefreshProvider>
+              </CurrentVideoProvider>
+            </ZapProvider>
           </NostrLoginProvider>
         </QueryClientProvider>
       </AppProvider>
