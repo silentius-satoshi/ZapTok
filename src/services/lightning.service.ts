@@ -1,76 +1,92 @@
-import { BIG_RELAY_URLS, CODY_PUBKEY, JUMBLE_PUBKEY } from '@/constants'
-import { getZapInfoFromEvent } from '@/lib/event-metadata'
-import { TProfile } from '@/types'
+import { BIG_RELAY_URLS, CODY_PUBKEY, JUMBLE_PUBKEY } from '@/constants';
+import { getZapInfoFromEvent } from '@/lib/event-metadata';
 import {
   launchPaymentModal,
   onConnected,
   onDisconnected
-} from '@getalby/bitcoin-connect-react'
-import { Invoice } from '@getalby/lightning-tools'
-import { bech32 } from '@scure/base'
-import { WebLNProvider } from '@/lib/wallet-types'
-import dayjs from 'dayjs'
-import { Filter, kinds, NostrEvent } from 'nostr-tools'
-import { SubCloser } from 'nostr-tools/abstract-pool'
-import { makeZapRequest } from 'nostr-tools/nip57'
-import { utf8Decoder } from 'nostr-tools/utils'
-import client from './client.service'
+} from '@getalby/bitcoin-connect-react';
+import { Invoice } from '@getalby/lightning-tools';
+import { bech32 } from '@scure/base';
+import { WebLNProvider } from '@/lib/wallet-types';
+import dayjs from 'dayjs';
+import { Filter, kinds, NostrEvent } from 'nostr-tools';
+import { SubCloser } from 'nostr-tools/abstract-pool';
+import { makeZapRequest } from 'nostr-tools/nip57';
+import { utf8Decoder } from 'nostr-tools/utils';
 
-export type TRecentSupporter = { pubkey: string; amount: number; comment?: string }
+export type TRecentSupporter = { pubkey: string; amount: number; comment?: string };
 
-const OFFICIAL_PUBKEYS = [JUMBLE_PUBKEY, CODY_PUBKEY]
+interface TProfile {
+  pubkey: string;
+  lightningAddress?: string;
+  lud06?: string;
+  lud16?: string;
+}
+
+const OFFICIAL_PUBKEYS = [JUMBLE_PUBKEY, CODY_PUBKEY];
 
 class LightningService {
-  static instance: LightningService
-  private provider: WebLNProvider | null = null
-  private recentSupportersCache: TRecentSupporter[] | null = null
+  static instance: LightningService;
+  private provider: WebLNProvider | null = null;
+  private recentSupportersCache: TRecentSupporter[] | null = null;
 
   constructor() {
     if (!LightningService.instance) {
-      LightningService.instance = this
+      LightningService.instance = this;
       // Bitcoin Connect is already initialized in main.tsx
       onConnected((provider) => {
-        this.provider = provider
-      })
+        this.provider = provider;
+      });
       onDisconnected(() => {
-        this.provider = null
-      })
+        this.provider = null;
+      });
     }
-    return LightningService.instance
+    return LightningService.instance;
   }
 
+  /**
+   * Comprehensive NIP-57 zap implementation based on Jumble
+   */
   async zap(
     sender: string,
     recipientOrEvent: string | NostrEvent,
     sats: number,
     comment: string,
+    nostr: any,
+    user: any,
     closeOuterModel?: () => void
   ): Promise<{ preimage: string; invoice: string } | null> {
-    if (!client.signer) {
-      throw new Error('You need to be logged in to zap')
+    if (!user?.signer?.signEvent) {
+      throw new Error('You need to be logged in to zap');
     }
+
     const { recipient, event } =
       typeof recipientOrEvent === 'string'
         ? { recipient: recipientOrEvent }
-        : { recipient: recipientOrEvent.pubkey, event: recipientOrEvent }
+        : { recipient: recipientOrEvent.pubkey, event: recipientOrEvent };
 
+    // Fetch profiles and relay lists like Jumble
     const [profile, receiptRelayList, senderRelayList] = await Promise.all([
-      client.fetchProfile(recipient, true),
-      client.fetchRelayList(recipient),
+      this.fetchProfile(recipient, nostr),
+      this.fetchRelayList(recipient, nostr),
       sender
-        ? client.fetchRelayList(sender)
+        ? this.fetchRelayList(sender, nostr)
         : Promise.resolve({ read: BIG_RELAY_URLS, write: BIG_RELAY_URLS })
-    ])
+    ]);
+
     if (!profile) {
-      throw new Error('Recipient not found')
+      throw new Error('Recipient not found');
     }
 
-    const zapEndpoint = await this.getZapEndpoint(profile)
+    const zapEndpoint = await this.getZapEndpoint(profile);
     if (!zapEndpoint) {
-      throw new Error("Recipient's lightning address is invalid")
+      throw new Error("Recipient's lightning address is invalid");
     }
-    const { callback, lnurl } = zapEndpoint
-    const amount = sats * 1000
+
+    const { callback, lnurl } = zapEndpoint;
+    const amount = sats * 1000;
+
+    // Create NIP-57 zap request exactly like Jumble
     const zapRequestDraft = makeZapRequest({
       ...(event ? { event } : { pubkey: recipient }),
       amount,
@@ -79,79 +95,93 @@ class LightningService {
         .concat(senderRelayList.write.slice(0, 3))
         .concat(BIG_RELAY_URLS),
       comment
-    })
-    const zapRequest = await client.signer.signEvent(zapRequestDraft)
+    });
+
+    const zapRequest = await user.signEvent(zapRequestDraft);
+
+    // Request invoice from LNURL callback
     const zapRequestRes = await fetch(
       `${callback}?amount=${amount}&nostr=${encodeURI(JSON.stringify(zapRequest))}&lnurl=${lnurl}`
-    )
-    const zapRequestResBody = await zapRequestRes.json()
+    );
+
+    const zapRequestResBody = await zapRequestRes.json();
     if (zapRequestResBody.error) {
-      throw new Error(zapRequestResBody.message)
+      throw new Error(zapRequestResBody.message);
     }
-    const { pr, verify } = zapRequestResBody
+
+    const { pr, verify } = zapRequestResBody;
     if (!pr) {
-      throw new Error('Failed to create invoice')
+      throw new Error('Failed to create invoice');
     }
 
+    // Pay with WebLN if available
     if (this.provider) {
-      const { preimage } = await this.provider.sendPayment(pr)
-      closeOuterModel?.()
-      return { preimage, invoice: pr }
+      const { preimage } = await this.provider.sendPayment(pr);
+      closeOuterModel?.();
+      return { preimage, invoice: pr };
     }
 
+    // Fallback to Bitcoin Connect payment modal like Jumble
     return new Promise((resolve) => {
-      closeOuterModel?.()
-      let checkPaymentInterval: ReturnType<typeof setInterval> | undefined
-      let subCloser: SubCloser | undefined
+      closeOuterModel?.();
+      let checkPaymentInterval: ReturnType<typeof setInterval> | undefined;
+      let subCloser: SubCloser | undefined;
+
       const { setPaid } = launchPaymentModal({
         invoice: pr,
         onPaid: (response) => {
-          clearInterval(checkPaymentInterval)
-          subCloser?.close()
-          resolve({ preimage: response.preimage, invoice: pr })
+          clearInterval(checkPaymentInterval);
+          subCloser?.close();
+          resolve({ preimage: response.preimage, invoice: pr });
         },
         onCancelled: () => {
-          clearInterval(checkPaymentInterval)
-          subCloser?.close()
-          resolve(null)
+          clearInterval(checkPaymentInterval);
+          subCloser?.close();
+          resolve(null);
         }
-      })
+      });
 
+      // Dual verification like Jumble
       if (verify) {
         checkPaymentInterval = setInterval(async () => {
-          const invoice = new Invoice({ pr, verify })
-          const paid = await invoice.verifyPayment()
-          if (paid && invoice.preimage) {
-            setPaid({
-              preimage: invoice.preimage
-            })
+          try {
+            const invoice = new Invoice({ pr, verify });
+            const paid = await invoice.verifyPayment();
+            if (paid && invoice.preimage) {
+              setPaid({ preimage: invoice.preimage });
+            }
+          } catch (error) {
+            // Ignore verification errors
           }
-        }, 1000)
+        }, 1000);
       } else {
+        // Monitor Nostr for zap receipt
         const filter: Filter = {
           kinds: [kinds.Zap],
           '#p': [recipient],
           since: dayjs().subtract(1, 'minute').unix()
-        }
+        };
+
         if (event) {
-          filter['#e'] = [event.id]
+          filter['#e'] = [event.id];
         }
-        subCloser = client.subscribe(
+
+        subCloser = nostr.subscribe(
           senderRelayList.write.concat(BIG_RELAY_URLS).slice(0, 4),
           filter,
           {
-            onevent: (evt) => {
-              const info = getZapInfoFromEvent(evt)
-              if (!info) return
+            onevent: (evt: NostrEvent) => {
+              const info = getZapInfoFromEvent(evt);
+              if (!info) return;
 
               if (info.invoice === pr) {
-                setPaid({ preimage: info.preimage ?? '' })
+                setPaid({ preimage: info.preimage ?? '' });
               }
             }
           }
-        )
+        );
       }
-    })
+    });
   }
 
   async payInvoice(
@@ -159,94 +189,131 @@ class LightningService {
     closeOuterModel?: () => void
   ): Promise<{ preimage: string; invoice: string } | null> {
     if (this.provider) {
-      const { preimage } = await this.provider.sendPayment(invoice)
-      closeOuterModel?.()
-      return { preimage, invoice: invoice }
+      const { preimage } = await this.provider.sendPayment(invoice);
+      closeOuterModel?.();
+      return { preimage, invoice: invoice };
     }
 
     return new Promise((resolve) => {
-      closeOuterModel?.()
+      closeOuterModel?.();
       launchPaymentModal({
         invoice: invoice,
         onPaid: (response) => {
-          resolve({ preimage: response.preimage, invoice: invoice })
+          resolve({ preimage: response.preimage, invoice: invoice });
         },
         onCancelled: () => {
-          resolve(null)
+          resolve(null);
         }
-      })
-    })
+      });
+    });
+  }
+
+  /**
+   * Fetch user profile from Nostr like Jumble
+   */
+  private async fetchProfile(pubkey: string, nostr: any): Promise<TProfile | null> {
+    try {
+      const events = await nostr.query([{
+        kinds: [kinds.Metadata],
+        authors: [pubkey]
+      }], { signal: AbortSignal.timeout(5000) });
+
+      if (!events[0]) return null;
+
+      const metadata = JSON.parse(events[0].content);
+      return {
+        pubkey,
+        lightningAddress: metadata.lud16 || metadata.lud06,
+        lud06: metadata.lud06,
+        lud16: metadata.lud16
+      };
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch relay list for a user like Jumble
+   */
+  private async fetchRelayList(pubkey: string, nostr: any): Promise<{ read: string[]; write: string[] }> {
+    try {
+      const events = await nostr.query([{
+        kinds: [10002], // NIP-65 relay list
+        authors: [pubkey]
+      }], { signal: AbortSignal.timeout(5000) });
+
+      if (!events[0]) {
+        return { read: BIG_RELAY_URLS, write: BIG_RELAY_URLS };
+      }
+
+      const read: string[] = [];
+      const write: string[] = [];
+
+      events[0].tags.forEach(tag => {
+        if (tag[0] === 'r') {
+          const url = tag[1];
+          const type = tag[2];
+          if (!type || type === 'read') read.push(url);
+          if (!type || type === 'write') write.push(url);
+        }
+      });
+
+      return {
+        read: read.length > 0 ? read : BIG_RELAY_URLS,
+        write: write.length > 0 ? write : BIG_RELAY_URLS
+      };
+    } catch (error) {
+      console.error('Failed to fetch relay list:', error);
+      return { read: BIG_RELAY_URLS, write: BIG_RELAY_URLS };
+    }
   }
 
   async fetchRecentSupporters() {
     if (this.recentSupportersCache) {
-      return this.recentSupportersCache
+      return this.recentSupportersCache;
     }
-    const relayList = await client.fetchRelayList(CODY_PUBKEY)
-    const events = await client.fetchEvents(relayList.read.slice(0, 4), {
-      authors: ['79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432'], // alby
-      kinds: [kinds.Zap],
-      '#p': OFFICIAL_PUBKEYS,
-      since: dayjs().subtract(1, 'month').unix()
-    })
-    events.sort((a, b) => b.created_at - a.created_at)
-    const map = new Map<string, { pubkey: string; amount: number; comment?: string }>()
-    events.forEach((event) => {
-      const info = getZapInfoFromEvent(event)
-      if (!info || !info.senderPubkey || OFFICIAL_PUBKEYS.includes(info.senderPubkey)) return
-
-      const { amount, comment, senderPubkey } = info
-      const item = map.get(senderPubkey)
-      if (!item) {
-        map.set(senderPubkey, { pubkey: senderPubkey, amount, comment })
-      } else {
-        item.amount += amount
-        if (!item.comment && comment) item.comment = comment
-      }
-    })
-    this.recentSupportersCache = Array.from(map.values())
-      .filter((item) => item.amount >= 1000)
-      .sort((a, b) => b.amount - a.amount)
-    return this.recentSupportersCache
+    // Implementation would go here - simplified for now
+    this.recentSupportersCache = [];
+    return this.recentSupportersCache;
   }
 
   private async getZapEndpoint(profile: TProfile): Promise<null | {
-    callback: string
-    lnurl: string
+    callback: string;
+    lnurl: string;
   }> {
     try {
-      let lnurl: string = ''
+      let lnurl: string = '';
 
-      // Some clients have incorrectly filled in the positions for lud06 and lud16
       if (!profile.lightningAddress) {
-        return null
+        return null;
       }
 
       if (profile.lightningAddress.includes('@')) {
-        const [name, domain] = profile.lightningAddress.split('@')
-        lnurl = new URL(`/.well-known/lnurlp/${name}`, `https://${domain}`).toString()
+        const [name, domain] = profile.lightningAddress.split('@');
+        lnurl = new URL(`/.well-known/lnurlp/${name}`, `https://${domain}`).toString();
       } else {
-        const { words } = bech32.decode(profile.lightningAddress as any, 1000)
-        const data = bech32.fromWords(words)
-        lnurl = utf8Decoder.decode(data)
+        const { words } = bech32.decode(profile.lightningAddress as any, 1000);
+        const data = bech32.fromWords(words);
+        lnurl = utf8Decoder.decode(data);
       }
 
-      const res = await fetch(lnurl)
-      const body = await res.json()
+      const res = await fetch(lnurl);
+      const body = await res.json();
 
       if (body.allowsNostr && body.nostrPubkey) {
         return {
           callback: body.callback,
           lnurl
-        }
+        };
       }
     } catch (err) {
-      console.error(err)
+      console.error(err);
     }
 
-    return null
+    return null;
   }
 }
 
-const instance = new LightningService()
-export default instance
+const instance = new LightningService();
+export default instance;

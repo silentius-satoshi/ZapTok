@@ -1,8 +1,9 @@
 import { requestProvider } from 'webln';
-import { nip19, kinds, type Filter } from 'nostr-tools';
+import { nip19, kinds, type Filter, type EventTemplate } from 'nostr-tools';
 import { makeZapRequest } from 'nostr-tools/nip57';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { ZAPTOK_CONFIG } from '@/constants';
+import { debugLog } from '@/lib/debug';
 import { useNostr } from '@nostrify/react';
 import {
   init,
@@ -211,7 +212,44 @@ export class LightningService {
     user: any, // User object with signer from useCurrentUser hook
     closeOuterModal?: () => void
   ): Promise<{ preimage: string; invoice: string } | null> {
-    if (!user?.signEvent) {
+    // Enhanced debug for bunker signer detection (conditional)
+    debugLog.lightningVerbose('🔍 Donation Zap Debug:', {
+      hasSignEventDirectly: !!user?.signer?.signEvent,
+      signEvent: user?.signer?.signEvent,
+      signer: user?.signer,
+      signerKeys: user?.signer ? Object.keys(user?.signer) : 'no signer',
+      user: user,
+      userKeys: user ? Object.keys(user) : 'no user',
+      // Check if methods exist on prototype
+      signEventOnPrototype: user?.signer && typeof Object.getPrototypeOf(user.signer).signEvent === 'function',
+      allSignerMethods: user?.signer ? Object.getOwnPropertyNames(user.signer).concat(
+        Object.getOwnPropertyNames(Object.getPrototypeOf(user.signer))
+      ).filter(name => typeof user.signer[name] === 'function') : [],
+      prototypeKeys: user?.signer ? Object.getOwnPropertyNames(Object.getPrototypeOf(user.signer)) : [],
+      signerInstanceof: user?.signer?.constructor?.name
+    });
+
+    // Handle different signer types and method access patterns
+    let signEventMethod: ((event: EventTemplate) => Promise<NostrEvent>) | undefined;
+
+    // Check for direct signEvent method
+    if (user?.signer?.signEvent && typeof user.signer.signEvent === 'function') {
+      signEventMethod = user.signer.signEvent.bind(user.signer);
+      debugLog.lightning('✅ Found signEvent method directly on signer');
+    }
+    // Check for signEvent on prototype (class methods)
+    else if (user?.signer && typeof Object.getPrototypeOf(user.signer).signEvent === 'function') {
+      signEventMethod = Object.getPrototypeOf(user.signer).signEvent.bind(user.signer);
+      debugLog.lightning('✅ Found signEvent method on signer prototype');
+    }
+    // Check if it's a bunker signer with underlying bunkerSigner
+    else if (user?.signer?.bunkerSigner?.signEvent && typeof user.signer.bunkerSigner.signEvent === 'function') {
+      signEventMethod = user.signer.bunkerSigner.signEvent.bind(user.signer.bunkerSigner);
+      debugLog.lightning('✅ Found signEvent method on underlying bunkerSigner');
+    }
+
+    if (!signEventMethod) {
+      debugLog.lightning('❌ No signEvent method found on any signer level');
       throw new Error('You need to be logged in to zap');
     }
 
@@ -243,49 +281,110 @@ export class LightningService {
       comment
     });
 
-    const zapRequest = await user.signEvent(zapRequestDraft);
+    // Sign the zap request using the found signEvent method
+    let zapRequest: NostrEvent;
+    try {
+      zapRequest = await signEventMethod(zapRequestDraft);
+      debugLog.lightning('✅ Successfully signed zap request (kind 9734)', { zapRequest });
+    } catch (signError) {
+      debugLog.lightning('❌ Failed to sign zap request:', signError);
 
-    // Request invoice from LNURL callback
-    const zapRequestRes = await fetch(
-      `${callback}?amount=${amount}&nostr=${encodeURI(JSON.stringify(zapRequest))}&lnurl=${lnurl}`
-    );
+      // Check if this might be a permission issue
+      if (signError.message?.includes('permission') || signError.message?.includes('not allowed')) {
+        throw new Error('Bunker signer needs permission to sign zap requests (kind 9734). Please add this permission in your bunker app.');
+      }
 
-    const zapRequestResBody = await zapRequestRes.json();
-    if (zapRequestResBody.error) {
-      throw new Error(zapRequestResBody.message);
+      throw new Error(`Failed to sign zap request: ${signError.message}`);
     }
 
-    const { pr, verify } = zapRequestResBody;
-    if (!pr) {
-      throw new Error('Failed to create invoice');
+    // Request invoice from LNURL callback
+    debugLog.lightningVerbose('🔄 Requesting invoice from LNURL callback...', {
+      callback,
+      amount,
+      lnurl,
+      zapRequestLength: JSON.stringify(zapRequest).length
+    });
+
+    let pr: string;
+    let verify: string | undefined;
+
+    try {
+      const callbackUrl = `${callback}?amount=${amount}&nostr=${encodeURI(JSON.stringify(zapRequest))}&lnurl=${lnurl}`;
+      debugLog.lightningVerbose('📤 Making LNURL callback request to:', callbackUrl.substring(0, 200) + '...');
+
+      const zapRequestRes = await fetch(callbackUrl);
+      debugLog.lightningVerbose('📥 LNURL callback response status:', zapRequestRes.status);
+
+      if (!zapRequestRes.ok) {
+        throw new Error(`LNURL callback failed with status ${zapRequestRes.status}`);
+      }
+
+      const zapRequestResBody = await zapRequestRes.json();
+      debugLog.lightningVerbose('📋 LNURL callback response body:', zapRequestResBody);
+
+      if (zapRequestResBody.error) {
+        debugLog.lightning('❌ LNURL callback error:', zapRequestResBody);
+        throw new Error(zapRequestResBody.message || zapRequestResBody.error);
+      }
+
+      ({ pr, verify } = zapRequestResBody);
+      if (!pr) {
+        debugLog.lightning('❌ No payment request received:', zapRequestResBody);
+        throw new Error('Failed to create invoice');
+      }
+
+      debugLog.lightning('✅ Invoice generated successfully', {
+        invoiceLength: pr.length,
+        hasVerify: !!verify
+      });
+
+    } catch (fetchError) {
+      debugLog.lightning('❌ LNURL callback request failed:', fetchError);
+      throw new Error(`Failed to get invoice: ${fetchError.message}`);
     }
 
     // Pay with WebLN if available
     if (this.provider) {
-      const { preimage } = await this.provider.sendPayment(pr);
-      closeOuterModal?.();
-      return { preimage, invoice: pr };
+      debugLog.lightning('💰 Paying with WebLN provider...');
+      try {
+        const { preimage } = await this.provider.sendPayment(pr);
+        closeOuterModal?.();
+        debugLog.lightning('✅ WebLN payment successful', { preimage });
+        return { preimage, invoice: pr };
+      } catch (weblnError) {
+        debugLog.lightning('❌ WebLN payment failed:', weblnError);
+        // Continue to fallback payment modal
+      }
     }
 
+    debugLog.lightning('🎭 Launching Bitcoin Connect payment modal...');
+
     // Fallback to Bitcoin Connect payment modal
+    debugLog.lightning('🎭 Launching Bitcoin Connect payment modal...');
     return new Promise((resolve) => {
       closeOuterModal?.();
       let checkPaymentInterval: ReturnType<typeof setInterval> | undefined;
       let subCloser: any; // SubCloser type
 
+      debugLog.lightningVerbose('🚀 Setting up payment modal with invoice:', pr.substring(0, 50) + '...');
+
       const { setPaid } = launchPaymentModal({
         invoice: pr,
         onPaid: (response) => {
+          debugLog.lightning('✅ Payment completed via modal:', response);
           clearInterval(checkPaymentInterval);
           subCloser?.close();
           resolve({ preimage: response.preimage, invoice: pr });
         },
         onCancelled: () => {
+          debugLog.lightning('❌ Payment cancelled by user');
           clearInterval(checkPaymentInterval);
           subCloser?.close();
           resolve(null);
         }
       });
+
+      debugLog.lightningVerbose('🔍 Payment modal launched, setting up monitoring...');
 
       // Monitor for zap receipt if we have verification
       if (verify) {
