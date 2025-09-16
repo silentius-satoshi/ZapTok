@@ -209,11 +209,6 @@ export function ProModePage() {
         <p>
           Pro Mode features are in active development. Current basic compression is available for all users.
         </p>
-        <p className="mt-2">
-          <a href="https://soapbox.pub/mkstack" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-            Vibed with MKStack
-          </a>
-        </p>
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ import { defineConfig } from "vitest/config";
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
-  base: process.env.VERCEL ? '/' : '/ZapTok/',
+  base: process.env.NODE_ENV === 'production' && !process.env.VERCEL ? '/ZapTok/' : '/',
   server: {
     host: "::",
     port: 5173,
@@ -44,8 +44,8 @@ export default defineConfig(() => ({
         background_color: '#000000',
         display: 'standalone',
         orientation: 'portrait-primary',
-        start_url: process.env.VERCEL ? '/' : '/ZapTok/',
-        scope: process.env.VERCEL ? '/' : '/ZapTok/',
+        start_url: process.env.NODE_ENV === 'production' && !process.env.VERCEL ? '/ZapTok/' : '/',
+        scope: process.env.NODE_ENV === 'production' && !process.env.VERCEL ? '/ZapTok/' : '/',
         categories: ['social', 'entertainment', 'video'],
         lang: 'en',
         dir: 'ltr',

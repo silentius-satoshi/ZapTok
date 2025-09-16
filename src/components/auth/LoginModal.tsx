@@ -106,17 +106,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           )}
         </div>
 
-        {/* Credit at the bottom */}
-        <div className="absolute bottom-6 text-center">
-          <a
-            href="https://soapbox.pub/mkstack/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-gray-300 hover:text-gray-100 transition-colors font-medium"
-          >
-            vibed by MKStack
-          </a>
-        </div>
+
       </div>
 
       {/* Sign In Modal */}

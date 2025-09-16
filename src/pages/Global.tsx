@@ -57,19 +57,6 @@ const Global = () => {
           </div>
         </main>
 
-        {/* Bottom attribution - hidden on mobile to avoid conflicts */}
-        <div className="hidden md:flex fixed bottom-4 right-4 flex-col items-end space-y-2">
-          <div className="text-sm text-gray-300">
-            <a
-              href="https://soapbox.pub/mkstack"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-gray-100 transition-colors font-medium"
-            >
-              Vibed with MKStack
-            </a>
-          </div>
-        </div>
       </div>
     </AuthGate>
   );
