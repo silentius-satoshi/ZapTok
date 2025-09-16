@@ -99,28 +99,19 @@ export function Navigation() {
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'following', icon: Users, label: 'Following', path: '/' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    // Wallet items - nsec signers see both, others see their respective wallet
-    ...(isNsecSigner ? [
-      {
-        id: 'cashu-wallet',
-        icon: () => <img src={`${import.meta.env.BASE_URL}images/cashu-icon.png`} alt="Cashu" className="w-6 h-6 object-contain" />,
-        label: 'Cashu Wallet',
-        path: '/cashu-wallet'
-      },
-      {
-        id: 'bitcoin-connect-wallet',
-        icon: Zap,
-        label: 'Bitcoin Connect',
-        path: '/bitcoin-connect-wallet'
-      }
-    ] : [
-      {
-        id: 'wallet',
-        icon: isBunkerSigner ? Zap : Wallet,
-        label: isBunkerSigner ? 'Bitcoin Connect' : 'Cashu Wallet',
-        path: isBunkerSigner ? '/bitcoin-connect-wallet' : '/cashu-wallet'
-      }
-    ]),
+    // Wallet options - now available for all users
+    {
+      id: 'wallet',
+      icon: Wallet,
+      label: 'Cashu Wallet',
+      path: '/cashu-wallet'
+    },
+    {
+      id: 'bitcoin-connect-wallet',
+      icon: Zap,
+      label: 'Bitcoin Connect',
+      path: '/bitcoin-connect-wallet'
+    },
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
   ];
@@ -139,9 +130,9 @@ export function Navigation() {
     } else if (pathname === '/settings') {
       setActiveTab('settings');
     } else if (pathname === '/cashu-wallet') {
-      setActiveTab(isNsecSigner ? 'cashu-wallet' : 'wallet');
+      setActiveTab('wallet');
     } else if (pathname === '/bitcoin-connect-wallet') {
-      setActiveTab(isNsecSigner ? 'bitcoin-connect-wallet' : 'wallet');
+      setActiveTab('bitcoin-connect-wallet');
     } else if (pathname === '/wallet') {
       setActiveTab('wallet');
     } else if (pathname === '/pro') {
@@ -190,7 +181,7 @@ export function Navigation() {
                       backgroundClip: 'text',
                     } : {}}>
                       {typeof item.icon === 'function' ? (
-                        (item.icon as () => JSX.Element)()
+                        React.createElement(item.icon, { size: 24 })
                       ) : (
                         React.createElement(item.icon as any, { size: 24 })
                       )}
@@ -241,7 +232,7 @@ export function Navigation() {
                   backgroundClip: 'text',
                 } : {}}>
                   {typeof item.icon === 'function' ? (
-                    (item.icon as () => JSX.Element)()
+                    React.createElement(item.icon, { size: 24 })
                   ) : (
                     React.createElement(item.icon as any, { size: 24 })
                   )}

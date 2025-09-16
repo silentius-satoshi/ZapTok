@@ -95,8 +95,8 @@ export function CashuWallet() {
                   </div>
                 </div>
 
-                {/* Total Cashu Balance Display - Only for local signers */}
-                {!isBunkerSigner && totalBalance >= 0 && (
+                {/* Total Cashu Balance Display - Now available for all signer types */}
+                {totalBalance >= 0 && (
                   <div className={`text-center space-y-2 ${isMobile ? 'mb-6' : 'mb-8'}`}>
                     <div className={`${isMobile ? 'text-3xl' : 'text-4xl'} font-bold text-white`}>
                       {showSats
@@ -136,33 +136,29 @@ export function CashuWallet() {
                   </div>
                 )}
 
-                {/* Cashu Wallet Cards Grid - Only for local signers */}
-                {!isBunkerSigner && (
-                  <div className={`grid ${isMobile ? 'grid-cols-1 gap-4' : 'grid-cols-1 lg:grid-cols-2 gap-6'}`}>
-                    <CashuWalletLightningCard />
-                    <CashuWalletCard />
-                    <CashuTokenCard />
-                    <NutzapCard />
-                    <CashuHistoryCard className={isMobile ? '' : 'lg:col-span-2'} />
-                  </div>
-                )}
+                {/* Cashu Wallet Cards Grid - Now available for all signer types */}
+                <div className={`grid ${isMobile ? 'grid-cols-1 gap-4' : 'grid-cols-1 lg:grid-cols-2 gap-6'}`}>
+                  <CashuWalletLightningCard />
+                  <CashuWalletCard />
+                  <CashuTokenCard />
+                  <NutzapCard />
+                  <CashuHistoryCard className={isMobile ? '' : 'lg:col-span-2'} />
+                </div>
 
-                {/* Bitcoin Connect Alternative for local signers */}
-                {!isBunkerSigner && (
-                  <div className={`mt-6 p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg text-center`}>
-                    <div className="text-blue-400 font-medium mb-2">Need Lightning Payments?</div>
-                    <div className="text-sm text-gray-400 mb-3">
-                      For direct Lightning wallet connections, try our Bitcoin Connect integration.
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate('/bitcoin-connect-wallet')}
-                      className="border-blue-600 text-blue-300 hover:bg-blue-900/30"
+                {/* Bitcoin Connect Alternative - Available as option for all users */}
+                <div className={`mt-6 p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg text-center`}>
+                  <div className="text-blue-400 font-medium mb-2">Need Lightning Payments?</div>
+                  <div className="text-sm text-gray-400 mb-3">
+                    For direct Lightning wallet connections, try our Bitcoin Connect integration.
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/bitcoin-connect-wallet')}
+                    className="border-blue-600 text-blue-300 hover:bg-blue-900/30"
                     >
                       Bitcoin Connect Wallet →
                     </Button>
                   </div>
-                )}
               </div>
             </div>
           </div>

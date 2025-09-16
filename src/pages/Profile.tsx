@@ -287,15 +287,13 @@ const Profile = () => {
                               className="w-10 h-10"
                             />
 
-                            {/* 3b. Nutzap Button - Only for non-bunker signers */}
-                            {!isBunkerSigner && (
-                              <NutzapButton
-                                userPubkey={targetPubkey}
-                                variant="outline"
-                                size="icon"
-                                className="w-10 h-10"
-                              />
-                            )}
+                            {/* 3b. Nutzap Button - Now available for all signer types */}
+                            <NutzapButton
+                              userPubkey={targetPubkey}
+                              variant="outline"
+                              size="icon"
+                              className="w-10 h-10"
+                            />
 
                             {/* 4. Direct Message Button */}
                             <Button

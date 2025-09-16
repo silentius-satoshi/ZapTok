@@ -97,8 +97,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   // Local nsec/private key signer detection (raw key in memory)
   const isNsecSigner = !!(loginType === 'nsec' || user?.signer?.constructor?.name?.toLowerCase?.().includes('nsec'));
 
-  // Cashu compatibility check - bunker signers cannot sign Cashu events due to remote signing limitations
-  const isCashuCompatible = !isBunkerSigner;
+  // Cashu compatibility check - bunker signers now supported with comprehensive permissions
+  const isCashuCompatible = true;
 
   // Reset wallet state when user changes
   useEffect(() => {

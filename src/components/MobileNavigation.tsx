@@ -127,28 +127,19 @@ export function MobileNavigation() {
     { id: 'following', icon: Users, label: 'Following', path: '/' },
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    // Wallet items - nsec signers see both, others see their respective wallet
-    ...(isNsecSigner ? [
-      {
-        id: 'cashu-wallet',
-        icon: () => <img src={`${import.meta.env.BASE_URL}images/cashu-icon.png`} alt="Cashu" className="w-5 h-5 object-contain" />,
-        label: 'Cashu Wallet',
-        path: '/cashu-wallet'
-      },
-      {
-        id: 'bitcoin-connect-wallet',
-        icon: Zap,
-        label: 'Bitcoin Connect',
-        path: '/bitcoin-connect-wallet'
-      }
-    ] : [
-      {
-        id: 'wallet',
-        icon: isBunkerSigner ? Zap : Wallet,
-        label: isBunkerSigner ? 'Bitcoin Connect' : 'Cashu Wallet',
-        path: isBunkerSigner ? '/bitcoin-connect-wallet' : '/cashu-wallet'
-      }
-    ]),
+    // Wallet items - now available for all users
+    {
+      id: 'cashu-wallet',
+      icon: () => <img src={`${import.meta.env.BASE_URL}images/cashu-icon.png`} alt="Cashu" className="w-5 h-5 object-contain" />,
+      label: 'Cashu Wallet',
+      path: '/cashu-wallet'
+    },
+    {
+      id: 'bitcoin-connect-wallet',
+      icon: Zap,
+      label: 'Bitcoin Connect',
+      path: '/bitcoin-connect-wallet'
+    },
     { id: 'live-stream', icon: Radio, label: 'Live Stream', action: 'liveStream' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
     { id: 'upload-video', icon: PlusSquare, label: 'Upload Video', action: 'uploadVideo' },
@@ -158,7 +149,7 @@ export function MobileNavigation() {
   const bottomNavItems = [
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'following', icon: Users, label: 'Following', path: '/' },
-    { id: 'lightning', icon: Zap, label: 'Wallet', path: isBunkerSigner ? '/bitcoin-connect-wallet' : '/cashu-wallet', isCenter: true },
+    { id: 'lightning', icon: Zap, label: 'Wallet', path: '/cashu-wallet', isCenter: true },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
     { id: 'profile', icon: User, label: 'Profile', isUserProfile: true },
   ];
@@ -232,20 +223,16 @@ export function MobileNavigation() {
                   </>
                 ) : (
                   <button
-                    onClick={() => navigate(isBunkerSigner ? '/bitcoin-connect-wallet' : '/cashu-wallet')}
-                    aria-label={isBunkerSigner ? "Bitcoin Connect Wallet" : "Cashu Wallet"}
+                    onClick={() => navigate('/cashu-wallet')}
+                    aria-label="Cashu Wallet"
                     className="text-white/80 hover:text-white transition-colors"
                   >
-                    {isBunkerSigner ? (
-                      <Zap className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
-                    ) : (
-                      <img 
-                        src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
-                        alt="Cashu" 
-                        className="w-6 h-6" 
+                    <img 
+                      src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+                      alt="Cashu" 
+                      className="w-6 h-6" 
                         style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
                       />
-                    )}
                   </button>
                 )}
 
