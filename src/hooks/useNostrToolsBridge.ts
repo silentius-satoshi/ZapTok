@@ -70,8 +70,16 @@ export class NostrToolsSigner {
         await this.checkReadiness();
       }
 
-      if (!this.bunkerSigner?.signEvent) {
+      // Check if signEvent method is available (could be on prototype)
+      const hasSignEvent = this.bunkerSigner && 
+        (typeof this.bunkerSigner.signEvent === 'function' || 
+         typeof Object.getPrototypeOf(this.bunkerSigner)?.signEvent === 'function');
+      
+      if (!hasSignEvent) {
         debugLog.bunker('❌ Bunker signer missing signEvent method:', {
+          bunkerSignerExists: !!this.bunkerSigner,
+          directSignEvent: typeof this.bunkerSigner?.signEvent,
+          prototypeSignEvent: typeof Object.getPrototypeOf(this.bunkerSigner)?.signEvent,
           availableMethods: this.bunkerSigner ? Object.getOwnPropertyNames(this.bunkerSigner).concat(
             Object.getOwnPropertyNames(Object.getPrototypeOf(this.bunkerSigner))
           ).filter(name => typeof this.bunkerSigner[name] === 'function') : []
