@@ -62,7 +62,7 @@ export function useNostrToolsBunkerLogin() {
 
     // Request video permissions early in the process
     try {
-      await requestVideoPermissions([1, 21, 22]);
+      await requestVideoPermissions();
     } catch (error) {
       console.warn('Permission request display failed:', error);
       // Don't fail the login if we can't show the permission toast
@@ -108,7 +108,7 @@ export function useNostrToolsBunkerLogin() {
       const pool = new SimplePool();
 
       // Create bunker signer with timeout handling and video permissions
-      const connectionOptions = getBunkerConnectionOptions([1, 21, 22]);
+      const connectionOptions = getBunkerConnectionOptions();
       const bunker = new BunkerSigner(localSecretKey, bunkerPointer, {
         pool,
         // Include permissions in the connection request

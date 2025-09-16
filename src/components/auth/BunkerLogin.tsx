@@ -271,6 +271,49 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
           <strong>Need a bunker URL?</strong> Get one from <a href="https://nsec.app" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">nsec.app</a>
         </AlertDescription>
       </Alert>
+
+      <Alert className="bg-orange-900/20 border-orange-600">
+        <Zap className="w-4 h-4 text-orange-300" />
+        <AlertDescription className="text-orange-200 text-sm">
+          <strong>⚡ Important: Enable Payment Permissions</strong>
+          <br />
+          After connecting, you'll need to manually grant these permission kinds in your bunker:
+          
+          <div className="mt-2">
+            <strong className="text-yellow-300">Lightning Zaps:</strong>
+            <ul className="text-xs mt-1 ml-4 space-y-1">
+              <li>• <code className="bg-black/30 px-1 rounded">9734</code> (zap requests)</li>
+              <li>• <code className="bg-black/30 px-1 rounded">9735</code> (zap receipts)</li>
+            </ul>
+          </div>
+
+          <div className="mt-3">
+            <strong className="text-yellow-300">Cashu Transactions:</strong>
+            <ul className="text-xs mt-1 ml-4 space-y-1">
+              <li>• <code className="bg-black/30 px-1 rounded">7374</code> (token quotes)</li>
+              <li>• <code className="bg-black/30 px-1 rounded">7375</code> (token proofs)</li>
+              <li>• <code className="bg-black/30 px-1 rounded">7376</code> (spending history)</li>
+              <li>• <code className="bg-black/30 px-1 rounded">17375</code> (wallet management)</li>
+              <li>• <code className="bg-black/30 px-1 rounded">9321</code> (nutzap payments)</li>
+              <li>• <code className="bg-black/30 px-1 rounded">10019</code> (nutzap configuration)</li>
+            </ul>
+          </div>
+
+          <div className="mt-3">
+            <strong className="text-yellow-300">Wallet Connect (NIP-47):</strong>
+            <ul className="text-xs mt-1 ml-4 space-y-1">
+              <li>• <code className="bg-black/30 px-1 rounded">13194</code> (wallet info)</li>
+              <li>• <code className="bg-black/30 px-1 rounded">23194</code> (payment requests)</li>
+              <li>• <code className="bg-black/30 px-1 rounded">23195</code> (payment responses)</li>
+              <li>• <code className="bg-black/30 px-1 rounded">23197</code> (notifications)</li>
+            </ul>
+          </div>
+
+          <span className="text-xs text-orange-300 mt-3 block">
+            💡 Look for "Event Signing Permissions" in your bunker interface to enable these kinds.
+          </span>
+        </AlertDescription>
+      </Alert>
     </div>
   );
 };

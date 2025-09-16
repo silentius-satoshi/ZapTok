@@ -11,7 +11,7 @@ export function useBunkerPermissions() {
    * Request permissions for video, zap, and Cashu event kinds during bunker login
    * @param requiredKinds - Array of event kinds to request permissions for
    */
-  const requestVideoPermissions = async (requiredKinds: number[] = [1, 21, 22, 9734, 9735, 7374, 7375, 7376, 17375, 9321, 10019]): Promise<void> => {
+  const requestVideoPermissions = async (requiredKinds: number[] = [1, 21, 22, 9734, 9735, 7374, 7375, 7376, 17375, 9321, 10019, 13194, 23194, 23195, 23197]): Promise<void> => {
     console.log('🔐 Requesting bunker permissions for event kinds:', requiredKinds);
     
     // Show user what permissions we're requesting
@@ -26,7 +26,11 @@ export function useBunkerPermissions() {
       7376: 'Cashu spending history',
       17375: 'Cashu wallet management',
       9321: 'Nutzap payments',
-      10019: 'Nutzap configuration'
+      10019: 'Nutzap configuration',
+      13194: 'NWC wallet info',
+      23194: 'NWC payment requests',
+      23195: 'NWC payment responses',
+      23197: 'NWC notifications'
     };
     
     const permissionList = requiredKinds
