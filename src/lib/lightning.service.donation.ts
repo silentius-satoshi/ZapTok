@@ -212,44 +212,180 @@ export class LightningService {
     user: any, // User object with signer from useCurrentUser hook
     closeOuterModal?: () => void
   ): Promise<{ preimage: string; invoice: string } | null> {
-    // Enhanced debug for bunker signer detection (conditional)
-    debugLog.lightningVerbose('🔍 Donation Zap Debug:', {
-      hasSignEventDirectly: !!user?.signer?.signEvent,
-      signEvent: user?.signer?.signEvent,
-      signer: user?.signer,
-      signerKeys: user?.signer ? Object.keys(user?.signer) : 'no signer',
-      user: user,
-      userKeys: user ? Object.keys(user) : 'no user',
-      // Check if methods exist on prototype
-      signEventOnPrototype: user?.signer && typeof Object.getPrototypeOf(user.signer).signEvent === 'function',
-      allSignerMethods: user?.signer ? Object.getOwnPropertyNames(user.signer).concat(
-        Object.getOwnPropertyNames(Object.getPrototypeOf(user.signer))
-      ).filter(name => typeof user.signer[name] === 'function') : [],
-      prototypeKeys: user?.signer ? Object.getOwnPropertyNames(Object.getPrototypeOf(user.signer)) : [],
-      signerInstanceof: user?.signer?.constructor?.name
+        // Enhanced debug logging for bunker signer structure
+    console.log('🔍 Donation Zap Debug:', {
+      hasSignEventDirectly: !!user.signer?.signEvent,
+      signEvent: user.signer?.signEvent,
+      signerKeys: user.signer ? Object.keys(user.signer) : [],
+      signerConstructor: user.signer?.constructor?.name,
+      signerPrototype: user.signer ? Object.getOwnPropertyNames(Object.getPrototypeOf(user.signer)) : [],
+      bunkerSigner: user.signer?.bunkerSigner,
+      bunkerSignerKeys: user.signer?.bunkerSigner ? Object.keys(user.signer.bunkerSigner) : [],
+      bunkerSignerMethods: user.signer?.bunkerSigner ? Object.getOwnPropertyNames(Object.getPrototypeOf(user.signer.bunkerSigner)) : []
     });
+    
+    // Deep inspection of signer object
+    console.log('🔍 Signer Object Details:', user.signer);
+    if (user.signer?.bunkerSigner) {
+      console.log('🔍 Bunker Signer Details:', user.signer.bunkerSigner);
+    }
 
     // Handle different signer types and method access patterns
     let signEventMethod: ((event: EventTemplate) => Promise<NostrEvent>) | undefined;
 
-    // Check for direct signEvent method
-    if (user?.signer?.signEvent && typeof user.signer.signEvent === 'function') {
+    console.log('🔍 [Lightning] Inspecting user object for signEvent method:', {
+      hasUser: !!user,
+      userKeys: user ? Object.keys(user) : [],
+      hasSigner: !!user?.signer,
+      signerType: user?.signer?.constructor?.name,
+      signerKeys: user?.signer ? Object.keys(user.signer) : [],
+      signerProtoKeys: user?.signer ? Object.getOwnPropertyNames(Object.getPrototypeOf(user.signer)) : [],
+      hasSignEventDirect: typeof user?.signer?.signEvent === 'function',
+      hasBunkerSigner: !!user?.signer?.bunkerSigner,
+      bunkerSignerKeys: user?.signer?.bunkerSigner ? Object.keys(user.signer.bunkerSigner) : []
+    });
+
+    // PRIORITY 1: Check for NIP-07 interface on main signer (service worker bunker pattern)
+    // Based on service worker logs, bunker signers implement NIP-07 at the main signer level
+    if (user?.signer && typeof user.signer.signEvent === 'function') {
       signEventMethod = user.signer.signEvent.bind(user.signer);
-      debugLog.lightning('✅ Found signEvent method directly on signer');
+      console.log('✅ [Lightning] Found NIP-07 signEvent method on main signer (service worker pattern)');
     }
-    // Check for signEvent on prototype (class methods)
+    // PRIORITY 2: Check for signEvent on prototype (class methods)
     else if (user?.signer && typeof Object.getPrototypeOf(user.signer).signEvent === 'function') {
       signEventMethod = Object.getPrototypeOf(user.signer).signEvent.bind(user.signer);
-      debugLog.lightning('✅ Found signEvent method on signer prototype');
+      console.log('✅ [Lightning] Found signEvent method on signer prototype');
     }
-    // Check if it's a bunker signer with underlying bunkerSigner
-    else if (user?.signer?.bunkerSigner?.signEvent && typeof user.signer.bunkerSigner.signEvent === 'function') {
-      signEventMethod = user.signer.bunkerSigner.signEvent.bind(user.signer.bunkerSigner);
-      debugLog.lightning('✅ Found signEvent method on underlying bunkerSigner');
+    // PRIORITY 3: Deep prototype chain search on main signer (for service worker bunker signers)
+    else if (user?.signer) {
+      console.log('🔍 [Lightning] Service worker bunker pattern: Searching prototype chain on main signer...');
+      let currentProto = user.signer;
+      let depth = 0;
+      while (currentProto && depth < 10) {
+        const methods = Object.getOwnPropertyNames(currentProto).filter(prop => {
+          try {
+            return typeof currentProto[prop] === 'function';
+          } catch (e) {
+            return false;
+          }
+        });
+        
+        console.log(`🔍 Signer depth ${depth} methods:`, methods);
+        
+        if (methods.includes('signEvent')) {
+          signEventMethod = currentProto.signEvent.bind(user.signer);
+          console.log(`✅ [Lightning] Found signEvent on main signer at depth ${depth} (service worker pattern)`);
+          break;
+        }
+        
+        // Check for other NIP-07 methods to confirm this is the right interface
+        const nip07Methods = methods.filter(m => ['getPublicKey', 'signEvent', 'getRelays', 'nip04', 'nip44'].includes(m));
+        if (nip07Methods.length > 0) {
+          console.log(`🔍 Found NIP-07 methods at depth ${depth}:`, nip07Methods);
+        }
+        
+        currentProto = Object.getPrototypeOf(currentProto);
+        depth++;
+      }
+    }
+    // PRIORITY 4: Check if it's a bunker signer with underlying bunkerSigner object
+    if (!signEventMethod && user?.signer?.bunkerSigner) {
+      const bunkerSigner = user.signer.bunkerSigner;
+      
+      // Detailed inspection of bunkerSigner methods
+      console.log('🔍 [Lightning] Detailed bunker signer inspection:');
+      console.log('🔍 Own properties:', Object.getOwnPropertyNames(bunkerSigner));
+      console.log('🔍 Keys:', Object.keys(bunkerSigner));
+      
+      // Check if bunker signer has signEvent method
+      if (typeof bunkerSigner.signEvent === 'function') {
+        signEventMethod = bunkerSigner.signEvent.bind(bunkerSigner);
+        console.log('✅ [Lightning] Found signEvent method on bunkerSigner');
+      }
+      // Try accessing through prototype chain
+      else {
+        let currentProto = bunkerSigner;
+        let depth = 0;
+        while (currentProto && depth < 5) {
+          console.log(`🔍 Prototype depth ${depth}:`, Object.getOwnPropertyNames(currentProto));
+          
+          if (typeof currentProto.signEvent === 'function') {
+            signEventMethod = currentProto.signEvent.bind(bunkerSigner);
+            console.log(`✅ [Lightning] Found signEvent method at prototype depth ${depth}`);
+            break;
+          }
+          
+          currentProto = Object.getPrototypeOf(currentProto);
+          depth++;
+        }
+      }
+      
+      // If still not found, try checking if the bunker has a different interface
+      if (!signEventMethod) {
+        console.log('🔍 [Lightning] Checking for alternative signing methods...');
+        
+        // Check for other possible signing methods
+        const possibleSignMethods = ['sign', 'signEvent', 'signMessage', 'rpc'];
+        for (const methodName of possibleSignMethods) {
+          if (typeof bunkerSigner[methodName] === 'function') {
+            console.log(`🔍 Found potential signing method: ${methodName}`);
+            
+            // For nostr-tools bunker, we might need to use the RPC-style interface
+            if (methodName === 'rpc' || methodName === 'sign') {
+              // Create a wrapper that calls the appropriate method
+              signEventMethod = async (event: any) => {
+                console.log('🔍 [Lightning] Attempting to sign via', methodName);
+                return await bunkerSigner[methodName](event);
+              };
+              console.log(`✅ [Lightning] Using ${methodName} method for signing`);
+              break;
+            }
+          }
+        }
+      }
+    }
+    // For nostr-tools bunker signers, the signer itself might be the bunker signer
+    else if (user?.signer && typeof user.signer.signEvent === 'function') {
+      signEventMethod = user.signer.signEvent.bind(user.signer);
+      console.log('✅ [Lightning] Found signEvent method directly on bunker signer');
+    }
+    // If we still haven't found anything, but we know it's a bunker signer, do fallback checks
+    else if (user?.signer) {
+      console.log('🔍 [Lightning] Fallback: Checking signer object for any signing methods...');
+      console.log('🔍 Signer own properties:', Object.getOwnPropertyNames(user.signer));
+      
+      // Check for any method that might be used for signing
+      const allMethods = Object.getOwnPropertyNames(user.signer)
+        .filter(name => typeof user.signer[name] === 'function');
+      console.log('🔍 All signer methods:', allMethods);
+      
+      // Look for methods that might be signing-related
+      const signingMethods = allMethods.filter(name => 
+        name.toLowerCase().includes('sign') || 
+        name.toLowerCase().includes('event') ||
+        name.toLowerCase().includes('rpc')
+      );
+      console.log('🔍 Potential signing methods:', signingMethods);
+      
+      // Try to find signEvent method via property enumeration as fallback
+      for (const prop of Object.getOwnPropertyNames(user.signer)) {
+        if (prop === 'signEvent' && typeof user.signer[prop] === 'function') {
+          signEventMethod = user.signer[prop].bind(user.signer);
+          console.log('✅ [Lightning] Found signEvent method via property enumeration');
+          break;
+        }
+      }
     }
 
     if (!signEventMethod) {
-      debugLog.lightning('❌ No signEvent method found on any signer level');
+      console.error('❌ [Lightning] No signEvent method found on any signer level');
+      if (user?.signer) {
+        const allMethods = [
+          ...Object.getOwnPropertyNames(user.signer),
+          ...Object.getOwnPropertyNames(Object.getPrototypeOf(user.signer))
+        ].filter(key => typeof (user.signer as any)[key] === 'function');
+        console.error('Available methods:', allMethods);
+      }
       throw new Error('You need to be logged in to zap');
     }
 
