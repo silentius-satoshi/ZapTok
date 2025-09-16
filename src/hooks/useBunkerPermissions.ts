@@ -2,24 +2,31 @@ import { useToast } from '@/hooks/useToast';
 
 /**
  * Hook to manage bunker signer permissions for specific event kinds
- * Implements NIP-46 permission requests for video event kinds
+ * Implements NIP-46 permission requests for video, zap, and Cashu wallet event kinds
  */
 export function useBunkerPermissions() {
   const { toast } = useToast();
   
   /**
-   * Request permissions for video-related event kinds during bunker login
+   * Request permissions for video, zap, and Cashu event kinds during bunker login
    * @param requiredKinds - Array of event kinds to request permissions for
    */
-  const requestVideoPermissions = async (requiredKinds: number[] = [1, 21, 22]): Promise<void> => {
-    console.log('🔐 Requesting bunker permissions for video event kinds:', requiredKinds);
+  const requestVideoPermissions = async (requiredKinds: number[] = [1, 21, 22, 9734, 9735, 7374, 7375, 7376, 17375, 9321, 10019]): Promise<void> => {
+    console.log('🔐 Requesting bunker permissions for event kinds:', requiredKinds);
     
     // Show user what permissions we're requesting
     const kindDescriptions = {
-      1: 'Text notes (hybrid video events)',
-      21: 'Video events (normal)',
-      22: 'Video events (short)',
-      34235: 'Video events (NIP-71 parameterized)'
+      1: 'Text notes and posts',
+      21: 'Video content',
+      22: 'Short video content',
+      9734: 'Zap payment requests',
+      9735: 'Zap payment receipts',
+      7374: 'Cashu token quotes',
+      7375: 'Cashu token proofs',
+      7376: 'Cashu spending history',
+      17375: 'Cashu wallet management',
+      9321: 'Nutzap payments',
+      10019: 'Nutzap configuration'
     };
     
     const permissionList = requiredKinds
@@ -27,8 +34,8 @@ export function useBunkerPermissions() {
       .join('\n');
     
     toast({
-      title: "🎬 Video Permissions Required",
-      description: `ZapTok will request permissions to publish:\n${permissionList}\n\nPlease approve these permissions in nsec.app when prompted.`,
+      title: "🎬 App Permissions Required",
+      description: `ZapTok will request permissions to publish:\n${permissionList}\n\nPlease approve these permissions in your bunker app when prompted.`,
       duration: 8000,
     });
     
@@ -41,7 +48,7 @@ export function useBunkerPermissions() {
    * Get the permissions string for bunker signer initialization
    * This creates a permissions string that can be used with the bunker signer
    */
-  const getBunkerPermissionsString = (kinds: number[] = [1, 21, 22]): string => {
+  const getBunkerPermissionsString = (kinds: number[] = [1, 21, 22, 9734, 9735, 7374, 7375, 7376, 17375, 9321, 10019]): string => {
     // NIP-46 permission format: sign_event for specific kinds
     const permissions = kinds.map(kind => `sign_event:${kind}`).join(',');
     
@@ -58,9 +65,9 @@ export function useBunkerPermissions() {
   };
 
   /**
-   * Enhanced bunker connection options with video permissions
+   * Enhanced bunker connection options with comprehensive permissions
    */
-  const getBunkerConnectionOptions = (kinds: number[] = [1, 21, 22]) => {
+  const getBunkerConnectionOptions = (kinds: number[] = [1, 21, 22, 9734, 9735, 7374, 7375, 7376, 17375, 9321, 10019]) => {
     const permissionsString = getBunkerPermissionsString(kinds);
     
     return {
@@ -69,9 +76,9 @@ export function useBunkerPermissions() {
       // Optional: metadata about the app requesting permissions
       metadata: {
         name: 'ZapTok',
-        description: 'Video sharing platform for Nostr',
-        url: 'https://zaptok.app',
-        icons: ['https://zaptok.app/icon-192x192.png']
+        description: 'Video sharing platform with Lightning payments and Cashu wallet',
+        url: 'https://zaptok-labs.vercel.app',
+        icons: [`${import.meta.env.BASE_URL}images/ZapTok-v3.png`]
       }
     };
   };
@@ -80,11 +87,11 @@ export function useBunkerPermissions() {
    * Check if current bunker signer has the required permissions
    * Note: This is informational - actual permission checking happens server-side
    */
-  const hasVideoPermissions = (user: any, kinds: number[] = [1, 21, 22]): boolean => {
+  const hasVideoPermissions = (user: any, kinds: number[] = [1, 21, 22, 9734, 9735, 7374, 7375, 7376, 17375, 9321, 10019]): boolean => {
     // For bunker signers, we assume permissions were granted during connection
     // The bunker service will reject signing attempts for unauthorized kinds
     if (user?.signer?.constructor?.name === 'NostrToolsSigner') {
-      console.log('🔍 Bunker signer detected - assuming video permissions granted during connection');
+      console.log('🔍 Bunker signer detected - assuming permissions granted during connection');
       return true;
     }
     
@@ -94,12 +101,12 @@ export function useBunkerPermissions() {
   /**
    * Display permission status to user
    */
-  const showPermissionStatus = (kinds: number[] = [1, 21, 22]) => {
+  const showPermissionStatus = (kinds: number[] = [1, 21, 22, 9734, 9735, 7374, 7375, 7376, 17375, 9321, 10019]) => {
     const kindsList = kinds.join(', ');
     
     toast({
-      title: "✅ Video Permissions",
-      description: `ZapTok has been granted permissions to publish video events (kinds: ${kindsList}). You can now upload and share videos!`,
+      title: "✅ App Permissions",
+      description: `ZapTok has been granted permissions to publish events (kinds: ${kindsList}). You can now use videos, zaps, and Cashu wallet features!`,
       duration: 5000,
     });
   };

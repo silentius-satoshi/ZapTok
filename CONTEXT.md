@@ -13,6 +13,10 @@ This project is a Nostr client application built with React 18.x, TailwindCSS 3.
 - **TanStack Query**: For data fetching, caching, and state management
 - **TypeScript**: For type-safe JavaScript development
 
+## Core Principles
+
+This project is a fully-featured short-form video sharing platform built with Nostr integration, vibed by MkStack.
+
 ## Project Structure
 
 - `/src/components/`: UI components including NostrProvider for Nostr integration

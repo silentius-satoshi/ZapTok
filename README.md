@@ -14,7 +14,7 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 
 ***You keep 100% of your earnings. No percentage of your earnings is distributed to the platform.***
 
-### 🎯 Phase 1: Foundation (Completed ✅)
+### Phase 1: Foundation (Completed ✅)
 **Core Platform & Authentication**
 - [x] Private login via Nostr browser extension + bunker login (NIP-07, NIP-46)
 - [x] Lightning & Cashu wallet support (NIP-47, NIP-60, NIP-61)
@@ -53,7 +53,7 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 - [x] Native share functionality (Web Share API with clipboard fallback)
 
 
-### 🌟 Phase 2: Social Features (Completed ✅)
+### Phase 2: Social Features (Completed ✅)
 **Essential Social**
 - [x] Follow Lists (NIP-02)
 - [x] Reactions & Engagement (NIP-25)
@@ -82,7 +82,7 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 - [ ] Advanced Content Search (NIP-50)
 - [ ] Enhanced notification system
 
-### 🏗️ Phase 3: Advanced Platform (Planned 📋)
+### Phase 3: Advanced Platform (Planned)
 **Enhanced Creator Tools**
 - [x] Zaps & Advanced Tipping (NIP-57)
 - [ ] Zap Goals & Splits (NIP-75)
@@ -149,7 +149,7 @@ Bulletproof & Transparent
 - **GitHub**: Star the repository and watch for updates
 - **Website**: [zaptok-labs.vercel.app](https://zaptok-labs.vercel.app/)
 
-### 🔮 Future Vision
+### Future Vision
 **Complete Nostr Ecosystem**
 <details>
 <summary>Full NIP Implementation Status (Click to expand)</summary>
@@ -172,10 +172,10 @@ Bulletproof & Transparent
 - NIP-71: Video Events
 - NIP-94: File Metadata
 
-**🚧 Partially Implemented**
+**Partially Implemented**
 - NIP-50: Search Capability (basic filtering implemented, advanced search planned)
 
-**📋 Planned for Implementation**
+**Planned for Implementation**
 - NIP-17: Private Direct Messages
 - NIP-53: Live Activities
 - NIP-75: Zap Goals
@@ -201,7 +201,7 @@ Bulletproof & Transparent
 
 ---
 
-### 🤝 Community Driven
+### Community Driven
 This roadmap evolves based on:
 - Community feedback and feature requests
 - Nostr protocol development (NIPs)
@@ -243,11 +243,11 @@ Help us continue building and improving ZapTok. Your support enables us to maint
 ZapTok stands on the shoulders of giants. We're deeply grateful to the open-source communities and visionary builders who made this platform possible:
 
 ### Nostr Ecosystem Builders
-- **[Amethyst](https://github.com/vitorpamplona/amethyst)** **((https://www.amethyst.social/))** - Nostr client for Android
-- **[Chorus](https://chorus.community/)** - Grow your community and gather support on the decentralized Nostr protocol with eCash
+- **[Amethyst](https://github.com/vitorpamplona/amethyst)** **([amethyst.social](https://www.amethyst.social/))** - Nostr client for Android
+- **[Chorus](https://github.com/andotherstuff/chorus)** **([chorus.community](https://chorus.community/)** - Grow your community and gather support on the decentralized Nostr protocol with eCash
 - **[Damus](https://github.com/damus-io)** **([damus.io](https://damus.io/))** - iOS nostr client
-- **[Nostr Band](https://nostr.band/)** - Nostr profile viewer and search engine
-- **[Plebs](https://github.com/Spl0itable/plebs-app)** **([Plebs.app](https://plebs.app/))** - Plebs is a censorship-resistant, decentralized video platform powered by the Nostr social protocol
+- **[Nostr Band](https://github.com/nostrband)** **[nostr.band](https://nostr.band/))** - Nostr profile viewer and search engine
+- **[Plebs](https://github.com/Spl0itable/plebs-app)** **([plebs.app](https://plebs.app/))** - Plebs is a censorship-resistant, decentralized video platform powered by the Nostr social protocol
 - **[Primal](https://github.com/PrimalHQ)** **([primal.net](https://primal.net/))** - Primal's iOS/web app for Nostr; as experienced on primal.net
 - **[Snort](https://github.com/v0l/snort)** **([phoenix.social](https://phoenix.social/))** - Feature packed nostr web UI, Mirror of https://git.v0l.io/Kieran/snort 
 - **[Zappix](https://github.com/derekross/zappix)** **([Zappix.app](https://zappix.app/home))** - A nostr image sharing application for browsing, sharing, and zapping visual content
@@ -259,11 +259,11 @@ ZapTok stands on the shoulders of giants. We're deeply grateful to the open-sour
 - **Vite & Tailwind CSS** - Development tools enabling rapid iteration
 - **[Nostr Protocol](https://github.com/nostr-protocol/nips)** - Collectively building the Nostr specification
 - **[Bitcoin Connect](https://github.com/getAlby/bitcoin-connect)** **([Alby/Bitcoin-Connect](https://bitcoin-connect.com/))** - Connecting lightning wallets to your webapp has never been easier. Enable WebLN in all browsers with a single button
-- **[Cashu Protocol](https://github.com/cashubtc)** **[cashu.space](https://cashu.space/)** - Cashu is ecash for Bitcoin
+- **[Cashu Protocol](https://github.com/cashubtc)** **([cashu.space](https://cashu.space))** - Cashu is ecash for Bitcoin
 - **[Blossom Protocol](https://github.com/hzrd149/blossom)** - Decentralized file storage solutions using nostr public / private keys 
 - **[Nostr Logins](https://github.com/nostrband/nostr-login)** -  powerful window.nostr provider
-- **[NoAuth](https://github.com/nostrband/noauth)** **[nsec.app](https://nsec.app/))** - Noauth Nostr key manager
-- **[MKStack](https://soapbox.pub/mkstack)** **([Gitlab](https://gitlab.com/soapbox-pub/mkstack))** - Nostr client framework for web. (Goose + Nostr: https://mkstack.xyz/)
+- **[NoAuth](https://github.com/nostrband/noauth)** **([nsec.app](https://nsec.app/))** - Noauth Nostr key manager
+- **[MKStack](https://soapbox.pub/mkstack)** **([Gitlab](https://gitlab.com/soapbox-pub/mkstack))** - Nostr client framework for web.
 
 *Building on Nostr means building together. Every contribution to the ecosystem benefits everyone.*
 
@@ -271,8 +271,6 @@ ZapTok stands on the shoulders of giants. We're deeply grateful to the open-sour
 
 <div align="center">
 
-Built with ❤️ for our Nostr communities & the Decentralized Web by [@silentius](https://nostr.band/npub13vftmhzzxxyuvcq4d643agzwr4zvce3pc4gvxymgvuzlwpxa4z2sq4sjd9)
-
-*Vibed with [MKStack](https://soapbox.pub/mkstack)*
+Built with ❤️ for our Nostr communities & the Decentralized, Open-Source Web by [@silentius](https://nostr.band/npub13vftmhzzxxyuvcq4d643agzwr4zvce3pc4gvxymgvuzlwpxa4z2sq4sjd9)
 
 </div>

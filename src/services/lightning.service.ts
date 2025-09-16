@@ -1,4 +1,4 @@
-import { BIG_RELAY_URLS, CODY_PUBKEY, JUMBLE_PUBKEY } from '@/constants';
+import { BIG_RELAY_URLS, OFFICIAL_PUBKEYS } from '@/constants';
 import { getZapInfoFromEvent } from '@/lib/event-metadata';
 import {
   launchPaymentModal,
@@ -22,8 +22,6 @@ interface TProfile {
   lud06?: string;
   lud16?: string;
 }
-
-const OFFICIAL_PUBKEYS = [JUMBLE_PUBKEY, CODY_PUBKEY];
 
 class LightningService {
   static instance: LightningService;
