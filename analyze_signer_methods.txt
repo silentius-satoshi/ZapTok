@@ -1,0 +1,84 @@
+Please run this in browser console:
+
+// Let's check if the parent signer object has signEvent functionality
+const loginData = JSON.parse(localStorage.getItem('nostr:login'));
+const currentLogin = loginData.find(login => login.type === 'x-bunker-nostr-tools');
+const user = currentLogin;
+
+console.log('=== CHECKING SIGNER METHODS ===');
+
+// Check if the main signer object has any signing methods
+const signer = user.signer;
+console.log('Signer object:', signer);
+console.log('Signer constructor:', signer.constructor.name);
+
+// Check prototype chain of the main signer
+let signerProto = signer;
+let depth = 0;
+while (signerProto && depth < 10) {
+  const props = Object.getOwnPropertyNames(signerProto);
+  const methods = props.filter(prop => {
+    try {
+      return typeof signerProto[prop] === 'function';
+    } catch (e) {
+      return false;
+    }
+  });
+  
+  console.log('Depth', depth, 'methods:', methods);
+  
+  // Check for signing-related methods
+  const signingMethods = methods.filter(method => 
+    method.toLowerCase().includes('sign') || 
+    method.toLowerCase().includes('event') ||
+    method === 'signEvent'
+  );
+  
+  if (signingMethods.length > 0) {
+    console.log('✅ Found signing methods at depth', depth, ':', signingMethods);
+    
+    // Try to access the signEvent method specifically
+    if (methods.includes('signEvent')) {
+      console.log('✅ FOUND signEvent at depth', depth);
+      console.log('signEvent method:', signerProto.signEvent);
+      console.log('signEvent bound to signer:', signerProto.signEvent.bind(signer));
+    }
+  }
+  
+  signerProto = Object.getPrototypeOf(signerProto);
+  depth++;
+}
+
+// Also check the bunker signer more deeply
+console.log('=== CHECKING BUNKER SIGNER METHODS ===');
+const bunkerSigner = user.signer.bunkerSigner;
+
+let bunkerProto = bunkerSigner;
+let bunkerDepth = 0;
+while (bunkerProto && bunkerDepth < 10) {
+  const props = Object.getOwnPropertyNames(bunkerProto);
+  const methods = props.filter(prop => {
+    try {
+      return typeof bunkerProto[prop] === 'function';
+    } catch (e) {
+      return false;
+    }
+  });
+  
+  console.log('Bunker depth', bunkerDepth, 'methods:', methods);
+  
+  const signingMethods = methods.filter(method => 
+    method.toLowerCase().includes('sign') || 
+    method.toLowerCase().includes('event') ||
+    method === 'signEvent' ||
+    method === 'rpc'
+  );
+  
+  if (signingMethods.length > 0) {
+    console.log('✅ Found bunker signing methods at depth', bunkerDepth, ':', signingMethods);
+  }
+  
+  bunkerProto = Object.getPrototypeOf(bunkerProto);
+  bunkerDepth++;
+}
+
