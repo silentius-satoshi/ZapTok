@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useCallback, useMemo, useEffect, useRef } from 'react';
 
 import { useAuthor } from './useAuthor.ts';
+import { NostrToolsSigner } from './useNostrToolsBridge.ts';
 
 export function useCurrentUser() {
   const { nostr } = useNostr();
@@ -39,9 +40,12 @@ export function useCurrentUser() {
         // If we have a working signer, create a simple user object
         // The new login format already contains a working Nostrify-compatible signer
         if (customLogin.signer && customLogin.pubkey) {
+          // ✅ Wrap the raw bunker signer with NostrToolsSigner bridge to provide signEvent
+          const bridgedSigner = new NostrToolsSigner(customLogin.signer.bunkerSigner, customLogin.pubkey);
+          
           return {
             pubkey: customLogin.pubkey,
-            signer: customLogin.signer,
+            signer: bridgedSigner,
             // Remove wrapper methods - let the signer handle everything directly
             // This ensures consistency with extension/nsec signers that use user.signer.signEvent
           } as any; // Cast to NUser-compatible type
