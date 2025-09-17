@@ -18,6 +18,14 @@ export function useBunkerLoginRestoration() {
       return;
     }
 
+    // Check if user has manually logged out - if so, don't auto-restore
+    const hasManuallyLoggedOut = sessionStorage.getItem('manual-logout') === 'true';
+    if (hasManuallyLoggedOut) {
+      debugLog.bunker('🚫 Manual logout detected, skipping automatic restoration');
+      restorationAttempted.current = true;
+      return;
+    }
+
     debugLog.bunker('🔄 useBunkerLoginRestoration: Starting restoration check');
 
     // Get bunker session data from localStorage
@@ -43,40 +51,70 @@ export function useBunkerLoginRestoration() {
       debugLog.bunker('🚀 No active bunker logins found, attempting restoration...');
       restorationAttempted.current = true;
 
-      // Attempt to restore each stored bunker session (use Promise.all for proper async handling)
-      const restorePromises = bunkerKeys.map(async (key) => {
-        try {
-          const userPubkey = key.replace('bunker-', '');
-          debugLog.bunker('🔄 Restoring bunker session for:', userPubkey?.substring(0, 16) + '...');
+      // Find the most recently used bunker session instead of restoring all
+      const getMostRecentSession = () => {
+        let mostRecentKey = bunkerKeys[0];
+        let mostRecentTime = 0;
 
-          const restoredLogin = await restoreNostrifyBunkerLogin(userPubkey);
+        // Get list of sessions that have been manually removed (should not be restored)
+        const removedSessions = JSON.parse(sessionStorage.getItem('removed-bunker-sessions') || '[]');
 
+        for (const key of bunkerKeys) {
+          try {
+            const userPubkey = key.replace('bunker-', '');
+            
+            // Skip sessions that were manually removed
+            if (removedSessions.includes(userPubkey)) {
+              debugLog.bunker('⏭️ Skipping manually removed session:', userPubkey?.substring(0, 16) + '...');
+              continue;
+            }
+
+            const storedData = localStorage.getItem(key);
+            if (storedData) {
+              const data = JSON.parse(storedData);
+              const lastUsed = data.lastUsed || data.createdAt || 0;
+              if (lastUsed > mostRecentTime) {
+                mostRecentTime = lastUsed;
+                mostRecentKey = key;
+              }
+            }
+          } catch (error) {
+            debugLog.bunker('⚠️ Error parsing session data for:', key, error);
+          }
+        }
+
+        return mostRecentKey;
+      };
+
+      const mostRecentKey = getMostRecentSession();
+      const userPubkey = mostRecentKey.replace('bunker-', '');
+      
+      // Check if the most recent session was manually removed
+      const removedSessions = JSON.parse(sessionStorage.getItem('removed-bunker-sessions') || '[]');
+      if (removedSessions.includes(userPubkey)) {
+        debugLog.bunker('🚫 Most recent session was manually removed, skipping restoration');
+        restorationAttempted.current = true;
+        return;
+      }
+      
+      debugLog.bunker('🎯 Restoring most recent bunker session:', userPubkey?.substring(0, 16) + '...');
+      debugLog.bunker('📦 Other stored sessions will remain available for manual login');
+
+      // Only restore the most recently used session
+      restoreNostrifyBunkerLogin(userPubkey)
+        .then(restoredLogin => {
           if (restoredLogin) {
             debugLog.bunker('✅ Successfully restored bunker login');
             addLogin(restoredLogin);
-            
-            // Set as active login if it's the first one restored
             setLogin(restoredLogin.id);
             debugLog.bunker('✅ Set restored login as active');
-            
-            return restoredLogin;
           } else {
             debugLog.bunker('❌ Failed to restore bunker login for:', userPubkey?.substring(0, 16) + '...');
-            return null;
           }
-        } catch (error) {
+        })
+        .catch(error => {
           debugLog.bunker('❌ Error restoring bunker session:', error);
-          return null;
-        }
-      });
-
-      // Wait for all restoration attempts to complete
-      Promise.all(restorePromises).then(results => {
-        const successfulRestorations = results.filter(result => result !== null);
-        debugLog.bunker('🏁 Restoration complete:', successfulRestorations.length, 'of', bunkerKeys.length, 'sessions restored');
-      }).catch(error => {
-        debugLog.bunker('❌ Error in restoration process:', error);
-      });
+        });
     } else if (existingBunkerLogins.length > 0) {
       debugLog.bunker('✅ Active bunker logins already exist, no restoration needed');
       restorationAttempted.current = true;

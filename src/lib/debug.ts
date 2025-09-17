@@ -52,6 +52,18 @@ export const debugLog = {
     }
   },
   
+  bunkerError: (message: string, ...args: any[]) => {
+    if (DEBUG_CONFIG.enableAll || DEBUG_CONFIG.bunker.enabled) {
+      console.error(`🔐❌ [Bunker Error] ${message}`, ...args);
+    }
+  },
+  
+  bunkerWarn: (message: string, ...args: any[]) => {
+    if (DEBUG_CONFIG.enableAll || DEBUG_CONFIG.bunker.enabled) {
+      console.warn(`🔐⚠️ [Bunker Warning] ${message}`, ...args);
+    }
+  },
+  
   auth: (message: string, ...args: any[]) => {
     if (DEBUG_CONFIG.enableAll || DEBUG_CONFIG.auth.enabled) {
       console.log(`🔑 [Auth] ${message}`, ...args);

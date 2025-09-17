@@ -230,7 +230,7 @@ function getUserCashuStore(userPubkey: string) {
         getAllProofs: () => {
           const state = get();
           const allProofs: Proof[] = [];
-          
+
           // Get all proofs from all wallets
           (state.wallets || []).forEach(wallet => {
             allProofs.push(...(wallet.proofs || []));
