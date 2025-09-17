@@ -18,19 +18,23 @@ export function useBunkerLoginRestoration() {
       return;
     }
 
-    // Check if user has manually logged out - if so, don't auto-restore
+    // Get bunker session data from localStorage first
+    const bunkerKeys = Object.keys(localStorage).filter(key => key.startsWith('bunker-'));
+    debugLog.bunker('📦 Found stored bunker sessions:', bunkerKeys.length);
+
+    // Check if user has manually logged out - but clear the flag if bunker sessions exist
+    // This handles page refresh vs. actual logout distinction
     const hasManuallyLoggedOut = sessionStorage.getItem('manual-logout') === 'true';
-    if (hasManuallyLoggedOut) {
-      debugLog.bunker('🚫 Manual logout detected, skipping automatic restoration');
+    if (hasManuallyLoggedOut && bunkerKeys.length > 0) {
+      debugLog.bunker('� Page refresh detected with existing bunker sessions, clearing manual logout flag');
+      sessionStorage.removeItem('manual-logout');
+    } else if (hasManuallyLoggedOut) {
+      debugLog.bunker('�🚫 Manual logout detected, skipping automatic restoration');
       restorationAttempted.current = true;
       return;
     }
 
     debugLog.bunker('🔄 useBunkerLoginRestoration: Starting restoration check');
-
-    // Get bunker session data from localStorage
-    const bunkerKeys = Object.keys(localStorage).filter(key => key.startsWith('bunker-'));
-    debugLog.bunker('📦 Found stored bunker sessions:', bunkerKeys.length);
 
     if (bunkerKeys.length === 0) {
       debugLog.bunker('ℹ️ No stored bunker sessions found');
@@ -38,13 +42,32 @@ export function useBunkerLoginRestoration() {
       return;
     }
 
-    // Check if we already have bunker logins in Nostrify
-    const existingBunkerLogins = logins.filter(login => 
-      login.type === 'x-bunker-nostr-tools' || 
-      (login as any).method === 'bunker'
-    );
+    // Check if we already have FUNCTIONAL bunker logins in Nostrify
+    const existingBunkerLogins = logins.filter(login => {
+      const isBunkerType = login.type === 'x-bunker-nostr-tools' || (login as any).method === 'bunker';
+      
+      if (!isBunkerType) return false;
+      
+      // Check if the login has a functional signer with signEvent method
+      const loginWithSigner = login as any; // Type assertion to access signer property
+      const hasFunctionalSigner = loginWithSigner.signer && (
+        typeof loginWithSigner.signer.signEvent === 'function' ||
+        typeof Object.getPrototypeOf(loginWithSigner.signer)?.signEvent === 'function' ||
+        (loginWithSigner.signer.bunkerSigner && typeof loginWithSigner.signer.bunkerSigner.signEvent === 'function')
+      );
+      
+      debugLog.bunker('🔍 Checking bunker login functionality:', {
+        loginId: login.id?.substring(0, 16) + '...',
+        isBunkerType,
+        hasSigner: !!loginWithSigner.signer,
+        hasFunctionalSigner,
+        signerType: loginWithSigner.signer?.constructor?.name
+      });
+      
+      return hasFunctionalSigner;
+    });
 
-    debugLog.bunker('🔍 Existing bunker logins in Nostrify:', existingBunkerLogins.length);
+    debugLog.bunker('🔍 Functional bunker logins in Nostrify:', existingBunkerLogins.length);
 
     // If we have stored sessions but no active logins, attempt restoration
     if (bunkerKeys.length > 0 && existingBunkerLogins.length === 0) {
@@ -105,6 +128,19 @@ export function useBunkerLoginRestoration() {
         .then(restoredLogin => {
           if (restoredLogin) {
             debugLog.bunker('✅ Successfully restored bunker login');
+            
+            // Clear this pubkey from removed sessions list since restoration was successful
+            try {
+              const removedSessions = JSON.parse(sessionStorage.getItem('removed-bunker-sessions') || '[]');
+              const updatedRemovedSessions = removedSessions.filter((pubkey: string) => pubkey !== userPubkey);
+              if (updatedRemovedSessions.length !== removedSessions.length) {
+                sessionStorage.setItem('removed-bunker-sessions', JSON.stringify(updatedRemovedSessions));
+                debugLog.bunker('🔄 Cleared pubkey from removed sessions list after restoration:', userPubkey?.substring(0, 16) + '...');
+              }
+            } catch (error) {
+              debugLog.bunker('⚠️ Failed to clear removed sessions after restoration:', error);
+            }
+            
             addLogin(restoredLogin);
             setLogin(restoredLogin.id);
             debugLog.bunker('✅ Set restored login as active');
@@ -116,7 +152,7 @@ export function useBunkerLoginRestoration() {
           debugLog.bunker('❌ Error restoring bunker session:', error);
         });
     } else if (existingBunkerLogins.length > 0) {
-      debugLog.bunker('✅ Active bunker logins already exist, no restoration needed');
+      debugLog.bunker('✅ Active FUNCTIONAL bunker logins already exist, no restoration needed');
       restorationAttempted.current = true;
     }
   }, []); // Remove dependencies to ensure it only runs once on mount

@@ -54,7 +54,14 @@ class LightningService {
     user: any,
     closeOuterModel?: () => void
   ): Promise<{ preimage: string; invoice: string } | null> {
-    if (!user?.signer?.signEvent) {
+    // Enhanced signer validation with comprehensive bunker support
+    // Check multiple patterns: direct method, prototype chain, wrapper patterns
+    const hasSignEvent = user?.signer &&
+      (typeof user.signer.signEvent === 'function' ||
+       typeof Object.getPrototypeOf(user.signer)?.signEvent === 'function' ||
+       (user.signer.bunkerSigner && typeof user.signer.bunkerSigner.signEvent === 'function'));
+    
+    if (!hasSignEvent) {
       throw new Error('You need to be logged in to zap');
     }
 

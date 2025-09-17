@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNostrLogin } from '@nostrify/react/login';
+import { debugLog } from '@/lib/debug';
 
 /**
  * Custom auth state management to handle automatic extension login prevention
@@ -43,7 +44,17 @@ export function useAuthState() {
   useEffect(() => {
     if (logins.length === 0) {
       sessionStorage.removeItem('manual-extension-login');
-      // Keep manual-logout flag to prevent auto-reconnection
+      // Only keep manual-logout flag if no bunker sessions exist in localStorage
+      // This prevents page refresh from being treated as manual logout
+      const bunkerKeys = Object.keys(localStorage).filter(key => key.startsWith('bunker-'));
+      if (bunkerKeys.length === 0) {
+        // No bunker sessions, so this was likely a real logout
+        debugLog.bunker('🔄 No bunker sessions found, preserving manual-logout flag');
+      } else {
+        // Bunker sessions exist, so this is likely a page refresh
+        debugLog.bunker('🔄 Bunker sessions exist, clearing manual-logout flag for page refresh');
+        sessionStorage.removeItem('manual-logout');
+      }
     }
   }, [logins]);
 

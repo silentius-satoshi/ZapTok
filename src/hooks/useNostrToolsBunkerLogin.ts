@@ -207,6 +207,18 @@ export function useNostrToolsBunkerLogin() {
       // Create Nostrify-compatible login object with client secret
       const login = createNostrifyBunkerLogin(userPubkey, bunker, bunkerData, clientSecretKey);
 
+      // Clear this pubkey from removed sessions list since user is explicitly logging back in
+      try {
+        const removedSessions = JSON.parse(sessionStorage.getItem('removed-bunker-sessions') || '[]');
+        const updatedRemovedSessions = removedSessions.filter((pubkey: string) => pubkey !== userPubkey);
+        if (updatedRemovedSessions.length !== removedSessions.length) {
+          sessionStorage.setItem('removed-bunker-sessions', JSON.stringify(updatedRemovedSessions));
+          debugLog.bunker('🔄 Cleared pubkey from removed sessions list:', userPubkey?.substring(0, 16) + '...');
+        }
+      } catch (error) {
+        debugLog.bunker('⚠️ Failed to clear removed sessions:', error);
+      }
+
       // Add to Nostrify's login system
       addLogin(login);
       setLogin(login.id);
