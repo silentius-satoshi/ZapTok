@@ -1,11 +1,11 @@
 /**
  * Enhanced Bunker Signer Test Script
  * 
- * This script tests the Jumble-inspired bunker signer improvements.
+ * This script tests the enhanced bunker signer improvements.
  * Copy and paste this into the browser console to test the enhanced functionality.
  */
 
-console.log('🔍 Testing Enhanced Bunker Signer (Jumble-inspired improvements)...');
+console.log('🔍 Testing Enhanced Bunker Signer improvements...');
 
 // Test 1: Check if enhanced debug logging is working
 console.log('📋 Test 1: Debug System');
@@ -197,7 +197,7 @@ try {
 
 console.log('🏁 Enhanced Bunker Signer Test Complete');
 console.log('');
-console.log('📊 Summary of Jumble-inspired improvements:');
+console.log('📊 Summary of enhanced improvements:');
 console.log('  1. ✅ Enhanced NIP-44 method implementation with fallbacks');
 console.log('  2. ✅ Client secret key storage for proper restoration');
 console.log('  3. ✅ Improved connection management and error handling');
