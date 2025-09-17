@@ -46,8 +46,19 @@ export function CashuWallet() {
   
   // Calculate total Cashu balance from both stores
   const cashuBalance = cashuStore.proofs.reduce((sum, proof) => sum + proof.amount, 0);
-  const userCashuBalance = userCashuStore?.proofs?.reduce((sum, proof) => sum + proof.amount, 0) || 0;
+  const userCashuBalance = userCashuStore?.getTotalBalance?.() || 0;
   const totalBalance = cashuBalance + userCashuBalance;
+
+  // Debug balance calculation in CashuWallet page
+  console.log('🪙 CashuWallet Balance Debug:', {
+    cashuStoreProofs: cashuStore.proofs.length,
+    cashuBalance,
+    userCashuStoreTotalBalance: userCashuBalance,
+    totalBalance,
+    userPubkey: user?.pubkey?.substring(0, 16) + '...',
+    userCashuStoreExists: !!userCashuStore,
+    getTotalBalanceMethod: typeof userCashuStore?.getTotalBalance
+  });
 
   return (
     <AuthGate>
@@ -84,10 +95,7 @@ export function CashuWallet() {
                       <div>
                         <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-white`}>Cashu Wallet</h1>
                         <p className={`text-gray-400 mt-2 ${isMobile ? 'text-sm' : ''}`}>
-                          {isBunkerSigner
-                            ? 'Cashu not available with remote signing. Try Bitcoin Connect for Lightning payments.'
-                            : 'Manage your private Cashu ecash wallet'
-                          }
+                          Manage your private Cashu ecash wallet
                         </p>
                       </div>
                     </div>
@@ -116,22 +124,6 @@ export function CashuWallet() {
                     >
                       <Bitcoin className="h-3 w-3 mr-1" />
                       Show in {showSats ? "USD" : "sats"}
-                    </Button>
-                  </div>
-                )}
-
-                {/* Bunker Signer Notice */}
-                {isBunkerSigner && (
-                  <div className={`text-center space-y-2 ${isMobile ? 'mb-6' : 'mb-8'} p-4 bg-amber-900/20 border border-amber-700/50 rounded-lg`}>
-                    <div className="text-amber-400 font-medium">Remote Signing Mode</div>
-                    <div className="text-sm text-gray-400 mb-4">
-                      Cashu and NWC require local signing and are not available with remote signers.
-                    </div>
-                    <Button
-                      onClick={() => navigate('/bitcoin-connect-wallet')}
-                      className="bg-orange-600 hover:bg-orange-700 text-white"
-                    >
-                      Try Bitcoin Connect Wallet →
                     </Button>
                   </div>
                 )}

@@ -12,8 +12,8 @@ export const DEBUG_CONFIG = {
   
   // Bunker signer debugging
   bunker: {
-    enabled: false, // Set to true to enable bunker debug logs
-    verbose: false, // Set to true for extra verbose logging
+    enabled: true, // Enable bunker debug logs for testing
+    verbose: true, // Enable extra verbose logging for testing
   },
   
   // General authentication debugging

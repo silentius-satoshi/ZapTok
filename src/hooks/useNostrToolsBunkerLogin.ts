@@ -179,30 +179,36 @@ export function useNostrToolsBunkerLogin() {
 
       console.log('✅ Retrieved user pubkey:', userPubkey);
 
-      // Store bunker signer and local secret for future use
+      // Store bunker signer and local secret for future use (enhanced like Jumble)
+      const clientSecretKey = bytesToHex(localSecretKey); // Store client secret like Jumble
       const bunkerData = {
         type: 'bunker' as const,
         userPubkey,
         bunkerPubkey: bunkerPointer.pubkey,
-        localSecretHex: bytesToHex(localSecretKey),
+        localSecretHex: clientSecretKey, // Keep for backward compatibility
+        clientSecretKey: clientSecretKey, // Add explicit client secret key like Jumble
         relays: bunkerPointer.relays,
         secret: bunkerPointer.secret,
         localPubkey,
         originalBunkerUri: bunkerUri, // Store the original bunker URI
+        createdAt: Date.now(), // Add timestamp
+        lastUsed: Date.now(), // Track usage
       };
+
+      console.log('💾 Storing bunker data with client secret key');
 
       // Store in localStorage for persistence
       const storageKey = `bunker-${userPubkey}`;
       localStorage.setItem(storageKey, JSON.stringify(bunkerData));
 
-      // Create Nostrify-compatible login object
-      const login = createNostrifyBunkerLogin(userPubkey, bunker, bunkerData);
+      // Create Nostrify-compatible login object with client secret
+      const login = createNostrifyBunkerLogin(userPubkey, bunker, bunkerData, clientSecretKey);
 
       // Add to Nostrify's login system
       addLogin(login);
       setLogin(login.id);
 
-      console.log('💾 Integrated with Nostrify login system');
+      console.log('💾 Integrated with Nostrify login system with enhanced bunker support');
 
       // Automatically add bunker relay to user's relay configuration if not already present
       const bunkerRelayUrl = 'wss://relay.nsec.app';

@@ -12,6 +12,7 @@ import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { DEFAULT_BLOSSOM_SERVERS } from '@/lib/blossomUtils';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
+import { useBunkerLoginRestoration } from '@/hooks/useBunkerLoginRestoration';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -56,6 +57,9 @@ const presetRelays = [
 ];
 
 function AppContent() {
+  // Initialize bunker login restoration on app startup
+  useBunkerLoginRestoration();
+
   // Set dark theme on app load
   useEffect(() => {
     document.documentElement.classList.add('dark');

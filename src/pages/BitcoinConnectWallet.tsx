@@ -97,11 +97,11 @@ export function BitcoinConnectWallet() {
                     </div>
 
                     {isBunkerSigner && (
-                      <div className="mt-4 p-4 bg-amber-900/20 border border-amber-700/50 rounded-lg">
-                        <div className="text-amber-400 font-medium mb-1">Remote Signing Mode</div>
+                      <div className="mt-4 p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
+                        <div className="text-blue-400 font-medium mb-1">Remote Signing Mode</div>
                         <div className="text-xs text-gray-400">
                           You're using a remote signer. Bitcoin Connect provides Lightning functionality, 
-                          while Cashu and NWC require local signing and are not available.
+                          and Cashu features are also available with enhanced NIP-44 support.
                         </div>
                       </div>
                     )}
