@@ -20,6 +20,8 @@ export const ZAPTOK_CONFIG = {
   DEFAULT_RELAY_URL: 'wss://relay.nostr.band',
   // Donation preset amounts in sats
   DONATION_PRESETS: [21, 77, 210, 777, 1000, 2100, 5000, 10000, 21000, 50000, 100000, 210000],
+  // Quick zap preset amounts for social interactions (optimized for speed)
+  QUICK_ZAP_PRESETS: [21, 100, 500, 1000, 5000, 10000, 50000, 100000],
 } as const;
 
 // Reliable relay URLs for zap requests

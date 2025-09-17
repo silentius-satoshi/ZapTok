@@ -95,7 +95,7 @@ class LightningService {
       comment
     });
 
-    const zapRequest = await user.signEvent(zapRequestDraft);
+    const zapRequest = await user.signer.signEvent(zapRequestDraft);
 
     // Request invoice from LNURL callback
     const zapRequestRes = await fetch(

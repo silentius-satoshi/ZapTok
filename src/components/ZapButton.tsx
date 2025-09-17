@@ -270,9 +270,9 @@ export function ZapButton({
         onTouchEnd={handleClickEnd}
       >
         {zapping ? (
-          <Loader 
-            className="animate-spin text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]" 
-            style={iconStyle} 
+          <Loader
+            className="animate-spin text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]"
+            style={iconStyle}
           />
         ) : (
           <Zap
@@ -294,6 +294,7 @@ export function ZapButton({
         }}
         pubkey={recipientPubkey}
         event={event}
+        quickZap={quickZap}
       />
     </>
   );
