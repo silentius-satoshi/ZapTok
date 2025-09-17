@@ -80,13 +80,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   // Debug bunker detection in development
   if (import.meta.env.DEV && user?.pubkey) {
-    devLog('🔍 Bunker Signer Detection:', {
-      loginType,
-      signerConstructorName: user?.signer?.constructor?.name,
-      isBunkerSigner,
-      loginTypeMatch: loginType === 'bunker' || loginType === 'x-bunker-nostr-tools',
-      signerNameMatch: user?.signer?.constructor?.name?.includes('bunker')
-    });
+    bundleLog('bunkerDetection', `Bunker signer: ${isBunkerSigner} (${loginType})`);
   }
 
   // Extension signer detection - only these should get WebLN auto-enable

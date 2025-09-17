@@ -10,6 +10,7 @@ import { formatBalance } from '@/lib/cashu';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { toast } from 'sonner';
+import { bundleLog } from '@/lib/logBundler';
 
 /**
  * Hook that automatically receives nutzaps when the wallet is loaded
@@ -39,7 +40,9 @@ export function useAutoReceiveNutzaps() {
       try {
         const ids = JSON.parse(stored);
         processedEventIds.current = new Set(ids);
-        console.log(`[useAutoReceiveNutzaps] Loaded ${ids.length} processed nutzap IDs from storage`);
+        if (import.meta.env.DEV && ids.length > 0) {
+          bundleLog('autoReceiveNutzaps', `Loaded ${ids.length} processed nutzap IDs from storage`);
+        }
       } catch (error) {
         console.error('Failed to load processed nutzap IDs:', error);
         processedEventIds.current = new Set();

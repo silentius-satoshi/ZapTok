@@ -6,6 +6,7 @@ import { useNutzapInfo } from '@/hooks/useNutzaps';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useNutzapRedemption } from '@/hooks/useNutzapRedemption';
+import { bundleLog } from '@/lib/logBundler';
 
 export interface ReceivedNutzap {
   id: string;
@@ -220,11 +221,13 @@ export function useReceivedNutzaps(): UseReceivedNutzapsResult {
             zappedEvent = eventTag[1];
           }
 
-          // log the event
-          console.log('nutzap event', event);
-
           // Calculate total amount from proofs
           const totalAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
+
+          // Bundle nutzap event logs
+          if (import.meta.env.DEV) {
+            bundleLog('nutzaps', `Received nutzap: ${totalAmount} sats from ${event.pubkey.substring(0, 8)}...`);
+          }
 
           // Add to received nutzaps
           receivedNutzaps.push({

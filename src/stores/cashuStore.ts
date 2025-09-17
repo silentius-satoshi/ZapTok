@@ -165,6 +165,7 @@ export const useCashuStore = create<CashuStore>()(
         const totalProofs = [...allProofs, ...state.pendingProofs];
         if (import.meta.env.DEV) {
           bundleLog('cashuStore', `Getting proofs, total: ${totalProofs.length} (wallet proofs: ${allProofs.length}, pending: ${state.pendingProofs.length})`);
+          bundleLog('cashuStore', `Wallets in global store: ${state.wallets.length} (this should normally be 0 for user-isolated architecture)`);
         }
         if (totalProofs.length > 0) {
           if (import.meta.env.DEV) {
