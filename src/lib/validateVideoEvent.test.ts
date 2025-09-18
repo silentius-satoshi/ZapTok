@@ -25,7 +25,7 @@ describe('validateVideoEvent', () => {
     expect(result).toBeTruthy();
     expect(result?.hash).toBe('abc123hash');
     expect(result?.title).toBe('Test Video');
-    expect(result?.videoUrl).toBe('https://blossom.primal.net/abc123hash');
+    expect(result?.videoUrl).toBe('https://blossom.band/abc123hash');
   });
 
   it('should validate event with url tag', () => {

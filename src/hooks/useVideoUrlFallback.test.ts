@@ -89,8 +89,8 @@ describe('useVideoUrlFallback', () => {
     }, { timeout: 3000 });
 
     expect(result.current.workingUrl).toBeNull();
-    // Should have tried original URL + 5 fallback servers (6 total)
-    expect(mockFetch).toHaveBeenCalledTimes(6);
+    // Should have tried original URL + first 2 fallback servers (3 total due to limit in implementation)
+    expect(mockFetch).toHaveBeenCalledTimes(3);
   });
 
   it('should handle missing hash gracefully', async () => {

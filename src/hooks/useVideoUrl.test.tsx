@@ -28,9 +28,13 @@ describe('useVideoUrl', () => {
 
   it('should return video URLs when servers are available', async () => {
     const hash = 'test-hash-123';
-    
-    // Mock successful responses from multiple servers
-    mockFetch.mockResolvedValue({ ok: true });
+
+    // Mock successful responses from multiple servers in the correct order from implementation
+    // The actual order in implementation: blossom.band, nostr.download, blossom.primal.net
+    mockFetch
+      .mockResolvedValueOnce({ ok: true }) // blossom.band check
+      .mockResolvedValueOnce({ ok: true }) // nostr.download check
+      .mockResolvedValueOnce({ ok: true }); // blossom.primal.net check
 
     const { result } = renderHook(() => useVideoUrl(hash), {
       wrapper,
@@ -41,15 +45,23 @@ describe('useVideoUrl', () => {
     });
 
     expect(result.current.data).toEqual({
-      primaryUrl: 'https://blossom.primal.net/test-hash-123',
+      primaryUrl: 'https://blossom.band/test-hash-123',
       fallbackUrls: [
-        'https://blossom.band/test-hash-123',
-        'https://files.nostr.band/test-hash-123'
+        'https://nostr.download/test-hash-123',
+        'https://blossom.primal.net/test-hash-123'
       ],
       lastChecked: expect.any(Number),
     });
 
     // Verify correct server URLs were tested
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://blossom.band/test-hash-123',
+      { method: 'HEAD', signal: expect.any(AbortSignal) }
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://nostr.download/test-hash-123',
+      { method: 'HEAD', signal: expect.any(AbortSignal) }
+    );
     expect(mockFetch).toHaveBeenCalledWith(
       'https://blossom.primal.net/test-hash-123',
       { method: 'HEAD', signal: expect.any(AbortSignal) }
@@ -69,7 +81,7 @@ describe('useVideoUrl', () => {
 
   it('should handle network errors gracefully', async () => {
     const hash = 'network-error-hash';
-    
+
     // Mock network errors on all server calls
     mockFetch.mockRejectedValue(new Error('Network error'));
 

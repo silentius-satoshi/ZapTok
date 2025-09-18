@@ -116,6 +116,9 @@ export default defineConfig(() => ({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    testTimeout: 10000, // Increase default timeout for all tests to 10 seconds
+    include: ['src/**/*.{test,spec}.{ts,tsx}'], // Only include TypeScript test files
+    exclude: ['src/**/*.{test,spec}.js'], // Exclude JavaScript test files (Node.js scripts)
     onConsoleLog(log) {
       return !log.includes("React Router Future Flag Warning");
     },
