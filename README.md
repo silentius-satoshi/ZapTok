@@ -8,97 +8,80 @@
 
 ## Overview
 
-ZapTok is an open-source, decentralized short-form video platform where instant Bitcoin meets endless swipeable content — enabling direct creator monetization through value-for-value on Nostr.
+ZapTok is a decentralized short-form video platform where instant Bitcoin meets endless swipeable content — enabling direct creator monetization through value-for-value on Nostr.
 
 We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips (aka zaps), giving creators and users complete control over their data and earnings. Experience familiar social media with true ownership and privacy — where your content and earnings are actually yours.
 
 ***You keep 100% of your earnings. No percentage of your earnings is distributed to the platform.***
 
-### Phase 1: Foundation (Completed ✅)
-**Core Platform & Authentication**
-- [x] Private login via Nostr browser extension + bunker login (NIP-07, NIP-46)
-- [x] Lightning & Cashu wallet support (NIP-47, NIP-60, NIP-61)
-- [x] Enhanced video encoding and streaming (NIP-71)
-- [x] Multi-relay support and relay management
-- [x] Basic content moderation tools
-- [x] Comments system (NIP-22) 
+### 🎬 **Video Platform**
+- **Short-Form Video Sharing**: TikTok-style infinite scroll with snap-to-video behavior
+- **Mobile-Optimized Player**: Gesture controls, keyboard navigation (arrow keys)
+- **Advanced Performance**: Auto-loading, background prefetching, smooth playback caching
+- **Video Compression**: Client-side optimization for mobile data efficiency
+- **Native Sharing**: Web Share API with clipboard fallback across platforms
 
+### ⚡ **Lightning & Payments**
+- **Instant Bitcoin Zaps**: Lightning Network integration for immediate tips (NIP-57)
+- **Cashu eCash**: Wallet integration with peer-to-peer Nutzaps (NIP-60, NIP-61)
+- **Supporter Donations**: Multiple payment pathways for creator support
+- **Zero Platform Fees**: Creators keep 100% of earnings
+- **Wallet Connect**: Lightning wallet integration (NIP-47)
 
-**Creator Economy Basics**
-- [x] Lightning Network integration for instant zap functionality (NIP-57)
-- [x] Cashu wallet integration for eCash payments (NIP-60)
-- [x] Nutzaps for peer-to-peer eCash tips (NIP-61)
-- [x] Supporter donation system with multiple payment pathways
-- [x] Creator-first monetization with zero platform fees
+### 🔐 **Decentralized Identity**
+- **Private Login**: Nostr browser extension support (NIP-07)
+- **Bunker Login**: Remote signer compatibility (NIP-46)
+- **Self-Sovereign Identity**: Users own their data and social connections
+- **DNS Verification**: Nostr address verification (NIP-05)
+- **Portable Identity**: Same profile works across all Nostr apps
 
-**Infrastructure**
-- [x] Decentralized storage integration (NIP-94 file metadata)
-- [x] Bech32 address support (NIP-19)
-- [x] DNS-based verification (NIP-05)
-- [x] Client-side video compression for mobile data optimization
+### 💬 **Social Features**
+- **Follow System**: Contact lists and relationship management (NIP-02)
+- **Threaded Comments**: Full discussion system with replies and mentions (NIP-22)
+- **Reactions**: Like and react to content (NIP-25)
+- **Content Sharing**: Reposts and quote sharing (NIP-18)
+- **Rich Profiles**: User metadata and customizable profiles
 
-**Progressive Web App Features**
-- [x] Full PWA support with service worker
-- [x] Offline video caching and playback
-- [x] Push notifications for Lightning payments
-- [x] App installation on mobile and desktop
-- [x] Background sync for failed transactions
+### 📱 **Progressive Web App**
+- **Full PWA Support**: Installable on mobile and desktop
+- **Offline Capabilities**: Video caching and background playback
+- **Push Notifications**: Real-time alerts for Lightning payments
+- **Service Worker**: Background sync for failed transactions
+- **Native App Feel**: Seamless mobile experience
 
-**Advanced Video Experience**
-- [x] Infinite scroll with snap-to-video behavior
-- [x] Keyboard navigation (arrow keys)
-- [x] Auto-loading and background prefetching
-- [x] Mobile-optimized player with gesture controls
-- [x] Performance caching for smooth playback
-- [x] Native share functionality (Web Share API with clipboard fallback)
+### 🌐 **Nostr Integration**
+- **Multi-Relay Support**: Connect to multiple relays for redundancy
+- **File Metadata**: Decentralized storage integration (NIP-94)
+- **Video Events**: Native video content format (NIP-71)
+- **Bech32 Addresses**: Full NIP-19 identifier support
+- **Content Discovery**: Hashtag following and search capabilities
 
+### 🚀 **Coming Next**
+- **Private Messages**: Encrypted DMs (NIP-17)
+- **Advanced Search**: Enhanced content discovery (NIP-50)
+- **Live Streaming**: Real-time broadcasting (NIP-53)
+- **Creator Tools**: Zap goals, badges, long-form content
 
-### Phase 2: Social Features (Completed ✅)
-**Essential Social**
-- [x] Follow Lists (NIP-02)
-- [x] Reactions & Engagement (NIP-25)
-- [x] User Profiles & Metadata (NIP-01, kind 0)
-- [x] Threaded comments system with NIP-22 (replies, mentions & notifications)
-- [x] Native share functionality across platforms
+### 🔗 **Universal Bunker Support**
 
-**Content & Discovery**
-- [x] Video Events (NIP-71)
-- [x] File metadata support (NIP-94)
-- [x] Hashtag Following and Custom Hashtags
-- [x] Reposts & Share functionality (NIP-18)
-- [x] Content Search and filtering capabilities
+ZapTok provides seamless integration with remote signers, enabling secure key management without exposing private keys:
 
-**Infrastructure Improvements**
-- [x] Enhanced video upload with progress indicators
-- [x] Improved error handling and user feedback
-- [x] Performance optimizations for faster load times
-- [x] Scalability improvements for larger user base
-- [x] Full PWA implementation with offline capabilities
-- [x] Advanced caching system with video prefetching
-- [x] Mobile-responsive design and PWA enhancements
+**Lightning Wallet Integration**
+- **Bitcoin Connect**: Universal lightning wallet connectivity supporting WebLN-enabled wallets
+- **One-Click Setup**: Connect Alby, Zeus, Phoenix, and other popular lightning wallets instantly
+- **Secure Payments**: Send and receive zaps without sharing sensitive wallet credentials
+- **Cross-Platform**: Works across desktop and mobile with consistent experience
 
-**Future Social Features**
-- [ ] Private Direct Messages (NIP-17)
-- [ ] Advanced Content Search (NIP-50)
-- [ ] Enhanced notification system
+**Cashu Wallet Support**
+- **nsec.app Integration**: Full compatibility with nsec.app's secure key management
+- **eCash Transactions**: Seamless Cashu wallet operations through remote signer
+- **Privacy-First**: Enhanced privacy with eCash payments via bunker connection
 
-### Phase 3: Advanced Platform (Planned)
-**Enhanced Creator Tools**
-- [x] Zaps & Advanced Tipping (NIP-57)
-- [ ] Zap Goals & Splits (NIP-75)
-- [ ] Badges & Creator Recognition (NIP-58)
-- [ ] Long-form Content Support (NIP-23)
-
-**Community Features**
-- [ ] Live Streaming & Activities (NIP-53)
-- [ ] Creator Communities & Groups (NIP-72)
-- [ ] Interactive Polls & Voting (NIP-69)
-- [ ] Public Chat Rooms (NIP-28)
-
-**Platform Evolution**
-- [ ] Video Creator Marketplace (NIP-15)
-- [ ] Advanced Multi-Account Management
-- [ ] Cross-Client Compatibility Standards
+**Bunker Benefits**
+- **Enhanced Security**: Private keys never leave your trusted signer device
+- **Universal Access**: Use ZapTok from any device without key management concerns
+- **Simplified Onboarding**: New users can start immediately with remote signer setup
+- **Professional Workflow**: Ideal for creators managing multiple devices and platforms
 
 ## Philosophy
 
@@ -230,11 +213,21 @@ Help us continue building and improving ZapTok. Your support enables us to maint
 
 <div align="center">
 
-<img src="./public/images/qr-code-donation.png" alt="Donation QR Code" width="192" height="192" style="background: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"/>
+<img src="./public/images/qr-npub.png" alt="Nostr Profile QR Code" width="192" height="192" style="background: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"/>
 
 <br/>
 
-*Scan to support ZapTok development*
+*Follow us on* **[nostr](https://njump.me/npub187ffdcqg4k56x2x3wmtlu6wkawuzm5k5wvzj980p0uvx3ek6tg7svrdkx8)**
+
+</div>
+
+<div align="center">
+
+<img src="./public/images/qr-lightning.png" alt="Lightning Address QR Code" width="192" height="192" style="background: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"/>
+
+<br/>
+
+*Zap to show your support for ZapTok development:* **zaptok@strike.me**
 
 </div>
 
@@ -244,9 +237,9 @@ ZapTok stands on the shoulders of giants. We're deeply grateful to the open-sour
 
 ### Nostr Ecosystem Builders
 - **[Amethyst](https://github.com/vitorpamplona/amethyst)** **([amethyst.social](https://www.amethyst.social/))** - Nostr client for Android
-- **[Chorus](https://github.com/andotherstuff/chorus)** **([chorus.community](https://chorus.community/)** - Grow your community and gather support on the decentralized Nostr protocol with eCash
+- **[Chorus](https://github.com/andotherstuff/chorus)** **([chorus.community](https://chorus.community/))** - Grow your community and gather support on the decentralized Nostr protocol with eCash
 - **[Damus](https://github.com/damus-io)** **([damus.io](https://damus.io/))** - iOS nostr client
-- **[Nostr Band](https://github.com/nostrband)** **[nostr.band](https://nostr.band/))** - Nostr profile viewer and search engine
+- **[Nostr Band](https://github.com/nostrband)** **([nostr.band](https://nostr.band/))** - Nostr profile viewer and search engine
 - **[Plebs](https://github.com/Spl0itable/plebs-app)** **([plebs.app](https://plebs.app/))** - Plebs is a censorship-resistant, decentralized video platform powered by the Nostr social protocol
 - **[Primal](https://github.com/PrimalHQ)** **([primal.net](https://primal.net/))** - Primal's iOS/web app for Nostr; as experienced on primal.net
 - **[Snort](https://github.com/v0l/snort)** **([phoenix.social](https://phoenix.social/))** - Feature packed nostr web UI, Mirror of https://git.v0l.io/Kieran/snort 
@@ -271,6 +264,6 @@ ZapTok stands on the shoulders of giants. We're deeply grateful to the open-sour
 
 <div align="center">
 
-Built with ❤️ for our Nostr communities & the Decentralized, Open-Source Web by [@silentius](https://nostr.band/npub13vftmhzzxxyuvcq4d643agzwr4zvce3pc4gvxymgvuzlwpxa4z2sq4sjd9)
+Built with ❤️ for our Nostr communities & the Open Source, Decentralized Web by [@silentius](https://nostr.band/npub13vftmhzzxxyuvcq4d643agzwr4zvce3pc4gvxymgvuzlwpxa4z2sq4sjd9)
 
 </div>

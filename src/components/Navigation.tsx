@@ -161,7 +161,8 @@ export function Navigation() {
                 <Link key={item.id} to={item.path}>
                   <Button
                     variant={activeTab === item.id ? 'default' : 'ghost'}
-                    className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent ${
+                    size={null}
+                    className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
                       activeTab === item.id
                         ? 'text-gray-400 hover:text-white'
                         : 'text-gray-400 hover:text-white'
@@ -206,7 +207,8 @@ export function Navigation() {
               <Button
                 key={item.id}
                 variant={activeTab === item.id ? 'default' : 'ghost'}
-                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent ${
+                size={null}
+                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
                   activeTab === item.id
                     ? 'text-gray-400 hover:text-white'
                     : 'text-gray-400 hover:text-white'
@@ -254,45 +256,12 @@ export function Navigation() {
           {user && (
             <>
               <Button
-                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent ${
-                  activeTab === 'upload'
-                    ? 'text-gray-400 hover:text-white'
-                    : 'text-gray-400 hover:text-white'
-                } mt-4`}
-                onClick={handleUploadClick}
-                onMouseEnter={() => setHoveredItem('upload')}
-                onMouseLeave={() => setHoveredItem(null)}
-              >
-                <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
-                  activeTab === 'upload' || hoveredItem === 'upload'
-                    ? 'text-orange-500'
-                    : 'text-gray-400'
-                }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
-                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                } : {}}>
-                  <PlusSquare size={24} />
-                </div>
-                <span className={`font-medium text-lg ${
-                  activeTab === 'upload' || hoveredItem === 'upload'
-                    ? 'text-orange-500'
-                    : 'text-gray-400'
-                }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
-                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                } : {}}>Upload</span>
-              </Button>
-
-              <Button
-                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent ${
+                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
                   activeTab === 'stream'
                     ? 'text-gray-400 hover:text-white'
                     : 'text-gray-400 hover:text-white'
                 }`}
+                size={null}
                 onClick={() => {
                   setActiveTab('stream');
                   pauseAllVideos();
@@ -323,6 +292,41 @@ export function Navigation() {
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
                 } : {}}>Stream</span>
+              </Button>
+
+              <Button
+                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
+                  activeTab === 'upload'
+                    ? 'text-gray-400 hover:text-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                size={null}
+                onClick={handleUploadClick}
+                onMouseEnter={() => setHoveredItem('upload')}
+                onMouseLeave={() => setHoveredItem(null)}
+              >
+                <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
+                  activeTab === 'upload' || hoveredItem === 'upload'
+                    ? 'text-orange-500'
+                    : 'text-gray-400'
+                }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
+                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                } : {}}>
+                  <PlusSquare size={24} />
+                </div>
+                <span className={`font-medium text-lg ${
+                  activeTab === 'upload' || hoveredItem === 'upload'
+                    ? 'text-orange-500'
+                    : 'text-gray-400'
+                }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
+                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                } : {}}>Upload</span>
               </Button>
             </>
           )}
