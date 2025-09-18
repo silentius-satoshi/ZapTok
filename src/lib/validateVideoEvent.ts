@@ -349,19 +349,26 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
     if (directVideoMatch) {
       videoData.videoUrl = directVideoMatch[0];
     }
-    // Pattern 2: Primal media URLs (m.primal.net)
+    // Pattern 2: Blossom server URLs (blossom.band, satellite.earth)
+    else if (event.content.includes('blossom.band') || event.content.includes('satellite.earth')) {
+      const blossomMatch = event.content.match(/(https?:\/\/[^\s]*(?:blossom\.band|satellite\.earth)\/[A-Za-z0-9][^\s]*)/i);
+      if (blossomMatch) {
+        videoData.videoUrl = blossomMatch[0];
+      }
+    }
+    // Pattern 3: Primal media URLs (m.primal.net)
     else if (event.content.includes('m.primal.net')) {
       const primalMatch = event.content.match(/(https?:\/\/m\.primal\.net\/[A-Za-z0-9]+\.mov)/i);
       if (primalMatch) {
         videoData.videoUrl = primalMatch[0];
       }
     }
-    // Pattern 3: Other video platforms
+    // Pattern 4: Other video platforms
     else if (event.content.includes('youtube.com') || event.content.includes('youtu.be')) {
       // For YouTube videos, use the content as-is for now
       videoData.videoUrl = event.content.trim();
     }
-    // Pattern 4: If we have a hash but no URL, construct Blossom URL
+    // Pattern 5: If we have a hash but no URL, construct Blossom URL
     else if (videoData.hash) {
       // If we have a hash but no URL, construct Blossom URL using the primary server
       videoData.videoUrl = `https://blossom.band/${videoData.hash}`;

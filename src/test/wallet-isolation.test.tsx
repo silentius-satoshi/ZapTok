@@ -25,42 +25,76 @@ vi.mock('@/stores/userCashuStore', () => ({
 }));
 
 // Mock wallet contexts using service layer patterns
-const mockWalletInfo = { balance: 0 };
+vi.mock('@/contexts/WalletContext', () => {
+  const mockWalletInfo = { balance: 0 };
+  
+  function createMockWalletContext(): WalletContextType {
+    return {
+      walletInfo: mockWalletInfo,
+      isConnected: false,
+      getBalance: vi.fn(),
+      provider: null,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      sendPayment: vi.fn(),
+      makeInvoice: vi.fn(),
+      getWalletInfo: vi.fn(),
+      transactions: [],
+      getTransactionHistory: vi.fn(),
+      transactionSupport: false,
+      testConnection: vi.fn(),
+      error: null,
+      isLoading: false,
+      userHasLightningAccess: false,
+      isBunkerSigner: false,
+      isCashuCompatible: false,
+      isExtensionSigner: false,
+      isNsecSigner: false,
+    };
+  }
 
-// Define mock function before vi.mock calls to avoid hoisting issues
-function createMockWalletContext(): WalletContextType {
+  const mockUseWallet = vi.fn(() => createMockWalletContext());
+  
   return {
-    walletInfo: mockWalletInfo,
-    isConnected: false,
-    getBalance: vi.fn(),
-    provider: null,
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    sendPayment: vi.fn(),
-    makeInvoice: vi.fn(),
-    getWalletInfo: vi.fn(),
-    transactions: [],
-    getTransactionHistory: vi.fn(),
-    transactionSupport: false,
-    testConnection: vi.fn(),
-    error: null,
-    isLoading: false,
-    userHasLightningAccess: false,
-    isBunkerSigner: false,
-    isCashuCompatible: false,
-    isExtensionSigner: false,
-    isNsecSigner: false,
+    useWallet: mockUseWallet,
+    WalletProvider: ({ children }: { children: React.ReactNode }) => children,
   };
-}
+});
 
-vi.mock('@/contexts/WalletContext', () => ({
-  useWallet: () => createMockWalletContext(),
-  WalletProvider: ({ children }: { children: React.ReactNode }) => children,
-}));
+vi.mock('@/hooks/useWallet', () => {
+  const mockWalletInfo = { balance: 0 };
+  
+  function createMockWalletContext(): WalletContextType {
+    return {
+      walletInfo: mockWalletInfo,
+      isConnected: false,
+      getBalance: vi.fn(),
+      provider: null,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      sendPayment: vi.fn(),
+      makeInvoice: vi.fn(),
+      getWalletInfo: vi.fn(),
+      transactions: [],
+      getTransactionHistory: vi.fn(),
+      transactionSupport: false,
+      testConnection: vi.fn(),
+      error: null,
+      isLoading: false,
+      userHasLightningAccess: false,
+      isBunkerSigner: false,
+      isCashuCompatible: false,
+      isExtensionSigner: false,
+      isNsecSigner: false,
+    };
+  }
 
-vi.mock('@/hooks/useWallet', () => ({
-  useWallet: () => createMockWalletContext(),
-}));
+  const mockUseWallet = vi.fn(() => createMockWalletContext());
+  
+  return {
+    useWallet: mockUseWallet,
+  };
+});
 
 // Mock logged in accounts with service isolation
 const mockCurrentUser: any = {
@@ -154,10 +188,30 @@ describe('Lightning and Cashu Wallet Isolation Tests', () => {
       isolateTest();
 
       // Account A context with service isolation
-      const accountAWallet = createMockWalletContext();
-      accountAWallet.walletInfo = { balance: 5000 };
-      accountAWallet.isConnected = true;
+      const accountAWallet = {
+        walletInfo: { balance: 5000 },
+        isConnected: true,
+        getBalance: vi.fn(),
+        provider: null,
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        sendPayment: vi.fn(),
+        makeInvoice: vi.fn(),
+        getWalletInfo: vi.fn(),
+        transactions: [],
+        getTransactionHistory: vi.fn(),
+        transactionSupport: false,
+        testConnection: vi.fn(),
+        error: null,
+        isLoading: false,
+        userHasLightningAccess: false,
+        isBunkerSigner: false,
+        isCashuCompatible: false,
+        isExtensionSigner: false,
+        isNsecSigner: false,
+      };
 
+      // Mock the implementation for this test
       vi.mocked(useWallet).mockReturnValue(accountAWallet);
 
       render(
@@ -201,13 +255,51 @@ describe('Lightning and Cashu Wallet Isolation Tests', () => {
       isolateTest();
 
       // Create isolated wallet contexts for different accounts
-      const account1Wallet = createMockWalletContext();
-      account1Wallet.walletInfo = { balance: 2000 };
-      account1Wallet.isConnected = true;
+      const account1Wallet = {
+        walletInfo: { balance: 2000 },
+        isConnected: true,
+        getBalance: vi.fn(),
+        provider: null,
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        sendPayment: vi.fn(),
+        makeInvoice: vi.fn(),
+        getWalletInfo: vi.fn(),
+        transactions: [],
+        getTransactionHistory: vi.fn(),
+        transactionSupport: false,
+        testConnection: vi.fn(),
+        error: null,
+        isLoading: false,
+        userHasLightningAccess: false,
+        isBunkerSigner: false,
+        isCashuCompatible: false,
+        isExtensionSigner: false,
+        isNsecSigner: false,
+      };
 
-      const account2Wallet = createMockWalletContext();
-      account2Wallet.walletInfo = { balance: 3000 };
-      account2Wallet.isConnected = false;
+      const account2Wallet = {
+        walletInfo: { balance: 3000 },
+        isConnected: false,
+        getBalance: vi.fn(),
+        provider: null,
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        sendPayment: vi.fn(),
+        makeInvoice: vi.fn(),
+        getWalletInfo: vi.fn(),
+        transactions: [],
+        getTransactionHistory: vi.fn(),
+        transactionSupport: false,
+        testConnection: vi.fn(),
+        error: null,
+        isLoading: false,
+        userHasLightningAccess: false,
+        isBunkerSigner: false,
+        isCashuCompatible: false,
+        isExtensionSigner: false,
+        isNsecSigner: false,
+      };
 
       // Test account 1 context
       vi.mocked(useWallet).mockReturnValue(account1Wallet);
@@ -240,10 +332,28 @@ describe('Lightning and Cashu Wallet Isolation Tests', () => {
       isolateTest();
 
       // Create service-layer isolated wallet context
-      const isolatedWallet = createMockWalletContext();
-      isolatedWallet.walletInfo = { balance: 7500 };
-      isolatedWallet.userHasLightningAccess = true;
-      isolatedWallet.isCashuCompatible = true;
+      const isolatedWallet = {
+        walletInfo: { balance: 7500 },
+        userHasLightningAccess: true,
+        isCashuCompatible: true,
+        getBalance: vi.fn(),
+        provider: null,
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        sendPayment: vi.fn(),
+        makeInvoice: vi.fn(),
+        getWalletInfo: vi.fn(),
+        transactions: [],
+        getTransactionHistory: vi.fn(),
+        transactionSupport: false,
+        testConnection: vi.fn(),
+        error: null,
+        isLoading: false,
+        isConnected: false,
+        isBunkerSigner: false,
+        isExtensionSigner: false,
+        isNsecSigner: false,
+      };
 
       vi.mocked(useWallet).mockReturnValue(isolatedWallet);
 

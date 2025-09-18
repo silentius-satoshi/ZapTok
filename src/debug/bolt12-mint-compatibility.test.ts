@@ -19,24 +19,19 @@ describe('BOLT12 Mint Compatibility Testing', () => {
 
     try {
       const supportsBolt12 = await client.supportsBolt12();
-      console.log(`${mintUrl}: BOLT12 support = ${supportsBolt12}`);
 
       if (supportsBolt12) {
         const settings = await client.getBolt12Settings();
-        console.log(`${mintUrl}: BOLT12 settings =`, settings);
 
         // If supported, we can test quote creation
         // Note: This would require actual implementation from mint
         expect(settings).toBeTruthy();
         expect(settings?.method).toBe('bolt12');
-      } else {
-        console.log(`${mintUrl}: No BOLT12 support yet`);
       }
 
       // Test should not fail - just log current status
       expect(true).toBe(true);
     } catch (error) {
-      console.error(`${mintUrl}: Error testing BOLT12 support:`, error);
       // Don't fail test - mint might be down or have different API
       expect(true).toBe(true);
     }

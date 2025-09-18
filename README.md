@@ -237,8 +237,10 @@ ZapTok stands on the shoulders of giants. We're deeply grateful to the open-sour
 
 ### Nostr Ecosystem Builders
 - **[Amethyst](https://github.com/vitorpamplona/amethyst)** **([amethyst.social](https://www.amethyst.social/))** - Nostr client for Android
+- **[Coracle](https://github.com/coracle-social/coracle)** **([coracle.social](https://coracle.social/))** - An experimental Nostr client focused on unlocking the full potential of multiple relays. Browse, filter, zap, and create custom feeds to create a curated Nostr experience
 - **[Chorus](https://github.com/andotherstuff/chorus)** **([chorus.community](https://chorus.community/))** - Grow your community and gather support on the decentralized Nostr protocol with eCash
 - **[Damus](https://github.com/damus-io)** **([damus.io](https://damus.io/))** - iOS nostr client
+- **[Jumble](https://github.com/CodyTseng/jumble)** **([jumble.social](https://jumble.social/))** - A user-friendly Nostr client focused on relay feed browsing and relay discovery
 - **[Nostr Band](https://github.com/nostrband)** **([nostr.band](https://nostr.band/))** - Nostr profile viewer and search engine
 - **[Plebs](https://github.com/Spl0itable/plebs-app)** **([plebs.app](https://plebs.app/))** - Plebs is a censorship-resistant, decentralized video platform powered by the Nostr social protocol
 - **[Primal](https://github.com/PrimalHQ)** **([primal.net](https://primal.net/))** - Primal's iOS/web app for Nostr; as experienced on primal.net

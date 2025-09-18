@@ -22,14 +22,7 @@ describe('Video URL Encoding Debug', () => {
       sig: 'test-signature'
     };
 
-    console.log('🧪 Testing event with imeta tag:', mockEvent);
-    console.log('📋 Imeta tag:', mockEvent.tags.find(tag => tag[0] === 'imeta'));
-
     const result = validateVideoEvent(mockEvent);
-
-    console.log('✅ Validation result:', result);
-    console.log('🔗 Video URL:', result?.videoUrl);
-    console.log('🔑 Hash:', result?.hash);
 
     // Assertions
     expect(result).toBeTruthy();
@@ -58,18 +51,11 @@ describe('Video URL Encoding Debug', () => {
       sig: 'test-signature'
     };
 
-    console.log('🚫 Testing malformed event:', malformedEvent);
-    console.log('📋 Malformed imeta tag:', malformedEvent.tags.find(tag => tag[0] === 'imeta'));
-
     const result = validateVideoEvent(malformedEvent);
-
-    console.log('❌ Malformed validation result:', result);
-    console.log('🔗 Extracted URL:', result?.videoUrl);
 
     // This test documents the current behavior and helps us debug
     if (result?.videoUrl?.includes('webm m video')) {
-      console.log('🐛 CONFIRMED: URL contains malformed metadata!');
-      console.log('   This means the imeta parsing is treating the whole string as a URL');
+      // URL contains malformed metadata - this helps identify parsing issues
     }
   });
 });

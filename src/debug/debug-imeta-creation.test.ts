@@ -17,33 +17,15 @@ describe('Imeta Tag Creation', () => {
       width: 2160,
       height: 3840,
     };
-
-    console.log('🧪 Testing imeta tag creation...');
     
     const event = createHybridVideoEvent(mockVideoData, {
       includeImeta: true,
       includeNip71Tags: true,
     });
 
-    console.log('📋 Generated event tags:');
-    event.tags?.forEach((tag, index) => {
-      console.log(`  Tag ${index}:`, tag);
-    });
-
     // Find the imeta tag
     const imetaTag = event.tags?.find(tag => tag[0] === 'imeta');
     expect(imetaTag).toBeDefined();
-
-    console.log('🔍 Imeta tag details:');
-    console.log('  Type:', typeof imetaTag);
-    console.log('  Length:', imetaTag?.length);
-    console.log('  Is Array:', Array.isArray(imetaTag));
-    
-    if (imetaTag) {
-      imetaTag.forEach((element, index) => {
-        console.log(`  Element ${index}:`, typeof element, '=', element);
-      });
-    }
 
     // Verify the structure
     expect(imetaTag).toEqual([
@@ -54,8 +36,6 @@ describe('Imeta Tag Creation', () => {
       'size 1234567',
       'dim 2160x3840'
     ]);
-
-    console.log('✅ Imeta tag structure is correct!');
   });
 
   it('should create the same format as our working test case', () => {
@@ -82,7 +62,5 @@ describe('Imeta Tag Creation', () => {
       'size 1234567',
       'dim 2160x3840'
     ]);
-
-    console.log('✅ Format matches our working test case!');
   });
 });
