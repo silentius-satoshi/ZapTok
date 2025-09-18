@@ -13,7 +13,7 @@ const Index = () => {
   const { followingFeedRef } = useFeedRefresh();
 
   useSeoMeta({
-    title: 'Zaptok - Homepage',
+    title: 'ZapTok - Homepage',
     description: 'Watch videos from creators you follow on the decentralized Nostr network.',
   });
 

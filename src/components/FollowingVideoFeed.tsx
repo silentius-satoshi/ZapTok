@@ -13,6 +13,7 @@ import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
 import { useVideoCache } from '@/hooks/useVideoCache';
 import { useCaching } from '@/contexts/CachingContext';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
+import { useLoginAutoRefresh } from '@/hooks/useLoginAutoRefresh';
 import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent } from '@/lib/validateVideoEvent';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
@@ -35,6 +36,10 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
   const isScrollingRef = useRef(false);
   const queryClient = useQueryClient();
   const lastScrollTopRef = useRef(0);
+
+  // Auto-refresh after login
+  const { justLoggedIn } = useLoginAutoRefresh();
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
 
   // Lock body scroll on mobile to prevent dual scrolling
   useEffect(() => {
@@ -174,12 +179,61 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
 
   // Expose refresh function to parent
   useImperativeHandle(ref, () => ({
-    refresh: () => {
+    refresh: async () => {
       bundleLog('followingVideoRefresh', '🔄 Manual refresh triggered for following feed');
+      
       // Reset the infinite query to start fresh and show latest videos
-      queryClient.resetQueries({ queryKey: ['following-video-feed', user?.pubkey, currentService?.url] });
+      await queryClient.resetQueries({ 
+        queryKey: ['following-video-feed', user?.pubkey, currentService?.url] 
+      });
+      
+      // Reset video index to show newest content
+      setCurrentVideoIndex(0);
+      
+      // Scroll back to top
+      if (containerRef.current) {
+        containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   }), [queryClient, user?.pubkey, currentService?.url]);
+
+  // Auto-refresh following feed after login
+  useEffect(() => {
+    if (justLoggedIn && user?.pubkey) {
+      const performAutoRefresh = async () => {
+        bundleLog('followingVideoRefresh', '🚀 Auto-refresh triggered after login');
+        setIsAutoRefreshing(true);
+        
+        try {
+          // Reset the infinite query to fetch latest videos
+          await queryClient.resetQueries({ 
+            queryKey: ['video-feed', following.data?.pubkeys, currentService?.url] 
+          });
+          
+          // Reset video index to start from the beginning
+          setCurrentVideoIndex(0);
+          
+          // Scroll to top if container exists
+          if (containerRef.current) {
+            containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+          
+          // Keep loading state for a brief moment to show feedback
+          setTimeout(() => {
+            setIsAutoRefreshing(false);
+          }, 800);
+          
+        } catch (error) {
+          console.error('Auto-refresh failed:', error);
+          setIsAutoRefreshing(false);
+        }
+      };
+
+      // Small delay to ensure following data is loaded
+      const timeoutId = setTimeout(performAutoRefresh, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [justLoggedIn, user?.pubkey, queryClient, following.data?.pubkeys, currentService?.url]);
 
   const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
 
@@ -381,44 +435,82 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
     }
   }, [currentVideoIndex, videos.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  // Pull-to-refresh state
+  const [pullToRefreshState, setPullToRefreshState] = useState({
+    isPulling: false,
+    pullDistance: 0,
+    isRefreshing: false,
+  });
+
   // Pull-to-refresh when scrolled to top
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || !isMobile) return;
 
-    let isRefreshing = false;
     let startY = 0;
-    let pullDistance = 0;
+    let currentY = 0;
+    let startTime = 0;
 
     const handleTouchStart = (e: TouchEvent) => {
-      if (container.scrollTop === 0) {
+      if (container.scrollTop <= 5) { // Allow small scroll tolerance
         startY = e.touches[0].clientY;
+        currentY = startY;
+        startTime = Date.now();
+        setPullToRefreshState(prev => ({ ...prev, isPulling: false, pullDistance: 0 }));
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (container.scrollTop === 0 && startY > 0) {
-        pullDistance = e.touches[0].clientY - startY;
-        if (pullDistance > 100 && !isRefreshing) {
-          isRefreshing = true;
-          if (import.meta.env.DEV) {
-            bundleLog('FollowingVideoFeed', '🔄 Pull-to-refresh triggered');
-          }
-          // Refetch first page to get newer content
-          setTimeout(() => {
-            window.location.reload(); // Simple refresh for now
-          }, 300);
+      if (container.scrollTop <= 5 && startY > 0 && !pullToRefreshState.isRefreshing) {
+        currentY = e.touches[0].clientY;
+        const pullDistance = Math.max(0, currentY - startY);
+        
+        if (pullDistance > 20) { // Start showing pull feedback after 20px
+          e.preventDefault(); // Prevent native pull-to-refresh
+          setPullToRefreshState(prev => ({
+            ...prev,
+            isPulling: true,
+            pullDistance: Math.min(pullDistance, 150) // Cap at 150px
+          }));
         }
       }
     };
 
-    const handleTouchEnd = () => {
+    const handleTouchEnd = async () => {
+      if (pullToRefreshState.isPulling && pullToRefreshState.pullDistance > 100 && !pullToRefreshState.isRefreshing) {
+        setPullToRefreshState(prev => ({ ...prev, isRefreshing: true }));
+        
+        try {
+          bundleLog('FollowingVideoFeed', '🔄 Pull-to-refresh triggered - refreshing feed data');
+          
+          // Reset queries to get fresh data
+          await queryClient.resetQueries({ 
+            queryKey: ['following-video-feed', user?.pubkey, currentService?.url] 
+          });
+          
+          // Reset video index to show newest content
+          setCurrentVideoIndex(0);
+          
+          // Scroll back to top smoothly
+          container.scrollTo({ top: 0, behavior: 'smooth' });
+          
+          // Add slight delay for UX feedback
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error) {
+          console.error('Pull-to-refresh failed:', error);
+        } finally {
+          setPullToRefreshState({ isPulling: false, pullDistance: 0, isRefreshing: false });
+        }
+      } else {
+        setPullToRefreshState({ isPulling: false, pullDistance: 0, isRefreshing: false });
+      }
+      
       startY = 0;
-      pullDistance = 0;
+      currentY = 0;
     };
 
     container.addEventListener('touchstart', handleTouchStart, { passive: true });
-    container.addEventListener('touchmove', handleTouchMove, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
@@ -426,15 +518,20 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
     };
-  }, []);
+  }, [isMobile, queryClient, user?.pubkey, currentService?.url, pullToRefreshState.isPulling, pullToRefreshState.pullDistance, pullToRefreshState.isRefreshing]);
 
   // Show loading state while fetching following list or videos
-  if (following.isLoading || isLoading) {
+  if (following.isLoading || isLoading || isAutoRefreshing) {
     return (
       <div className="h-screen flex items-center justify-center bg-black">
         <div className="text-center">
           <div className="w-12 h-12 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading your personalized feed...</p>
+          <p className="text-gray-400">
+            {isAutoRefreshing 
+              ? "Refreshing your feed..." 
+              : "Loading your personalized feed..."
+            }
+          </p>
         </div>
       </div>
     );
@@ -519,6 +616,49 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
           : "relative w-full h-full"
       }
     >
+      {/* Pull-to-refresh indicator for mobile */}
+      {isMobile && (pullToRefreshState.isPulling || pullToRefreshState.isRefreshing) && (
+        <div 
+          className="absolute top-0 left-0 right-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm transition-all duration-200"
+          style={{
+            height: `${Math.min(pullToRefreshState.pullDistance * 0.6, 90)}px`,
+            transform: `translateY(${pullToRefreshState.isRefreshing ? 0 : -10}px)`,
+            opacity: pullToRefreshState.isRefreshing ? 1 : Math.min(pullToRefreshState.pullDistance / 100, 1)
+          }}
+        >
+          <div className="flex flex-col items-center space-y-2">
+            {pullToRefreshState.isRefreshing ? (
+              <>
+                <div className="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs text-gray-300 font-medium">Refreshing...</span>
+              </>
+            ) : (
+              <>
+                <div 
+                  className="w-6 h-6 text-gray-300 transition-transform duration-200"
+                  style={{
+                    transform: `rotate(${Math.min(pullToRefreshState.pullDistance * 1.8, 180)}deg)`
+                  }}
+                >
+                  ↓
+                </div>
+                <span className="text-xs text-gray-300 font-medium">
+                  {pullToRefreshState.pullDistance > 100 ? 'Release to refresh' : 'Pull to refresh'}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Auto-refresh indicator after login */}
+      {isAutoRefreshing && (
+        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 bg-black/90 backdrop-blur-sm rounded-full px-4 py-2 flex items-center space-x-2 border border-pink-500/20 shadow-lg">
+          <div className="w-4 h-4 border-2 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-white text-sm font-medium">Refreshing your feed...</span>
+        </div>
+      )}
+      
       <div
         ref={containerRef}
         className={

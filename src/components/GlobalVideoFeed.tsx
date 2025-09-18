@@ -50,6 +50,13 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
     };
   }, [isMobile]);
 
+  // Pull-to-refresh state
+  const [pullToRefreshState, setPullToRefreshState] = useState({
+    isPulling: false,
+    pullDistance: 0,
+    isRefreshing: false,
+  });
+
   // Enhanced caching hooks
   const { batchLoadProfiles } = useProfileCache();
   const { preloadThumbnails } = useVideoPrefetch();
@@ -147,12 +154,29 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
 
   // Expose refresh function to parent
   useImperativeHandle(ref, () => ({
-    refresh: () => {
+    refresh: async () => {
       bundleLog('globalVideoRefresh', '🔄 Manual refresh triggered for global feed');
+      
+      // Set refreshing state
+      setPullToRefreshState(prev => ({ ...prev, isRefreshing: true }));
+      
+      // Reset video index to start
+      setCurrentVideoIndex(0);
+      
       // Reset the infinite query to start fresh and show latest videos
-      queryClient.resetQueries({ queryKey: ['global-video-feed', currentService?.url] });
+      await queryClient.resetQueries({ queryKey: ['global-video-feed', currentService?.url] });
+      
+      // Brief delay to show refresh feedback
+      setTimeout(() => {
+        setPullToRefreshState(prev => ({ 
+          ...prev, 
+          isRefreshing: false, 
+          isPulling: false, 
+          pullDistance: 0 
+        }));
+      }, 500);
     }
-  }), [queryClient, currentService?.url]);
+  }), [queryClient, currentService?.url, setCurrentVideoIndex]);
 
   const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
 
@@ -324,6 +348,87 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
     };
   }, [videos, currentVideoIndex]);
 
+  // Pull-to-refresh touch handlers
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const container = document.querySelector('.video-container') as HTMLElement;
+    if (!container) return;
+
+    let startY = 0;
+    let isDragging = false;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (container.scrollTop <= 0) {
+        startY = e.touches[0].clientY;
+        isDragging = true;
+        setPullToRefreshState(prev => ({ ...prev, isPulling: true }));
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging || container.scrollTop > 0) return;
+
+      const currentY = e.touches[0].clientY;
+      const pullDistance = Math.max(0, currentY - startY);
+
+      if (pullDistance > 0) {
+        // Prevent native browser pull-to-refresh
+        e.preventDefault();
+        
+        // Update pull distance with some resistance
+        const adjustedDistance = Math.min(pullDistance * 0.4, 100);
+        setPullToRefreshState(prev => ({ 
+          ...prev, 
+          pullDistance: adjustedDistance 
+        }));
+      }
+    };
+
+    const handleTouchEnd = async () => {
+      if (!isDragging) return;
+      
+      isDragging = false;
+      
+      if (pullToRefreshState.pullDistance > 50) {
+        // Trigger refresh
+        setPullToRefreshState(prev => ({ ...prev, isRefreshing: true }));
+        
+        // Reset video index to start
+        setCurrentVideoIndex(0);
+        
+        // Reset query to get latest videos
+        await queryClient.resetQueries({ queryKey: ['global-video-feed', currentService?.url] });
+        
+        // Brief delay to show refresh feedback
+        setTimeout(() => {
+          setPullToRefreshState({ 
+            isPulling: false, 
+            pullDistance: 0, 
+            isRefreshing: false 
+          });
+        }, 500);
+      } else {
+        // Reset state
+        setPullToRefreshState({ 
+          isPulling: false, 
+          pullDistance: 0, 
+          isRefreshing: false 
+        });
+      }
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isMobile, pullToRefreshState.pullDistance, queryClient, currentService?.url, setCurrentVideoIndex]);
+
   // Auto-load more videos
   useEffect(() => {
     if (videos.length >= 5 && currentVideoIndex >= videos.length - 3 && hasNextPage && !isFetchingNextPage) {
@@ -382,12 +487,44 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
           : "relative w-full h-full"
       }
     >
+      {/* Pull-to-refresh indicator */}
+      {isMobile && (pullToRefreshState.isPulling || pullToRefreshState.isRefreshing) && (
+        <div 
+          className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 pb-2"
+          style={{
+            transform: `translateY(${pullToRefreshState.pullDistance - 60}px)`,
+            opacity: pullToRefreshState.pullDistance / 50,
+          }}
+        >
+          <div className="bg-black/80 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
+            <div 
+              className={`w-5 h-5 border-2 border-pink-500 border-t-transparent rounded-full ${
+                pullToRefreshState.isRefreshing ? 'animate-spin' : ''
+              }`}
+              style={{
+                transform: pullToRefreshState.isRefreshing 
+                  ? 'rotate(0deg)' 
+                  : `rotate(${pullToRefreshState.pullDistance * 3.6}deg)`
+              }}
+            />
+            <span className="text-white text-sm font-medium">
+              {pullToRefreshState.isRefreshing 
+                ? 'Refreshing...' 
+                : pullToRefreshState.pullDistance > 50 
+                ? 'Release to refresh' 
+                : 'Pull to refresh'
+              }
+            </span>
+          </div>
+        </div>
+      )}
+      
       <div
         ref={containerRef}
         className={
           isMobile
-            ? "mobile-feed-scroller"
-            : "h-screen overflow-y-auto scrollbar-hide bg-black snap-y snap-mandatory relative"
+            ? "mobile-feed-scroller video-container"
+            : "h-screen overflow-y-auto scrollbar-hide bg-black snap-y snap-mandatory relative video-container"
         }
         style={{ scrollBehavior: 'smooth' }}
       >
