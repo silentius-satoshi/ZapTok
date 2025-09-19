@@ -39,16 +39,16 @@ The Vercel configuration has been updated to properly serve the NIP-05 file:
 - Configured proper headers (CORS, Content-Type)
 - Ready for deployment
 
-**Current Status**: File needs to be deployed to be accessible at `https://zaptok.social/.well-known/nostr.json`
+**Current Status**: ✅ **LIVE** - File is now accessible at `https://zaptok.social/.well-known/nostr.json`
 
 ### 3. Manual Verification Steps
 
-Once deployed, you can verify the setup works by:
+✅ **Ready for Testing** - You can now verify the setup works:
 
 #### Browser Test
 1. Visit: https://zaptok.social/.well-known/nostr.json
 2. Should return the JSON response without errors
-3. Check that Content-Type is `application/json`
+3. Check that Content-Type is `application/json` (use F12 → Network tab to verify headers)
 
 #### cURL Test
 ```bash
@@ -58,7 +58,10 @@ curl -s https://zaptok.social/.well-known/nostr.json | jq
 #### JavaScript Console Test
 ```javascript
 fetch('https://zaptok.social/.well-known/nostr.json')
-  .then(r => r.json())
+  .then(response => {
+    console.log('Content-Type:', response.headers.get('content-type'));
+    return response.json();
+  })
   .then(data => {
     console.log('NIP-05 data:', data);
     console.log('Default user pubkey:', data.names._);
@@ -178,7 +181,7 @@ curl "https://zaptok.social/.well-known/nostr.json?name=_"
 ## Success Indicators
 
 ✅ **Setup Complete When**:
-- [ ] `https://zaptok.social/.well-known/nostr.json` returns valid JSON (optional example)
+- [x] `https://zaptok.social/.well-known/nostr.json` returns valid JSON ✅ **WORKING**
 - [ ] Test script passes all checks
 - [ ] Nostr clients show verification badges
 - [ ] Users can successfully set their own NIP-05 identifiers from any domain
