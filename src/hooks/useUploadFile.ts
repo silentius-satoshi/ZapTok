@@ -6,15 +6,14 @@ import { useAppContext } from "./useAppContext";
 // NIP-B7 imports kept for future use - currently dormant
 // import { useBlossomServerList } from "./useBlossomServerList";
 
-export function useUploadFile(options?: {
-  onProgress?: (progress: number) => void;
-}) {
+export function useUploadFile() {
   const { user } = useCurrentUser();
   const { config } = useAppContext();
   // const { serverList } = useBlossomServerList(); // Disabled for now
 
   return useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async (variables: { file: File; onProgress?: (progress: number) => void }) => {
+      const { file, onProgress } = variables;
       console.log('useUploadFile: Starting upload mutation');
 
       if (!user) {
@@ -67,7 +66,7 @@ export function useUploadFile(options?: {
       const uploader = new CustomBlossomUploader({
         servers: uploaderServers, // undefined = use reliable defaults
         signer: blossomSigner,
-        onProgress: options?.onProgress,
+        onProgress: onProgress,
       });
 
       console.log('useUploadFile: Starting upload with simplified, reliable approach');

@@ -682,7 +682,7 @@ function MyComponent() {
     try {
       // Provides an array of NIP-94 compatible tags
       // The first tag in the array contains the URL
-      const [[_, url]] = await uploadFile(file);
+      const [[_, url]] = await uploadFile({ file });
       // ...use the url
     } catch (error) {
       // ...handle errors
