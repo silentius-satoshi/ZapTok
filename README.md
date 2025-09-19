@@ -127,10 +127,9 @@ Bulletproof & Transparent
 
 ## Community
 
-- **Nostr**: [njump.me/zaptok](https://njump.me/npub187ffdcqg4k56x2x3wmtlu6wkawuzm5k5wvzj980p0uvx3ek6tg7svrdkx8) Follow #ZapTok tag for updates
+- **Give us a follow on Nostr**: [ZapTok@zaptok.social](https://njump.me/npub187ffdcqg4k56x2x3wmtlu6wkawuzm5k5wvzj980p0uvx3ek6tg7svrdkx8) & [silentius@zaptok.social](https://njump.me/npub13vftmhzzxxyuvcq4d643agzwr4zvce3pc4gvxymgvuzlwpxa4z2sq4sjd9)
 - **+Chorus community**: [chorus.community/zaptok](https://chorus.community/group/34550%3A8b12bddc423189c660156eab1ea04e1d44cc6621c550c313686705f704dda895%3Azaptok-mdgpgdbb)
-- **GitHub**: Star the repository and watch for updates
-- **Website**: [zaptok.social](https://zaptok.social/)
+- **Website**: [https://zaptok.social](https://zaptok.social/)
 
 ## Future Vision
 
@@ -189,7 +188,8 @@ Bulletproof & Transparent
 This roadmap evolves based on:
 - Community feedback and feature requests
 - Nostr protocol development (NIPs)
-- Bitcoin / Lightning Network / Cashu improvements
+- Cashu protocol development (NUTs)
+- Bitcoin / Lightning Network improvements
 - Creator and user needs
 
 **Want to contribute?** Check our [Contributing Guidelines](CONTRIBUTING.md) or [open an issue](https://github.com/silentius-satoshi/ZapTok/issues) to suggest features!
@@ -215,13 +215,13 @@ Help us continue building and improving ZapTok. Your support enables us to maint
 <table>
 <tr>
 <td align="center">
-<img src="./public/images/qr-npub.png" alt="Nostr Profile QR Code" width="192" height="192" style="background: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"/>
+<img src="./public/images/qr-npub.png" alt="Nostr Profile QR Code" width="192" height="192"/>
 <br/>
 <em>Follow us on</em> <strong><a href="https://njump.me/npub187ffdcqg4k56x2x3wmtlu6wkawuzm5k5wvzj980p0uvx3ek6tg7svrdkx8">nostr</a></strong>
 </td>
 <td width="40"></td>
 <td align="center">
-<img src="./public/images/qr-lightning.png" alt="Lightning Address QR Code" width="192" height="192" style="background: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"/>
+<img src="./public/images/qr-lightning.png" alt="Lightning Address QR Code" width="192" height="192"/>
 <br/>
 <em>Zap to show your support for ZapTok development:</em> <strong>zaptok@strike.me</strong>
 </td>
@@ -232,7 +232,11 @@ Help us continue building and improving ZapTok. Your support enables us to maint
 
 ## Acknowledgments & Credits
 
+<div align="center">
+
 ZapTok stands on the shoulders of giants. We're deeply grateful to the open-source communities and visionary builders who made this platform possible:
+
+</div>
 
 ### Nostr Ecosystem Builders
 - **[Amethyst](https://github.com/vitorpamplona/amethyst)** **([amethyst.social](https://www.amethyst.social/))** - Nostr client for Android
