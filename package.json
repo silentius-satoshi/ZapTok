@@ -1,5 +1,5 @@
 {
-  "name": "ZapTok",
+  "name": "zaptok",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,6 +13,8 @@
     "test:nut11": "node src/test/nut-11-signature.test.js",
     "test:mint-compatibility": "node src/test/mint-compatibility.test.js",
     "test:cashu": "npm run test:nuts && npm run test:p2pk && npm run test:nut11 && npm run test:mint-compatibility",
+    "test:nip05": "node scripts/test-nip05.js",
+    "verify:nip05": "node scripts/verify-nip05.js",
     "deploy": "npm run build && npx -y nostr-deploy-cli deploy --skip-setup"
   },
   "dependencies": {

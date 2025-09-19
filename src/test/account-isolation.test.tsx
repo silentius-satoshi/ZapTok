@@ -258,7 +258,7 @@ describe('Account Isolation and NIP-01 Compliance Tests', () => {
           created_at: Math.floor(Date.now() / 1000),
           kind: 0,
           tags: [],
-          content: JSON.stringify({ name: 'Unique Owl', nip05: 'uniqueowl@zaptok.app' }),
+          content: JSON.stringify({ name: 'Unique Owl', nip05: 'uniqueowl@example.com' }),
           sig: 'new-account-signature',
         }),
       };
