@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://chorus.community/group/34550%3A8b12bddc423189c660156eab1ea04e1d44cc6621c550c313686705f704dda895%3Azaptok-mdgpgdbb">
+<a href="https://zaptok.social">
     <img src="./public/images/ZapTok-v3.png" alt="ZapTok Logo" title="ZapTok logo" width="200"/>
 </a>
 
@@ -23,7 +23,7 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 
 ### ⚡ **Lightning & Payments**
 - **Instant Bitcoin Zaps**: Lightning Network integration for immediate tips (NIP-57)
-- **Cashu eCash**: Wallet integration with peer-to-peer Nutzaps (NIP-60, NIP-61)
+- **Cashu**: Wallet integration with peer-to-peer Nutzaps (NIP-60, NIP-61)
 - **Supporter Donations**: Multiple payment pathways for creator support
 - **Zero Platform Fees**: Creators keep 100% of earnings
 - **Wallet Connect**: Lightning wallet integration (NIP-47)
@@ -127,12 +127,13 @@ Bulletproof & Transparent
 
 ## Community
 
-- **Nostr**: Follow #ZapTok tag for updates
+- **Nostr**: [njump.me/zaptok](https://njump.me/npub187ffdcqg4k56x2x3wmtlu6wkawuzm5k5wvzj980p0uvx3ek6tg7svrdkx8) Follow #ZapTok tag for updates
 - **+Chorus community**: [chorus.community/zaptok](https://chorus.community/group/34550%3A8b12bddc423189c660156eab1ea04e1d44cc6621c550c313686705f704dda895%3Azaptok-mdgpgdbb)
 - **GitHub**: Star the repository and watch for updates
-- **Website**: [zaptok-labs.vercel.app](https://zaptok-labs.vercel.app/)
+- **Website**: [zaptok.social](https://zaptok.social/)
 
-### Future Vision
+## Future Vision
+
 **Complete Nostr Ecosystem**
 <details>
 <summary>Full NIP Implementation Status (Click to expand)</summary>
@@ -182,9 +183,9 @@ Bulletproof & Transparent
 
 </details>
 
----
 
-### Community Driven
+## Community Driven
+
 This roadmap evolves based on:
 - Community feedback and feature requests
 - Nostr protocol development (NIPs)
@@ -193,7 +194,6 @@ This roadmap evolves based on:
 
 **Want to contribute?** Check our [Contributing Guidelines](CONTRIBUTING.md) or [open an issue](https://github.com/silentius-satoshi/ZapTok/issues) to suggest features!
 
----
 
 ## License
 
@@ -205,7 +205,6 @@ Copyright (c) 2025 @silentius
 
 For the complete license text, see the [LICENSE](./LICENSE) file.
 
----
 
 ## Support ZapTok
 
@@ -213,21 +212,21 @@ Help us continue building and improving ZapTok. Your support enables us to maint
 
 <div align="center">
 
+<table>
+<tr>
+<td align="center">
 <img src="./public/images/qr-npub.png" alt="Nostr Profile QR Code" width="192" height="192" style="background: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"/>
-
 <br/>
-
-*Follow us on* **[nostr](https://njump.me/npub187ffdcqg4k56x2x3wmtlu6wkawuzm5k5wvzj980p0uvx3ek6tg7svrdkx8)**
-
-</div>
-
-<div align="center">
-
+<em>Follow us on</em> <strong><a href="https://njump.me/npub187ffdcqg4k56x2x3wmtlu6wkawuzm5k5wvzj980p0uvx3ek6tg7svrdkx8">nostr</a></strong>
+</td>
+<td width="40"></td>
+<td align="center">
 <img src="./public/images/qr-lightning.png" alt="Lightning Address QR Code" width="192" height="192" style="background: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"/>
-
 <br/>
-
-*Zap to show your support for ZapTok development:* **zaptok@strike.me**
+<em>Zap to show your support for ZapTok development:</em> <strong>zaptok@strike.me</strong>
+</td>
+</tr>
+</table>
 
 </div>
 
@@ -260,7 +259,6 @@ ZapTok stands on the shoulders of giants. We're deeply grateful to the open-sour
 - **[NoAuth](https://github.com/nostrband/noauth)** **([nsec.app](https://nsec.app/))** - Noauth Nostr key manager
 - **[MKStack](https://soapbox.pub/mkstack)** **([Gitlab](https://gitlab.com/soapbox-pub/mkstack))** - Nostr client framework for web.
 
-*Building on Nostr means building together. Every contribution to the ecosystem benefits everyone.*
 
 ---
 
