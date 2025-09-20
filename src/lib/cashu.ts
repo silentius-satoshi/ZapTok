@@ -1,30 +1,11 @@
-// Types and utilities for Cashu wallet (NIP-60)
-
-import { useCashuStore } from "@/stores/cashuStore";
-import { CashuMint, Proof, CashuWallet, getDecodedToken, type MintActiveKeys, type GetInfoResponse } from "@cashu/cashu-ts";
-
-export interface CashuProof {
-  id: string;
-  amount: number;
-  secret: string;
-  C: string;
-}
+import { type Proof, CashuMint, CashuWallet, MintKeys, getEncodedToken, getDecodedToken, type Token } from '@cashu/cashu-ts';
 
 export interface CashuToken {
   mint: string;
-  proofs: CashuProof[];
-  del?: string[]; // token-ids that were destroyed by the creation of this token
-  token?: Array<{
-    mint: string;
-    proofs: CashuProof[];
-  }>;
+  proofs: Proof[];
 }
 
-export interface CashuWalletStruct {
-  privkey: string; // Private key used to unlock P2PK ecash
-  mints: string[]; // List of mint URLs
-}
-
+// Legacy type for compatibility
 export interface SpendingHistoryEntry {
   direction: 'in' | 'out';
   amount: string;
@@ -34,111 +15,59 @@ export interface SpendingHistoryEntry {
   timestamp?: number;
 }
 
-// Event kinds as defined in NIP-60
-export const CASHU_EVENT_KINDS = {
-  WALLET: 17375, // Replaceable event for wallet info
-  TOKEN: 7375,   // Token events for unspent proofs
-  HISTORY: 7376, // Spending history events
-  QUOTE: 7374,   // Quote events (optional)
-  ZAPINFO: 10019, // ZAP info events
-  ZAP: 9321,     // ZAP events
-} as const;
-
-export const defaultMints = [
-  "https://mint.chorus.community",
-  // "https://testnut.cashu.space",
-];
-
-// Helper function to calculate total balance from tokens
-export function calculateBalance(proofs: Proof[]): Record<string, number> {
-  const balances: { [mint: string]: number } = {};
-  const mints = useCashuStore.getState().mints;
-  
-  for (const mint of mints) {
-    balances[mint.url] = 0;
-    const keysets = mint.keysets;
-    
-    // Ensure keysets is an array and is iterable
-    if (!keysets || !Array.isArray(keysets)) {
-      continue;
-    }
-    
-    for (const keyset of keysets) {
-      // select all proofs with id == keyset.id
-      const proofsForKeyset = proofs.filter((proof) => proof.id === keyset.id);
-      if (proofsForKeyset.length) {
-        const amount = proofsForKeyset.reduce((acc, proof) => acc + proof.amount, 0);
-        balances[mint.url] += amount;
-      }
-    }
-  }
-  
-  return balances;
+// Calculate total balance from proofs
+export function calculateBalance(proofs: Proof[]): number {
+  return proofs.reduce((sum, proof) => sum + proof.amount, 0);
 }
 
-// Helper function to add thousands separator to a number
-function addThousandsSeparator(num: number): string {
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
-
-// Helper function to format balance with appropriate units
+// Format balance for display
 export function formatBalance(sats: number): string {
-  if (sats >= 1000000) {
-    // 1M+ sats - show as millions with 1 decimal
-    const millions = (sats / 1000000).toFixed(1);
-    return `${millions}M sats`;
-  } else if (sats >= 100000) {
-    // 100K+ sats - show as thousands with no decimals
-    const thousands = Math.floor(sats / 1000);
-    return `${addThousandsSeparator(thousands)}K sats`;
-  } else {
-    // Less than 100K - show full number
-    return `${addThousandsSeparator(sats)} sats`;
+  if (sats >= 100000000) {
+    return `${(sats / 100000000).toFixed(2)} BTC`;
   }
-}
-
-export function getTokenAmount(token: string): number {
-  const tokenObj = getDecodedToken(token);
-  return tokenObj.proofs.reduce((acc, proof) => acc + proof.amount, 0);
-}
-
-export function getTokenProofs(token: string): CashuProof[] {
-  const tokenObj = getDecodedToken(token);
-  return tokenObj.proofs;
-}
-
-export function isValidCashuToken(tokenString: string): boolean {
-  try {
-    getDecodedToken(tokenString);
-    return true;
-  } catch {
-    return false;
+  if (sats >= 1000) {
+    return `${(sats / 1000).toFixed(1)}k sats`;
   }
+  return `${sats} sats`;
 }
 
-export async function activateMint(url: string): Promise<{ mintInfo: GetInfoResponse, keysets: MintActiveKeys }> {
-  try {
-    const mint = new CashuMint(url);
-    
-    // Get mint info and keysets
-    const [mintInfo, keysets] = await Promise.all([
-      mint.getInfo(),
-      mint.getKeys()
-    ]);
-    
-    return { mintInfo, keysets };
-  } catch (error) {
-    console.error('Failed to activate mint:', error);
-    throw new Error(`Failed to activate mint: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
+// Activate mint and fetch info
+export async function activateMint(mintUrl: string) {
+  const mint = new CashuMint(mintUrl);
+  const info = await mint.getInfo();
+  return { mint, info };
 }
 
-export async function updateMintKeys(wallet: CashuWallet): Promise<void> {
-  try {
-    await wallet.mint.getKeys();
-    // Keys are automatically stored in the wallet
-  } catch (error) {
-    console.error('Failed to update mint keys:', error);
-    throw error;
+// Update mint keys
+export async function updateMintKeys(mint: CashuMint): Promise<Record<string, any>[]> {
+  const keysets = await mint.getKeySets();
+  const allKeys: Record<string, any>[] = [];
+
+  for (const keyset of keysets.keysets) {
+    const keys = await mint.getKeys(keyset.id);
+    allKeys.push({ [keyset.id]: keys });
   }
+
+  return allKeys;
+}
+
+// Encode Cashu token to string
+export function encodeCashuToken(token: CashuToken): string {
+  return getEncodedToken({
+    proofs: token.proofs,
+    mint: token.mint
+  });
+}
+
+// Decode Cashu token from string
+export function decodeCashuToken(encodedToken: string): CashuToken {
+  const decoded = getDecodedToken(encodedToken);
+  if (!decoded.proofs || decoded.proofs.length === 0) {
+    throw new Error('Invalid token format');
+  }
+
+  return {
+    mint: decoded.mint,
+    proofs: decoded.proofs
+  };
 }

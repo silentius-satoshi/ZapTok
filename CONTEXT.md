@@ -35,7 +35,9 @@ This project is a fully-featured short-form video sharing platform built with No
   - Use official types: `CashuMint`, `CashuWallet`, `Proof`, `MintQuoteResponse`, `MeltQuoteResponse`, etc.
   - Never create custom Cashu types or interfaces
   - Always import from `@cashu/cashu-ts`, not from custom type files
+  - **Follow official protocol specifications**: https://github.com/cashubtc/nuts
 - **@nostrify/nostrify**: Official Nostr protocol framework
+  - **Follow official protocol specifications**: https://github.com/nostr-protocol/nips
 - **@tanstack/react-query**: Data fetching and state management
 - **React Router**: Client-side routing
 
@@ -52,6 +54,47 @@ When encountering custom implementations that have official library equivalents:
 2. **Ask permission** before major refactoring
 3. **Maintain backward compatibility** during migration
 4. **Test thoroughly** after migration
+
+## Protocol Compliance Guidelines
+
+### Cashu Protocol Compliance
+
+**CRITICAL: Always reference official Cashu NUTs specifications**
+
+- **Official Specifications**: https://github.com/cashubtc/nuts
+- **Protocol Validation**: Before implementing Cashu-related features, consult the relevant NUT documents
+- **Key NUTs for Reference**:
+  - NUT-00: Notation, terminology, and cryptographic primitives
+  - NUT-01: Mint public key exchange and keyset management
+  - NUT-02: Keysets, fees, and active/inactive keyset handling
+  - NUT-03: Token swapping and proof validation
+  - NUT-04: Minting tokens (two-step process)
+  - NUT-05: Melting tokens (spending process)
+  - NUT-07: Token state checking (UNSPENT/PENDING/SPENT)
+
+**Implementation Requirements**:
+- Follow official proof validation rules
+- Respect keyset active/inactive status for new outputs vs inputs
+- Implement proper error handling as specified in protocol
+- Ensure compatibility with official @cashu/cashu-ts library
+
+### Nostr Protocol Compliance
+
+**CRITICAL: Always reference official Nostr NIPs specifications**
+
+- **Official Specifications**: https://github.com/nostr-protocol/nips
+- **Protocol Validation**: Before implementing Nostr features, consult relevant NIP documents
+- **Implementation Guidelines**:
+  - Use existing NIPs when possible before creating custom kinds
+  - Follow NIP-19 for identifier encoding/decoding
+  - Implement proper event validation and signing
+  - Respect relay filtering capabilities and query optimization
+
+**When to Create Custom vs Use Existing**:
+1. Research existing NIPs thoroughly using available tools
+2. Prefer extending existing NIPs over creating custom implementations  
+3. Balance interoperability vs perfect schema fit
+4. Document any custom extensions in project NIP.md
 
 ## Project Structure
 
