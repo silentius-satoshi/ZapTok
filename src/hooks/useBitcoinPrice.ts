@@ -1,30 +1,57 @@
 import { useQuery } from '@tanstack/react-query';
 
+interface BitcoinPriceResponse {
+  source: 'mempool' | 'coingecko' | 'fallback';
+  prices: {
+    USD: number;
+    EUR: number;
+    GBP: number;
+  };
+  timestamp: number;
+  error?: string;
+}
+
 interface BitcoinPrice {
   USD: number;
   EUR: number;
   GBP: number;
+  source?: string;
+  lastUpdated?: number;
 }
 
-const COINGECKO_API = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,eur,gbp';
+const PRICE_API = '/api/bitcoin-price';
 
 export function useBitcoinPrice() {
   return useQuery<BitcoinPrice>({
     queryKey: ['bitcoin-price'],
     queryFn: async () => {
-      const response = await fetch(COINGECKO_API);
+      const response = await fetch(PRICE_API);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch Bitcoin price');
+        throw new Error(`Price API failed: ${response.status}`);
       }
-      const data = await response.json();
+      
+      const data: BitcoinPriceResponse = await response.json();
+      
+      // Log source for debugging
+      if (data.source === 'fallback') {
+        console.warn('[Bitcoin Price] Using fallback prices - APIs unavailable');
+      } else {
+        console.log(`[Bitcoin Price] Retrieved from ${data.source}`);
+      }
+      
       return {
-        USD: data.bitcoin.usd,
-        EUR: data.bitcoin.eur,
-        GBP: data.bitcoin.gbp,
+        USD: data.prices.USD,
+        EUR: data.prices.EUR,
+        GBP: data.prices.GBP,
+        source: data.source,
+        lastUpdated: data.timestamp
       };
     },
-    staleTime: 60000, // Cache for 1 minute
-    refetchInterval: 300000, // Refetch every 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchInterval: 10 * 60 * 1000, // 10 minutes
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 }
 
