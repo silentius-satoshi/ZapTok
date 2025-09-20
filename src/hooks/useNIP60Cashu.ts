@@ -4,6 +4,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { CashuMint } from '@cashu/cashu-ts';
 import { NIP60WalletManager, type NostrInterface as NIP60NostrInterface } from '@/lib/nip60-wallet';
 import {
   type TokenEventContent,
@@ -11,9 +12,15 @@ import {
   type NIP60Wallet,
   groupProofsByMint
 } from '@/lib/nip60-types';
-import { CASHU_MINTS } from '@/lib/cashu-types';
-import { CashuClient, isValidMintUrl } from '@/lib/cashu-client';
+import { isValidMintUrl } from '@/lib/cashu-utils';
 import { useNIP87MintDiscovery, type DiscoveredMint } from './useNIP87MintDiscovery';
+
+// Well-known mint URLs
+const CASHU_MINTS = {
+  MINIBITS: 'https://mint.minibits.cash/Bitcoin',
+  LNBITS_LEGEND: 'https://legend.lnbits.com/cashu/api/v1/4gr9Xcmz3XEkUNwiBiQKrsvHNcW',
+  CASHU_ME: 'https://cashu.me',
+} as const;
 
 interface UseNIP60CashuResult {
   // Wallet state
@@ -399,8 +406,8 @@ export function useNIP60Cashu(): UseNIP60CashuResult {
 
     try {
       // Test connection to first mint
-      const client = new CashuClient({ url: wallet.mints[0] });
-      await client.getMintInfo();
+      const mint = new CashuMint(wallet.mints[0]);
+      await mint.getInfo();
       return true;
     } catch {
       return false;

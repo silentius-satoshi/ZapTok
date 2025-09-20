@@ -1,32 +1,25 @@
-// React hook for managing Cashu eCash wallets
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { CashuMint, CashuWallet, getDecodedToken, getEncodedToken, Proof, MeltQuoteResponse, MintQuoteResponse, MintQuoteState } from '@cashu/cashu-ts';
+import type { CashuWalletConnection } from '@/types/cashu';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { CashuClient, parseCashuToken, serializeCashuToken, calculateProofsAmount, isValidMintUrl } from '@/lib/cashu-client';
-import { 
-  CashuMint, 
-  Proof, 
-  CASHU_MINTS 
-} from '@/lib/cashu-types';
+import { isValidMintUrl, calculateProofsAmount } from '@/lib/cashu-utils';
 
-export interface CashuWalletConnection {
-  id: string;
-  mint: CashuMint;
-  alias: string;
-  proofs: Proof[];
-  balance: number;
-  isConnected: boolean;
-  lastSeen?: number;
-}
+// Well-known mint URLs
+const CASHU_MINTS = {
+  MINIBITS: 'https://mint.minibits.cash/Bitcoin',
+  LNBITS_LEGEND: 'https://legend.lnbits.com/cashu/api/v1/4gr9Xcmz3XEkUNwiBiQKrsvHNcW',
+  CASHU_ME: 'https://cashu.me',
+} as const;
 
 export function useCashu() {
   const [wallets, setWallets] = useLocalStorage<CashuWalletConnection[]>('cashu-wallets', []);
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const [activeWallet, setActiveWallet] = useLocalStorage<string | null>('cashu-active-wallet', null);
   
-  const clientsRef = useRef<Map<string, CashuClient>>(new Map());
+  const clientsRef = useRef<Map<string, CashuMint>>(new Map());
 
-  // Get Cashu client for a wallet
-  const getClient = useCallback((walletId: string): CashuClient | null => {
+  // Get Cashu mint for a wallet
+  const getClient = useCallback((walletId: string): CashuMint | null => {
     if (clientsRef.current.has(walletId)) {
       return clientsRef.current.get(walletId)!;
     }
@@ -34,9 +27,9 @@ export function useCashu() {
     const wallet = wallets.find(w => w.id === walletId);
     if (!wallet) return null;
 
-    const client = new CashuClient(wallet.mint);
-    clientsRef.current.set(walletId, client);
-    return client;
+    const mint = new CashuMint(wallet.mintUrl);
+    clientsRef.current.set(walletId, mint);
+    return mint;
   }, [wallets]);
 
   // Add a new mint/wallet
@@ -48,21 +41,15 @@ export function useCashu() {
     setIsConnecting('new');
     
     try {
-      const mint: CashuMint = {
-        url: mintUrl,
-        alias: alias || mintUrl,
-      };
-
-      const client = new CashuClient(mint);
+      const mint = new CashuMint(mintUrl);
       
       // Test connection and get mint info
-      const mintInfo = await client.getMintInfo();
-      mint.info = mintInfo;
+      const mintInfo = await mint.getInfo();
 
       const id = Date.now().toString();
       const wallet: CashuWalletConnection = {
         id,
-        mint,
+        mintUrl,
         alias: alias || mintInfo.name || 'Cashu Wallet',
         proofs: [],
         balance: 0,
@@ -72,8 +59,8 @@ export function useCashu() {
 
       setWallets(prev => [...prev, wallet]);
       
-      // Store client
-      clientsRef.current.set(id, client);
+      // Store mint
+      clientsRef.current.set(id, mint);
       
       // Set as active if it's the first wallet
       if (wallets.length === 0) {
@@ -123,21 +110,15 @@ export function useCashu() {
     setIsConnecting('new');
     
     try {
-      const mint: CashuMint = {
-        url: params.mintUrl,
-        alias: params.name,
-      };
-
-      const client = new CashuClient(mint);
+      const mint = new CashuMint(params.mintUrl);
       
       // Test connection and get mint info
-      const mintInfo = await client.getMintInfo();
-      mint.info = mintInfo;
+      const mintInfo = await mint.getInfo();
 
       const id = crypto.randomUUID();
       const wallet: CashuWalletConnection = {
         id,
-        mint,
+        mintUrl: params.mintUrl,
         alias: params.name,
         proofs: [],
         balance: 0,
@@ -147,8 +128,8 @@ export function useCashu() {
 
       setWallets(prev => [...prev, wallet]);
       
-      // Store client
-      clientsRef.current.set(id, client);
+      // Store mint
+      clientsRef.current.set(id, mint);
       
       // Set as active if it's the first wallet
       if (wallets.length === 0) {
@@ -185,7 +166,9 @@ export function useCashu() {
     if (!client) return false;
 
     try {
-      const isConnected = await client.testConnection();
+      // Test connection by trying to get mint info
+      await client.getInfo();
+      const isConnected = true;
       
       // Update connection status
       setWallets(prev => prev.map(w => 
@@ -210,34 +193,34 @@ export function useCashu() {
   }, [getClient, setWallets]);
 
   // Receive Cashu tokens
-  const receiveTokens = useCallback(async (tokenString: string): Promise<void> => {
+  const receiveTokens = useCallback(async (tokenString: string): Promise<Proof[]> => {
     if (!activeWallet) {
       throw new Error('No active Cashu wallet');
     }
 
     try {
-      const token = parseCashuToken(tokenString);
+      const token = getDecodedToken(tokenString);
       
-      // Find or create wallet for each mint in the token
-      for (const tokenMint of token.token) {
-        let wallet = wallets.find(w => w.mint.url === tokenMint.mint);
-        
-        if (!wallet) {
-          // Create new wallet for this mint
-          const walletId = await addMint(tokenMint.mint, `Received from ${tokenMint.mint}`);
-          wallet = wallets.find(w => w.id === walletId)!;
-        }
-
-        // Add proofs to the wallet
-        const newProofs = [...wallet.proofs, ...tokenMint.proofs];
-        const newBalance = calculateProofsAmount(newProofs);
-
-        setWallets(prev => prev.map(w => 
-          w.id === wallet!.id 
-            ? { ...w, proofs: newProofs, balance: newBalance }
-            : w
-        ));
+      // Find or create wallet for the token mint
+      let wallet = wallets.find(w => w.mintUrl === token.mint);
+      
+      if (!wallet) {
+        // Create new wallet for this mint
+        const walletId = await addMint(token.mint, `Received from ${token.mint}`);
+        wallet = wallets.find(w => w.id === walletId)!;
       }
+
+      // Add proofs to the wallet
+      const newProofs = [...wallet.proofs, ...token.proofs];
+      const newBalance = calculateProofsAmount(newProofs);
+
+      setWallets(prev => prev.map(w => 
+        w.id === wallet!.id 
+          ? { ...w, proofs: newProofs, balance: newBalance }
+          : w
+      ));
+      
+      return token.proofs;
     } catch (error) {
       console.error('Failed to receive tokens:', error);
       throw error;
@@ -286,18 +269,16 @@ export function useCashu() {
       const _changeAmount = selectedAmount - amount;
       const _outputs = []; // In production, create blinded outputs for change and send amount
 
-      // For now, just create a token with the selected proofs
-      const token = {
-        token: [{
-          mint: wallet.mint.url,
-          proofs: selectedProofs.slice(0, Math.ceil(selectedProofs.length * (amount / selectedAmount))),
-        }],
-        memo,
-      };
+      // Create token with the selected proofs
+      const selectedTokenProofs = selectedProofs.slice(0, Math.ceil(selectedProofs.length * (amount / selectedAmount)));
+      const token = getEncodedToken({
+        mint: wallet.mintUrl,
+        proofs: selectedTokenProofs
+      });
 
       // Remove spent proofs from wallet (simplified)
       const remainingProofs = wallet.proofs.filter(p => 
-        !token.token[0].proofs.some(tp => tp.secret === p.secret)
+        !selectedTokenProofs.some(tp => tp.secret === p.secret)
       );
 
       setWallets(prev => prev.map(w => 
@@ -310,7 +291,7 @@ export function useCashu() {
           : w
       ));
 
-      return serializeCashuToken(token);
+      return token;
     } catch (error) {
       console.error('Failed to send tokens:', error);
       throw error;
@@ -334,8 +315,12 @@ export function useCashu() {
     }
 
     try {
+      // Create wallet instance for melting operations
+      const mint = client; // client is already a CashuMint
+      const cashuWallet = new CashuWallet(mint);
+      
       // Request melt quote
-      const quote = await client.requestMeltQuote(invoice);
+      const quote = await cashuWallet.createMeltQuote(invoice);
       
       if (wallet.balance < quote.amount + quote.fee_reserve) {
         throw new Error('Insufficient balance for payment');
@@ -356,7 +341,7 @@ export function useCashu() {
       }
 
       // Melt the tokens
-      const result = await client.meltTokens(quote.quote, selectedProofs);
+      const result = await cashuWallet.meltProofs(quote, selectedProofs);
 
       // Update wallet balance (remove spent proofs)
       const spentSecrets = selectedProofs.map(p => p.secret);
@@ -374,7 +359,7 @@ export function useCashu() {
 
       return {
         success: true,
-        preimage: result.payment_preimage,
+        preimage: result.quote.payment_preimage || undefined,
       };
     } catch (error) {
       console.error('Failed to pay invoice:', error);
@@ -394,7 +379,11 @@ export function useCashu() {
     }
 
     try {
-      const quote = await client.requestMintQuote(amount);
+      // Create wallet instance for minting operations
+      const mint = client; // client is already a CashuMint
+      const cashuWallet = new CashuWallet(mint);
+      
+      const quote = await cashuWallet.createMintQuote(amount);
       
       return {
         invoice: quote.request,
@@ -420,7 +409,7 @@ export function useCashu() {
     try {
       const quoteStatus = await client.checkMintQuote(quote);
       
-      if (quoteStatus.paid) {
+      if (quoteStatus.state === MintQuoteState.PAID) {
         // TODO: Implement actual minting with blind signatures
         // For now, just mark as successful
         return true;
@@ -442,11 +431,14 @@ export function useCashu() {
     if (!client) return;
 
     try {
-      // Check which proofs are still valid
-      const secrets = wallet.proofs.map(p => p.secret);
-      const spentCheck = await client.checkSpentTokens(secrets);
+      // Create wallet instance for checking proof states
+      const mint = client; // client is already a CashuMint
+      const cashuWallet = new CashuWallet(mint);
       
-      const validProofs = wallet.proofs.filter((proof, index) => !spentCheck.spent[index]);
+      // Check which proofs are still valid
+      const spentCheck = await cashuWallet.checkProofsStates(wallet.proofs);
+      
+      const validProofs = wallet.proofs.filter((proof, index) => spentCheck[index].state !== 'SPENT');
       const newBalance = calculateProofsAmount(validProofs);
 
       setWallets(prev => prev.map(w => 

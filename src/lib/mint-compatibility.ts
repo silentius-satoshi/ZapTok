@@ -3,8 +3,8 @@
  * Production-ready functions for checking mint capabilities
  */
 
-import { CashuClient } from './cashu-client';
-import type { MintInfo } from './cashu-types';
+import { CashuMint } from '@cashu/cashu-ts';
+import type { GetInfoResponse } from '@cashu/cashu-ts';
 
 export interface MintCompatibilityResult {
   mintUrl: string;
@@ -14,7 +14,7 @@ export interface MintCompatibilityResult {
   supportsSpendingConditions: boolean;
   securityLevel: 'HIGH' | 'BASIC' | 'NONE';
   supportedUnits: string[];
-  mintInfo?: MintInfo;
+  mintInfo?: GetInfoResponse;
   error?: string;
   responseTime?: number;
 }
@@ -36,11 +36,11 @@ export async function checkMintP2PKCompatibility(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    const client = new CashuClient({ url: mintUrl });
+    const mint = new CashuMint(mintUrl);
 
-    // Wrap getMintInfo with fetch signal
+    // Wrap getInfo with fetch signal
     const mintInfo = await Promise.race([
-      client.getMintInfo(),
+      mint.getInfo(),
       new Promise<never>((_, reject) => {
         controller.signal.addEventListener('abort', () => {
           reject(new Error('Request timeout'));

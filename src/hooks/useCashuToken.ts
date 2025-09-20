@@ -63,7 +63,24 @@ export function useCashuToken() {
 
       try {
         // Perform coin selection with p2pk support
-        const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: userCashuStore.privkey || cashuStore.privkey });
+        // For sending P2PK tokens: only provide pubkey (recipient), don't provide privkey unless our input tokens are P2PK
+        const sendOptions: any = {};
+        if (p2pkPubkey) {
+          sendOptions.pubkey = p2pkPubkey;
+        }
+
+        // Only add privkey if we have P2PK proofs that need witness signatures
+        // Check if any of our input proofs are P2PK (have a secret that starts with '["P2PK"')
+        const hasP2PKProofs = proofs.some(proof =>
+          proof.secret && proof.secret.startsWith('["P2PK"')
+        );
+
+        if (hasP2PKProofs) {
+          // We have P2PK proofs to spend, so we need privkey for witness signatures
+          sendOptions.privkey = userCashuStore.privkey || cashuStore.privkey;
+        }
+
+        const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, sendOptions);
 
         // Create new token for the proofs we're keeping
         if (proofsToKeep.length > 0) {
@@ -111,7 +128,21 @@ export function useCashuToken() {
           }
 
           // Retry the send operation with fresh proofs
-          const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: userCashuStore.privkey || cashuStore.privkey });
+          const retryOptions: any = {};
+          if (p2pkPubkey) {
+            retryOptions.pubkey = p2pkPubkey;
+          }
+
+          // Check if fresh proofs are P2PK
+          const hasP2PKProofsRetry = proofs.some(proof =>
+            proof.secret && proof.secret.startsWith('["P2PK"')
+          );
+
+          if (hasP2PKProofsRetry) {
+            retryOptions.privkey = userCashuStore.privkey || cashuStore.privkey;
+          }
+
+          const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, retryOptions);
 
           // Create new token for the proofs we're keeping
           if (proofsToKeep.length > 0) {

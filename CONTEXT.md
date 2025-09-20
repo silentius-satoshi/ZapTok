@@ -17,6 +17,42 @@ This project is a Nostr client application built with React 18.x, TailwindCSS 3.
 
 This project is a fully-featured short-form video sharing platform built with Nostr integration, vibed by MkStack.
 
+## Official Library Usage Guidelines
+
+**CRITICAL: Always use official libraries and ask for permission before deviating**
+
+### Library Priority Rules
+
+1. **Official Libraries First**: Always check for and use official, well-maintained libraries before implementing custom logic
+2. **Permission Required**: Before using a different library than what's already in the codebase, or before implementing custom logic, explicitly ask the user for permission
+3. **Consistency Check**: When adding new functionality, first check what libraries are already being used in the codebase for similar purposes
+4. **No Custom Types**: Never create custom type definitions when official library types are available
+
+### Current Official Libraries
+
+**ESTABLISHED LIBRARIES - Use these exclusively:**
+- **@cashu/cashu-ts**: Official Cashu eCash library for all Cashu-related functionality
+  - Use official types: `CashuMint`, `CashuWallet`, `Proof`, `MintQuoteResponse`, `MeltQuoteResponse`, etc.
+  - Never create custom Cashu types or interfaces
+  - Always import from `@cashu/cashu-ts`, not from custom type files
+- **@nostrify/nostrify**: Official Nostr protocol framework
+- **@tanstack/react-query**: Data fetching and state management
+- **React Router**: Client-side routing
+
+**Before implementing new features:**
+1. Check if existing official libraries can handle the requirement
+2. Search npm for official libraries related to the functionality
+3. Ask user permission before adding new dependencies
+4. Ask user permission before creating custom implementations
+
+### Migration Priority
+
+When encountering custom implementations that have official library equivalents:
+1. **Immediate migration required** for core protocol libraries (Cashu, Nostr)
+2. **Ask permission** before major refactoring
+3. **Maintain backward compatibility** during migration
+4. **Test thoroughly** after migration
+
 ## Project Structure
 
 - `/src/components/`: UI components including NostrProvider for Nostr integration

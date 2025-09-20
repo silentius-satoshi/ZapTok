@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useReceivedNutzaps } from '@/hooks/useReceivedNutzaps';
 import { useNutzaps } from '@/hooks/useNutzaps';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useUserCashuStore } from '@/stores/userCashuStore';
+import { createP2PKKeypairFromPrivateKey } from '@/lib/p2pk';
 import { UserNutzapDialog } from '@/components/UserNutzapDialog';
 import { NutzapList } from '@/components/NutzapList';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +19,7 @@ import {
   Plus
 } from 'lucide-react';
 import { formatBalance } from '@/lib/cashu';
+import { toast } from 'sonner';
 
 interface NutzapInterfaceProps {
   className?: string;
@@ -23,6 +27,8 @@ interface NutzapInterfaceProps {
 
 export function NutzapInterface({ className }: NutzapInterfaceProps) {
   const [activeTab, setActiveTab] = useState('received');
+  const { user } = useCurrentUser();
+  const userCashuStore = useUserCashuStore(user?.pubkey);
 
   const {
     nutzaps: receivedNutzaps,
@@ -189,10 +195,25 @@ export function NutzapInterface({ className }: NutzapInterfaceProps) {
               variant="outline"
               size="sm"
               onClick={() => {
-                // This would typically generate P2PK key and publish nutzap info
+                // Generate proper P2PK pubkey from user's Cashu wallet private key
+                if (!user) {
+                  toast.error('User not logged in');
+                  return;
+                }
+                
+                const userPrivkey = userCashuStore?.privkey;
+                
+                if (!userPrivkey) {
+                  toast.error('Cashu wallet not available');
+                  return;
+                }
+
+                // Derive P2PK public key from the user's Cashu wallet private key
+                const p2pkKeypair = createP2PKKeypairFromPrivateKey(userPrivkey);
+                
                 createNutzapInfo({
                   relays: ['wss://relay.nostr.band'],
-                  p2pkPubkey: 'placeholder-pubkey'
+                  p2pkPubkey: p2pkKeypair.pubkey
                 });
               }}
               disabled={isCreatingNutzapInfo}
