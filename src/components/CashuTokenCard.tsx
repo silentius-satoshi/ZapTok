@@ -35,12 +35,8 @@ export function CashuTokenCard({
   onSuccess,
   className
 }: CashuTokenCardProps) {
-  const {
-    createToken,
-    isCreatingToken,
-    receiveToken,
-    isReceivingToken
-  } = useCashuToken();
+  const { receiveToken, sendTokenMutation, receiveTokenMutation } = useCashuToken();
+  const createTokenMutation = sendTokenMutation;
   const { toast } = useToast();
   const cashuStore = useCashuStore();
 
@@ -70,10 +66,12 @@ export function CashuTokenCard({
     }
 
     try {
-      const proofs = await createToken(activeMintUrl, amount);
-      // Convert proofs to token string for display
-      const tokenString = JSON.stringify(proofs);
-      setGeneratedToken(tokenString);
+      const result = await createTokenMutation.mutateAsync({ 
+        amount,
+        mintUrl: activeMintUrl 
+      });
+      // Use the token string from the result
+      setGeneratedToken(result.token);
       setShowQR(true);
 
       toast({
@@ -81,7 +79,7 @@ export function CashuTokenCard({
         description: `Created token for ${formatBalance(amount)} sats`
       });
 
-      onSuccess?.(proofs);
+      onSuccess?.(result);
     } catch (err) {
       toast({
         title: "Failed to create token",
@@ -102,7 +100,9 @@ export function CashuTokenCard({
     }
 
     try {
-      await receiveToken(tokenString);
+      const result = await receiveToken({ 
+        token: tokenString 
+      });
 
       toast({
         title: "Token received",
@@ -172,10 +172,10 @@ export function CashuTokenCard({
 
               <Button
                 onClick={handleCreateToken}
-                disabled={isCreatingToken || amount <= 0}
+                disabled={createTokenMutation.isPending || amount <= 0}
                 className="w-full"
               >
-                {isCreatingToken ? (
+                {createTokenMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Creating Token...
@@ -319,10 +319,10 @@ export function CashuTokenCard({
 
         <Button
           onClick={handleReceiveToken}
-          disabled={isReceivingToken || !tokenString.trim()}
+          disabled={receiveTokenMutation.isPending || !tokenString.trim()}
           className="w-full"
         >
-          {isReceivingToken ? (
+          {receiveTokenMutation.isPending ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               Receiving Token...

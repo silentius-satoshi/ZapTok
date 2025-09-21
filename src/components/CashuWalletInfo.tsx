@@ -2,20 +2,18 @@ import { useCashuWallet } from "@/hooks/useCashuWallet";
 import { formatBalance } from "@/lib/cashu";
 import { useBitcoinPrice, satsToUSD, formatUSD } from "@/hooks/useBitcoinPrice";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useUserCashuStore } from "@/stores/userCashuStore";
 import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export function CashuWalletInfo() {
   const { user } = useCurrentUser();
-  const { wallet, isLoading } = useCashuWallet();
-  const userCashuStore = useUserCashuStore(user?.pubkey);
+  const { wallet, isLoading, getTotalBalance } = useCashuWallet();
   const { data: btcPrice } = useBitcoinPrice();
   const { showSats } = useCurrencyDisplayStore();
 
   // Get wallet total balance from user-specific store
-  const totalBalance = userCashuStore.getTotalBalance?.() || 0;
+  const totalBalance = getTotalBalance();
 
   if (isLoading) {
     return (
@@ -67,12 +65,6 @@ export function CashuWalletInfo() {
             )}
           </div>
         </div>
-        {wallet.mints && wallet.mints.length > 0 && (
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Mints:</span>
-            <span className="text-sm font-medium">{wallet.mints.length}</span>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

@@ -140,15 +140,25 @@ export const useCashuToken = () => {
   });
 
   return {
-    sendToken,
-    receiveToken,
-    cleanSpentProofs,
-    swapToken,
-    // Legacy compatibility aliases
-    createToken: sendToken,
+    // Function interfaces for components expecting functions
+    sendToken: sendToken.mutateAsync,
+    receiveToken: receiveToken.mutateAsync,
+    
+    // Mutation objects for loading states and errors
+    sendTokenMutation: sendToken,
+    receiveTokenMutation: receiveToken,
+    
+    // Direct access to mutation properties for compatibility
     isCreatingToken: sendToken.isPending,
     isReceivingToken: receiveToken.isPending,
     isLoading: sendToken.isPending || receiveToken.isPending,
     error: sendToken.error || receiveToken.error,
+    
+    // Utility functions
+    cleanSpentProofs,
+    swapToken,
+    
+    // Legacy compatibility aliases
+    createToken: sendToken,
   };
 };

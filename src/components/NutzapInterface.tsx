@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useReceivedNutzaps } from '@/hooks/useReceivedNutzaps';
 import { useNutzaps } from '@/hooks/useNutzaps';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useUserCashuStore } from '@/stores/userCashuStore';
 import { createP2PKKeypairFromPrivateKey } from '@/lib/p2pk';
 import { UserNutzapDialog } from '@/components/UserNutzapDialog';
 import { NutzapList } from '@/components/NutzapList';
@@ -28,7 +27,6 @@ interface NutzapInterfaceProps {
 export function NutzapInterface({ className }: NutzapInterfaceProps) {
   const [activeTab, setActiveTab] = useState('received');
   const { user } = useCurrentUser();
-  const userCashuStore = useUserCashuStore(user?.pubkey);
 
   const {
     nutzaps: receivedNutzaps,

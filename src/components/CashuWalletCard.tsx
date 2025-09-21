@@ -24,40 +24,36 @@ import {
   Eraser,
   RefreshCw,
 } from "lucide-react";
-import { useCashuStore, CashuWalletStruct } from "@/stores/cashuStore";
-import { useUserCashuStore } from "@/stores/userCashuStore";
+import { useCashuStore } from "@/stores/cashuStore";
 import { Badge } from "@/components/ui/badge";
 import { useCashuToken } from "@/hooks/useCashuToken";
-import { useCreateCashuWallet } from "@/hooks/useCreateCashuWallet";
 import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
 import { useWalletUiStore } from "@/stores/walletUiStore";
-import { useCashuHistory } from "@/hooks/useCashuHistory";
-import { useCashuPermissions } from "@/hooks/useCashuPermissions";
 import { devLog } from '@/lib/devConsole';
-
 
 export function CashuWalletCard() {
   const { user } = useCurrentUser();
-  const { wallet, isLoading, createWallet, walletError, tokensError } = useCashuWallet();
-  const { history: transactionHistory, isLoading: isHistoryLoading } = useCashuHistory();
-  const cashuStore = useCashuStore(); // For mint operations
-  const userCashuStore = useUserCashuStore(user?.pubkey); // For wallet data
+  
+  // Use modern hooks following Chorus patterns
+  const walletHook = useCashuWallet();
+  const { mints, getTotalBalance, addMint, setActiveMintUrl } = walletHook;
   const { cleanSpentProofs } = useCashuToken();
+  const cashuStore = useCashuStore();
+  
   const { data: btcPrice } = useBitcoinPrice();
   const walletUiStore = useWalletUiStore();
-  const { requestCashuPermissions, hasCashuSupport } = useCashuPermissions();
+  const { showSats } = useCurrencyDisplayStore();
+  
+  // Use the actual expandedCards property from the store
   const isExpanded = walletUiStore.expandedCards.mints;
   const [newMint, setNewMint] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [expandedMint, setExpandedMint] = useState<string | null>(null);
   const [flashingMints, setFlashingMints] = useState<Record<string, boolean>>({});
-  const [autoCreationAttempted, setAutoCreationAttempted] = useState(false);
 
-  // Get wallet total balance from user-specific store
-  const totalBalance = userCashuStore.getTotalBalance?.() || 0;
-
+  // Get total balance using new hook
+  const totalBalance = getTotalBalance();
   const prevBalances = useRef<Record<string, string>>({});
-  const { showSats } = useCurrencyDisplayStore();
 
   // Track balance changes for flash effect
   useEffect(() => {
@@ -78,195 +74,139 @@ export function CashuWalletCard() {
     }
   }, [totalBalance, btcPrice, showSats]);
 
-  // Use useEffect to set active mint when wallet changes
+  // Set active mint when mints change
   useEffect(() => {
-    if (
-      wallet &&
-      wallet.mints &&
-      wallet.mints.length > 0 &&
-      !cashuStore.activeMintUrl
-    ) {
-      cashuStore.setActiveMintUrl(wallet.mints[0]);
+    if (mints.length > 0 && !cashuStore.activeMintUrl) {
+      setActiveMintUrl(mints[0].url);
     }
-  }, [wallet, cashuStore]);
+  }, [mints, cashuStore.activeMintUrl, setActiveMintUrl]);
 
-  const {
-    mutate: handleCreateWallet,
-    isPending: isCreatingWallet,
-    error: createWalletError,
-  } = useCreateCashuWallet();
-
-  // Wrapper function to request permissions before creating wallet
-  const handleCreateWalletWithPermissions = useCallback(async (walletData?: CashuWalletStruct) => {
-    try {
-      // Request Cashu permissions if not already available
-      if (!hasCashuSupport) {
-        devLog('CashuWalletCard: Requesting Cashu permissions before wallet creation');
-        await requestCashuPermissions();
-      }
-
-      // Proceed with wallet creation
-      handleCreateWallet(walletData);
-    } catch (error) {
-      console.error('CashuWalletCard: Failed to get permissions for wallet creation:', error);
-      setError(error instanceof Error ? error.message : 'Failed to get required permissions');
-    }
-  }, [hasCashuSupport, requestCashuPermissions, handleCreateWallet]);
-
-  // Update error state when createWalletError changes
-  useEffect(() => {
-    if (createWalletError) {
-      setError(createWalletError.message);
-    }
-  }, [createWalletError]);
-
-  // Auto-create wallet configuration when history is detected but no wallet exists
-  useEffect(() => {
-    const hasTransactionHistory = transactionHistory && transactionHistory.length > 0;
-
-    // Only attempt auto-creation once and when all conditions are met
-    if (!wallet && hasTransactionHistory && !isLoading && !isHistoryLoading && !isCreatingWallet && user && !autoCreationAttempted) {
-      devLog('CashuWalletCard: Auto-creating wallet configuration for detected transaction history');
-      setAutoCreationAttempted(true); // Mark that we've attempted creation
-
-      // Auto-trigger wallet creation after a short delay
-      const timer = setTimeout(() => {
-        handleCreateWalletWithPermissions(undefined);
-      }, 2000); // 2 second delay so user can see the message
-
-      return () => clearTimeout(timer);
-    }
-  }, [wallet, transactionHistory, isLoading, isHistoryLoading, isCreatingWallet, user, autoCreationAttempted, handleCreateWalletWithPermissions]);
-
-  // Reset auto-creation flag when user changes or wallet is successfully created
-  useEffect(() => {
-    if (!user || wallet) {
-      setAutoCreationAttempted(false);
-    }
-  }, [user, wallet]);
-
-  const handleAddMint = () => {
-    if (!wallet || !wallet.mints) return;
-
+  const handleAddMint = useCallback(async () => {
     try {
       // Validate URL
       new URL(newMint);
-
-      // Add mint to wallet
-      const updatedWalletData: CashuWalletStruct = {
-        id: crypto.randomUUID(),
-        name: 'My Wallet',
-        unit: 'sat',
-        mints: [...wallet.mints, newMint],
-        balance: 0,
-        proofs: [],
-        lastUpdated: Date.now(),
-        privkey: wallet.privkey,
-      };
-
-      createWallet(updatedWalletData);
-
+      
+      // Add mint using new hook
+      await addMint(newMint);
+      
       // Clear input
       setNewMint("");
       setError(null);
-    } catch {
-      setError("Invalid mint URL");
+    } catch (err) {
+      setError("Invalid mint URL or failed to add mint");
+      console.error("Failed to add mint:", err);
     }
-  };
+  }, [newMint, addMint]);
 
-  const handleRemoveMint = (mintUrl: string) => {
-    if (!wallet || !wallet.mints) {
-      setError("No mints found");
-      return;
-    }
-
+  const handleRemoveMint = useCallback((mintUrl: string) => {
     // Don't allow removing the last mint
-    if (wallet.mints.length <= 1) {
+    if (mints.length <= 1) {
       setError("Cannot remove the last mint");
       return;
     }
 
     try {
-      // Remove mint from wallet
-      const updatedWalletData: CashuWalletStruct = {
-        id: crypto.randomUUID(),
-        name: 'My Wallet',
-        unit: 'sat',
-        mints: wallet.mints.filter((m) => m !== mintUrl),
-        balance: 0,
-        proofs: [],
-        lastUpdated: Date.now(),
-        privkey: wallet.privkey,
-      };
-
-      createWallet(updatedWalletData);
-    } catch {
-      setError("Failed to remove mint");
-    }
-
-    // If removing the active mint, set the first available mint as active
-    if (cashuStore.activeMintUrl === mintUrl) {
-      const remainingMints = wallet.mints.filter((m) => m !== mintUrl);
-      if (remainingMints.length > 0) {
-        cashuStore.setActiveMintUrl(remainingMints[0]);
+      // Remove mint from store
+      cashuStore.mints = cashuStore.mints.filter((m) => m.url !== mintUrl);
+      
+      // If removing the active mint, set the first available mint as active
+      if (cashuStore.activeMintUrl === mintUrl) {
+        const remainingMints = mints.filter((m) => m.url !== mintUrl);
+        if (remainingMints.length > 0) {
+          setActiveMintUrl(remainingMints[0].url);
+        }
       }
-    }
 
-    // remove the mint from the cashuStore.mints array
-    cashuStore.mints = cashuStore.mints.filter((m) => m.url !== mintUrl);
-
-    // Close expanded view if open
-    if (expandedMint === mintUrl) {
-      setExpandedMint(null);
+      // Close expanded view if open
+      if (expandedMint === mintUrl) {
+        setExpandedMint(null);
+      }
+      
+      setError(null);
+    } catch (err) {
+      setError("Failed to remove mint");
+      console.error("Failed to remove mint:", err);
     }
-  };
+  }, [mints, cashuStore, expandedMint, setActiveMintUrl]);
 
-  const handleCleanSpentProofs = async (mintUrl: string) => {
-    if (!wallet || !wallet.mints) return;
-    if (!cashuStore.activeMintUrl) return;
-    const spentProofs = await cleanSpentProofs(mintUrl);
-    const proofSum = spentProofs.reduce((sum, proof) => sum + proof.amount, 0);
-    if (import.meta.env.DEV) {
-    devLog(
-      `Removed ${spentProofs.length} spent proofs for ${proofSum} sats`
-    );
+  const handleCleanSpentProofs = useCallback(async () => {
+    try {
+      await cleanSpentProofs.mutateAsync();
+      setError(null);
+    } catch (err) {
+      setError("Failed to clean spent proofs");
+      console.error("Failed to clean spent proofs:", err);
     }
-  };
+  }, [cleanSpentProofs]);
 
   // Set active mint when clicking on a mint
-  const handleSetActiveMint = (mintUrl: string) => {
-    cashuStore.setActiveMintUrl(mintUrl);
-  };
+  const handleSetActiveMint = useCallback((mintUrl: string) => {
+    setActiveMintUrl(mintUrl);
+  }, [setActiveMintUrl]);
 
-  const toggleExpandMint = (mintUrl: string) => {
-    if (expandedMint === mintUrl) {
-      setExpandedMint(null);
-    } else {
-      setExpandedMint(mintUrl);
-    }
-  };
+  const toggleExpandMint = useCallback((mintUrl: string) => {
+    setExpandedMint(prev => prev === mintUrl ? null : mintUrl);
+  }, []);
 
-  const cleanMintUrl = (mintUrl: string) => {
+  const cleanMintUrl = useCallback((mintUrl: string) => {
     return mintUrl.replace("https://", "");
-  };
+  }, []);
 
-  if (isLoading || isCreatingWallet || isHistoryLoading) {
+  // Toggle expanded state using the correct method
+  const toggleExpanded = useCallback(() => {
+    walletUiStore.toggleCardExpansion('mints');
+  }, [walletUiStore]);
+
+  // Simple loading state - show setup when no mints
+  if (mints.length === 0 && user) {
     return (
       <Card>
         <CardHeader>
           <div>
             <CardTitle>Mints</CardTitle>
-            <CardDescription>Loading wallet...</CardDescription>
+            <CardDescription>Set up your first Cashu mint</CardDescription>
           </div>
         </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="mint-url">Mint URL</Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="mint-url"
+                  value={newMint}
+                  onChange={(e) => setNewMint(e.target.value)}
+                  placeholder="https://mint.minibits.cash/Bitcoin"
+                />
+                <Button onClick={handleAddMint} disabled={!newMint.trim()}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <Button 
+              onClick={() => {
+                setNewMint("https://mint.minibits.cash/Bitcoin");
+                setTimeout(() => handleAddMint(), 100);
+              }} 
+              variant="outline" 
+              className="w-full"
+            >
+              Use Default Mint
+            </Button>
+          </div>
+          {error && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
       </Card>
     );
   }
 
-  // Check if user has transaction history even if no wallet event is found
-  const hasTransactionHistory = transactionHistory && transactionHistory.length > 0;
-
-  if (!wallet && !hasTransactionHistory) {
+  // Not logged in state
+  if (!user) {
     return (
       <Card>
         <CardHeader>
@@ -276,190 +216,164 @@ export function CashuWalletCard() {
           </div>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => handleCreateWalletWithPermissions(undefined)} disabled={!user}>
-            Create Wallet
-          </Button>
-          {!user && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                You need to log in to create a wallet
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Handle case where there's transaction history but no wallet event found
-  if (!wallet && hasTransactionHistory) {
-    return (
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Mints</CardTitle>
-            <CardDescription>Wallet detected from transaction history</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Alert className="mb-4">
+          <Alert variant="destructive" className="mt-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {isCreatingWallet
-                ? "Creating wallet configuration from your transaction history..."
-                : "You have transaction history but no wallet configuration found. This can happen if your wallet was created on a different relay."
-              }
+              You need to log in to create a wallet
             </AlertDescription>
           </Alert>
-          <Button
-            onClick={() => handleCreateWalletWithPermissions(undefined)}
-            disabled={!user || isCreatingWallet}
-          >
-            {isCreatingWallet ? "Creating..." : "Recreate Wallet Configuration"}
-          </Button>
-          <p className="text-sm text-muted-foreground mt-2">
-            {isCreatingWallet
-              ? "Please wait while we set up your wallet configuration..."
-              : "This will create a new wallet configuration while preserving your transaction history."
-            }
-          </p>
         </CardContent>
       </Card>
     );
   }
 
-  // At this point, we know wallet exists
-  if (!wallet) {
-    return (
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Mints</CardTitle>
-            <CardDescription>Unexpected error loading wallet</CardDescription>
-          </div>
-        </CardHeader>
-      </Card>
-    );
-  }
-
+  // Main wallet interface when mints are available
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Mints</CardTitle>
-          <CardDescription>Manage your Cashu mints</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            Mints
+            <span
+              className={`text-lg font-mono transition-all duration-300 ${
+                flashingMints['total'] ? 'bg-yellow-200 dark:bg-yellow-900' : ''
+              }`}
+            >
+              {showSats 
+                ? `${formatBalance(totalBalance)} sats`
+                : btcPrice
+                ? formatUSD(satsToUSD(totalBalance, btcPrice.USD))
+                : `${formatBalance(totalBalance)} sats`
+              }
+            </span>
+          </CardTitle>
+          <CardDescription>
+            Manage your Cashu mints • {mints.length} mint{mints.length !== 1 ? 's' : ''}
+          </CardDescription>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => walletUiStore.toggleCardExpansion("mints")}
-          aria-label={isExpanded ? "Collapse" : "Expand"}
-        >
-          {isExpanded ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleCleanSpentProofs}
+            disabled={cleanSpentProofs.isPending}
+            title="Clean spent proofs"
+          >
+            {cleanSpentProofs.isPending ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Eraser className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleExpanded}
+          >
+            {isExpanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </CardHeader>
 
       {isExpanded && (
         <CardContent>
           <div className="space-y-4">
+            {/* Add new mint form */}
             <div>
-              <h3 className="text-lg font-medium">Mints</h3>
-            </div>
-            <div>
-              {wallet.mints && wallet.mints.length > 0 ? (
-                <div className="space-y-2">
-                  {wallet.mints.map((mint) => {
-                    // Get balance specific to this mint
-                    // For now, show total balance only for active mint, 0 for others
-                    // TODO: Implement proper per-mint balance calculation
-                    const isActive = cashuStore.activeMintUrl === mint;
-                    const amount = isActive ? totalBalance : 0; // Only show balance on active mint
-                    const isExpanded = expandedMint === mint;
-
-                    return (
-                      <div key={mint} className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <button
-                              className="text-sm hover:text-primary text-left truncate max-w-[160px]"
-                              onClick={() => handleSetActiveMint(mint)}
-                            >
-                              {cleanMintUrl(mint)}
-                            </button>
-                            {isActive && (
-                              <Badge
-                                variant="secondary"
-                                className="h-5 px-1.5 bg-green-100 text-green-700 hover:bg-green-200"
-                              >
-                                Active
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`font-medium tabular-nums ${
-                                flashingMints[mint] || flashingMints['total'] ? "flash-update" : ""
-                              }`}
-                            >
-                              {showSats
-                                ? formatBalance(amount)
-                                : btcPrice
-                                ? formatUSD(satsToUSD(amount, btcPrice.USD))
-                                : formatBalance(amount)}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => toggleExpandMint(mint)}
-                            >
-                              {isExpanded ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                        {isExpanded && (
-                          <div className="pl-4 flex justify-end gap-2 pt-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCleanSpentProofs(mint)}
-                              className="border-muted-foreground/20 hover:bg-muted"
-                            >
-                              <Eraser className="h-4 w-4 mr-1 text-amber-500" />
-                              Cleanup Wallet
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRemoveMint(mint)}
-                              className="border-muted-foreground/20 hover:bg-destructive/10"
-                            >
-                              <Trash className="h-4 w-4 mr-1 text-destructive" />
-                              Remove
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground mt-2">
-                  No mints added yet
-                </p>
-              )}
+              <Label htmlFor="new-mint-url">Add New Mint</Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="new-mint-url"
+                  value={newMint}
+                  onChange={(e) => setNewMint(e.target.value)}
+                  placeholder="https://mint.example.com"
+                />
+                <Button onClick={handleAddMint} disabled={!newMint.trim()}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <Separator />
+
+            {/* Mints list */}
+            <div className="space-y-2">
+              {mints.map((mint) => {
+                const isActive = cashuStore.activeMintUrl === mint.url;
+                const mintBalance = 0; // Would need to calculate per-mint balance
+                
+                return (
+                  <div
+                    key={mint.url}
+                    className={`border rounded-lg p-3 transition-colors ${
+                      isActive ? 'border-primary bg-muted/50' : 'border-border'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div 
+                        className="flex-1 cursor-pointer"
+                        onClick={() => handleSetActiveMint(mint.url)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">
+                            {cleanMintUrl(mint.url)}
+                          </span>
+                          {isActive && <Badge variant="secondary">Active</Badge>}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {mint.url}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono">
+                          {formatBalance(mintBalance)} sats
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleExpandMint(mint.url)}
+                        >
+                          {expandedMint === mint.url ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                        {mints.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveMint(mint.url)}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {expandedMint === mint.url && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <div className="text-muted-foreground">Mint Info</div>
+                            <div>{mint.mintInfo?.name || 'Loading...'}</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Version</div>
+                            <div>{mint.mintInfo?.version || 'Unknown'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
             {error && (
               <Alert variant="destructive">
@@ -467,22 +381,6 @@ export function CashuWalletCard() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-
-            <div className="flex items-end gap-2">
-              <div className="grid w-full gap-1.5">
-                <Label htmlFor="mint">Add Mint</Label>
-                <Input
-                  id="mint"
-                  placeholder="https://mint.example.com"
-                  value={newMint}
-                  onChange={(e) => setNewMint(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleAddMint}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add
-              </Button>
-            </div>
           </div>
         </CardContent>
       )}

@@ -11,8 +11,8 @@ import { useLoggedInAccounts } from '@/hooks/useLoggedInAccounts';
 import { DropdownList } from './DropdownList';
 import { useWallet } from '@/hooks/useWallet';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
+import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
-import { useUserCashuStore } from '@/stores/userCashuStore';
 import { cn } from '@/lib/utils';
 import { bundleLog } from '@/lib/logBundler';
 import { devLog } from '@/lib/devConsole';
@@ -26,9 +26,11 @@ export function LoginArea({ className }: LoginAreaProps) {
   const { walletInfo, isConnected, getBalance, provider, userHasLightningAccess } = useWallet();
   const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
 
-  // Get both stores for comparison
+  // Get global store for comparison
   const globalCashuStore = useCashuStore();
-  const userCashuStore = useUserCashuStore(currentUser?.pubkey);
+  
+  // Use modern Cashu hooks following Chorus patterns
+  const { getTotalBalance } = useCashuWallet();
 
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [addAccountDialogOpen, setAddAccountDialogOpen] = useState(false);
@@ -45,20 +47,14 @@ export function LoginArea({ className }: LoginAreaProps) {
 
   // Early initialization of user Cashu store to ensure nutzaps work immediately
   useEffect(() => {
-    if (currentUser?.pubkey && userCashuStore) {
-      // Initialize privkey for p2pk operations if not set
-      if (userCashuStore.initializePrivkey) {
-        userCashuStore.initializePrivkey();
-      }
+    if (currentUser?.pubkey) {
+      console.log("Login area initializing for user:", currentUser.pubkey);
       
-      // Trigger store initialization by checking balance
-      // This ensures the store is ready for nutzap operations
-      const balance = userCashuStore.getTotalBalance?.();
-      if (balance !== undefined && balance > 0) {
-        console.log(`[LoginArea] User Cashu store initialized with ${balance} sats available for nutzaps`);
-      }
+      // Use modern initialization following Chorus patterns
+      // The useCashuWallet hook handles wallet initialization automatically
+      console.log("Wallet initialization handled by modern hooks");
     }
-  }, [currentUser?.pubkey, userCashuStore]);
+  }, [currentUser?.pubkey]);
 
   // Track balance state changes to reduce console spam
   const balanceLogRef = useRef<string>('');
@@ -84,7 +80,9 @@ export function LoginArea({ className }: LoginAreaProps) {
   const formatBalance = useCallback(() => {
     // Get balances from both sources
     const lightningBalance = userHasLightningAccess ? (walletInfo?.balance || 0) : 0;
-    const cashuBalance = userCashuStore?.getTotalBalance?.() || 0;
+    
+    // Use modern hook for Cashu balance
+    const cashuBalance = getTotalBalance();
     const globalCashuBalance = globalCashuStore?.getTotalBalance?.() || 0;
 
     // Calculate total balance as Lightning + Cashu
@@ -123,7 +121,7 @@ export function LoginArea({ className }: LoginAreaProps) {
         return `${totalBalance.toLocaleString()} sats (price loading...)`;
       }
     }
-  }, [walletInfo?.balance, userCashuStore, globalCashuStore, currency, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
+  }, [walletInfo?.balance, getTotalBalance, globalCashuStore, currency, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
 
   // Cashu wallet button - Enhanced with better styling
   const LightningWalletButton = () => (

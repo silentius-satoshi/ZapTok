@@ -11,7 +11,7 @@ import { RelayContextIndicator } from '@/components/RelayContextIndicator';
 import { Button } from '@/components/ui/button';
 import { Bitcoin, ArrowLeft } from 'lucide-react';
 import { useCashuStore } from '@/stores/cashuStore';
-import { useUserCashuStore } from '@/stores/userCashuStore';
+import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { formatBalance } from '@/lib/cashu';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { bundleLog } from '@/lib/logBundler';
@@ -40,22 +40,21 @@ export function CashuWallet() {
   
   // Cashu store states
   const cashuStore = useCashuStore();
-  const userCashuStore = useUserCashuStore(user?.pubkey);
+  const { getTotalBalance } = useCashuWallet();
   
   // Price and currency
   const { data: btcPrice } = useBitcoinPrice();
   const { showSats, toggleCurrency } = useCurrencyDisplayStore();
   
-  // Calculate total Cashu balance from user-specific store only
-  const userCashuBalance = userCashuStore?.getTotalBalance?.() || 0;
-  const totalBalance = userCashuBalance;
+  // Calculate total Cashu balance using modern hook
+  const totalBalance = getTotalBalance();
 
   // Debug balance calculation in CashuWallet page (bundled and throttled)
   React.useEffect(() => {
     if (import.meta.env.DEV && user?.pubkey) {
-      bundleLog('cashuWallet', `Balance: ${totalBalance} sats (user store: ${!!userCashuStore})`);
+      bundleLog('cashuWallet', `Balance: ${totalBalance} sats (modern hook)`);
     }
-  }, [totalBalance, userCashuStore, user?.pubkey]);
+  }, [totalBalance, user?.pubkey]);
 
   return (
     <AuthGate>
