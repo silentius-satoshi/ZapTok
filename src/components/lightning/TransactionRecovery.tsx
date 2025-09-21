@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle2, Search, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCashuStore } from '@/stores/cashuStore';
-import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
+import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
 import { mintTokensFromPaidInvoice } from '@/lib/cashuLightning';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
@@ -17,6 +17,7 @@ interface TransactionRecoveryProps {
   className?: string;
 }
 
+// NOTE: This is a custom ZapTok feature - not part of official cashu-wallet implementation
 export function TransactionRecovery({ className }: TransactionRecoveryProps) {
   const { user } = useCurrentUser();
   const [paymentHash, setPaymentHash] = useState('');
@@ -30,7 +31,7 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
   } | null>(null);
 
   const cashuStore = useCashuStore();
-  const transactionHistoryStore = useUserTransactionHistoryStore(user?.pubkey);
+  const transactionHistoryStore = useTransactionHistoryStore();
   const { updateProofs } = useCashuWallet();
   const { createHistory } = useCashuHistory();
 
@@ -82,7 +83,7 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
               });
 
               // Create history entry
-              await createHistory({
+              createHistory.mutate({
                 direction: 'in',
                 amount: tx.amount,
               });
@@ -159,7 +160,7 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
               proofsToRemove: [],
             });
 
-            await createHistory({
+            createHistory.mutate({
               direction: 'in',
               amount: (parseInt(amount) || 100).toString(),
             });
@@ -206,7 +207,7 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
                   proofsToRemove: [],
                 });
 
-                await createHistory({
+                createHistory.mutate({
                   direction: 'in',
                   amount: quote.amount.toString(),
                 });

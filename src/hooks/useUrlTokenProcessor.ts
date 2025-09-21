@@ -21,7 +21,7 @@ export function useUrlTokenProcessor() {
 
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
-    
+
     if (!token) return;
 
     const processToken = async () => {
@@ -30,10 +30,10 @@ export function useUrlTokenProcessor() {
         window.history.replaceState(null, '', window.location.pathname);
 
         // Receive the token
-        const proofs = await receiveToken(token);
+        const result = await receiveToken(token);
 
         // Calculate total amount
-        const totalAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
+        const totalAmount = result.proofs.reduce((sum, p) => sum + p.amount, 0);
 
         // Show success notification
         toast.success('eCash received!', {
@@ -72,10 +72,10 @@ export function useOnboardingTokenProcessor() {
         cashuStore.setPendingOnboardingToken(undefined);
 
         // Receive the token
-        const proofs = await receiveToken(pendingToken);
+        const result = await receiveToken(pendingToken);
 
         // Calculate total amount
-        const totalAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
+        const totalAmount = result.proofs.reduce((sum, p) => sum + p.amount, 0);
 
         // Show success notification
         toast.success('Welcome bonus received!', {

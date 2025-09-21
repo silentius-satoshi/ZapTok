@@ -44,13 +44,12 @@ export function getLightningAddressFromProfile(profile: any) {
 }
 
 /**
- * Re-export the main payment function for backward compatibility
+ * Main payment function exports
  */
 export { makeZapPayment, getPaymentSuggestion, testLightningAddress, needsVercelProxy };
 
 /**
- * Legacy CORS-aware fetch - now redirects to new proxy system
- * @deprecated Use lightning-proxy.ts functions instead
+ * CORS-aware fetch using proxy system
  */
 export async function corsAwareFetch(url: string, options?: RequestInit): Promise<Response> {
   // If this is a Lightning address URL, suggest using the new system

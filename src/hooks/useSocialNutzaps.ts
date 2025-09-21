@@ -5,6 +5,7 @@ import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { useCashuStore } from '@/stores/cashuStore';
 import { useCashuToken } from '@/hooks/useCashuToken';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
+import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
 import { Proof } from '@cashu/cashu-ts';
 
 /**
@@ -33,17 +34,12 @@ export function useSendNutzap() {
       if (!cashuStore.activeMintUrl) throw new Error('No active mint selected');
 
       // Send token with P2PK lock to recipient
-      const proofs = await sendToken(
-        cashuStore.activeMintUrl,
-        amount,
+      const result = await sendToken(amount, {
+        isNutzap: true,
         recipientPubkey,
-        {
-          isNutzap: true,
-          recipientPubkey,
-          groupId,
-          publicNote: note
-        }
-      );
+        groupId,
+        publicNote: note
+      });
 
       // Create nutzap event
       const tags = [
@@ -57,7 +53,7 @@ export function useSendNutzap() {
       }
 
       // Add proof references
-      proofs.forEach(proof => {
+      result.proofs.forEach(proof => {
         tags.push(['proof', proof.secret]);
       });
 
@@ -71,7 +67,7 @@ export function useSendNutzap() {
       // Publish nutzap event
       await nostr.event(event);
 
-      return { event, proofs };
+      return { event, proofs: result.proofs, token: result.token };
     }
   });
 }
@@ -124,6 +120,7 @@ export function useReceivedNutzaps() {
 export function useRedeemNutzap() {
   const { receiveToken } = useCashuToken();
   const { createHistory } = useCashuHistory();
+  const transactionHistoryStore = useTransactionHistoryStore();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -137,14 +134,22 @@ export function useRedeemNutzap() {
     }) => {
       // TODO: Reconstruct token from proof secrets and redeem
       // This is a simplified version - in practice you'd need to reconstruct the full token
-      
-      // For now, just create a history entry
-      await createHistory({
+
+      // Create basic history entry for official cashu tracking
+      createHistory.mutate({
         direction: 'in',
         amount: nutzap.amount.toString(),
+      });
+
+      // Add social context to local store (custom ZapTok feature)
+      transactionHistoryStore.addHistoryEntry({
+        id: `nutzap-${Date.now()}`,
+        direction: 'in',
+        amount: nutzap.amount.toString(),
+        timestamp: Date.now(),
         recipientPubkey: nutzap.senderPubkey,
         groupId: nutzap.groupId,
-        isNutzap: true
+        isNutzap: true,
       });
 
       return true;
@@ -196,6 +201,6 @@ export function useGroupNutzaps(groupId?: string) {
  */
 export function useGroupNutzapTotal(groupId?: string) {
   const { data: nutzaps } = useGroupNutzaps(groupId);
-  
+
   return nutzaps?.reduce((total, nutzap) => total + nutzap.amount, 0) || 0;
 }

@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Copy, Clock, Zap, QrCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { decodeLightningInvoice, formatSats, generateInvoiceQR, type LightningInvoiceData } from '@/lib/lightning-invoice';
+import { decodeLightningInvoice, generateInvoiceQR, type LightningInvoiceData } from '@/lib/lightning-invoice';
+import { formatBalance } from '@/lib/cashu';
 import { useToast } from '@/hooks/useToast';
 
 interface LightningInvoiceProps {
@@ -124,7 +125,7 @@ export function LightningInvoice({
       <div className={cn("flex items-center gap-3 p-3 border rounded-lg", className)}>
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-yellow-500" />
-          <span className="font-mono text-sm">{formatSats(invoiceData.amount)} sats</span>
+          <span className="font-mono text-sm">{invoiceData.amount ? formatBalance(invoiceData.amount) : 'Amount not specified'}</span>
         </div>
 
         {invoiceData.isExpired ? (
@@ -177,7 +178,7 @@ export function LightningInvoice({
         {/* Amount */}
         <div className="text-center">
           <div className="text-3xl font-bold font-mono">
-            {formatSats(invoiceData.amount)}
+            {invoiceData.amount ? formatBalance(invoiceData.amount) : 'Amount not specified'}
           </div>
           <div className="text-sm text-muted-foreground">sats</div>
         </div>

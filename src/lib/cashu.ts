@@ -115,27 +115,3 @@ export function getTokenAmount(token: string): number {
   return tokenObj.proofs.reduce((acc, proof) => acc + proof.amount, 0);
 }
 
-// Legacy functions for backwards compatibility
-export function encodeCashuToken(token: CashuToken): string {
-  return getEncodedToken({
-    proofs: token.proofs,
-    mint: token.mint
-  });
-}
-
-export function decodeCashuToken(encodedToken: string): CashuToken {
-  const decoded = getDecodedToken(encodedToken);
-  if (!decoded.proofs || decoded.proofs.length === 0) {
-    throw new Error('Invalid token format');
-  }
-
-  return {
-    mint: decoded.mint,
-    proofs: decoded.proofs.map(p => ({
-      id: p.id || '',
-      amount: p.amount,
-      secret: p.secret || '',
-      C: p.C || ''
-    }))
-  };
-}

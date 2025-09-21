@@ -64,7 +64,7 @@ export function decodeLightningInvoice(invoice: string): DecodedInvoice | null {
       timestamp,
       destination,
       isExpired,
-      created: timestamp, // alias for backward compatibility
+      created: timestamp,
     };
   } catch (error) {
     console.error('Failed to decode Lightning invoice:', error);
@@ -109,9 +109,6 @@ export function formatInvoiceAmount(amount?: number): string {
   }
 }
 
-// Legacy export for backward compatibility
-export const formatSats = formatInvoiceAmount;
-
 // Placeholder for QR generation (can be implemented later)
 export function generateInvoiceQR(invoice: string): Promise<string> {
   // This would typically use a QR code library
@@ -119,5 +116,5 @@ export function generateInvoiceQR(invoice: string): Promise<string> {
   return Promise.resolve(`data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/><text x="100" y="100" text-anchor="middle" fill="black">QR Code</text></svg>`);
 }
 
-// Type alias for backward compatibility
+// Type alias
 export type LightningInvoiceData = DecodedInvoice;

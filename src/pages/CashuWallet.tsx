@@ -2,7 +2,7 @@ import React from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { Navigation } from '@/components/Navigation';
 import { LogoHeader } from '@/components/LogoHeader';
-import { CashuWalletCard } from '@/components/CashuWalletCard';
+import { CashuWalletCard } from '@/components/lightning/wallet-connections/CashuWalletCard';
 import { CashuHistoryCard } from '@/components/lightning/CashuHistoryCard';
 import { CashuTokenCard } from '@/components/lightning/CashuTokenCard';
 import { CashuWalletLightningCard } from '@/components/lightning/CashuWalletLightningCard';

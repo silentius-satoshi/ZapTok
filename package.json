@@ -18,7 +18,7 @@
     "deploy": "npm run build && npx -y nostr-deploy-cli deploy --skip-setup"
   },
   "dependencies": {
-    "@cashu/cashu-ts": "^2.5.2",
+    "@cashu/cashu-ts": "^2.7.2",
     "@cashu/crypto": "^0.3.4",
     "@getalby/bitcoin-connect-react": "^3.10.0",
     "@getalby/lightning-tools": "^6.0.0",

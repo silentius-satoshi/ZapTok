@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { decodeLightningInvoice, formatSats } from '@/lib/lightning-invoice';
+import { decodeLightningInvoice } from '@/lib/lightning-invoice';
+import { formatBalance } from '@/lib/cashu';
 
 describe('Lightning Invoice Utils', () => {
-  describe('formatSats', () => {
-    it('should format numbers with thousands separators', () => {
-      expect(formatSats(21)).toBe('21 sats');
-      expect(formatSats(1000)).toBe('1.000 k sats');
-      expect(formatSats(1000000)).toBe('1000.000 k sats');
+  describe('formatBalance', () => {
+    it('should format numbers with appropriate units', () => {
+      expect(formatBalance(21)).toBe('21 sats');
+      expect(formatBalance(1000)).toBe('1,000 sats');
+      expect(formatBalance(100000)).toBe('100.0k sats');
+      expect(formatBalance(1000000)).toBe('1.0M sats');
     });
   });
 

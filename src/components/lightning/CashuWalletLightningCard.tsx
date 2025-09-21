@@ -10,12 +10,11 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
-import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
+import { useTransactionHistoryStore, PendingTransaction } from '@/stores/transactionHistoryStore';
 import { useWalletUiStore } from '@/stores/walletUiStore';
 import { createLightningInvoice, mintTokensFromPaidInvoice, createMeltQuote, payLightningInvoice } from '@/lib/cashuLightning';
 import { QRScanner } from '@/components/QRScanner';
 import { v4 as uuidv4 } from 'uuid';
-import type { PendingTransaction } from '@/stores/userTransactionHistoryStore';
 import QRCode from 'react-qr-code';
 import { formatBalance } from '@/lib/cashu';
 import { AlertCircle as _A11yIgnore } from 'lucide-react'; // keep import unique (eslint satisfaction)
@@ -35,7 +34,7 @@ export function CashuWalletLightningCard() {
   } = useCashuWallet();
   const { createHistory } = useCashuHistory();
   const cashuStore = useCashuStore();
-  const transactionHistoryStore = useUserTransactionHistoryStore(user?.pubkey);
+  const transactionHistoryStore = useTransactionHistoryStore();
   const walletUiStore = useWalletUiStore();
   const isExpanded = walletUiStore.expandedCards.lightning;
   const [activeTab, setActiveTab] = useState("receive");
@@ -156,7 +155,7 @@ export function CashuWalletLightningCard() {
 
         // Create history event if we got a token ID
         if (tokenEventId) {
-          await createHistory({
+          createHistory.mutate({
             direction: "in",
             amount: amount.toString(),
           });
@@ -289,7 +288,7 @@ export function CashuWalletLightningCard() {
       });
 
       // Create history event
-      await createHistory({
+      createHistory.mutate({
         direction: "out",
         amount: invoiceAmount.toString(),
       });
@@ -323,11 +322,11 @@ export function CashuWalletLightningCard() {
   };
 
   // Memoize loading states to prevent unnecessary re-renders
-  const compositeLoading = useMemo(() => 
-    isLoading || isWalletLoading || isTokensLoading, 
+  const compositeLoading = useMemo(() =>
+    isLoading || isWalletLoading || isTokensLoading,
     [isLoading, isWalletLoading, isTokensLoading]
   );
-  
+
   const loadingMessage = useMemo(() => {
     if (isWalletLoading && isTokensLoading) return 'Loading wallet and tokens...';
     if (isWalletLoading) return 'Loading wallet...';
@@ -363,7 +362,7 @@ export function CashuWalletLightningCard() {
               <span>{loadingMessage}</span>
             </div>
           )}
-          
+
           {!user ? (
             <Alert className="mb-4">
               <AlertCircle className="h-4 w-4" />

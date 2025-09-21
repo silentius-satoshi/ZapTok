@@ -1,6 +1,6 @@
 import { useState, useMemo, memo, useCallback, useEffect } from 'react';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
-import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
+import { useTransactionHistoryStore, PendingTransaction } from '@/stores/transactionHistoryStore';
 import { useCashuStore } from '@/stores/cashuStore';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useWalletUiStore } from '@/stores/walletUiStore';
@@ -20,7 +20,7 @@ interface CashuHistoryCardProps {
 export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
   const { user } = useCurrentUser();
   const { isLoading, history } = useCashuHistory();
-  const transactionHistoryStore = useUserTransactionHistoryStore(user?.pubkey);
+  const transactionHistoryStore = useTransactionHistoryStore();
   const cashuStore = useCashuStore();
   const { updateProofs } = useCashuWallet();
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -85,7 +85,7 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
 
   const checkPendingTransaction = async (pendingTx: any) => {
     setProcessingId(pendingTx.id);
-    
+
     try {
       const activeMintUrl = cashuStore.activeMintUrl;
       if (!activeMintUrl) {
@@ -102,12 +102,12 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
 
       if (proofs && proofs.length > 0) {
         const totalAmount = proofs.reduce((sum: number, proof: any) => sum + proof.amount, 0);
-        
+
         // Update wallet with recovered proofs
-        await updateProofs({ 
-          mintUrl: activeMintUrl, 
-          proofsToAdd: proofs, 
-          proofsToRemove: [] 
+        await updateProofs({
+          mintUrl: activeMintUrl,
+          proofsToAdd: proofs,
+          proofsToRemove: []
         });
 
         // Remove the pending transaction
@@ -131,15 +131,15 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
   const Row = useCallback(({ tx }: { tx: HistoryLike }) => {
     const sats = extractSats(tx);
     const isPending = (tx as any).status === 'pending';
-    
+
     return (
       <div className="flex items-center justify-between py-3">
         <div className="flex items-center gap-4">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-            isPending 
-              ? 'bg-yellow-100 text-yellow-600' 
-              : isReceive(tx) 
-                ? 'bg-green-100 text-green-600' 
+            isPending
+              ? 'bg-yellow-100 text-yellow-600'
+              : isReceive(tx)
+                ? 'bg-green-100 text-green-600'
                 : 'bg-red-100 text-red-600'
           }`}>
             {isPending ? (
@@ -181,10 +181,10 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
         </div>
         <div className="text-right">
           <p className={`font-medium ${
-            isPending 
-              ? 'text-yellow-500' 
-              : isReceive(tx) 
-                ? 'text-green-500' 
+            isPending
+              ? 'text-yellow-500'
+              : isReceive(tx)
+                ? 'text-green-500'
                 : 'text-red-500'
           }`}>
             {isPending ? '+' : (isReceive(tx) ? '+' : '-')}{formatAmount(sats)}
@@ -258,9 +258,9 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
         )}
       </CardContent>
 
-      <ManualRecoveryModal 
-        isOpen={isManualRecoveryOpen} 
-        onClose={() => setIsManualRecoveryOpen(false)} 
+      <ManualRecoveryModal
+        isOpen={isManualRecoveryOpen}
+        onClose={() => setIsManualRecoveryOpen(false)}
       />
     </Card>
   );

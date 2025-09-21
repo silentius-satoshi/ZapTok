@@ -34,7 +34,7 @@ import { useWalletUiStore } from "@/stores/walletUiStore";
 
 export function CashuWalletCard() {
   const { user } = useCurrentUser();
-  const { wallet, isLoading, createWallet } = useCashuWallet();
+  const { wallet, isLoading, createWallet: updateWallet } = useCashuWallet();
   const cashuStore = useCashuStore();
   const { cleanSpentProofs } = useCashuToken();
   const { data: btcPrice } = useBitcoinPrice();
@@ -87,7 +87,7 @@ export function CashuWalletCard() {
   }, [wallet, cashuStore]);
 
   const {
-    mutate: handleCreateWallet,
+    mutate: handleCreateNewWallet,
     isPending: isCreatingWallet,
     error: createWalletError,
   } = useCreateCashuWallet();
@@ -112,7 +112,7 @@ export function CashuWalletCard() {
         mints: [...wallet.mints, newMint],
       };
 
-      handleCreateWallet(updatedWalletData);
+      updateWallet(updatedWalletData);
 
       // Clear input
       setNewMint("");
@@ -141,7 +141,7 @@ export function CashuWalletCard() {
         mints: wallet.mints.filter((m) => m !== mintUrl),
       };
 
-      handleCreateWallet(updatedWalletData);
+      updateWallet(updatedWalletData);
     } catch {
       setError("Failed to remove mint");
     }
@@ -166,11 +166,12 @@ export function CashuWalletCard() {
   const handleCleanSpentProofs = async (mintUrl: string) => {
     if (!wallet || !wallet.mints) return;
     if (!cashuStore.activeMintUrl) return;
-    const spentProofs = await cleanSpentProofs.mutateAsync(mintUrl);
-    const proofSum = spentProofs.reduce((sum, proof) => sum + proof.amount, 0);
-    console.log(
-      `Removed ${spentProofs.length} spent proofs for ${proofSum} sats`
-    );
+    try {
+      await cleanSpentProofs.mutateAsync();
+      console.log(`Cleaned spent proofs for mint: ${mintUrl}`);
+    } catch (error) {
+      console.error('Error cleaning spent proofs:', error);
+    }
   };
 
   // Set active mint when clicking on a mint
@@ -213,7 +214,7 @@ export function CashuWalletCard() {
           </div>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => handleCreateWallet(undefined)} disabled={!user}>
+          <Button onClick={() => handleCreateNewWallet()} disabled={!user}>
             Create Wallet
           </Button>
           {!user && (

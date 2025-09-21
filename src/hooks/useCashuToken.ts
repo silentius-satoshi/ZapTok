@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useCashuStore } from '@/stores/cashuStore';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
+import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
 import { CashuMint, CashuWallet, Proof, getDecodedToken } from '@cashu/cashu-ts';
 
 export function useCashuToken() {
@@ -10,6 +11,7 @@ export function useCashuToken() {
   const cashuStore = useCashuStore();
   const { wallet, createWallet } = useCashuWallet();
   const { createHistory } = useCashuHistory();
+  const transactionHistoryStore = useTransactionHistoryStore();
 
   /**
    * Generate a send token
@@ -50,10 +52,27 @@ export function useCashuToken() {
         throw new Error(`Not enough funds. Available: ${proofsAmount}, Required: ${amount}`);
       }
 
-      // Perform coin selection
-      const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, {
-        pubkey: socialContext?.recipientPubkey,
-        privkey: cashuStore.privkey
+      // Perform coin selection with P2PK locking if recipient pubkey is provided
+      let sendOptions: any = {};
+
+      if (socialContext?.recipientPubkey) {
+        console.log("🔒 P2PK locking to recipient:", socialContext.recipientPubkey);
+        console.log("🔑 Private key available:", cashuStore.privkey ? "YES" : "NO");
+        console.log("🔑 Private key length:", cashuStore.privkey?.length || 0);
+        sendOptions = {
+          pubkey: socialContext.recipientPubkey,
+          privkey: cashuStore.privkey
+        };
+      } else {
+        console.log("📤 Sending without P2PK locking");
+      }
+
+      const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, sendOptions);
+
+      // Log the result for debugging
+      console.log(`💰 Coin selection result: keeping ${proofsToKeep.length} proofs, sending ${proofsToSend.length} proofs`);
+      proofsToSend.forEach((proof, index) => {
+        console.log(`Proof #${index + 1}: ${proof.C ? 'Signature not required' : 'Has witness'} from ${proof.C || 'unknown'}`);
       });
 
       // Update proofs in store (keeping the unsent ones)
@@ -76,15 +95,26 @@ export function useCashuToken() {
         }))
       });
 
-      // Record history for social context
-      await createHistory.mutateAsync({
+      // Record history for official cashu transaction
+      createHistory.mutate({
         direction: 'out',
         amount: amount.toString(),
-        groupId: socialContext?.groupId,
-        recipientPubkey: socialContext?.recipientPubkey,
-        isNutzap: socialContext?.isNutzap,
         destroyedTokens: proofsToSend.map(p => `${p.C}-${p.secret}`),
       });
+
+      // Add social context to local store (custom ZapTok feature)
+      if (socialContext) {
+        transactionHistoryStore.addHistoryEntry({
+          id: `send-${Date.now()}`,
+          direction: 'out',
+          amount: amount.toString(),
+          destroyedTokens: proofsToSend.map(p => `${p.C}-${p.secret}`),
+          timestamp: Date.now(),
+          groupId: socialContext.groupId,
+          recipientPubkey: socialContext.recipientPubkey,
+          isNutzap: socialContext.isNutzap,
+        });
+      }
 
       return {
         token: tokenString,
@@ -135,7 +165,7 @@ export function useCashuToken() {
       cashuStore.addProofs(receivedProofs, `receive-${Date.now()}`);
 
       // Record history
-      await createHistory.mutateAsync({
+      createHistory.mutate({
         direction: 'in',
         amount: totalAmount.toString(),
         createdTokens: receivedProofs.map(p => `${p.C}-${p.secret}`),

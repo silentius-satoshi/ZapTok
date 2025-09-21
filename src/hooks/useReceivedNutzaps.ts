@@ -1,13 +1,16 @@
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CASHU_EVENT_KINDS } from '@/lib/cashu';
+import { useNutzapInfo } from '@/hooks/useNutzaps';
+import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useNutzapRedemption } from '@/hooks/useNutzapRedemption';
-import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 
 export interface ReceivedNutzap {
   id: string;
-  pubkey: string; // Sender's pubkey (for backward compatibility)
-  senderPubkey: string; // Sender's pubkey
+  pubkey: string; // Sender's pubkey
+  senderPubkey: string; // Sender's pubkey (for backward compatibility)
   createdAt: number;
   timestamp: number; // For backward compatibility
   content: string; // Comment from sender
@@ -27,10 +30,9 @@ export interface ReceivedNutzap {
 
 /**
  * Hook to redeem nutzaps
- * STUB IMPLEMENTATION - Following Chorus patterns
  */
 export function useRedeemNutzap() {
-  const { updateProofs } = useCashuWallet();
+  const { wallet, updateProofs } = useCashuWallet();
   const { createRedemption } = useNutzapRedemption();
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
@@ -41,12 +43,7 @@ export function useRedeemNutzap() {
         return; // Already redeemed
       }
 
-      // TODO: Implement actual nutzap redemption
-      // This should:
-      // 1. Receive the token proofs from the nutzap
-      // 2. Update proofs in the wallet
-      // 3. Record the redemption
-
+      // Receive the token proofs
       const { proofs, mintUrl } = nutzap;
 
       // Update proofs in the wallet
@@ -84,20 +81,159 @@ export function useRedeemNutzap() {
 }
 
 /**
- * Hook to fetch received nutzaps
- * STUB IMPLEMENTATION - Basic structure following Chorus patterns
+ * Hook to fetch nutzap events received by the user
  */
 export function useReceivedNutzaps() {
+  const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const nutzapInfoQuery = useNutzapInfo(user?.pubkey);
 
   const query = useQuery({
     queryKey: ['nutzap', 'received', user?.pubkey],
-    queryFn: async (): Promise<ReceivedNutzap[]> => {
-      // TODO: Implement actual nutzap fetching using Nostr queries
-      // This should query for nutzap events (kind 9321) sent to the user
-      return [];
+    queryFn: async ({ signal }) => {
+      if (!user) throw new Error('User not logged in');
+
+      // Get the nutzap info for the user
+      const nutzapInfo = await nutzapInfoQuery.refetch();
+      if (!nutzapInfo.data) {
+        return [];
+      }
+
+      // Get trusted mints from nutzap info
+      const trustedMints = nutzapInfo.data.mints.map(mint => mint.url);
+      if (trustedMints.length === 0) {
+        return [];
+      }
+
+      // Get relays where the user reads nutzap events
+      const relays = nutzapInfo.data.relays;
+
+      // Get p2pk pubkey that the tokens should be locked to
+      const p2pkPubkey = nutzapInfo.data.p2pkPubkey;
+
+      // Get the last timestamp of redemption events
+      const lastRedemptionTimestamp = getLastEventTimestamp(
+        user.pubkey,
+        CASHU_EVENT_KINDS.HISTORY
+      );
+
+      // Query for nutzap events
+      const filter = {
+        kinds: [CASHU_EVENT_KINDS.ZAP],
+        '#p': [user.pubkey], // Events that p-tag the user
+        '#u': trustedMints, // Events that u-tag one of the trusted mints
+        limit: 50
+      };
+
+      // Add since filter if we have a last redemption timestamp
+      if (lastRedemptionTimestamp) {
+        Object.assign(filter, { since: lastRedemptionTimestamp });
+      }
+
+      const events = await nostr.query([filter], { signal });
+
+      // Query for redemption events to check which nutzaps have been redeemed
+      const redemptionEvents = await nostr.query([
+        {
+          kinds: [CASHU_EVENT_KINDS.HISTORY],
+          authors: [user.pubkey],
+          limit: 100
+        }
+      ], { signal });
+
+      // Extract redeemed event IDs
+      const redeemedEventIds = new Set<string>();
+      for (const event of redemptionEvents) {
+        event.tags
+          .filter(tag => tag[0] === 'e' && tag[3] === 'redeemed')
+          .forEach(tag => redeemedEventIds.add(tag[1]));
+      }
+
+      // Process and validate nutzap events
+      const receivedNutzaps: ReceivedNutzap[] = [];
+
+      for (const event of events) {
+        try {
+          // Check if this nutzap has already been redeemed
+          const isRedeemed = redeemedEventIds.has(event.id);
+
+          // Get the mint URL
+          const mintTag = event.tags.find(tag => tag[0] === 'u');
+          if (!mintTag) continue;
+          const mintUrl = mintTag[1];
+
+          // Verify the mint is in the trusted list
+          if (!trustedMints.includes(mintUrl)) continue;
+
+          // Get proofs
+          const proofTags = event.tags.filter(tag => tag[0] === 'proof');
+          if (proofTags.length === 0) continue;
+
+          const proofs = proofTags.map(tag => {
+            try {
+              return JSON.parse(tag[1]);
+            } catch (e) {
+              console.error('Failed to parse proof:', e);
+              return null;
+            }
+          }).filter(Boolean);
+
+          if (proofs.length === 0) continue;
+
+          // Verify the tokens are P2PK locked to the user's pubkey
+          for (const proof of proofs) {
+            // Check if the token is P2PK locked properly
+            try {
+              const secret = JSON.parse(proof.secret);
+              if (!(Array.isArray(secret) &&
+                secret[0] === 'P2PK' &&
+                secret[1] === p2pkPubkey)) {
+                console.warn('Proof not properly P2PK locked to user');
+                continue;
+              }
+            } catch (e) {
+              console.warn('Failed to parse proof secret for P2PK verification');
+              continue;
+            }
+          }
+
+          // Get the zapped event if any
+          let zappedEvent: string | undefined;
+          const eventTag = event.tags.find(tag => tag[0] === 'e');
+          if (eventTag) {
+            zappedEvent = eventTag[1];
+          }
+
+          // Calculate total amount
+          const amount = proofs.reduce((sum, p) => sum + p.amount, 0);
+
+          // Create nutzap object
+          const nutzap: ReceivedNutzap = {
+            id: event.id,
+            pubkey: event.pubkey,
+            senderPubkey: event.pubkey, // For compatibility
+            createdAt: event.created_at,
+            timestamp: event.created_at, // For compatibility
+            content: event.content,
+            comment: event.content, // For compatibility
+            amount,
+            proofs,
+            mintUrl,
+            zappedEvent,
+            redeemed: isRedeemed,
+            status: isRedeemed ? 'redeemed' : 'pending'
+          };
+
+          receivedNutzaps.push(nutzap);
+        } catch (error) {
+          console.error('Error processing nutzap event:', error);
+        }
+      }
+
+      // Sort by timestamp, newest first
+      return receivedNutzaps.sort((a, b) => b.createdAt - a.createdAt);
     },
-    enabled: !!user,
+    enabled: !!user && nutzapInfoQuery.isSuccess && !!nutzapInfoQuery.data
   });
 
   // Calculate derived properties

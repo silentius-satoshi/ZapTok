@@ -19,7 +19,7 @@ interface TransactionHistoryWarningProps {
 
 export function TransactionHistoryWarning({ className, trigger, compact = false }: TransactionHistoryWarningProps) {
   const { config } = useAppContext();
-  const { history, refetch } = useCashuHistory();
+  const { history } = useCashuHistory();
   const { nostr } = useNostr();
   const [isExpanded, setIsExpanded] = useState(false);
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
@@ -39,12 +39,12 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
   const missingPopularRelays = popularRelays.filter(relay => !configuredRelays.includes(relay));
 
   // Detect potential issues with transaction history
-  const hasOnlyReceiveTransactions = history.length > 0 && 
+  const hasOnlyReceiveTransactions = history.length > 0 &&
     history.every(t => t.direction === 'in');
-  
-  const hasOnlySendTransactions = history.length > 0 && 
+
+  const hasOnlySendTransactions = history.length > 0 &&
     history.every(t => t.direction === 'out');
-  
+
   const hasVeryFewTransactions = history.length > 0 && history.length < 3;
   const hasNoTransactions = history.length === 0;
 
@@ -52,16 +52,16 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
   useEffect(() => {
     async function checkRelayCoverage() {
       if (!nostr) return;
-      
+
       const stats: Record<string, number> = {};
-      
+
       // Test a quick query on each configured relay to see response time/availability
       await Promise.allSettled(
         configuredRelays.map(async (relayUrl) => {
           try {
             const start = Date.now();
-            await nostr.query([{ kinds: [7375], limit: 1 }], { 
-              signal: AbortSignal.timeout(3000) 
+            await nostr.query([{ kinds: [7375], limit: 1 }], {
+              signal: AbortSignal.timeout(3000)
             });
             stats[relayUrl] = Date.now() - start;
           } catch (error) {
@@ -69,7 +69,7 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
           }
         })
       );
-      
+
       setRelayStats(stats);
       setLastCheck(new Date());
     }
@@ -78,9 +78,9 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
   }, [configuredRelays, nostr]);
 
   // Determine what type of warning to show
-  const shouldShowWarning = hasNoTransactions || 
-    hasOnlyReceiveTransactions || 
-    hasOnlySendTransactions || 
+  const shouldShowWarning = hasNoTransactions ||
+    hasOnlyReceiveTransactions ||
+    hasOnlySendTransactions ||
     hasVeryFewTransactions ||
     missingPopularRelays.length > 0;
 
@@ -127,18 +127,8 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
           {history.length} transaction{history.length !== 1 ? 's' : ''}
         </Badge>
       </div>
-      
+
       <div className="flex gap-2 flex-wrap">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => refetch()}
-          className="flex items-center gap-1"
-        >
-          <RefreshCw className="h-3 w-3" />
-          Refresh History
-        </Button>
-        
         <RelayManagementDialog
           trigger={
             <Button size="sm" variant="outline" className="flex items-center gap-1">
@@ -147,7 +137,7 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
             </Button>
           }
         />
-        
+
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
           <CollapsibleTrigger asChild>
             <Button size="sm" variant="ghost" className="flex items-center gap-1 text-xs">
@@ -155,7 +145,7 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
               {isExpanded ? 'Hide' : 'Show'} Details
             </Button>
           </CollapsibleTrigger>
-          
+
           <CollapsibleContent className="mt-3">
             <Card>
               <CardHeader className="pb-3">
@@ -174,13 +164,13 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
                     {configuredRelays.map((relay) => (
                       <div key={relay} className="flex items-center justify-between text-xs">
                         <span className="font-mono">{relay}</span>
-                        <Badge 
+                        <Badge
                           variant={relayStats[relay] === -1 ? 'destructive' : 'default'}
                           className="text-xs"
                         >
-                          {relayStats[relay] === -1 
-                            ? 'Error' 
-                            : relayStats[relay] 
+                          {relayStats[relay] === -1
+                            ? 'Error'
+                            : relayStats[relay]
                               ? `${relayStats[relay]}ms`
                               : 'Checking...'
                           }

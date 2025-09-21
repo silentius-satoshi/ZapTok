@@ -75,9 +75,6 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
     try {
       setIsProcessing(true);
 
-      // Fetch recipient's nutzap info
-      const recipientInfo = await fetchNutzapInfo(pubkey);
-
       // Convert amount based on currency preference
       let amountValue: number;
 
@@ -98,24 +95,53 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
         return;
       }
 
-      // Verify mint compatibility and get a compatible mint URL
-      const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
+      // Fetch recipient's nutzap info - required for P2PK locking
+      let recipientInfo: any;
+      let p2pkPubkey: string;
 
-      // Send token using p2pk pubkey from recipient info
+      try {
+        recipientInfo = await fetchNutzapInfo(pubkey);
+        p2pkPubkey = recipientInfo.p2pkPubkey;
+
+        // Validate that we have a proper P2PK pubkey
+        if (!p2pkPubkey) {
+          throw new Error("Recipient has not published their Cashu wallet public key");
+        }
+
+        // Verify mint compatibility
+        const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
+
+      } catch (error) {
+        console.error("Cannot send nutzap:", error);
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Recipient hasn't set up their wallet for receiving nutzaps. They need to publish their NIP-19 nutzap information first."
+        );
+        setIsProcessing(false);
+        return;
+      }
+
+      // Send token using P2PK locking to the determined pubkey
+      console.log("🔐 Using P2PK pubkey:", p2pkPubkey);
       const result = await sendToken(amountValue, {
-        recipientPubkey: recipientInfo.p2pkPubkey,
+        recipientPubkey: p2pkPubkey,
         isNutzap: true,
         publicNote: comment
       });
 
-      // Send nutzap using recipient info
-      await sendNutzap({
-        recipientInfo,
-        comment,
-        proofs: result.proofs,
-        token: result.token,
-        eventId: eventId,
-      });
+      // Only send nutzap event if we have valid recipient info and mints
+      if (recipientInfo && recipientInfo.mints && recipientInfo.mints.length > 0) {
+        await sendNutzap({
+          recipientInfo,
+          comment,
+          proofs: result.proofs,
+          mintUrl: cashuStore.activeMintUrl || '',
+          eventId: eventId,
+        });
+      } else {
+        console.warn("Skipping nutzap event creation - recipient has no mint info");
+      }
 
       toast.success(`Successfully sent ${formatAmount(amountValue)} to ${displayName}`);
       setAmount("");

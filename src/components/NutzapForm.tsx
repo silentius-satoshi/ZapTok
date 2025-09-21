@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSendNutzap, useFetchNutzapInfo, useVerifyMintCompatibility } from '@/hooks/useSendNutzap';
 import { useCashuToken } from '@/hooks/useCashuToken';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useCashuStore } from '@/stores/cashuStore';
 import { formatBalance } from '@/lib/cashu';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ export function NutzapForm({
   const [comment, setComment] = useState('');
 
   const { user } = useCurrentUser();
+  const cashuStore = useCashuStore();
   const { sendNutzap, isSending } = useSendNutzap();
   const { fetchNutzapInfo } = useFetchNutzapInfo();
   const { verifyMintCompatibility } = useVerifyMintCompatibility();
@@ -74,7 +76,7 @@ export function NutzapForm({
         recipientInfo,
         comment,
         proofs: result.proofs,
-        token: result.token,
+        mintUrl: cashuStore.activeMintUrl || '',
         eventId
       });
 

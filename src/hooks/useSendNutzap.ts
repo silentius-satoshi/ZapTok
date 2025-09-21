@@ -1,30 +1,45 @@
-import { useMutation } from '@tanstack/react-query';
+import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-
-export interface NutzapInformationalEvent {
-  event: {
-    id: string;
-    pubkey: string;
-    created_at: number;
-    content: string;
-    tags: string[][];
-  };
-  p2pkPubkey: string;
-  acceptedMints: string[];
-}
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { CASHU_EVENT_KINDS } from '@/lib/cashu';
+import { NostrEvent } from 'nostr-tools';
+import { Proof } from '@cashu/cashu-ts';
+import { useNutzapStore, NutzapInformationalEvent } from '@/stores/nutzapStore';
+import { useCashuStore } from '@/stores/cashuStore';
 
 /**
  * Hook to verify mint compatibility between sender and recipient
- * STUB IMPLEMENTATION - Following Chorus patterns
+ * Checks if recipient accepts tokens from sender's active mint
+ * If not, tries to find a compatible mint from sender's mints list
  */
 export function useVerifyMintCompatibility() {
+  const cashuStore = useCashuStore();
+
   const verifyMintCompatibility = (recipientInfo: NutzapInformationalEvent): string => {
-    // TODO: Implement actual mint compatibility verification
-    // This should check if recipient accepts tokens from sender's active mint
-    // If not, find a compatible mint from sender's mints list
-    
-    // For now, return the first accepted mint or a default
-    return recipientInfo.acceptedMints[0] || 'https://mint.minibits.cash/Bitcoin';
+    const activeMintUrl = cashuStore.activeMintUrl || '';
+    const recipientMints = recipientInfo.mints.map(mint => mint.url);
+
+    // Check if recipient accepts the active mint
+    if (activeMintUrl && recipientMints.includes(activeMintUrl)) {
+      return activeMintUrl;
+    }
+
+    // If not, try to find a compatible mint
+    const compatibleMint = recipientMints.find(mintUrl =>
+      cashuStore.mints.map(m => m.url).includes(mintUrl)
+    );
+
+    if (compatibleMint) {
+      // Update the active mint to the compatible one
+      cashuStore.setActiveMintUrl(compatibleMint);
+      return compatibleMint;
+    }
+
+    // If no compatible mint found, throw an error
+    throw new Error(
+      `No compatible mint found. Recipient accepts: ${recipientMints.join(', ')}. ` +
+      `You have: ${cashuStore.mints.map(m => m.url).join(', ')}`
+    );
   };
 
   return { verifyMintCompatibility };
@@ -32,27 +47,58 @@ export function useVerifyMintCompatibility() {
 
 /**
  * Hook to fetch a recipient's nutzap information
- * STUB IMPLEMENTATION - Following Chorus patterns
  */
 export function useFetchNutzapInfo() {
+  const { nostr } = useNostr();
+  const nutzapStore = useNutzapStore();
+
+  // Mutation to fetch and store nutzap info
   const fetchNutzapInfoMutation = useMutation({
-    mutationFn: async (pubkey: string): Promise<NutzapInformationalEvent> => {
-      // TODO: Implement actual nutzap info fetching
-      // This should query for the recipient's nutzap info event
-      
-      // Return mock data for now
-      return {
-        event: {
-          id: 'mock-nutzap-info-event',
-          pubkey,
-          created_at: Math.floor(Date.now() / 1000),
-          content: '',
-          tags: [],
-        },
-        p2pkPubkey: 'mock-p2pk-pubkey',
-        acceptedMints: ['https://mint.minibits.cash/Bitcoin'],
+    mutationFn: async (recipientPubkey: string): Promise<NutzapInformationalEvent> => {
+      // First check if we have it in the store
+      const storedInfo = nutzapStore.getNutzapInfo(recipientPubkey);
+      if (storedInfo) {
+        return storedInfo;
+      }
+
+      // Otherwise fetch it from the network
+      const events = await nostr.query([
+        { kinds: [CASHU_EVENT_KINDS.ZAPINFO], authors: [recipientPubkey], limit: 1 }
+      ], { signal: AbortSignal.timeout(5000) });
+
+      if (events.length === 0) {
+        throw new Error('Recipient has no nutzap informational event');
+      }
+
+      const event = events[0];
+
+      // Parse the nutzap informational event
+      const relays = event.tags
+        .filter(tag => tag[0] === 'relay')
+        .map(tag => tag[1]);
+
+      const mints = event.tags
+        .filter(tag => tag[0] === 'mint')
+        .map(tag => ({
+          url: tag[1],
+          units: tag.slice(2)
+        }));
+
+      const p2pkPubkey = event.tags
+        .find(tag => tag[0] === 'pubkey')?.[1] || '';
+
+      const nutzapInfo: NutzapInformationalEvent = {
+        event,
+        relays,
+        mints,
+        p2pkPubkey
       };
-    },
+
+      // Store it for future use
+      nutzapStore.setNutzapInfo(recipientPubkey, nutzapInfo);
+
+      return nutzapInfo;
+    }
   });
 
   return {
@@ -63,11 +109,14 @@ export function useFetchNutzapInfo() {
 
 /**
  * Hook to create and send nutzap events
- * STUB IMPLEMENTATION - Following Chorus patterns  
  */
 export function useSendNutzap() {
+  const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const { verifyMintCompatibility } = useVerifyMintCompatibility();
+  const queryClient = useQueryClient();
 
+  // Mutation to create and send a nutzap event
   const sendNutzapMutation = useMutation({
     mutationFn: async ({
       recipientInfo,
@@ -75,43 +124,67 @@ export function useSendNutzap() {
       proofs,
       mintUrl,
       eventId,
-      relayHint,
-      tags: additionalTags = []
+      relayHint
     }: {
       recipientInfo: NutzapInformationalEvent;
       comment?: string;
-      proofs: any[];
+      proofs: Proof[];
       mintUrl: string;
-      eventId?: string;
-      relayHint?: string;
-      tags?: string[][];
+      eventId?: string; // Event being nutzapped (optional)
+      relayHint?: string; // Hint for relay where the event can be found
     }) => {
       if (!user) throw new Error('User not logged in');
 
-      // TODO: Implement actual nutzap event creation and sending
-      // This should create a NIP-61 nutzap event and publish it
-      
-      console.log('Sending nutzap:', {
-        recipientInfo,
-        comment,
-        proofs,
-        mintUrl,
-        eventId,
-        relayHint,
-        additionalTags
+      // Verify mint compatibility and get the compatible mint URL
+      const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
+
+      // If mintUrl is different from compatibleMintUrl, we should use the compatible one
+      // but this requires generating new proofs with the compatible mint
+      if (mintUrl !== compatibleMintUrl) {
+        mintUrl = compatibleMintUrl;
+      }
+
+      // Create tags for the nutzap event
+      const tags = [
+        // Add proofs
+        ...proofs.map(proof => ['proof', JSON.stringify(proof)]),
+
+        // Add mint URL
+        ['u', mintUrl],
+
+        // Add recipient pubkey
+        ['p', recipientInfo.event.pubkey],
+      ];
+
+      // Add event tag if specified
+      if (eventId) {
+        tags.push(['e', eventId, relayHint || '']);
+      }
+
+      // Create the nutzap event
+      const event = await user.signer.signEvent({
+        kind: CASHU_EVENT_KINDS.ZAP,
+        content: comment,
+        tags,
+        created_at: Math.floor(Date.now() / 1000)
       });
 
-      // Return mock event
+      // Publish the event to the recipient's relays
+      await nostr.event(event);
+
+      // Invalidate relevant queries
+      if (eventId) {
+        queryClient.invalidateQueries({ queryKey: ['nutzaps', eventId] });
+      }
+
+      // Also invalidate recipient's received nutzaps
+      queryClient.invalidateQueries({
+        queryKey: ['nutzap', 'received', recipientInfo.event.pubkey]
+      });
+
+      // Return the event
       return {
-        event: {
-          id: 'mock-nutzap-event-id',
-          kind: 9321,
-          pubkey: user.pubkey,
-          created_at: Math.floor(Date.now() / 1000),
-          content: comment,
-          tags: [],
-          sig: 'mock-signature',
-        },
+        event,
         recipientInfo
       };
     }

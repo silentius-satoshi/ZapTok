@@ -9,10 +9,10 @@ import { useAutoReceiveNutzaps } from '@/hooks/useAutoReceiveNutzaps';
 export function WalletLoader() {
   // Automatically load wallet data when user logs in
   useWalletAutoLoader();
-  
-  // Automatically receive and redeem incoming nutzaps
-  useAutoReceiveNutzaps();
-  
-  // This component doesn't render anything
+
+  // Automatically receive and redeem nutzaps
+  const { receivedCount, unredeemedCount } = useAutoReceiveNutzaps();
+
+  // This component doesn't render anything visible
   return null;
 }

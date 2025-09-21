@@ -41,27 +41,20 @@ export function CashuTokenCard() {
 
   const handleSendToken = async () => {
     if (!amount || !user) return;
-    
+
     try {
       setError(null);
-      
+
       // Get the first mint URL from the store
       const availableMints = Object.keys(cashuStore.mints);
       if (availableMints.length === 0) {
         throw new Error("No mints available");
       }
-      
-      const proofs = await sendToken(availableMints[0], parseInt(amount));
-      
-      // Generate token string from proofs
-      const tokenData = {
-        token: [{
-          mint: availableMints[0],
-          proofs: proofs
-        }]
-      };
-      
-      setGeneratedToken(JSON.stringify(tokenData));
+
+      const result = await sendToken(parseInt(amount));
+
+      // Use the generated token string
+      setGeneratedToken(result.token);
       setSuccess("Token generated successfully!");
       setAmount("");
     } catch (err: any) {
@@ -71,7 +64,7 @@ export function CashuTokenCard() {
 
   const handleReceiveToken = async () => {
     if (!token.trim()) return;
-    
+
     try {
       setError(null);
       await receiveToken(token.trim());
@@ -136,7 +129,7 @@ export function CashuTokenCard() {
                     className="min-h-[100px]"
                   />
                 </div>
-                <Button 
+                <Button
                   onClick={handleReceiveToken}
                   disabled={!token.trim() || isLoading}
                   className="w-full"
@@ -157,7 +150,7 @@ export function CashuTokenCard() {
                     onChange={(e) => setAmount(e.target.value)}
                   />
                 </div>
-                <Button 
+                <Button
                   onClick={handleSendToken}
                   disabled={!amount || isLoading}
                   className="w-full"

@@ -11,7 +11,6 @@ interface WalletUiStore {
     mints: boolean;
     cashuRelay: boolean;
   };
-  // Legacy simple boolean accessors for backwards compatibility
   isExpanded: boolean;
   // Methods
   toggleCard: (cardName: keyof WalletUiStore['expandedCards']) => void;
@@ -32,7 +31,6 @@ export const useWalletUiStore = create<WalletUiStore>()(
         mints: true,
         cashuRelay: false,
       },
-      // Legacy compatibility - defaults to history card
       get isExpanded() {
         return get().expandedCards.history;
       },
@@ -50,7 +48,6 @@ export const useWalletUiStore = create<WalletUiStore>()(
       })),
       toggleExpanded: (cardName = 'history') => {
         if (cardName === 'main') {
-          // Toggle main wallet expansion (legacy)
           set(state => ({
             expandedCards: {
               ...state.expandedCards,

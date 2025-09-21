@@ -21,7 +21,7 @@ const routeContextMap: Record<string, RelayContext> = {
   '/wallet': 'cashu-only',
   '/lightning': 'cashu-only',
 
-  // Legacy Cashu routes
+  // Cashu routes
   '/cashu': 'cashu-only',
 
   // Profile and social routes - use feed-optimized relays

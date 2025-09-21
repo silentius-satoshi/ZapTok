@@ -24,7 +24,7 @@ export function CashuStoreDebug() {
           </div>
           <div>
             <strong>Total Balance:</strong> {formatBalance(
-              cashuStore.proofs.reduce((sum, p) => sum + p.amount, 0)
+              cashuStore.getTotalBalance()
             )}
           </div>
           <div>

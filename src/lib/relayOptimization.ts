@@ -58,7 +58,7 @@ export function getOptimalRelays(
     }
     
     case 'wallet': {
-      // Legacy: For wallet operations, use only Cashu relay (same as cashu-only)
+      // For wallet operations, use only Cashu relay (same as cashu-only)
       return ['wss://relay.chorus.community'];
     }
       

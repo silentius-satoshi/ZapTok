@@ -2,32 +2,30 @@ import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS, SpendingHistoryEntry } from '@/lib/cashu';
+import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
+import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
+import { NostrEvent } from 'nostr-tools';
 
 /**
- * Hook to fetch and manage the user's Cashu spending history with social features
+ * Hook to fetch and manage the user's Cashu spending history
  */
 export function useCashuHistory() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
+  const transactionHistoryStore = useTransactionHistoryStore();
 
-  // Create spending history event with social context
+  // Create spending history event
   const createHistoryMutation = useMutation({
     mutationFn: async ({
       direction,
       amount,
-      groupId,
-      recipientPubkey,
-      isNutzap,
       createdTokens = [],
       destroyedTokens = [],
       redeemedTokens = []
     }: {
       direction: 'in' | 'out';
       amount: string;
-      groupId?: string;
-      recipientPubkey?: string;
-      isNutzap?: boolean;
       createdTokens?: string[];
       destroyedTokens?: string[];
       redeemedTokens?: string[];
@@ -37,7 +35,7 @@ export function useCashuHistory() {
         throw new Error('NIP-44 encryption not supported by your signer');
       }
 
-      // Prepare content data with social context
+      // Prepare content data
       const contentData = [
         ['direction', direction],
         ['amount', amount],
@@ -45,41 +43,34 @@ export function useCashuHistory() {
         ...destroyedTokens.map(id => ['e', id, '', 'destroyed'])
       ];
 
-      // Add social context to encrypted content
-      if (groupId) contentData.push(['group_id', groupId]);
-      if (isNutzap) contentData.push(['type', 'nutzap']);
-
       // Encrypt content
       const content = await user.signer.nip44.encrypt(
         user.pubkey,
         JSON.stringify(contentData)
       );
 
-      // Prepare tags for social features
-      const tags = [
-        ...redeemedTokens.map(id => ['e', id, '', 'redeemed'])
-      ];
-
-      // Add recipient pubkey for social payments
-      if (recipientPubkey) {
-        tags.push(['p', recipientPubkey]);
-      }
-
-      // Add group tag for community payments
-      if (groupId) {
-        tags.push(['g', groupId]);
-      }
-
-      // Create history event
+      // Create history event with unencrypted redeemed tags
       const event = await user.signer.signEvent({
         kind: CASHU_EVENT_KINDS.HISTORY,
         content,
-        tags,
+        tags: redeemedTokens.map(id => ['e', id, '', 'redeemed']),
         created_at: Math.floor(Date.now() / 1000)
       });
 
       // Publish event
       await nostr.event(event);
+
+      // Add to transaction history store
+      const historyEntry: SpendingHistoryEntry & { id: string } = {
+        id: event.id,
+        direction,
+        amount,
+        timestamp: event.created_at,
+        createdTokens,
+        destroyedTokens,
+        redeemedTokens
+      };
+      transactionHistoryStore.addHistoryEntry(historyEntry);
 
       return event;
     },
@@ -96,18 +87,28 @@ export function useCashuHistory() {
         throw new Error('NIP-44 encryption not supported by your signer');
       }
 
-      const events = await nostr.query([{
+      // Get the last stored timestamp for the HISTORY event kind
+      const lastTimestamp = getLastEventTimestamp(user.pubkey, CASHU_EVENT_KINDS.HISTORY);
+
+      // Create the filter with 'since' if a timestamp exists
+      const filter = {
         kinds: [CASHU_EVENT_KINDS.HISTORY],
         authors: [user.pubkey],
         limit: 100
-      }], { signal });
+      };
 
-      const history: (SpendingHistoryEntry & {
-        id: string;
-        groupId?: string;
-        recipientPubkey?: string;
-        isNutzap?: boolean;
-      })[] = [];
+      // Add the 'since' property if we have a previous timestamp
+      if (lastTimestamp) {
+        Object.assign(filter, { since: lastTimestamp });
+      }
+
+      const events = await nostr.query([filter], { signal });
+
+      if (events.length === 0) {
+        return [];
+      }
+
+      const history: (SpendingHistoryEntry & { id: string })[] = [];
 
       for (const event of events) {
         try {
@@ -115,51 +116,44 @@ export function useCashuHistory() {
           const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
           const contentData = JSON.parse(decrypted) as Array<string[]>;
 
-          // Extract basic data
-          const entry = {
+          // Extract data from content
+          const entry: SpendingHistoryEntry & { id: string } = {
             id: event.id,
-            direction: 'in' as 'in' | 'out',
+            direction: 'in',
             amount: '0',
             timestamp: event.created_at,
-            createdTokens: [] as string[],
-            destroyedTokens: [] as string[],
-            redeemedTokens: [] as string[],
-            groupId: undefined as string | undefined,
-            recipientPubkey: undefined as string | undefined,
-            isNutzap: false
+            createdTokens: [],
+            destroyedTokens: [],
+            redeemedTokens: []
           };
 
-          // Process encrypted content
+          // Process content data
           for (const item of contentData) {
-            const [key, value, , marker] = item;
+            const [key, value] = item;
+            const marker = item.length >= 4 ? item[3] : undefined;
 
             if (key === 'direction') {
               entry.direction = value as 'in' | 'out';
             } else if (key === 'amount') {
               entry.amount = value;
-            } else if (key === 'group_id') {
-              entry.groupId = value;
-            } else if (key === 'type' && value === 'nutzap') {
-              entry.isNutzap = true;
             } else if (key === 'e' && marker === 'created') {
-              entry.createdTokens.push(value);
+              entry.createdTokens?.push(value);
             } else if (key === 'e' && marker === 'destroyed') {
-              entry.destroyedTokens.push(value);
+              entry.destroyedTokens?.push(value);
             }
           }
 
           // Process unencrypted tags
           for (const tag of event.tags) {
             if (tag[0] === 'e' && tag[3] === 'redeemed') {
-              entry.redeemedTokens.push(tag[1]);
-            } else if (tag[0] === 'p') {
-              entry.recipientPubkey = tag[1];
-            } else if (tag[0] === 'g') {
-              entry.groupId = tag[1];
+              entry.redeemedTokens?.push(tag[1]);
             }
           }
 
           history.push(entry);
+
+          // Add to transaction history store
+          transactionHistoryStore.addHistoryEntry(entry);
         } catch (error) {
           console.error('Failed to decrypt history data:', error);
         }
@@ -174,7 +168,6 @@ export function useCashuHistory() {
   return {
     history: historyQuery.data || [],
     isLoading: historyQuery.isLoading,
-    createHistory: createHistoryMutation,
-    refetch: historyQuery.refetch
+    createHistory: createHistoryMutation
   };
 }
