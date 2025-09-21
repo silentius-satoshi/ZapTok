@@ -23,7 +23,8 @@ import {
   Trash,
   Eraser,
 } from "lucide-react";
-import { useCashuStore, CashuWalletStruct } from "@/stores/cashuStore";
+import { useCashuStore } from "@/stores/cashuStore";
+import { CashuWalletStruct } from "@/lib/cashu";
 
 import { Badge } from "@/components/ui/badge";
 import { useCashuToken } from "@/hooks/useCashuToken";
@@ -56,7 +57,7 @@ export function CashuWalletCard() {
     if (!showSats && btcPrice) {
       Object.keys(balances).forEach((mint) => {
         const amount = balances[mint] || 0;
-        const currentValue = formatUSD(satsToUSD(amount, btcPrice.USD));
+        const currentValue = formatUSD(satsToUSD(amount, btcPrice.usd));
 
         if (
           prevBalances.current[mint] &&
@@ -107,16 +108,10 @@ export function CashuWalletCard() {
 
       // Add mint to wallet
       const updatedWalletData: CashuWalletStruct = {
-        id: crypto.randomUUID(),
-        name: 'My Wallet',
-        unit: 'sat',
-        mints: [...wallet.mints, newMint],
-        balance: 0,
-        proofs: [],
-        lastUpdated: Date.now(),
         privkey: wallet.privkey,
+        mints: [...wallet.mints, newMint],
       };
-      
+
       handleCreateWallet(updatedWalletData);
 
       // Clear input
@@ -142,16 +137,10 @@ export function CashuWalletCard() {
     try {
       // Remove mint from wallet
       const updatedWalletData: CashuWalletStruct = {
-        id: crypto.randomUUID(),
-        name: 'My Wallet',
-        unit: 'sat',
-        mints: wallet.mints.filter((m) => m !== mintUrl),
-        balance: 0,
-        proofs: [],
-        lastUpdated: Date.now(),
         privkey: wallet.privkey,
+        mints: wallet.mints.filter((m) => m !== mintUrl),
       };
-      
+
       handleCreateWallet(updatedWalletData);
     } catch {
       setError("Failed to remove mint");
@@ -177,7 +166,7 @@ export function CashuWalletCard() {
   const handleCleanSpentProofs = async (mintUrl: string) => {
     if (!wallet || !wallet.mints) return;
     if (!cashuStore.activeMintUrl) return;
-    const spentProofs = await cleanSpentProofs(mintUrl);
+    const spentProofs = await cleanSpentProofs.mutateAsync(mintUrl);
     const proofSum = spentProofs.reduce((sum, proof) => sum + proof.amount, 0);
     console.log(
       `Removed ${spentProofs.length} spent proofs for ${proofSum} sats`
@@ -302,7 +291,7 @@ export function CashuWalletCard() {
                               {showSats
                                 ? formatBalance(amount)
                                 : btcPrice
-                                ? formatUSD(satsToUSD(amount, btcPrice.USD))
+                                ? formatUSD(satsToUSD(amount, btcPrice.usd))
                                 : formatBalance(amount)}
                             </span>
                             <Button

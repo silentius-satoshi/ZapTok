@@ -1,17 +1,26 @@
 import { useState } from 'react';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
-import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
-import { Card, CardContent } from '@/components/ui/card';
+import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
+import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
+import { useWalletUiStore } from '@/stores/walletUiStore';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TransactionHistoryWarning } from '@/components/TransactionHistoryWarning';
+import { formatBalance } from '@/lib/cashu';
 import {
   ArrowUpRight,
   ArrowDownLeft,
   ChevronDown,
   ChevronUp,
-  AlertTriangle
+  AlertTriangle,
+  Users,
+  Zap,
+  DollarSign,
+  Bitcoin
 } from 'lucide-react';
+
 interface CashuHistoryCardProps {
   limit?: number;
   className?: string;
@@ -23,39 +32,43 @@ export function CashuHistoryCard({
 }: CashuHistoryCardProps) {
   const { history, isLoading } = useCashuHistory();
   const [visibleEntries, setVisibleEntries] = useState(limit);
-  const [isExpanded, setIsExpanded] = useState(true);
   const { data: btcPrice } = useBitcoinPrice();
+  const { displayCurrency, toggleCurrency } = useCurrencyDisplayStore();
+  const { isExpanded, toggleExpanded } = useWalletUiStore();
 
   // Check if we should show the warning icon
-  const hasOnlyReceiveTransactions = history.length > 0 && 
+  const hasOnlyReceiveTransactions = history.length > 0 &&
     history.every(t => t.direction === 'in');
-  
-  const hasOnlySendTransactions = history.length > 0 && 
+
+  const hasOnlySendTransactions = history.length > 0 &&
     history.every(t => t.direction === 'out');
-  
+
   const hasVeryFewTransactions = history.length > 0 && history.length < 3;
   const hasNoTransactions = history.length === 0;
 
-  const shouldShowWarning = hasNoTransactions || 
-    hasOnlyReceiveTransactions || 
-    hasOnlySendTransactions || 
+  const shouldShowWarning = hasNoTransactions ||
+    hasOnlyReceiveTransactions ||
+    hasOnlySendTransactions ||
     hasVeryFewTransactions;
 
   const displayTransactions = history.slice(0, visibleEntries);
 
-  // Format amount in USD like Chorus
+  // Currency display helpers
   const formatAmount = (sats: number) => {
-    if (!btcPrice) {
-      return `${sats.toLocaleString()} sats`;
+    if (displayCurrency === 'usd' && btcPrice) {
+      return formatUSD(satsToUSD(sats, btcPrice.usd));
     }
-    const usdAmount = (sats * btcPrice.USD) / 100000000;
-    return `${usdAmount.toFixed(2)} usd`;
+    return formatBalance(sats);
   };
 
-  // Format timestamp like Chorus
+  const getCurrencyLabel = () => {
+    return displayCurrency === 'usd' ? 'USD' : 'sats';
+  };
+
+  // Format timestamp
   const formatTimestamp = (timestamp?: number) => {
     if (!timestamp) return '';
-    const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp; // support seconds
+    const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
     const date = new Date(ms);
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -63,26 +76,46 @@ export function CashuHistoryCard({
       year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
-      second: '2-digit',
       hour12: true
     });
-  };
-
-  const toggleExpanded = () => {
-    setIsExpanded(!isExpanded);
   };
 
   const loadMore = () => {
     setVisibleEntries(prev => prev + 5);
   };
 
+  // Get transaction type icon and label
+  const getTransactionDisplay = (transaction: any) => {
+    if (transaction.isNutzap) {
+      return {
+        icon: <Zap className="w-5 h-5" />,
+        label: transaction.direction === 'in' ? 'Nutzap Received' : 'Nutzap Sent',
+        bgColor: transaction.direction === 'in' ? 'bg-yellow-100 text-yellow-600' : 'bg-orange-100 text-orange-600'
+      };
+    }
+
+    if (transaction.groupId) {
+      return {
+        icon: <Users className="w-5 h-5" />,
+        label: transaction.direction === 'in' ? 'Group Payment Received' : 'Group Payment Sent',
+        bgColor: transaction.direction === 'in' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
+      };
+    }
+
+    return {
+      icon: transaction.direction === 'in' ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />,
+      label: transaction.direction === 'in' ? 'Received' : 'Sent',
+      bgColor: transaction.direction === 'in' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+    };
+  };
+
   if (isLoading) {
     return (
       <Card className={className}>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold">Transaction History</h2>
-          </div>
+        <CardHeader>
+          <CardTitle>Transaction History</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-center space-x-3">
@@ -102,13 +135,12 @@ export function CashuHistoryCard({
 
   return (
     <Card className={className}>
-      <CardContent className="p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+      <CardHeader>
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-semibold">Transaction History</h2>
+            <CardTitle>Transaction History</CardTitle>
             {shouldShowWarning && (
-              <TransactionHistoryWarning 
+              <TransactionHistoryWarning
                 trigger={
                   <Button
                     variant="ghost"
@@ -122,55 +154,91 @@ export function CashuHistoryCard({
               />
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleExpanded}
-            className="h-8 w-8 p-0"
-          >
-            {isExpanded ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
-          </Button>
-        </div>
 
-        {isExpanded && (
-          <>            
-            {displayTransactions.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="text-muted-foreground text-sm">No transactions yet</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {displayTransactions.map((transaction, index) => (
+          <div className="flex items-center gap-2">
+            {/* Currency toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleCurrency}
+              className="h-8 w-16"
+            >
+              {displayCurrency === 'usd' ? (
+                <DollarSign className="h-4 w-4" />
+              ) : (
+                <Bitcoin className="h-4 w-4" />
+              )}
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => toggleExpanded('history')}
+              className="h-8 w-8 p-0"
+            >
+              {isExpanded ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+
+      {isExpanded && (
+        <CardContent>
+          {displayTransactions.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-muted-foreground text-sm">No transactions yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {displayTransactions.map((transaction, index) => {
+                const { icon, label, bgColor } = getTransactionDisplay(transaction);
+
+                return (
                   <div
                     key={transaction.id || index}
                     className="flex items-center justify-between py-3"
                   >
                     <div className="flex items-center gap-4">
-                      {/* Circular icon with arrow */}
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        transaction.direction === 'in'
-                          ? 'bg-green-100 text-green-600'
-                          : 'bg-red-100 text-red-600'
-                      }`}>
-                        {transaction.direction === 'in' ? (
-                          <ArrowDownLeft className="w-5 h-5" />
-                        ) : (
-                          <ArrowUpRight className="w-5 h-5" />
-                        )}
+                      {/* Transaction type icon */}
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${bgColor}`}>
+                        {icon}
                       </div>
 
                       {/* Transaction details */}
                       <div>
-                        <p className="font-medium text-white">
-                          {transaction.direction === 'in' ? 'Received' : 'Sent'}
-                        </p>
-                        <p className="text-sm text-gray-400">
-                          {formatTimestamp(transaction.timestamp)}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{label}</p>
+                          {transaction.isNutzap && (
+                            <Badge variant="outline" className="text-xs">
+                              Nutzap
+                            </Badge>
+                          )}
+                          {transaction.groupId && (
+                            <Badge variant="outline" className="text-xs">
+                              Group
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>{formatTimestamp(transaction.timestamp)}</span>
+                          {transaction.publicNote && (
+                            <>
+                              <span>•</span>
+                              <span className="italic">{transaction.publicNote}</span>
+                            </>
+                          )}
+                        </div>
+
+                        {transaction.recipientPubkey && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            To: {transaction.recipientPubkey.slice(0, 16)}...
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -183,25 +251,28 @@ export function CashuHistoryCard({
                       }`}>
                         {transaction.direction === 'in' ? '+' : '-'}{formatAmount(parseInt(transaction.amount as any, 10) || 0)}
                       </p>
+                      <p className="text-xs text-muted-foreground">
+                        {getCurrencyLabel()}
+                      </p>
                     </div>
                   </div>
-                ))}
+                );
+              })}
 
-                {history.length > visibleEntries && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={loadMore}
-                    className="w-full mt-4"
-                  >
-                    Load More
-                  </Button>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </CardContent>
+              {history.length > visibleEntries && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={loadMore}
+                  className="w-full mt-4"
+                >
+                  Load More
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 }

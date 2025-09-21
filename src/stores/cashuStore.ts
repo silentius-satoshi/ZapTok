@@ -9,8 +9,12 @@ interface ProofWithEventId extends Proof {
 
 export interface Nip60TokenEvent {
   id: string;
-  proofs: Proof[];
-  mint: string;
+  token: {
+    mint: string;
+    proofs: Proof[];
+    del?: string[];
+  };
+  createdAt: number;
 }
 
 export interface Mint {

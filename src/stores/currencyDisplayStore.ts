@@ -1,21 +1,27 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface CurrencyDisplayState {
+interface CurrencyDisplayStore {
+  displayCurrency: 'sats' | 'usd';
+  // Legacy compatibility property
   showSats: boolean;
+  setDisplayCurrency: (currency: 'sats' | 'usd') => void;
   toggleCurrency: () => void;
-  setShowSats: (show: boolean) => void;
 }
 
-export const useCurrencyDisplayStore = create<CurrencyDisplayState>()(
+export const useCurrencyDisplayStore = create<CurrencyDisplayStore>()(
   persist(
-    (set) => ({
-      showSats: true, // Default to showing sats
-      toggleCurrency: () => set((state) => ({ showSats: !state.showSats })),
-      setShowSats: (show: boolean) => set({ showSats: show }),
+    (set, get) => ({
+      displayCurrency: 'sats',
+      // Legacy compatibility - returns true when showing sats
+      get showSats() {
+        return get().displayCurrency === 'sats';
+      },
+      setDisplayCurrency: (currency) => set({ displayCurrency: currency }),
+      toggleCurrency: () => set({
+        displayCurrency: get().displayCurrency === 'sats' ? 'usd' : 'sats'
+      }),
     }),
-    {
-      name: 'currency-display-storage',
-    }
+    { name: 'currency-display' }
   )
 );

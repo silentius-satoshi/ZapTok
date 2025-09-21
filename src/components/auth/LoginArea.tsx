@@ -114,8 +114,8 @@ export function LoginArea({ className }: LoginAreaProps) {
       return `${totalBalance.toLocaleString()} sats`;
     } else {
       // Use the existing useBitcoinPrice hook utilities
-      if (btcPriceData?.USD) {
-        const usdAmount = satsToUSD(totalBalance, btcPriceData.USD);
+      if (btcPriceData?.usd) {
+        const usdAmount = satsToUSD(totalBalance, btcPriceData.usd);
         return `${usdAmount.toFixed(2)} USD`;
       } else {
         return `${totalBalance.toLocaleString()} sats (price loading...)`;
@@ -151,7 +151,7 @@ export function LoginArea({ className }: LoginAreaProps) {
           devLog(`💱 Currency switched to: ${newCurrency}`);
         }
       }}
-      title={`Switch to ${currency === 'BTC' ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`}
+      title={`Switch to ${currency === 'BTC' ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.usd ? `(BTC: $${btcPriceData.usd.toLocaleString()})` : ''}`}
     >
       {currency === 'BTC' ? (
         <>

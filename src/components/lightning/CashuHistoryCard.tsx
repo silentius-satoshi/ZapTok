@@ -41,7 +41,7 @@ export function CashuHistoryCard({ className }: CashuHistoryCardProps = {}) {
     if (showSats || !btcPrice) {
       return `${sats.toLocaleString()} sats`;
     }
-    return formatUSD(satsToUSD(sats, btcPrice.USD));
+    return formatUSD(satsToUSD(sats, btcPrice.usd));
   };
 
   // Robust timestamp formatter (seconds or ms)

@@ -54,7 +54,7 @@ export function LightningWalletInfo() {
             </div>
             {btcPrice && !showSats && (
               <div className="text-xs text-muted-foreground">
-                {formatUSD(satsToUSD(walletInfo.balance, btcPrice.USD))}
+                {formatUSD(satsToUSD(walletInfo.balance, btcPrice.usd))}
               </div>
             )}
           </div>

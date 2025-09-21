@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useNIP60Cashu } from '@/hooks/useNIP60Cashu';
+import { useCashuWallet } from '@/hooks/useCashuWallet';
+import { useCashuStore } from '@/stores/cashuStore';
+import { CashuWalletStruct } from '@/lib/cashu';
 import {
   Dialog,
   DialogContent,
@@ -48,7 +50,8 @@ interface CreateCashuWalletModalProps {
 export function CreateCashuWalletModal({ open, onClose }: CreateCashuWalletModalProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [createdWallet, setCreatedWallet] = useState<string | null>(null);
-  const { createWallet } = useNIP60Cashu();
+  const { createWalletAsync } = useCashuWallet();
+  const cashuStore = useCashuStore();
   const { toast } = useToast();
 
   const form = useForm<CreateWalletForm>({
@@ -67,7 +70,7 @@ export function CreateCashuWalletModal({ open, onClose }: CreateCashuWalletModal
     },
     {
       url: 'https://mint.coinos.io',
-      name: 'Coinos', 
+      name: 'Coinos',
       description: 'Established Bitcoin services provider',
     },
     {
@@ -85,28 +88,32 @@ export function CreateCashuWalletModal({ open, onClose }: CreateCashuWalletModal
   const onSubmit = async (data: CreateWalletForm) => {
     try {
       setIsCreating(true);
-      
-      console.log('CreateCashuWalletModal: Starting wallet creation with URL:', data.mintUrl);
-      
-      // Create the wallet using the NIP-60 Cashu hook
-      // Note: NIP-60 createWallet expects array of mint URLs
-      const walletId = await createWallet([data.mintUrl]);
 
-      console.log('CreateCashuWalletModal: Wallet created successfully with ID:', walletId);
-      
-      setCreatedWallet(walletId);
+      console.log('CreateCashuWalletModal: Starting wallet creation with URL:', data.mintUrl);
+
+      // Create the wallet using the Cashu hook
+      const walletStruct: CashuWalletStruct = {
+        privkey: cashuStore.privkey || '',
+        mints: [data.mintUrl]
+      };
+
+      const walletEvent = await createWalletAsync(walletStruct);
+
+      console.log('CreateCashuWalletModal: Wallet created successfully:', walletEvent);
+
+      setCreatedWallet(walletEvent.id);
       toast({
         title: "Wallet Created",
         description: "Your Cashu wallet has been created successfully!",
       });
-      
+
       // Reset form for next use
       form.reset();
     } catch (error) {
       console.error('CreateCashuWalletModal: Failed to create Cashu wallet:', error);
-      
+
       let errorMessage = "Failed to create Cashu wallet. Please try again.";
-      
+
       if (error instanceof Error) {
         if (error.message.includes('timeout')) {
           errorMessage = "Wallet creation timed out. Please check your internet connection and try again.";
@@ -118,7 +125,7 @@ export function CreateCashuWalletModal({ open, onClose }: CreateCashuWalletModal
           errorMessage = error.message;
         }
       }
-      
+
       toast({
         title: "Creation Failed",
         description: errorMessage,
@@ -177,7 +184,7 @@ export function CreateCashuWalletModal({ open, onClose }: CreateCashuWalletModal
                     Wallet Synced to Nostr
                   </p>
                   <p className="text-blue-600 dark:text-blue-400 mt-1">
-                    Your wallet data is encrypted and backed up to your Nostr relays. 
+                    Your wallet data is encrypted and backed up to your Nostr relays.
                     It will sync across all your devices.
                   </p>
                 </div>

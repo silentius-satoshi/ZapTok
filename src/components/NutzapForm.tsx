@@ -64,17 +64,17 @@ export function NutzapForm({
       const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
 
       // Generate proofs using sendToken
-      const proofs = (await sendToken(
-        compatibleMintUrl,
-        amount,
-        recipientInfo.p2pkPubkey
-      )) as Proof[];
+      const result = await sendToken(amount, {
+        recipientPubkey: recipientInfo.p2pkPubkey,
+        isNutzap: true,
+        publicNote: comment
+      });
 
       await sendNutzap({
         recipientInfo,
         comment,
-        proofs,
-        mintUrl: compatibleMintUrl,
+        proofs: result.proofs,
+        token: result.token,
         eventId
       });
 

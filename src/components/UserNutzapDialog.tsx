@@ -41,14 +41,14 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
   const { verifyMintCompatibility } = useVerifyMintCompatibility();
   const { showSats } = useCurrencyDisplayStore();
   const { data: btcPrice } = useBitcoinPrice();
-  
+
   const displayName = metadata?.name || pubkey.slice(0, 8);
   const profileImage = metadata?.picture;
 
   const [amount, setAmount] = useState("");
   const [comment, setComment] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  
+
   // Create a unique event ID for the zap
   const eventId = `user-zap-${pubkey.slice(0, 8)}-${Date.now()}`;
 
@@ -57,7 +57,7 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
     if (showSats) {
       return formatBalance(sats);
     } else if (btcPrice) {
-      return formatUSD(satsToUSD(sats, btcPrice.USD));
+      return formatUSD(satsToUSD(sats, btcPrice.usd));
     }
     return formatBalance(sats);
   };
@@ -90,7 +90,7 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
           return;
         }
         const usdAmount = parseFloat(amount);
-        amountValue = Math.round((usdAmount / btcPrice.USD) * 100000000); // Convert USD to sats
+        amountValue = Math.round((usdAmount / btcPrice.usd) * 100000000); // Convert USD to sats
       }
 
       if (amountValue < 1) {
@@ -102,18 +102,18 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
       const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
 
       // Send token using p2pk pubkey from recipient info
-      const proofs = (await sendToken(
-        compatibleMintUrl,
-        amountValue,
-        recipientInfo.p2pkPubkey
-      )) as Proof[];
+      const result = await sendToken(amountValue, {
+        recipientPubkey: recipientInfo.p2pkPubkey,
+        isNutzap: true,
+        publicNote: comment
+      });
 
       // Send nutzap using recipient info
       await sendNutzap({
         recipientInfo,
         comment,
-        proofs,
-        mintUrl: compatibleMintUrl,
+        proofs: result.proofs,
+        token: result.token,
         eventId: eventId,
       });
 
@@ -146,7 +146,7 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
             </DialogDescription>
           </div>
         </DialogHeader>
-        
+
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="user-amount" className="text-right">
@@ -174,7 +174,7 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
             />
           </div>
         </div>
-        
+
         <DialogFooter>
           <Button
             type="submit"

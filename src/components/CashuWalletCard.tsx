@@ -33,17 +33,17 @@ import { devLog } from '@/lib/devConsole';
 
 export function CashuWalletCard() {
   const { user } = useCurrentUser();
-  
+
   // Use modern hooks following Chorus patterns
   const walletHook = useCashuWallet();
   const { mints, getTotalBalance, addMint, setActiveMintUrl } = walletHook;
   const { cleanSpentProofs } = useCashuToken();
   const cashuStore = useCashuStore();
-  
+
   const { data: btcPrice } = useBitcoinPrice();
   const walletUiStore = useWalletUiStore();
   const { showSats } = useCurrencyDisplayStore();
-  
+
   // Use the actual expandedCards property from the store
   const isExpanded = walletUiStore.expandedCards.mints;
   const [newMint, setNewMint] = useState("");
@@ -58,7 +58,7 @@ export function CashuWalletCard() {
   // Track balance changes for flash effect
   useEffect(() => {
     if (!showSats && btcPrice) {
-      const currentValue = formatUSD(satsToUSD(totalBalance, btcPrice.USD));
+      const currentValue = formatUSD(satsToUSD(totalBalance, btcPrice.usd));
 
       if (
         prevBalances.current['total'] &&
@@ -77,7 +77,7 @@ export function CashuWalletCard() {
   // Set active mint when mints change
   useEffect(() => {
     if (mints.length > 0 && !cashuStore.activeMintUrl) {
-      setActiveMintUrl(mints[0].url);
+      setActiveMintUrl(mints[0]);
     }
   }, [mints, cashuStore.activeMintUrl, setActiveMintUrl]);
 
@@ -85,10 +85,10 @@ export function CashuWalletCard() {
     try {
       // Validate URL
       new URL(newMint);
-      
+
       // Add mint using new hook
       await addMint(newMint);
-      
+
       // Clear input
       setNewMint("");
       setError(null);
@@ -107,13 +107,15 @@ export function CashuWalletCard() {
 
     try {
       // Remove mint from store
-      cashuStore.mints = cashuStore.mints.filter((m) => m.url !== mintUrl);
-      
+      cashuStore.mints = cashuStore.mints.filter((m) =>
+        (typeof m === 'string' ? m : m.url) !== mintUrl
+      );
+
       // If removing the active mint, set the first available mint as active
       if (cashuStore.activeMintUrl === mintUrl) {
-        const remainingMints = mints.filter((m) => m.url !== mintUrl);
+        const remainingMints = mints.filter((m) => m !== mintUrl);
         if (remainingMints.length > 0) {
-          setActiveMintUrl(remainingMints[0].url);
+          setActiveMintUrl(remainingMints[0]);
         }
       }
 
@@ -121,7 +123,7 @@ export function CashuWalletCard() {
       if (expandedMint === mintUrl) {
         setExpandedMint(null);
       }
-      
+
       setError(null);
     } catch (err) {
       setError("Failed to remove mint");
@@ -130,6 +132,11 @@ export function CashuWalletCard() {
   }, [mints, cashuStore, expandedMint, setActiveMintUrl]);
 
   const handleCleanSpentProofs = useCallback(async () => {
+    if (!cashuStore.activeMintUrl) {
+      setError("No active mint selected");
+      return;
+    }
+
     try {
       await cleanSpentProofs.mutateAsync();
       setError(null);
@@ -137,7 +144,7 @@ export function CashuWalletCard() {
       setError("Failed to clean spent proofs");
       console.error("Failed to clean spent proofs:", err);
     }
-  }, [cleanSpentProofs]);
+  }, [cleanSpentProofs, cashuStore.activeMintUrl]);
 
   // Set active mint when clicking on a mint
   const handleSetActiveMint = useCallback((mintUrl: string) => {
@@ -183,12 +190,12 @@ export function CashuWalletCard() {
                 </Button>
               </div>
             </div>
-            <Button 
+            <Button
               onClick={() => {
                 setNewMint("https://mint.minibits.cash/Bitcoin");
                 setTimeout(() => handleAddMint(), 100);
-              }} 
-              variant="outline" 
+              }}
+              variant="outline"
               className="w-full"
             >
               Use Default Mint
@@ -239,10 +246,10 @@ export function CashuWalletCard() {
                 flashingMints['total'] ? 'bg-yellow-200 dark:bg-yellow-900' : ''
               }`}
             >
-              {showSats 
+              {showSats
                 ? `${formatBalance(totalBalance)} sats`
                 : btcPrice
-                ? formatUSD(satsToUSD(totalBalance, btcPrice.USD))
+                ? formatUSD(satsToUSD(totalBalance, btcPrice.usd))
                 : `${formatBalance(totalBalance)} sats`
               }
             </span>
@@ -303,32 +310,32 @@ export function CashuWalletCard() {
             {/* Mints list */}
             <div className="space-y-2">
               {mints.map((mint) => {
-                const isActive = cashuStore.activeMintUrl === mint.url;
+                const isActive = cashuStore.activeMintUrl === mint;
                 const mintBalance = 0; // Would need to calculate per-mint balance
-                
+
                 return (
                   <div
-                    key={mint.url}
+                    key={mint}
                     className={`border rounded-lg p-3 transition-colors ${
                       isActive ? 'border-primary bg-muted/50' : 'border-border'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div 
+                      <div
                         className="flex-1 cursor-pointer"
-                        onClick={() => handleSetActiveMint(mint.url)}
+                        onClick={() => handleSetActiveMint(mint)}
                       >
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm">
-                            {cleanMintUrl(mint.url)}
+                            {cleanMintUrl(mint)}
                           </span>
                           {isActive && <Badge variant="secondary">Active</Badge>}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {mint.url}
+                          {mint}
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-mono">
                           {formatBalance(mintBalance)} sats
@@ -336,9 +343,9 @@ export function CashuWalletCard() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => toggleExpandMint(mint.url)}
+                          onClick={() => toggleExpandMint(mint)}
                         >
-                          {expandedMint === mint.url ? (
+                          {expandedMint === mint ? (
                             <ChevronUp className="h-4 w-4" />
                           ) : (
                             <ChevronDown className="h-4 w-4" />
@@ -348,7 +355,7 @@ export function CashuWalletCard() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleRemoveMint(mint.url)}
+                            onClick={() => handleRemoveMint(mint)}
                           >
                             <Trash className="h-4 w-4" />
                           </Button>
@@ -356,17 +363,10 @@ export function CashuWalletCard() {
                       </div>
                     </div>
 
-                    {expandedMint === mint.url && (
+                    {expandedMint === mint && (
                       <div className="mt-3 pt-3 border-t">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <div className="text-muted-foreground">Mint Info</div>
-                            <div>{mint.mintInfo?.name || 'Loading...'}</div>
-                          </div>
-                          <div>
-                            <div className="text-muted-foreground">Version</div>
-                            <div>{mint.mintInfo?.version || 'Unknown'}</div>
-                          </div>
+                        <div className="text-sm text-muted-foreground">
+                          Mint URL: {mint}
                         </div>
                       </div>
                     )}

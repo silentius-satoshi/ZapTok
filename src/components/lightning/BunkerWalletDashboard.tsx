@@ -345,7 +345,7 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
     if (showSats) {
       return `${amount.toLocaleString()} sats`;
     } else if (btcPrice) {
-      return formatUSD(satsToUSD(amount, btcPrice.USD));
+      return formatUSD(satsToUSD(amount, btcPrice.usd));
     }
     return `${amount.toLocaleString()} sats`;
   };

@@ -160,7 +160,7 @@ export function CashuWalletLightningCard() {
         try {
           // Create history event if we got a token ID
           if (tokenEventId) {
-            await createHistory({
+            await createHistory.mutateAsync({
               direction: "in",
               amount: amount.toString(),
             });

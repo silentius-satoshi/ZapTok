@@ -18,7 +18,8 @@ import {
   Plus
 } from 'lucide-react';
 import { formatBalance } from '@/lib/cashu';
-import { toast } from 'sonner';
+import { useCashuStore } from '@/stores/cashuStore';
+import { useToast } from '@/hooks/useToast';
 
 interface NutzapInterfaceProps {
   className?: string;
@@ -26,7 +27,9 @@ interface NutzapInterfaceProps {
 
 export function NutzapInterface({ className }: NutzapInterfaceProps) {
   const [activeTab, setActiveTab] = useState('received');
+  const { toast } = useToast();
   const { user } = useCurrentUser();
+  const cashuStore = useCashuStore();
 
   const {
     nutzaps: receivedNutzaps,
@@ -192,26 +195,34 @@ export function NutzapInterface({ className }: NutzapInterfaceProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
+              onClick={async () => {
                 // Generate proper P2PK pubkey from user's Cashu wallet private key
                 if (!user) {
-                  toast.error('User not logged in');
+                  toast({
+                    title: 'Error',
+                    description: 'User not logged in',
+                    variant: 'destructive',
+                  });
                   return;
                 }
-                
-                const userPrivkey = userCashuStore?.privkey;
-                
+
+                const userPrivkey = cashuStore?.privkey;
+
                 if (!userPrivkey) {
-                  toast.error('Cashu wallet not available');
+                  toast({
+                    title: 'Error',
+                    description: 'Cashu wallet not available',
+                    variant: 'destructive',
+                  });
                   return;
                 }
 
                 // Derive P2PK public key from the user's Cashu wallet private key
-                const p2pkKeypair = createP2PKKeypairFromPrivateKey(userPrivkey);
-                
-                createNutzapInfo({
+                const p2pkPubkey = createP2PKKeypairFromPrivateKey(userPrivkey);
+
+                await createNutzapInfo({
                   relays: ['wss://relay.nostr.band'],
-                  p2pkPubkey: p2pkKeypair.pubkey
+                  p2pkPubkey: p2pkPubkey
                 });
               }}
               disabled={isCreatingNutzapInfo}

@@ -106,7 +106,7 @@ export function CashuWallet() {
                       {showSats
                         ? formatBalance(totalBalance)
                         : btcPrice
-                        ? formatUSD(satsToUSD(totalBalance, btcPrice.USD))
+                        ? formatUSD(satsToUSD(totalBalance, btcPrice.usd))
                         : formatBalance(totalBalance)}
                     </div>
                     <div className="text-sm text-gray-400">
