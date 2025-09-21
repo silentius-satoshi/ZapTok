@@ -77,7 +77,7 @@ export function NutzapForm({
       });
 
       await sendNutzap({
-        recipientPubkey: fetchedRecipientInfo.event.pubkey,
+        recipientInfo: fetchedRecipientInfo,
         comment,
         proofs: result.proofs,
         mintUrl: cashuStore.activeMintUrl || '',

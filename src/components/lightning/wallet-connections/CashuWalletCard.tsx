@@ -57,7 +57,7 @@ export function CashuWalletCard() {
     if (!showSats && btcPrice) {
       Object.keys(balances).forEach((mint) => {
         const amount = balances[mint] || 0;
-        const currentValue = formatUSD(satsToUSD(amount, btcPrice.usd));
+        const currentValue = formatUSD(satsToUSD(amount, btcPrice.USD));
 
         if (
           prevBalances.current[mint] &&
@@ -292,7 +292,7 @@ export function CashuWalletCard() {
                               {showSats
                                 ? formatBalance(amount)
                                 : btcPrice
-                                ? formatUSD(satsToUSD(amount, btcPrice.usd))
+                                ? formatUSD(satsToUSD(amount, btcPrice.USD))
                                 : formatBalance(amount)}
                             </span>
                             <Button

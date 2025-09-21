@@ -45,6 +45,74 @@ export function useVerifyMintCompatibility() {
 }
 
 /**
+ * Hook to fetch a recipient's nutzap information (mutation-based like Chorus)
+ */
+export function useFetchNutzapInfo() {
+  const { nostr } = useNostr();
+  const nutzapStore = useNutzapStore();
+
+  // Mutation to fetch and store nutzap info
+  const fetchNutzapInfoMutation = useMutation({
+    mutationFn: async (recipientPubkey: string): Promise<NutzapInformationalEvent> => {
+      // First check if we have it in the store
+      const storedInfo = nutzapStore.getNutzapInfo(recipientPubkey);
+      if (storedInfo) {
+        return storedInfo;
+      }
+
+      // Otherwise fetch it from the network
+      const events = await nostr.query([
+        { kinds: [CASHU_EVENT_KINDS.ZAPINFO], authors: [recipientPubkey], limit: 1 }
+      ], { signal: AbortSignal.timeout(5000) });
+
+      if (events.length === 0) {
+        throw new Error('Recipient has no Cash wallet');
+      }
+
+      const event = events[0];
+
+      // Parse the nutzap informational event
+      const relays = event.tags
+        .filter(tag => tag[0] === 'relay')
+        .map(tag => tag[1]);
+
+      const mints = event.tags
+        .filter(tag => tag[0] === 'mint')
+        .map(tag => {
+          const url = tag[1];
+          const units = tag.slice(2); // Get additional unit markers if any
+          return { url, units: units.length > 0 ? units : undefined };
+        });
+
+      const p2pkPubkeyTag = event.tags.find(tag => tag[0] === 'pubkey');
+      if (!p2pkPubkeyTag) {
+        throw new Error('No pubkey tag found in the nutzap informational event');
+      }
+
+      const p2pkPubkey = p2pkPubkeyTag[1];
+
+      const nutzapInfo: NutzapInformationalEvent = {
+        event,
+        relays,
+        mints,
+        p2pkPubkey
+      };
+
+      // Store the info for future use
+      nutzapStore.setNutzapInfo(recipientPubkey, nutzapInfo);
+
+      return nutzapInfo;
+    }
+  });
+
+  return {
+    fetchNutzapInfo: fetchNutzapInfoMutation.mutateAsync,
+    isFetching: fetchNutzapInfoMutation.isPending,
+    error: fetchNutzapInfoMutation.error
+  };
+}
+
+/**
  * Hook to send nutzaps
  */
 export function useSendNutzap() {
@@ -52,31 +120,26 @@ export function useSendNutzap() {
   const { user } = useCurrentUser();
   const { verifyMintCompatibility } = useVerifyMintCompatibility();
   const queryClient = useQueryClient();
-  const nutzapStore = useNutzapStore();
 
   const sendNutzapMutation = useMutation({
     mutationFn: async ({
-      recipientPubkey,
+      recipientInfo,
       comment = '',
       proofs,
       mintUrl,
       eventId,
-      relayHint
+      relayHint,
+      tags: additionalTags = []
     }: {
-      recipientPubkey: string;
+      recipientInfo: NutzapInformationalEvent;
       comment?: string;
       proofs: Proof[];
       mintUrl: string;
       eventId?: string;
       relayHint?: string;
+      tags?: string[][];
     }) => {
       if (!user) throw new Error('User not logged in');
-
-      // Get recipient info
-      const recipientInfo = nutzapStore.getNutzapInfo(recipientPubkey);
-      if (!recipientInfo) {
-        throw new Error('Recipient has no Cashu wallet');
-      }
 
       // Verify mint compatibility
       const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
@@ -95,7 +158,10 @@ export function useSendNutzap() {
         ['u', mintUrl],
 
         // Add recipient pubkey
-        ['p', recipientPubkey],
+        ['p', recipientInfo.event.pubkey],
+        
+        // Add any additional tags (like 'a' tags for groups)
+        ...additionalTags
       ];
 
       // Add event tag if specified
@@ -117,11 +183,25 @@ export function useSendNutzap() {
       // Invalidate relevant queries
       if (eventId) {
         queryClient.invalidateQueries({ queryKey: ['nutzaps', eventId] });
+        // Also invalidate the nutzap-total query used by NutzapButton
+        queryClient.invalidateQueries({ queryKey: ['nutzap-total', eventId] });
       }
 
+      // Also invalidate recipient's received nutzaps
       queryClient.invalidateQueries({
-        queryKey: ['nutzap', 'received', recipientPubkey]
+        queryKey: ['nutzap', 'received', recipientInfo.event.pubkey]
       });
+
+      // Check if this is a group nutzap and invalidate group queries
+      const groupTag = additionalTags.find(tag => tag[0] === 'a');
+      if (groupTag && groupTag[1]) {
+        const groupId = groupTag[1];
+        queryClient.invalidateQueries({ queryKey: ['nutzaps', 'group', groupId] });
+      }
+
+      // Invalidate sender's wallet queries to update balance
+      queryClient.invalidateQueries({ queryKey: ['cashu', 'tokens', user.pubkey] });
+      queryClient.invalidateQueries({ queryKey: ['cashu', 'wallet', user.pubkey] });
 
       return {
         event,

@@ -87,7 +87,7 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
     if (showSats) {
       return formatBalance(sats);
     } else if (btcPrice) {
-      return formatUSD(satsToUSD(sats, btcPrice.usd));
+      return formatUSD(satsToUSD(sats, btcPrice.USD));
     }
     return formatBalance(sats);
   };
@@ -117,7 +117,7 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
           return;
         }
         const usdAmount = parseFloat(amount);
-        amountValue = Math.round((usdAmount / btcPrice.usd) * 100000000); // Convert USD to sats
+        amountValue = Math.round((usdAmount / btcPrice.USD) * 100000000); // Convert USD to sats
       }
 
       if (amountValue < 1) {
@@ -163,7 +163,7 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
 
       // Send nutzap event
       await sendNutzap({
-        recipientPubkey: pubkey,
+        recipientInfo,
         comment,
         proofs: result.proofs,
         mintUrl: compatibleMintUrl,

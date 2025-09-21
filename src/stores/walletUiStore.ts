@@ -12,11 +12,13 @@ interface WalletUiStore {
     cashuRelay: boolean;
   };
   isExpanded: boolean;
+  balanceAnimation: boolean;
   // Methods
   toggleCard: (cardName: keyof WalletUiStore['expandedCards']) => void;
   toggleCardExpansion: (cardName: keyof WalletUiStore['expandedCards']) => void;
   toggleExpanded: (cardName?: keyof WalletUiStore['expandedCards'] | 'main') => void;
   setCardExpanded: (cardName: keyof WalletUiStore['expandedCards'], expanded: boolean) => void;
+  setBalanceAnimation: (value: boolean) => void;
 }
 
 export const useWalletUiStore = create<WalletUiStore>()(
@@ -31,6 +33,7 @@ export const useWalletUiStore = create<WalletUiStore>()(
         mints: true,
         cashuRelay: false,
       },
+      balanceAnimation: false,
       get isExpanded() {
         return get().expandedCards.history;
       },
@@ -69,6 +72,7 @@ export const useWalletUiStore = create<WalletUiStore>()(
           [cardName]: expanded
         }
       })),
+      setBalanceAnimation: (value) => set({ balanceAnimation: value }),
     }),
     { name: 'wallet-ui' }
   )

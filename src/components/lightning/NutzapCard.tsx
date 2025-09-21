@@ -354,7 +354,7 @@ export function NutzapCard() {
 
       // Send nutzap using recipient info
       await sendNutzap({
-        recipientPubkey: recipientInfo.event.pubkey,
+        recipientInfo,
         comment,
         proofs,
         mintUrl: compatibleMintUrl,
