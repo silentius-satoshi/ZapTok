@@ -32,12 +32,12 @@ import {
 } from "@/hooks/useReceivedNutzaps";
 import {
   useSendNutzap,
-  useFetchNutzapInfo,
   useVerifyMintCompatibility,
 } from "@/hooks/useSendNutzap";
+import { useFetchNutzapInfo, useNutzapInfo } from "@/hooks/useNutzaps";
+import { useNutzapStore } from "@/stores/nutzapStore";
 import { nip19 } from "nostr-tools";
 import { Proof } from "@cashu/cashu-ts";
-import { useNutzapInfo } from "@/hooks/useNutzaps";
 import { useNostr } from "@/hooks/useNostr";
 import { CASHU_EVENT_KINDS } from "@/lib/cashu";
 import { getLastEventTimestamp } from "@/lib/nostrTimestamps";
@@ -50,7 +50,7 @@ export function NutzapCard() {
   const cashuStore = useCashuStore();
   const { sendToken } = useCashuToken();
   const { sendNutzap, isSending, error: sendError } = useSendNutzap();
-  const { fetchNutzapInfo, isFetching } = useFetchNutzapInfo();
+  // Note: We'll create the fetchNutzapInfo hook when we have a specific recipient
   const {
     data: fetchedNutzaps,
     isLoading: isLoadingNutzaps,
@@ -284,8 +284,55 @@ export function NutzapCard() {
         return;
       }
 
-      // First fetch the recipient's nutzap info
-      const recipientInfo = await fetchNutzapInfo(recipientPubkey);
+      // Fetch the recipient's nutzap info directly
+      const recipientInfo = await (async () => {
+        const { useNutzapStore } = await import("@/stores/nutzapStore");
+        const nutzapStore = useNutzapStore.getState();
+        let info = nutzapStore.getNutzapInfo(recipientPubkey);
+
+        if (!info) {
+          // Fetch from network if not in store
+          const events = await nostr.query([{
+            kinds: [10019],
+            authors: [recipientPubkey],
+          }], { signal: AbortSignal.timeout(5000) });
+
+          if (events.length === 0) {
+            throw new Error('Recipient has no Cashu wallet');
+          }
+
+          const event = events[0];
+          info = {
+            event,
+            relays: [],
+            mints: [],
+            p2pkPubkey: '',
+          };
+
+          // Parse mints and relays from tags
+          for (const tag of event.tags) {
+            if (tag[0] === 'mint') {
+              const [, url] = tag;
+              info.mints.push({ url });
+            } else if (tag[0] === 'pubkey') {
+              info.p2pkPubkey = tag[1];
+            } else if (tag[0] === 'relay') {
+              info.relays.push(tag[1]);
+            }
+          }
+
+          // Store it
+          if (info) {
+            nutzapStore.setNutzapInfo(recipientPubkey, info);
+          }
+        }
+
+        return info;
+      })();
+
+      if (!recipientInfo) {
+        throw new Error('Could not fetch recipient nutzap info');
+      }
 
       console.log("Recipient info", recipientInfo);
 
@@ -297,7 +344,7 @@ export function NutzapCard() {
 
       // Send token using p2pk pubkey from recipient info
       const result = await sendToken(amountValue, {
-        recipientPubkey: recipientInfo.p2pkPubkey,
+        recipientPubkey: recipientInfo.p2pkPubkey || recipientPubkey,
         isNutzap: true,
         publicNote: comment || "Nutzap"
       });
@@ -307,7 +354,7 @@ export function NutzapCard() {
 
       // Send nutzap using recipient info
       await sendNutzap({
-        recipientInfo,
+        recipientPubkey: recipientInfo.event.pubkey,
         comment,
         proofs,
         mintUrl: compatibleMintUrl,

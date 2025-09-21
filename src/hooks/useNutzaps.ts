@@ -5,6 +5,73 @@ import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { NostrEvent } from 'nostr-tools';
 import { useNutzapStore, NutzapInformationalEvent } from '@/stores/nutzapStore';
 import { useCashuStore } from '@/stores/cashuStore';
+import { activateMint } from '@/lib/cashu';
+
+/**
+ * Hook to fetch nutzap informational event for a specific pubkey
+ * Based on Chorus implementation patterns
+ */
+export function useFetchNutzapInfo(pubkey?: string) {
+  const { nostr } = useNostr();
+  const nutzapStore = useNutzapStore();
+
+  return useQuery({
+    queryKey: ['nutzap', 'info', pubkey],
+    queryFn: async ({ signal }) => {
+      if (!pubkey) throw new Error('Pubkey is required');
+
+      // First check if we have it in the store
+      const storedInfo = nutzapStore.getNutzapInfo(pubkey);
+      if (storedInfo) {
+        return storedInfo;
+      }
+
+      // Otherwise fetch it from the network
+      const events = await nostr.query([
+        { kinds: [CASHU_EVENT_KINDS.ZAPINFO], authors: [pubkey], limit: 1 }
+      ], { signal });
+
+      if (events.length === 0) {
+        return null;
+      }
+
+      const event = events[0];
+
+      // Parse the nutzap informational event
+      const relays = event.tags
+        .filter(tag => tag[0] === 'relay')
+        .map(tag => tag[1]);
+
+      const mints = event.tags
+        .filter(tag => tag[0] === 'mint')
+        .map(tag => {
+          const url = tag[1];
+          const units = tag.slice(2); // Get additional unit markers if any
+          return { url, units: units.length > 0 ? units : undefined };
+        });
+
+      const p2pkPubkeyTag = event.tags.find(tag => tag[0] === 'pubkey');
+      if (!p2pkPubkeyTag) {
+        throw new Error('No pubkey tag found in the nutzap informational event');
+      }
+
+      const p2pkPubkey = p2pkPubkeyTag[1];
+
+      const nutzapInfo: NutzapInformationalEvent = {
+        event,
+        relays,
+        mints,
+        p2pkPubkey
+      };
+
+      // Store the info for future use
+      nutzapStore.setNutzapInfo(pubkey, nutzapInfo);
+
+      return nutzapInfo;
+    },
+    enabled: !!pubkey
+  });
+}
 
 /**
  * Hook to fetch a nutzap informational event for a specific pubkey
@@ -42,13 +109,18 @@ export function useNutzapInfo(pubkey?: string) {
 
       const mints = event.tags
         .filter(tag => tag[0] === 'mint')
-        .map(tag => ({
-          url: tag[1],
-          units: tag.slice(2) // Additional parameters after URL
-        }));
+        .map(tag => {
+          const url = tag[1];
+          const units = tag.slice(2); // Get additional unit markers if any
+          return { url, units: units.length > 0 ? units : undefined };
+        });
 
-      const p2pkPubkey = event.tags
-        .find(tag => tag[0] === 'pubkey')?.[1] || '';
+      const p2pkPubkeyTag = event.tags.find(tag => tag[0] === 'pubkey');
+      if (!p2pkPubkeyTag) {
+        throw new Error('No pubkey tag found in the nutzap informational event');
+      }
+
+      const p2pkPubkey = p2pkPubkeyTag[1];
 
       const nutzapInfo: NutzapInformationalEvent = {
         event,
@@ -57,7 +129,7 @@ export function useNutzapInfo(pubkey?: string) {
         p2pkPubkey
       };
 
-      // Store it for future use
+      // Store the info for future use
       nutzapStore.setNutzapInfo(pubkey, nutzapInfo);
 
       return nutzapInfo;

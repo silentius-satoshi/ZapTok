@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { NostrEvent } from 'nostr-tools'
+import { GetInfoResponse } from '@cashu/cashu-ts'
 
 export interface NutzapInformationalEvent {
   event: NostrEvent;

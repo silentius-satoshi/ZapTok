@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useSendNutzap, useFetchNutzapInfo, useVerifyMintCompatibility } from '@/hooks/useSendNutzap';
+import { useSendNutzap, useVerifyMintCompatibility } from '@/hooks/useSendNutzap';
+import { useFetchNutzapInfo } from '@/hooks/useNutzaps';
 import { useCashuToken } from '@/hooks/useCashuToken';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCashuStore } from '@/stores/cashuStore';
@@ -38,7 +39,7 @@ export function NutzapForm({
   const { user } = useCurrentUser();
   const cashuStore = useCashuStore();
   const { sendNutzap, isSending } = useSendNutzap();
-  const { fetchNutzapInfo } = useFetchNutzapInfo();
+  const { data: recipientInfo, refetch: fetchNutzapInfo } = useFetchNutzapInfo(pubkey);
   const { verifyMintCompatibility } = useVerifyMintCompatibility();
   const { sendToken } = useCashuToken();
 
@@ -57,23 +58,26 @@ export function NutzapForm({
 
     try {
       // Get recipient info first
-      const recipientInfo = await fetchNutzapInfo(pubkey);
-      if (!recipientInfo) {
+      const { data: fetchedRecipientInfo } = await fetchNutzapInfo();
+      if (!fetchedRecipientInfo) {
         throw new Error('Could not fetch recipient nutzap info');
       }
 
       // Verify mint compatibility and get a compatible mint URL
-      const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
+      const compatibleMintUrl = verifyMintCompatibility(fetchedRecipientInfo);
+
+      // Get P2PK pubkey for the token
+      const p2pkPubkey = fetchedRecipientInfo.p2pkPubkey || fetchedRecipientInfo.event.pubkey;
 
       // Generate proofs using sendToken
       const result = await sendToken(amount, {
-        recipientPubkey: recipientInfo.p2pkPubkey,
+        recipientPubkey: p2pkPubkey,
         isNutzap: true,
         publicNote: comment
       });
 
       await sendNutzap({
-        recipientInfo,
+        recipientPubkey: fetchedRecipientInfo.event.pubkey,
         comment,
         proofs: result.proofs,
         mintUrl: cashuStore.activeMintUrl || '',
