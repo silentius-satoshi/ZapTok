@@ -10,6 +10,7 @@ import { useBitcoinPrice, satsToUSD, formatUSD } from "@/hooks/useBitcoinPrice";
 import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
 import { useCashuWallet } from "@/hooks/useCashuWallet";
 import { useCashuStore } from "@/stores/cashuStore";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 // Type augmentation for window object
 declare global {
@@ -35,6 +36,7 @@ export function NutzapButton({ postId, showText = true, onToggle, isOpen = false
   const cashuStore = useCashuStore();
   const { showSats } = useCurrencyDisplayStore();
   const { data: btcPrice } = useBitcoinPrice();
+  const isMobile = useIsMobile();
 
   // Query to get all nutzaps for this post
   const { data: nutzapData, refetch } = useQuery({
@@ -129,15 +131,31 @@ export function NutzapButton({ postId, showText = true, onToggle, isOpen = false
     <Button
       variant="ghost"
       size="sm"
-      className="text-muted-foreground hover:text-foreground flex items-center h-7 px-1.5"
+      className={`group rounded-full bg-transparent hover:bg-white/10 text-white transition-all duration-200 ${
+        isMobile ? 'h-12 w-12' : 'h-20 w-20'
+      }`}
       onClick={handleZapClick}
     >
       {showSats ? (
-        <Bitcoin className={`h-3.5 w-3.5 ${nutzapTotal > 0 ? 'text-amber-500' : ''}`} />
+        <img 
+          src="/images/cashu-icon.png" 
+          alt="Cashu" 
+          className="drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:scale-110 transition-all duration-200"
+          style={{
+            width: isMobile ? '28px' : '30px',
+            height: isMobile ? '28px' : '30px'
+          }}
+        />
       ) : (
-        <DollarSign className={`h-3.5 w-3.5 ${nutzapTotal > 0 ? 'text-green-500' : ''}`} />
+        <DollarSign 
+          className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-green-300 group-hover:scale-110 transition-all duration-200 ${nutzapTotal > 0 ? 'text-green-500' : ''}`}
+          style={{
+            width: isMobile ? '28px' : '30px',
+            height: isMobile ? '28px' : '30px'
+          }}
+        />
       )}
-      {showText && nutzapTotal > 0 && <span className="text-xs ml-0.5">{formatAmount(nutzapTotal)}</span>}
+      {showText && <span className="text-xs ml-0.5">{formatAmount(nutzapTotal)}</span>}
     </Button>
   );
 }

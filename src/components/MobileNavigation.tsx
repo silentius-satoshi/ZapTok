@@ -19,7 +19,14 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { useFeedRefresh } from '@/contexts/FeedRefreshContext';
 import { bundleLog } from '@/lib/logBundler';
 import { MobileSupporterButton } from '@/components/MobileSupporterButton';
+import { CashuBalanceDisplay } from '@/components/CashuBalanceDisplay';
+import { BitcoinConnectBalanceDisplay } from '@/components/BitcoinConnectBalanceDisplay';
 import { useWallet } from '@/hooks/useWallet';
+import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
+import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
+import { useCashuWallet } from '@/hooks/useCashuWallet';
+import { useCashuStore } from '@/stores/cashuStore';
+import { DollarSign, Bitcoin } from 'lucide-react';
 
 export function MobileNavigation() {
   const { user } = useCurrentUser();
@@ -28,7 +35,15 @@ export function MobileNavigation() {
   const metadata = author.data?.metadata;
 
   // Get comprehensive wallet/signer detection
-  const { isBunkerSigner, isNsecSigner, isExtensionSigner } = useWallet();
+  const { walletInfo, isConnected, userHasLightningAccess, isBunkerSigner, isNsecSigner, isExtensionSigner } = useWallet();
+
+  // Currency toggle functionality
+  const { showSats, toggleCurrency } = useCurrencyDisplayStore();
+  const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
+
+  // Wallet balance functionality
+  const globalCashuStore = useCashuStore();
+  const { getTotalBalance } = useCashuWallet();
 
   // Check current user login for backwards compatibility
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
@@ -52,6 +67,28 @@ export function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
+
+  // Format balance for currency toggle button (similar to desktop LoginArea)
+  const formatToggleBalance = () => {
+    if (!user) return '';
+
+    // Get balances from both sources
+    const lightningBalance = userHasLightningAccess ? (walletInfo?.balance || 0) : 0;
+    const cashuBalance = getTotalBalance();
+    const totalBalance = lightningBalance + cashuBalance;
+
+    if (showSats) {
+      return `${totalBalance.toLocaleString()}`;
+    } else {
+      // Use the existing useBitcoinPrice hook utilities
+      if (btcPriceData?.USD) {
+        const usdAmount = satsToUSD(totalBalance, btcPriceData.USD);
+        return `${usdAmount.toFixed(2)}`;
+      } else {
+        return `${totalBalance.toLocaleString()}`;
+      }
+    }
+  };
 
   const handleNavigateToPage = (path: string) => {
     setIsOpen(false); // Always close side nav when navigating
@@ -168,9 +205,34 @@ export function MobileNavigation() {
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="mx-auto flex w-full max-w-screen-sm items-center justify-between px-4 py-3">
-          {/* Left side - Empty space where tabs were */}
+          {/* Left side - Currency Toggle Button */}
           <div className="flex gap-6 font-semibold text-lg tracking-wide pointer-events-auto">
-            {/* Tabs removed */}
+            {user && (
+              <button
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
+                onClick={() => {
+                  toggleCurrency();
+                }}
+                title={`Switch to ${showSats ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`}
+              >
+                {showSats ? (
+                  <>
+                    <Bitcoin className="w-4 h-4 text-orange-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                    <span className="text-orange-200 font-medium text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
+                      {formatToggleBalance()} sats
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <DollarSign className="w-4 h-4 text-green-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                    <span className="text-green-200 font-medium text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
+                      ${formatToggleBalance()}
+                    </span>
+                    {isPriceLoading && <span className="opacity-50 ml-1 text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>⟳</span>}
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Right side - Action icons */}
@@ -340,6 +402,14 @@ export function MobileNavigation() {
                       }
                     })}
                   </div>
+
+                  {/* Balance Displays Section */}
+                  {user && (
+                    <div className="px-4 py-2 space-y-2">
+                      <BitcoinConnectBalanceDisplay variant="compact" />
+                      <CashuBalanceDisplay variant="compact" />
+                    </div>
+                  )}
 
                   {/* Supporter Section */}
                   {user && (

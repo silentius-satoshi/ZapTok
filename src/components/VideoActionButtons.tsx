@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MessageCircle, Bookmark, Plus, Repeat2, ArrowUpRight } from 'lucide-react';
+import { MessageCircle, Bookmark, Plus, Repeat2, ArrowUpRight, Check } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -21,6 +21,11 @@ import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useNostrLogin } from '@nostrify/react/login';
+import { useQuery } from '@tanstack/react-query';
+import { useNostr } from '@/hooks/useNostr';
+import { CASHU_EVENT_KINDS } from '@/lib/cashu';
+import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
+import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
 
 interface VideoActionButtonsProps {
   event: NostrEvent;
@@ -59,6 +64,53 @@ export function VideoActionButtons({
   const { mutate: followUser, isPending: isFollowPending } = useFollowUser();
   const { mutate: bookmarkVideo, isPending: isBookmarkPending } = useBookmarkVideo();
   const navigate = useNavigate();
+
+  // Nutzap data for displaying total
+  const { nostr } = useNostr();
+  const { showSats } = useCurrencyDisplayStore();
+  const { data: btcPrice } = useBitcoinPrice();
+
+  // Query to get nutzap total for this post
+  const { data: nutzapData } = useQuery({
+    queryKey: ["nutzap-total", event.id],
+    queryFn: async (c) => {
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+
+      const events = await nostr.query([{
+        kinds: [CASHU_EVENT_KINDS.ZAP],
+        "#e": [event.id],
+        limit: 50,
+      }], { signal });
+
+      const totalAmount = events.reduce((sum, zapEvent) => {
+        try {
+          const amountTag = zapEvent.tags.find(tag => tag[0] === 'amount');
+          if (amountTag && amountTag[1]) {
+            const amount = parseInt(amountTag[1], 10);
+            return sum + (isNaN(amount) ? 0 : amount);
+          }
+        } catch (error) {
+          console.error("Error parsing nutzap amount:", error);
+        }
+        return sum;
+      }, 0);
+
+      return { totalAmount, count: events.length };
+    },
+  });
+
+  // Format nutzap amount
+  const formatNutzapAmount = (amount: number): string => {
+    if (showSats) {
+      return amount >= 1000 ? `${(amount / 1000).toFixed(1)}K` : amount.toString();
+    } else {
+      if (btcPrice?.USD) {
+        const usdAmount = satsToUSD(amount, btcPrice.USD);
+        return usdAmount >= 1000 ? `${(usdAmount / 1000).toFixed(1)}K` : usdAmount.toFixed(2);
+      }
+      return amount >= 1000 ? `${(amount / 1000).toFixed(1)}K` : amount.toString();
+    }
+  };
 
   // Detect signer type to hide Cashu features for bunker signers
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
@@ -195,7 +247,11 @@ export function VideoActionButtons({
               onClick={handleFollow}
               disabled={isFollowPending}
             >
-              <Plus className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
+              {isCurrentlyFollowing ? (
+                <Check className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
+              ) : (
+                <Plus className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
+              )}
             </Button>
           )}
         </div>
@@ -224,9 +280,9 @@ export function VideoActionButtons({
             showText={false}
           />
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
-              {isMobile ? 'nut' : 'nutzap!'}
-            </span>
-          </div>
+            {nutzapData?.totalAmount ? formatNutzapAmount(nutzapData.totalAmount) : '0'}
+          </span>
+        </div>
 
         {/* 4. Comment Button */}
         <div className="flex flex-col items-center gap-1">

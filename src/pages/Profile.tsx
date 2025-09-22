@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { VideoGrid } from '@/components/VideoGrid';
-import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus, Bitcoin } from 'lucide-react';
+import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus } from 'lucide-react';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { QRModal } from '@/components/QRModal';
@@ -296,7 +296,7 @@ const Profile = () => {
                               className="w-10 h-10"
                               onClick={() => setIsNutzapDialogOpen(true)}
                             >
-                              <Bitcoin className="h-4 w-4" />
+                              <img src="/images/cashu-icon.png" alt="Cashu" className="h-4 w-4" />
                             </Button>
 
                             {/* 4. Direct Message Button */}
