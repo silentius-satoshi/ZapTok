@@ -27,7 +27,7 @@ export interface SpendingHistoryEntry {
   redeemedTokens?: string[];
   timestamp?: number;
   // Social features
-  groupId?: string;
+  userId?: string;
   recipientPubkey?: string;
   isNutzap?: boolean;
   publicNote?: string;

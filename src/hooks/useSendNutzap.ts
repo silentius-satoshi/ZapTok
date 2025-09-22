@@ -190,11 +190,11 @@ export function useSendNutzap() {
         queryKey: ['nutzap', 'received', recipientInfo.event.pubkey]
       });
 
-      // Check if this is a group nutzap and invalidate group queries
-      const groupTag = additionalTags.find(tag => tag[0] === 'a');
-      if (groupTag && groupTag[1]) {
-        const groupId = groupTag[1];
-        queryClient.invalidateQueries({ queryKey: ['nutzaps', 'group', groupId] });
+      // Check if this is a user nutzap and invalidate user queries
+      const userTag = additionalTags.find(tag => tag[0] === 'a');
+      if (userTag && userTag[1]) {
+        const userId = userTag[1];
+        queryClient.invalidateQueries({ queryKey: ['nutzaps', 'user', userId] });
       }
 
       // Invalidate sender's wallet queries to update balance
