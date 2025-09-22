@@ -12,13 +12,18 @@ export const useCurrencyDisplayStore = create<CurrencyDisplayStore>()(
   persist(
     (set, get) => ({
       displayCurrency: 'sats',
-      get showSats() {
-        return get().displayCurrency === 'sats';
-      },
-      setDisplayCurrency: (currency) => set({ displayCurrency: currency }),
-      toggleCurrency: () => set({
-        displayCurrency: get().displayCurrency === 'sats' ? 'usd' : 'sats'
+      showSats: true,
+      setDisplayCurrency: (currency) => set({ 
+        displayCurrency: currency,
+        showSats: currency === 'sats'
       }),
+      toggleCurrency: () => {
+        const newCurrency = get().displayCurrency === 'sats' ? 'usd' : 'sats';
+        set({
+          displayCurrency: newCurrency,
+          showSats: newCurrency === 'sats'
+        });
+      },
     }),
     { name: 'currency-display' }
   )

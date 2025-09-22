@@ -12,6 +12,8 @@ import { UserSearchModal } from '@/components/UserSearchModal';
 import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
 import { useState, useEffect, useRef } from 'react';
 import { SupporterButton } from '@/components/SupporterButton';
+import { CashuBalanceDisplay } from '@/components/CashuBalanceDisplay';
+import { BitcoinConnectBalanceDisplay } from '@/components/BitcoinConnectBalanceDisplay';
 import { useWallet } from '@/hooks/useWallet';
 
 export function Navigation() {
@@ -332,9 +334,11 @@ export function Navigation() {
           )}
         </div>
 
-        {/* Bottom Section with Supporter and Profile */}
+        {/* Bottom Section with Balance, Supporter and Profile */}
         {user && (
           <div className="mt-auto pt-4 space-y-3">
+            <BitcoinConnectBalanceDisplay variant="compact" />
+            <CashuBalanceDisplay variant="compact" />
             <SupporterButton />
 
             {/* Profile Section */}

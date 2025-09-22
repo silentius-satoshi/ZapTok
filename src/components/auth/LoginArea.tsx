@@ -13,6 +13,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
+import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { cn } from '@/lib/utils';
 import { bundleLog } from '@/lib/logBundler';
 import { devLog } from '@/lib/devConsole';
@@ -29,21 +30,17 @@ export function LoginArea({ className }: LoginAreaProps) {
   // Get global store for comparison
   const globalCashuStore = useCashuStore();
   
+  // Use global currency store instead of local state
+  const { showSats, toggleCurrency } = useCurrencyDisplayStore();
+  
   // Use modern Cashu hooks following Chorus patterns
   const { getTotalBalance } = useCashuWallet();
 
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [addAccountDialogOpen, setAddAccountDialogOpen] = useState(false);
-  const [currency, setCurrency] = useState<'BTC' | 'USD'>('BTC');
   const navigate = useNavigate();
 
-  // Reset currency state when user changes to ensure UI updates
-  useEffect(() => {
-    if (currentUser) {
-      // Force currency toggle to re-evaluate by resetting to BTC
-      setCurrency('BTC');
-    }
-  }, [currentUser?.pubkey]);
+  // Remove the old currency state and reset effect since we're using global store now
 
   // Early initialization of user Cashu store to ensure nutzaps work immediately
   useEffect(() => {
@@ -110,7 +107,7 @@ export function LoginArea({ className }: LoginAreaProps) {
       }
     }
 
-    if (currency === 'BTC') {
+    if (showSats) {
       return `${totalBalance.toLocaleString()} sats`;
     } else {
       // Use the existing useBitcoinPrice hook utilities
@@ -121,7 +118,7 @@ export function LoginArea({ className }: LoginAreaProps) {
         return `${totalBalance.toLocaleString()} sats (price loading...)`;
       }
     }
-  }, [walletInfo?.balance, getTotalBalance, globalCashuStore, currency, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
+  }, [walletInfo?.balance, getTotalBalance, globalCashuStore, showSats, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
 
   // Cashu wallet button - Enhanced with better styling
   const LightningWalletButton = () => (
@@ -145,15 +142,14 @@ export function LoginArea({ className }: LoginAreaProps) {
     <button
       className='group flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200 whitespace-nowrap min-w-fit'
       onClick={() => {
-        const newCurrency = currency === 'BTC' ? 'USD' : 'BTC';
-        setCurrency(newCurrency);
+        toggleCurrency();
         if (import.meta.env.DEV) {
-          devLog(`💱 Currency switched to: ${newCurrency}`);
+          devLog(`💱 Currency switched to: ${showSats ? 'USD' : 'BTC'}`);
         }
       }}
-      title={`Switch to ${currency === 'BTC' ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`}
+      title={`Switch to ${showSats ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`}
     >
-      {currency === 'BTC' ? (
+      {showSats ? (
         <>
           <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
           <span className='text-orange-200 font-medium text-xs group-hover:text-orange-100 transition-colors duration-200'>
