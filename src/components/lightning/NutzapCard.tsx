@@ -166,17 +166,12 @@ export function NutzapCard() {
             const nutzap: ReceivedNutzap = {
               id: event.id,
               pubkey: event.pubkey,
-              senderPubkey: event.pubkey,
               createdAt: event.created_at,
-              timestamp: event.created_at,
               content: event.content,
-              comment: event.content,
               proofs,
               mintUrl,
               zappedEvent,
               redeemed: false, // New nutzaps are not redeemed yet
-              amount: proofs.reduce((sum, p) => sum + p.amount, 0),
-              status: 'pending' as const
             };
 
             // Add to received nutzaps, putting newest last
@@ -343,14 +338,11 @@ export function NutzapCard() {
       const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
 
       // Send token using p2pk pubkey from recipient info
-      const result = await sendToken(amountValue, {
-        recipientPubkey: recipientInfo.p2pkPubkey || recipientPubkey,
-        isNutzap: true,
-        publicNote: comment || "Nutzap"
-      });
-
-      // Extract proofs from the result
-      const proofs = result.proofs;
+      const proofs = await sendToken(
+        compatibleMintUrl,
+        amountValue,
+        recipientInfo.p2pkPubkey
+      );
 
       // Send nutzap using recipient info
       await sendNutzap({

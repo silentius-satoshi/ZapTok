@@ -10,12 +10,8 @@ import { useNutzapRedemption } from '@/hooks/useNutzapRedemption';
 export interface ReceivedNutzap {
   id: string;
   pubkey: string; // Sender's pubkey
-  senderPubkey: string; // Sender's pubkey (for backward compatibility)
   createdAt: number;
-  timestamp: number; // For backward compatibility
   content: string; // Comment from sender
-  comment: string; // For backward compatibility
-  amount: number; // Total amount
   proofs: Array<{
     amount: number;
     C: string;
@@ -25,14 +21,13 @@ export interface ReceivedNutzap {
   mintUrl: string;
   zappedEvent?: string; // Event ID being zapped, if any
   redeemed: boolean; // Whether this nutzap has been redeemed
-  status: 'pending' | 'redeemed' | 'failed' | 'claimed'; // Status for UI
 }
 
 /**
  * Hook to redeem nutzaps
  */
 export function useRedeemNutzap() {
-  const { wallet, updateProofs } = useCashuWallet();
+  const { updateProofs } = useCashuWallet();
   const { createRedemption } = useNutzapRedemption();
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
@@ -88,7 +83,7 @@ export function useReceivedNutzaps() {
   const { user } = useCurrentUser();
   const nutzapInfoQuery = useNutzapInfo(user?.pubkey);
 
-  const query = useQuery({
+  return useQuery({
     queryKey: ['nutzap', 'received', user?.pubkey],
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not logged in');
@@ -104,9 +99,6 @@ export function useReceivedNutzaps() {
       if (trustedMints.length === 0) {
         return [];
       }
-
-      // Get relays where the user reads nutzap events
-      const relays = nutzapInfo.data.relays;
 
       // Get p2pk pubkey that the tokens should be locked to
       const p2pkPubkey = nutzapInfo.data.p2pkPubkey;
@@ -187,12 +179,19 @@ export function useReceivedNutzaps() {
               const secret = JSON.parse(proof.secret);
               if (!(Array.isArray(secret) &&
                 secret[0] === 'P2PK' &&
-                secret[1] === p2pkPubkey)) {
-                console.warn('Proof not properly P2PK locked to user');
+                secret[1]?.data?.startsWith('02'))) {
+                // Not properly P2PK locked
                 continue;
               }
+
+              const p2pkKey = secret[1].data;
+              if (p2pkKey !== p2pkPubkey) {
+                // Not properly P2PK locked
+                continue;
+              }
+
             } catch (e) {
-              console.warn('Failed to parse proof secret for P2PK verification');
+              console.error('Failed to parse token secret:', e);
               continue;
             }
           }
@@ -204,27 +203,20 @@ export function useReceivedNutzaps() {
             zappedEvent = eventTag[1];
           }
 
-          // Calculate total amount
-          const amount = proofs.reduce((sum, p) => sum + p.amount, 0);
+          // log the event
+          console.log('nutzap event', event);
 
-          // Create nutzap object
-          const nutzap: ReceivedNutzap = {
+          // Add to received nutzaps
+          receivedNutzaps.push({
             id: event.id,
             pubkey: event.pubkey,
-            senderPubkey: event.pubkey, // For compatibility
             createdAt: event.created_at,
-            timestamp: event.created_at, // For compatibility
             content: event.content,
-            comment: event.content, // For compatibility
-            amount,
             proofs,
             mintUrl,
             zappedEvent,
-            redeemed: isRedeemed,
-            status: isRedeemed ? 'redeemed' : 'pending'
-          };
-
-          receivedNutzaps.push(nutzap);
+            redeemed: isRedeemed
+          });
         } catch (error) {
           console.error('Error processing nutzap event:', error);
         }
@@ -235,17 +227,4 @@ export function useReceivedNutzaps() {
     },
     enabled: !!user && nutzapInfoQuery.isSuccess && !!nutzapInfoQuery.data
   });
-
-  // Calculate derived properties
-  const nutzaps = query.data || [];
-  const unclaimedNutzaps = nutzaps.filter(n => !n.redeemed);
-  const unclaimedCount = unclaimedNutzaps.length;
-  const totalUnclaimed = unclaimedNutzaps.reduce((sum, n) => sum + n.amount, 0);
-
-  return {
-    ...query,
-    nutzaps,
-    unclaimedCount,
-    totalUnclaimed,
-  };
 }

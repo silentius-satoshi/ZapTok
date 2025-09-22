@@ -1,14 +1,15 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useCurrentUser } from './useCurrentUser';
 import { useNostr } from '@/hooks/useNostr';
-import { useReceivedNutzaps, useRedeemNutzap, ReceivedNutzap } from './useReceivedNutzaps';
-import { useNutzapInfo } from './useNutzaps';
-import { useWalletUiStore } from '@/stores/walletUiStore';
-import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
-import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
-import { formatBalance } from '@/lib/cashu';
-import { toast } from 'sonner';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNutzapInfo } from '@/hooks/useNutzaps';
+import { useReceivedNutzaps, useRedeemNutzap, ReceivedNutzap } from '@/hooks/useReceivedNutzaps';
 import { CASHU_EVENT_KINDS } from '@/lib/cashu';
+import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
+import { useWalletUiStore } from '@/stores/walletUiStore';
+import { formatBalance } from '@/lib/cashu';
+import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
+import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
+import { toast } from 'sonner';
 
 /**
  * Hook that automatically receives nutzaps when the wallet is loaded
@@ -53,161 +54,172 @@ export function useAutoReceiveNutzaps() {
 
       // Show success notification
       toast.success(`eCash received! ${formatAmount(amount)}`, {
-        description: nutzap.content ? `"${nutzap.content}"` : undefined,
+        description: nutzap.content || 'Auto-redeemed to your wallet',
         duration: 4000,
       });
 
-      // Trigger balance animation
+      // Animate the balance in the header
       walletUiStore.setBalanceAnimation(true);
+      setTimeout(() => walletUiStore.setBalanceAnimation(false), 1000);
 
-      console.log(`Auto-redeemed nutzap: ${nutzap.id}`);
     } catch (error) {
-      console.error(`Failed to auto-redeem nutzap ${nutzap.id}:`, error);
+      console.error('Failed to auto-redeem nutzap:', error);
 
-      toast.error("Failed to receive eCash", {
-        description: "There was an error processing the payment",
-        duration: 4000,
+      const amount = nutzap.proofs.reduce((sum, p) => sum + p.amount, 0);
+
+      // Show notification that eCash was received but manual redemption needed
+      toast.info(`eCash received! ${formatAmount(amount)}`, {
+        description: 'Manual redemption required - check your wallet',
+        action: {
+          label: 'Open Wallet',
+          onClick: () => walletUiStore.setCardExpanded('wallet', true),
+        },
+        duration: 5000,
       });
     }
   }, [redeemNutzap, formatAmount, walletUiStore]);
 
-  // Set up real-time subscription for new nutzaps
+  // Process initial nutzaps on load
+  useEffect(() => {
+    if (!fetchedNutzaps || fetchedNutzaps.length === 0) return;
+
+    // Process any unredeemed nutzaps
+    const unredeemedNutzaps = fetchedNutzaps.filter(n => !n.redeemed);
+
+    unredeemedNutzaps.forEach(nutzap => {
+      processNutzap(nutzap);
+    });
+
+    // Add all fetched nutzap IDs to processed set
+    fetchedNutzaps.forEach(n => processedEventIds.current.add(n.id));
+  }, [fetchedNutzaps, processNutzap]);
+
+  // Set up real-time subscription
   useEffect(() => {
     if (!user || !nutzapInfoQuery.data) return;
 
-    const nutzapInfo = nutzapInfoQuery.data;
-    if (!nutzapInfo.mints || nutzapInfo.mints.length === 0) return;
+    // Get trusted mints from nutzap info
+    const trustedMints = nutzapInfoQuery.data.mints.map((mint) => mint.url);
+    if (trustedMints.length === 0) return;
 
     // Cancel any existing subscription
     if (subscriptionController.current) {
       subscriptionController.current.abort();
     }
 
-    // Create new subscription controller
+    // Create new abort controller
     subscriptionController.current = new AbortController();
     const signal = subscriptionController.current.signal;
 
-    // Set up subscription for new nutzap events
-    const setupSubscription = async () => {
+    // Create subscription filter
+    const filter = {
+      kinds: [CASHU_EVENT_KINDS.ZAP],
+      "#p": [user.pubkey],
+      "#u": trustedMints,
+    };
+
+    // Get the last timestamp of redemption events
+    const lastRedemptionTimestamp = getLastEventTimestamp(
+      user.pubkey,
+      CASHU_EVENT_KINDS.HISTORY
+    );
+
+    if (lastRedemptionTimestamp) {
+      Object.assign(filter, { since: lastRedemptionTimestamp });
+    }
+
+    // Start real-time subscription
+    const subscribeToNutzaps = async () => {
       try {
-        const trustedMints = nutzapInfo.mints.map(mint => mint.url);
+        // Initial query to catch any recent events
+        const events = await nostr.query([filter], { signal });
 
-        const filter = {
-          kinds: [CASHU_EVENT_KINDS.ZAP],
-          '#p': [user.pubkey], // Events that p-tag the user
-          '#u': trustedMints, // Events that u-tag one of the trusted mints
-          since: Math.floor(Date.now() / 1000) - 60, // Start from 1 minute ago to catch recent events
-        };
+        for (const event of events) {
+          if (processedEventIds.current.has(event.id)) continue;
 
-        console.log('Setting up nutzap subscription with filter:', filter);
+          try {
+            // Get the mint URL from tags
+            const mintTag = event.tags.find((tag) => tag[0] === "u");
+            if (!mintTag) continue;
+            const mintUrl = mintTag[1];
 
-        // Subscribe to new events
-        const eventIterable = nostr.req([filter], { signal });
+            // Verify the mint is in the trusted list
+            if (!trustedMints.includes(mintUrl)) continue;
 
-        for await (const msg of eventIterable) {
-          if (signal.aborted) break;
+            // Get proofs from tags
+            const proofTags = event.tags.filter((tag) => tag[0] === "proof");
+            if (proofTags.length === 0) continue;
 
-          // Handle different message types from relay
-          if (msg[0] === 'EVENT') {
-            const event = msg[2]; // NostrEvent is at index 2 in EVENT messages
-
-            try {
-              // Process the event into a ReceivedNutzap if valid
-              const mintTag = event.tags.find(tag => tag[0] === 'u');
-              if (!mintTag || !trustedMints.includes(mintTag[1])) continue;
-
-              const proofTags = event.tags.filter(tag => tag[0] === 'proof');
-              if (proofTags.length === 0) continue;
-
-              const proofs = proofTags.map(tag => {
+            const proofs = proofTags
+              .map((tag) => {
                 try {
                   return JSON.parse(tag[1]);
                 } catch (e) {
+                  console.error("Failed to parse proof:", e);
                   return null;
                 }
-              }).filter(Boolean);
+              })
+              .filter(Boolean);
 
-              if (proofs.length === 0) continue;
+            if (proofs.length === 0) continue;
 
-              // Verify P2PK lock
-              const p2pkPubkey = nutzapInfo.p2pkPubkey;
-              let validProofs = true;
-              for (const proof of proofs) {
-                try {
-                  const secret = JSON.parse(proof.secret);
-                  if (!(Array.isArray(secret) &&
-                      secret[0] === 'P2PK' &&
-                      secret[1] === p2pkPubkey)) {
-                    validProofs = false;
-                    break;
-                  }
-                } catch (e) {
-                  validProofs = false;
-                  break;
-                }
-              }
-
-              if (!validProofs) continue;
-
-              // Create ReceivedNutzap object
-              const amount = proofs.reduce((sum, p) => sum + p.amount, 0);
-              const receivedNutzap: ReceivedNutzap = {
-                id: event.id,
-                pubkey: event.pubkey,
-                senderPubkey: event.pubkey,
-                createdAt: event.created_at,
-                timestamp: event.created_at,
-                content: event.content,
-                comment: event.content,
-                amount,
-                proofs,
-                mintUrl: mintTag[1],
-                redeemed: false,
-                status: 'pending'
-              };
-
-              // Process the nutzap
-              await processNutzap(receivedNutzap);
-
-              // Refetch nutzaps to update the list
-              refetchNutzaps();
-
-            } catch (error) {
-              console.error('Error processing subscription event:', error);
+            // Get the zapped event if any
+            let zappedEvent: string | undefined;
+            const eventTag = event.tags.find((tag) => tag[0] === "e");
+            if (eventTag) {
+              zappedEvent = eventTag[1];
             }
+
+            // Create nutzap object
+            const nutzap: ReceivedNutzap = {
+              id: event.id,
+              pubkey: event.pubkey,
+              createdAt: event.created_at,
+              content: event.content,
+              proofs,
+              mintUrl,
+              zappedEvent,
+              redeemed: false,
+            };
+
+            // Process the nutzap
+            await processNutzap(nutzap);
+
+            // Refresh the nutzaps list
+            refetchNutzaps();
+
+          } catch (error) {
+            console.error("Error processing nutzap event:", error);
           }
         }
+
+        // Set up polling interval for continuous updates
+        if (!signal.aborted) {
+          setTimeout(subscribeToNutzaps, 5000); // Poll every 5 seconds
+        }
       } catch (error) {
-        if (error.name !== 'AbortError') {
-          console.error('Nutzap subscription error:', error);
+        if (!signal.aborted) {
+          console.error("Error in nutzap subscription:", error);
+          // Retry after delay
+          setTimeout(subscribeToNutzaps, 10000);
         }
       }
     };
 
-    setupSubscription();
+    // Start subscription
+    subscribeToNutzaps();
 
-    // Cleanup function
+    // Cleanup on unmount
     return () => {
       if (subscriptionController.current) {
         subscriptionController.current.abort();
+        subscriptionController.current = null;
       }
     };
-  }, [user, nutzapInfoQuery.data, processNutzap, refetchNutzaps, nostr]);
-
-  // Auto-redeem existing unredeemed nutzaps on mount/update
-  useEffect(() => {
-    if (!fetchedNutzaps || !user || !nutzapInfoQuery.data) return;
-
-    const unredeemedNutzaps = fetchedNutzaps.filter(nutzap => !nutzap.redeemed);
-
-    unredeemedNutzaps.forEach(async (nutzap) => {
-      await processNutzap(nutzap);
-    });
-  }, [fetchedNutzaps, user, nutzapInfoQuery.data, processNutzap]);
+  }, [user, nutzapInfoQuery.data, nostr, processNutzap, refetchNutzaps]);
 
   return {
-    isAutoReceiving: true,
-    receivedCount: fetchedNutzaps?.length || 0,
-    unredeemedCount: fetchedNutzaps?.filter(n => !n.redeemed).length || 0,
+    // Expose refetch in case manual refresh is needed
+    refetchNutzaps,
   };
 }

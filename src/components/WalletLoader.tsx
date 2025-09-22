@@ -11,7 +11,7 @@ export function WalletLoader() {
   useWalletAutoLoader();
 
   // Automatically receive and redeem nutzaps
-  const { receivedCount, unredeemedCount } = useAutoReceiveNutzaps();
+  useAutoReceiveNutzaps();
 
   // This component doesn't render anything visible
   return null;
