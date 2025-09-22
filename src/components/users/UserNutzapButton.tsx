@@ -9,6 +9,7 @@ import {
 import { useCashuWallet } from "@/hooks/useCashuWallet";
 import { useCashuStore } from "@/stores/cashuStore";
 import { useCashuToken } from "@/hooks/useCashuToken";
+import { Proof } from "@cashu/cashu-ts";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -172,11 +173,19 @@ export function UserNutzapButton({
       // Verify mint compatibility and get a compatible mint URL
       const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
 
+      // Send token using p2pk pubkey from recipient info
+      const proofs = (await sendToken(
+        compatibleMintUrl,
+        amountValue,
+        recipientInfo.p2pkPubkey
+      )) as Proof[];
+
       // Send nutzap using recipient info, but with the user's p-tag instead of an e-tag
       await sendNutzap({
         recipientInfo,
         comment,
-        amount: amountValue,
+        proofs,
+        mintUrl: compatibleMintUrl,
         // Instead of eventId, we'll add the p-tag in the tags array
         // We're using the userPubkey which identifies the user
         tags: [["p", userPubkey]], // Add the user pubkey as a p-tag

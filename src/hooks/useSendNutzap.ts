@@ -5,7 +5,6 @@ import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { Proof } from '@cashu/cashu-ts';
 import { useNutzapStore, NutzapInformationalEvent } from '@/stores/nutzapStore';
 import { useCashuStore } from '@/stores/cashuStore';
-import { useCashuToken } from '@/hooks/useCashuToken';
 
 /**
  * Hook to verify mint compatibility between sender and recipient
@@ -114,27 +113,28 @@ export function useFetchNutzapInfo() {
 }
 
 /**
- * Hook to send nutzaps using standardized sendToken pattern
+ * Hook to send nutzaps using Chorus's exact external token creation pattern
  */
 export function useSendNutzap() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { verifyMintCompatibility } = useVerifyMintCompatibility();
-  const { sendToken } = useCashuToken();
   const queryClient = useQueryClient();
 
   const sendNutzapMutation = useMutation({
     mutationFn: async ({
       recipientInfo,
       comment = '',
-      amount,
+      proofs,
+      mintUrl,
       eventId,
       relayHint,
       tags: additionalTags = []
     }: {
       recipientInfo: NutzapInformationalEvent;
       comment?: string;
-      amount: number;
+      proofs: Proof[];
+      mintUrl: string;
       eventId?: string;
       relayHint?: string;
       tags?: string[][];
@@ -144,8 +144,11 @@ export function useSendNutzap() {
       // Verify mint compatibility and get compatible mint URL
       const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
 
-      // Use standardized sendToken to create P2PK locked tokens
-      const proofs = await sendToken(compatibleMintUrl, amount, recipientInfo.p2pkPubkey);
+      // If mintUrl is different from compatibleMintUrl, we should use the compatible one
+      // but this requires generating new proofs with the compatible mint
+      if (mintUrl !== compatibleMintUrl) {
+        mintUrl = compatibleMintUrl;
+      }
 
       // Create tags for the nutzap event
       const tags = [
@@ -153,7 +156,7 @@ export function useSendNutzap() {
         ...proofs.map(proof => ['proof', JSON.stringify(proof)]),
 
         // Add mint URL
-        ['u', compatibleMintUrl],
+        ['u', mintUrl],
 
         // Add recipient pubkey
         ['p', recipientInfo.event.pubkey],
@@ -191,7 +194,7 @@ export function useSendNutzap() {
       });
 
       // Check if this is a user nutzap and invalidate user queries
-      const userTag = additionalTags.find(tag => tag[0] === 'a');
+      const userTag = additionalTags.find(tag => tag[0] === 'p');
       if (userTag && userTag[1]) {
         const userId = userTag[1];
         queryClient.invalidateQueries({ queryKey: ['nutzaps', 'user', userId] });

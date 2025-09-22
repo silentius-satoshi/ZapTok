@@ -10,6 +10,7 @@ import { useCashuWallet } from "@/hooks/useCashuWallet";
 import { useCashuStore } from "@/stores/cashuStore";
 import { useCashuToken } from "@/hooks/useCashuToken";
 import { useSendNutzap, useFetchNutzapInfo, useVerifyMintCompatibility } from "@/hooks/useSendNutzap";
+import { Proof } from "@cashu/cashu-ts";
 import { formatBalance } from "@/lib/cashu";
 import { useBitcoinPrice, satsToUSD, formatUSD } from "@/hooks/useBitcoinPrice";
 import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
@@ -129,11 +130,19 @@ export function NutzapInterface({ postId, authorPubkey, relayHint, onSuccess }: 
       // Verify mint compatibility and get a compatible mint URL
       const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
 
+      // Send token using p2pk pubkey from recipient info
+      const proofs = (await sendToken(
+        compatibleMintUrl,
+        amountValue,
+        recipientInfo.p2pkPubkey
+      )) as Proof[];
+
       // Send nutzap using recipient info
       await sendNutzap({
         recipientInfo,
         comment,
-        amount: amountValue,
+        proofs,
+        mintUrl: compatibleMintUrl,
         eventId: postId,
         relayHint,
       });

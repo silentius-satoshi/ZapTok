@@ -16,6 +16,7 @@ import { useSendNutzap, useFetchNutzapInfo, useVerifyMintCompatibility } from "@
 import { useCashuWallet } from "@/hooks/useCashuWallet";
 import { useCashuStore } from "@/stores/cashuStore";
 import { useCashuToken } from "@/hooks/useCashuToken";
+import { Proof } from "@cashu/cashu-ts";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useBitcoinPrice, satsToUSD, formatUSD } from "@/hooks/useBitcoinPrice";
@@ -100,11 +101,19 @@ export function UserNutzapDialog({ open, onOpenChange, pubkey }: UserNutzapDialo
       // Verify mint compatibility and get a compatible mint URL
       const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
 
+      // Send token using p2pk pubkey from recipient info
+      const proofs = (await sendToken(
+        compatibleMintUrl,
+        amountValue,
+        recipientInfo.p2pkPubkey
+      )) as Proof[];
+
       // Send nutzap using recipient info, with the user's p-tag
       await sendNutzap({
         recipientInfo,
         comment,
-        amount: amountValue,
+        proofs,
+        mintUrl: compatibleMintUrl,
         // Add the user pubkey as a p-tag instead of an e-tag
         tags: [["p", pubkey]],
       });
