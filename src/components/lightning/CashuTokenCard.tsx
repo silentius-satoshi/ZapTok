@@ -45,16 +45,22 @@ export function CashuTokenCard() {
     try {
       setError(null);
 
-      // Get the first mint URL from the store
-      const availableMints = Object.keys(cashuStore.mints);
-      if (availableMints.length === 0) {
-        throw new Error("No mints available");
+      // Get the active mint URL from the store
+      const activeMintUrl = cashuStore.activeMintUrl;
+      if (!activeMintUrl) {
+        throw new Error("No active mint selected");
       }
 
-      const result = await sendToken(parseInt(amount));
+      const proofs = await sendToken(activeMintUrl, parseInt(amount));
 
-      // Use the generated token string
-      setGeneratedToken(result.token);
+      // Create a simple token string representation (for this component)
+      const tokenData = {
+        mint: activeMintUrl,
+        proofs: proofs
+      };
+      const tokenString = JSON.stringify(tokenData);
+      
+      setGeneratedToken(tokenString);
       setSuccess("Token generated successfully!");
       setAmount("");
     } catch (err: any) {

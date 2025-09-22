@@ -34,7 +34,7 @@ import {
   useSendNutzap,
   useVerifyMintCompatibility,
 } from "@/hooks/useSendNutzap";
-import { useFetchNutzapInfo, useNutzapInfo } from "@/hooks/useNutzaps";
+import { useNutzapInfo } from "@/hooks/useNutzaps";
 import { useNutzapStore } from "@/stores/nutzapStore";
 import { nip19 } from "nostr-tools";
 import { Proof } from "@cashu/cashu-ts";

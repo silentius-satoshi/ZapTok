@@ -20,12 +20,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { VideoGrid } from '@/components/VideoGrid';
-import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus } from 'lucide-react';
+import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus, Bitcoin } from 'lucide-react';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { QRModal } from '@/components/QRModal';
 import { ZapButton } from '@/components/ZapButton';
-import { NutzapButton } from '@/components/NutzapButton';
+import { NutzapButton } from '@/components/users/NutzapButton';
+import { UserNutzapDialog } from '@/components/users/UserNutzapDialog';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '@nostrify/react/login';
 import { nip19 } from 'nostr-tools';
@@ -39,12 +40,13 @@ const Profile = () => {
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [isNutzapDialogOpen, setIsNutzapDialogOpen] = useState(false);
   const isMobile = useIsMobile();
-  
+
   // Detect signer type to hide Cashu features for bunker signers
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
   const loginType = currentUserLogin?.type;
-  const isBunkerSigner = loginType === 'bunker' || 
+  const isBunkerSigner = loginType === 'bunker' ||
                         loginType === 'x-bunker-nostr-tools' ||
                         user?.signer?.constructor?.name?.includes('bunker');
 
@@ -288,12 +290,14 @@ const Profile = () => {
                             />
 
                             {/* 3b. Nutzap Button - Now available for all signer types */}
-                            <NutzapButton
-                              userPubkey={targetPubkey}
+                            <Button
                               variant="outline"
                               size="icon"
                               className="w-10 h-10"
-                            />
+                              onClick={() => setIsNutzapDialogOpen(true)}
+                            >
+                              <Bitcoin className="h-4 w-4" />
+                            </Button>
 
                             {/* 4. Direct Message Button */}
                             <Button
@@ -452,6 +456,13 @@ const Profile = () => {
         pubkey={targetPubkey}
         metadata={metadata}
         displayName={displayName}
+      />
+
+      {/* User Nutzap Dialog */}
+      <UserNutzapDialog
+        open={isNutzapDialogOpen}
+        onOpenChange={setIsNutzapDialogOpen}
+        pubkey={targetPubkey}
       />
     </>
   );

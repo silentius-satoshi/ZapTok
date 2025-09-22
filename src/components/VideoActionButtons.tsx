@@ -15,7 +15,7 @@ import { useBookmarkVideo } from '@/hooks/useBookmarks';
 import { useToast } from '@/hooks/useToast';
 import { genUserName } from '@/lib/genUserName';
 import { ZapButton } from '@/components/ZapButton';
-import { NutzapButton } from '@/components/NutzapButton';
+import { NutzapButton } from '@/components/users/NutzapButton';
 import { CommentsModal } from '@/components/CommentsModal';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
@@ -219,12 +219,9 @@ export function VideoActionButtons({
         {/* 3. Nutzap Button - Now available for all signer types */}
         <div className="flex flex-col items-center gap-1">
           <NutzapButton
-            userPubkey={event.pubkey}
-            eventId={event.id}
-            iconSize={isMobile ? 'w-7 h-7' : 'w-10 h-10'}
-            className={`rounded-full bg-transparent hover:bg-white/10 text-white p-0 ${
-              isMobile ? 'h-12 w-12' : 'h-20 w-20'
-            }`}
+            postId={event.id}
+            authorPubkey={event.pubkey}
+            showText={false}
           />
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
               {isMobile ? 'nut' : 'nutzap!'}
