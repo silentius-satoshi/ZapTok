@@ -2,42 +2,30 @@ import { useState } from 'react';
 import { useCashuStore } from '@/stores/cashuStore';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
-import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
-import { CashuMint, CashuWallet, Proof, getDecodedToken } from '@cashu/cashu-ts';
+import { CashuMint, CashuWallet, Proof, getDecodedToken, CheckStateEnum } from '@cashu/cashu-ts';
+import { CashuToken } from '@/lib/cashu';
+import { hashToCurve } from "@cashu/crypto/modules/common";
 
 export function useCashuToken() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cashuStore = useCashuStore();
-  const { wallet, createWallet } = useCashuWallet();
+  const { wallet, createWallet, updateProofs } = useCashuWallet();
+
   const { createHistory } = useCashuHistory();
-  const transactionHistoryStore = useTransactionHistoryStore();
 
   /**
    * Generate a send token
+   * @param mintUrl The URL of the mint to use
    * @param amount Amount to send in satoshis
-   * @param socialContext Optional social payment context
-   * @returns Token string and proofs that were sent
+   * @param p2pkPubkey The P2PK pubkey to lock the proofs to
+   * @returns The encoded token string for regular tokens, or Proof[] for nutzap tokens
    */
-  const sendToken = async (
-    amount: number,
-    socialContext?: {
-      groupId?: string;
-      isNutzap?: boolean;
-      recipientPubkey?: string;
-      publicNote?: string;
-    }
-  ): Promise<{ token: string; proofs: Proof[] }> => {
+  const sendToken = async (mintUrl: string, amount: number, p2pkPubkey?: string): Promise<Proof[]> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Get the active mint
-      const mintUrl = cashuStore.getActiveMintUrl();
-      if (!mintUrl) {
-        throw new Error('No active mint selected');
-      }
-
       const mint = new CashuMint(mintUrl);
       const wallet = new CashuWallet(mint);
 
@@ -45,143 +33,97 @@ export function useCashuToken() {
       await wallet.loadMint();
 
       // Get all proofs from store
-      const proofs = await cashuStore.getMintProofs(mintUrl);
+      let proofs = await cashuStore.getMintProofs(mintUrl);
 
       const proofsAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
       if (proofsAmount < amount) {
-        throw new Error(`Not enough funds. Available: ${proofsAmount}, Required: ${amount}`);
+        throw new Error(`Not enough funds on mint ${mintUrl}`);
       }
 
-      // Perform coin selection with P2PK locking if recipient pubkey is provided
-      let sendOptions: any = {};
+      try {
+        // For regular token, create a token string
+        // Perform coin selection
+        const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: cashuStore.privkey });
 
-      if (socialContext?.recipientPubkey) {
-        console.log("🔒 P2PK locking to recipient:", socialContext.recipientPubkey);
-        console.log("🔑 Private key available:", cashuStore.privkey ? "YES" : "NO");
-        console.log("🔑 Private key length:", cashuStore.privkey?.length || 0);
-        sendOptions = {
-          pubkey: socialContext.recipientPubkey,
-          privkey: cashuStore.privkey
-        };
-      } else {
-        console.log("📤 Sending without P2PK locking");
+        // Create new token for the proofs we're keeping
+        if (proofsToKeep.length > 0) {
+          const keepTokenData: CashuToken = {
+            mint: mintUrl,
+            proofs: proofsToKeep.map(p => ({
+              id: p.id || '',
+              amount: p.amount,
+              secret: p.secret || '',
+              C: p.C || ''
+            }))
+          };
+
+          // update proofs
+          await updateProofs({ mintUrl, proofsToAdd: keepTokenData.proofs, proofsToRemove: [...proofsToSend, ...proofs] });
+
+          // Create history event
+          await createHistory.mutateAsync({
+            direction: 'out',
+            amount: amount.toString(),
+          });
+        }
+        return proofsToSend;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        // Check if error is "Token already spent"
+        if (message.includes("Token already spent")) {
+          console.log("Detected spent tokens, cleaning up and retrying...");
+
+          // Clean spent proofs
+          await cleanSpentProofs(mintUrl);
+
+          // Get fresh proofs after cleanup
+          proofs = await cashuStore.getMintProofs(mintUrl);
+
+          // Check if we still have enough funds after cleanup
+          const newProofsAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
+          if (newProofsAmount < amount) {
+            throw new Error(`Not enough funds on mint ${mintUrl} after cleaning spent proofs`);
+          }
+
+          // Retry the send operation with fresh proofs
+          const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: cashuStore.privkey });
+
+          // Create new token for the proofs we're keeping
+          if (proofsToKeep.length > 0) {
+            const keepTokenData: CashuToken = {
+              mint: mintUrl,
+              proofs: proofsToKeep.map(p => ({
+                id: p.id || '',
+                amount: p.amount,
+                secret: p.secret || '',
+                C: p.C || ''
+              }))
+            };
+
+            // update proofs
+            await updateProofs({ mintUrl, proofsToAdd: keepTokenData.proofs, proofsToRemove: [...proofsToSend, ...proofs] });
+
+            // Create history event
+            await createHistory.mutateAsync({
+              direction: 'out',
+              amount: amount.toString(),
+            });
+          }
+          return proofsToSend;
+        }
+
+        // Re-throw the error if it's not a "Token already spent" error
+        throw error;
       }
-
-      const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, sendOptions);
-
-      // Log the result for debugging
-      console.log(`💰 Coin selection result: keeping ${proofsToKeep.length} proofs, sending ${proofsToSend.length} proofs`);
-      proofsToSend.forEach((proof, index) => {
-        console.log(`Proof #${index + 1}: ${proof.C ? 'Signature not required' : 'Has witness'} from ${proof.C || 'unknown'}`);
-      });
-
-      // Update proofs in store (keeping the unsent ones)
-      if (proofsToKeep.length > 0) {
-        cashuStore.addProofs(proofsToKeep, `send-keep-${Date.now()}`);
-      }
-
-      // Remove the spent proofs from the store
-      cashuStore.removeProofs(proofsToSend);
-
-      // Create token string using @cashu/cashu-ts
-      const { getEncodedTokenV4 } = await import('@cashu/cashu-ts');
-      const tokenString = getEncodedTokenV4({
-        mint: mintUrl,
-        proofs: proofsToSend.map(p => ({
-          id: p.id || '',
-          amount: p.amount,
-          secret: p.secret || '',
-          C: p.C || ''
-        }))
-      });
-
-      // Record history for official cashu transaction
-      createHistory.mutate({
-        direction: 'out',
-        amount: amount.toString(),
-        destroyedTokens: proofsToSend.map(p => `${p.C}-${p.secret}`),
-      });
-
-      // Add social context to local store (custom ZapTok feature)
-      if (socialContext) {
-        transactionHistoryStore.addHistoryEntry({
-          id: `send-${Date.now()}`,
-          direction: 'out',
-          amount: amount.toString(),
-          destroyedTokens: proofsToSend.map(p => `${p.C}-${p.secret}`),
-          timestamp: Date.now(),
-          groupId: socialContext.groupId,
-          recipientPubkey: socialContext.recipientPubkey,
-          isNutzap: socialContext.isNutzap,
-        });
-      }
-
-      return {
-        token: tokenString,
-        proofs: proofsToSend
-      };
-    } catch (error: any) {
-      const message = error.message || 'Unknown error occurred';
-      setError(`Failed to send token: ${message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setError(`Failed to generate token: ${message}`);
       throw error;
     } finally {
       setIsLoading(false);
     }
-  };
 
-  /**
-   * Receive a token
-   * @param token The encoded token string
-   * @returns Received amount and proofs
-   */
-  const receiveToken = async (token: string): Promise<{ totalAmount: number; proofs: Proof[] }> => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Decode token
-      const decodedToken = getDecodedToken(token);
-      if (!decodedToken) {
-        throw new Error('Invalid token format');
-      }
-
-      const { mint: mintUrl } = decodedToken;
-
-      // Add mint if we don't have it
-      await addMintIfNotExists(mintUrl);
-
-      // Setup wallet for receiving
-      const mint = new CashuMint(mintUrl);
-      const wallet = new CashuWallet(mint);
-
-      // Load mint keysets
-      await wallet.loadMint();
-
-      // Receive proofs from token
-      const receivedProofs = await wallet.receive(token);
-      const totalAmount = receivedProofs.reduce((sum, p) => sum + p.amount, 0);
-
-      // Add proofs to store
-      cashuStore.addProofs(receivedProofs, `receive-${Date.now()}`);
-
-      // Record history
-      createHistory.mutate({
-        direction: 'in',
-        amount: totalAmount.toString(),
-        createdTokens: receivedProofs.map(p => `${p.C}-${p.secret}`),
-      });
-
-      return {
-        totalAmount,
-        proofs: receivedProofs
-      };
-    } catch (error: any) {
-      const message = error.message || 'Unknown error occurred';
-      setError(`Failed to receive token: ${message}`);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const addMintIfNotExists = async (mintUrl: string) => {
@@ -195,21 +137,105 @@ export function useCashuToken() {
       ...wallet,
       mints: [...wallet.mints, mintUrl],
     });
+  }
+
+  /**
+   * Receive a token
+   * @param token The encoded token string
+   * @returns The received proofs
+   */
+  const receiveToken = async (token: string): Promise<Proof[]> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Decode token
+      const decodedToken = getDecodedToken(token);
+      if (!decodedToken) {
+        throw new Error('Invalid token format');
+      }
+
+      const { mint: mintUrl } = decodedToken;
+
+      // if we don't have the mintUrl yet, add it
+      await addMintIfNotExists(mintUrl);
+
+      // Setup wallet for receiving
+      const mint = new CashuMint(mintUrl);
+      const wallet = new CashuWallet(mint);
+
+      // Load mint keysets
+      await wallet.loadMint();
+
+      // Receive proofs from token
+      const receivedProofs = await wallet.receive(token);
+      // Create token event in Nostr
+      const receivedTokenData: CashuToken = {
+        mint: mintUrl,
+        proofs: receivedProofs.map(p => ({
+          id: p.id || '',
+          amount: p.amount,
+          secret: p.secret || '',
+          C: p.C || ''
+        }))
+      };
+
+      try {
+        // Attempt to create token in Nostr, but don't rely on the return value
+        await updateProofs({ mintUrl, proofsToAdd: receivedTokenData.proofs, proofsToRemove: [] });
+      } catch (err) {
+        console.error('Error storing token in Nostr:', err);
+      }
+
+      // Create history event
+      const totalAmount = receivedProofs.reduce((sum, p) => sum + p.amount, 0);
+      await createHistory.mutateAsync({
+        direction: 'in',
+        amount: totalAmount.toString(),
+      });
+
+      return receivedProofs;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setError(`Failed to receive token: ${message}`);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const cleanSpentProofs = async (mintUrl: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    const mint = new CashuMint(mintUrl);
+    const wallet = new CashuWallet(mint);
+
+    await wallet.loadMint();
+
+    const proofs = await cashuStore.getMintProofs(mintUrl);
+
+    const proofStates = await wallet.checkProofsStates(proofs);
+    const spentProofsStates = proofStates.filter(
+      (p) => p.state == CheckStateEnum.SPENT
+    );
+    const enc = new TextEncoder();
+    const spentProofs = proofs.filter((p) =>
+      spentProofsStates.find(
+        (s) => s.Y == hashToCurve(enc.encode(p.secret)).toHex(true)
+      )
+    );
+
+    await updateProofs({ mintUrl, proofsToAdd: [], proofsToRemove: spentProofs });
+
+    return spentProofs;
+  }
 
   return {
     sendToken,
     receiveToken,
+    cleanSpentProofs,
     isLoading,
-    error,
-    // Compatibility aliases for old interface
-    isSendingToken: isLoading,
-    isReceivingToken: isLoading,
-    lastToken: null, // Not used in simplified version
-    clearLastToken: () => {}, // Not used in simplified version
-    cleanSpentProofs: {
-      mutateAsync: async () => {},
-      isPending: false
-    }, // Simplified - not needed with automatic cleanup
+    error
   };
 }

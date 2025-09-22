@@ -72,7 +72,7 @@ export function useCashuWallet() {
         walletData.mints = [...new Set(walletData.mints)];
 
         // fetch the mint info and keysets for each mint
-        Promise.all(walletData.mints.map(async (mint) => {
+        await Promise.all(walletData.mints.map(async (mint) => {
           const { mintInfo, keysets } = await activateMint(mint);
           cashuStore.addMint(mint);
           cashuStore.setMintInfo(mint, mintInfo);
@@ -136,6 +136,10 @@ export function useCashuWallet() {
       // Also create or update the nutzap informational event
       try {
         await createNutzapInfo({
+          mintOverrides: walletData.mints.map(mint => ({
+            url: mint,
+            units: ['sat']
+          })),
           p2pkPubkey: "02" + getPublicKey(hexToBytes(walletData.privkey))
         });
       } catch (error) {

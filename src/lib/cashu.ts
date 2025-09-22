@@ -44,7 +44,6 @@ export const CASHU_EVENT_KINDS = {
 };
 
 export const defaultMints = [
-  "https://mint.minibits.cash",
   "https://mint.chorus.community",
   // "https://testnut.cashu.space",
 ];

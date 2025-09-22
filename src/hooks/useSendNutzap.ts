@@ -5,6 +5,7 @@ import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { Proof } from '@cashu/cashu-ts';
 import { useNutzapStore, NutzapInformationalEvent } from '@/stores/nutzapStore';
 import { useCashuStore } from '@/stores/cashuStore';
+import { useCashuToken } from '@/hooks/useCashuToken';
 
 /**
  * Hook to verify mint compatibility between sender and recipient
@@ -113,41 +114,38 @@ export function useFetchNutzapInfo() {
 }
 
 /**
- * Hook to send nutzaps
+ * Hook to send nutzaps using standardized sendToken pattern
  */
 export function useSendNutzap() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { verifyMintCompatibility } = useVerifyMintCompatibility();
+  const { sendToken } = useCashuToken();
   const queryClient = useQueryClient();
 
   const sendNutzapMutation = useMutation({
     mutationFn: async ({
       recipientInfo,
       comment = '',
-      proofs,
-      mintUrl,
+      amount,
       eventId,
       relayHint,
       tags: additionalTags = []
     }: {
       recipientInfo: NutzapInformationalEvent;
       comment?: string;
-      proofs: Proof[];
-      mintUrl: string;
+      amount: number;
       eventId?: string;
       relayHint?: string;
       tags?: string[][];
     }) => {
       if (!user) throw new Error('User not logged in');
 
-      // Verify mint compatibility
+      // Verify mint compatibility and get compatible mint URL
       const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
 
-      // Use the compatible mint URL
-      if (mintUrl !== compatibleMintUrl) {
-        mintUrl = compatibleMintUrl;
-      }
+      // Use standardized sendToken to create P2PK locked tokens
+      const proofs = await sendToken(compatibleMintUrl, amount, recipientInfo.p2pkPubkey);
 
       // Create tags for the nutzap event
       const tags = [
@@ -155,7 +153,7 @@ export function useSendNutzap() {
         ...proofs.map(proof => ['proof', JSON.stringify(proof)]),
 
         // Add mint URL
-        ['u', mintUrl],
+        ['u', compatibleMintUrl],
 
         // Add recipient pubkey
         ['p', recipientInfo.event.pubkey],
@@ -205,7 +203,8 @@ export function useSendNutzap() {
 
       return {
         event,
-        recipientInfo
+        recipientInfo,
+        proofs
       };
     }
   });
