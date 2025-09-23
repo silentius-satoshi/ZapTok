@@ -121,22 +121,64 @@ export function About() {
                     add new features, and keep the community growing.
                   </p>
 
-                  <div className="flex flex-col items-center space-y-4 pt-4">
-                    <div className="bg-white p-4 rounded-lg shadow-lg">
-                      <img
-                        src={`${import.meta.env.BASE_URL}images/qr-code-donation.png`}
-                        alt="Donation QR Code"
-                        className="w-48 h-48 object-contain border"
-                        onError={(e) => {
-                          console.error('Image failed to load. Attempted URL:', e.currentTarget.src);
-                          console.error('Base URL:', import.meta.env.BASE_URL);
-                        }}
-                        onLoad={() => console.log('Image loaded successfully')}
-                      />
+                  <div className="flex flex-col items-center space-y-8 pt-4">
+                    <div className="flex flex-col md:flex-row gap-8 items-center justify-center">
+                      {/* Nostr Profile QR */}
+                      <div className="flex flex-col items-center space-y-4">
+                        <div className="bg-white p-4 rounded-lg shadow-lg">
+                          <img
+                            src={`${import.meta.env.BASE_URL}images/qr-npub.png`}
+                            alt="Nostr Profile QR Code"
+                            className="w-48 h-48 object-contain border"
+                            onError={(e) => {
+                              console.error('Nostr QR image failed to load. Attempted URL:', e.currentTarget.src);
+                              console.error('Base URL:', import.meta.env.BASE_URL);
+                            }}
+                            onLoad={() => console.log('Nostr QR image loaded successfully')}
+                          />
+                        </div>
+                        <div className="text-center space-y-1">
+                          <p className="text-sm font-medium">Follow us on nostr</p>
+                          <p className="text-xs text-muted-foreground break-all">
+                            <a 
+                              href="https://njump.me/npub187ffdcqg4k56x2x3wmtlu6wkawuzm5k5wvzj980p0uvx3ek6tg7svrdkx8"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              npub187ffdcqg4k56x2x3wmtlu6wkawuzm5k5wvzj980p0uvx3ek6tg7svrdkx8
+                            </a>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Lightning QR */}
+                      <div className="flex flex-col items-center space-y-4">
+                        <div className="bg-white p-4 rounded-lg shadow-lg">
+                          <img
+                            src={`${import.meta.env.BASE_URL}images/qr-lightning.png`}
+                            alt="Lightning Address QR Code"
+                            className="w-48 h-48 object-contain border"
+                            onError={(e) => {
+                              console.error('Lightning QR image failed to load. Attempted URL:', e.currentTarget.src);
+                              console.error('Base URL:', import.meta.env.BASE_URL);
+                            }}
+                            onLoad={() => console.log('Lightning QR image loaded successfully')}
+                          />
+                        </div>
+                        <div className="text-center space-y-1">
+                          <p className="text-sm font-medium">Zap to show your support for ZapTok development</p>
+                          <p className="text-xs text-muted-foreground">
+                            <a 
+                              href="lightning:zaptok@strike.me"
+                              className="text-primary hover:underline"
+                            >
+                              zaptok@strike.me
+                            </a>
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-sm text-center">
-                      Scan to support ZapTok development
-                    </p>
                   </div>
                 </div>
               </div>
