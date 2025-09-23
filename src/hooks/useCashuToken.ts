@@ -5,6 +5,7 @@ import { useCashuHistory } from '@/hooks/useCashuHistory';
 import { CashuMint, CashuWallet, Proof, getDecodedToken, CheckStateEnum } from '@cashu/cashu-ts';
 import { CashuToken } from '@/lib/cashu';
 import { hashToCurve } from "@cashu/crypto/modules/common";
+import { validateP2PKKeypair, deriveP2PKPubkey } from '@/lib/p2pk';
 
 export function useCashuToken() {
   const [isLoading, setIsLoading] = useState(false);
@@ -41,9 +42,40 @@ export function useCashuToken() {
       }
 
       try {
+        // Debug logging to understand the P2PK situation
+        console.log('🔐 [P2PK Debug] Sending token with:', {
+          amount,
+          p2pkPubkey,
+          proofsCount: proofs.length,
+          senderPrivkey: cashuStore.privkey ? 'present' : 'missing'
+        });
+
+        // Validate P2PK setup for sender's existing proofs
+        if (cashuStore.privkey) {
+          const senderP2PKPubkey = deriveP2PKPubkey(cashuStore.privkey);
+          console.log('🔐 [P2PK Debug] Sender P2PK validation:', {
+            senderP2PKPubkey,
+            isValid: validateP2PKKeypair(cashuStore.privkey, senderP2PKPubkey)
+          });
+        }
+
         // For regular token, create a token string
-        // Perform coin selection
-        const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: cashuStore.privkey });
+        // Perform coin selection with proper P2PK handling
+        const sendOptions: any = {};
+
+        // If sending to a P2PK locked recipient, use the legacy format like Chorus
+        if (p2pkPubkey) {
+          sendOptions.pubkey = p2pkPubkey;
+        }
+
+        // Always provide sender's private key for witness creation
+        if (cashuStore.privkey) {
+          sendOptions.privkey = cashuStore.privkey;
+        }
+
+        console.log('🔐 [P2PK Debug] Send options (legacy format):', sendOptions);
+
+        const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, sendOptions);
 
         // Create new token for the proofs we're keeping
         if (proofsToKeep.length > 0) {
@@ -86,8 +118,18 @@ export function useCashuToken() {
             throw new Error(`Not enough funds on mint ${mintUrl} after cleaning spent proofs`);
           }
 
-          // Retry the send operation with fresh proofs
-          const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, { pubkey: p2pkPubkey, privkey: cashuStore.privkey });
+          // Retry the send operation with fresh proofs using the same options
+          const retrySendOptions: any = {};
+          if (p2pkPubkey) {
+            retrySendOptions.p2pk = {
+              pubkey: p2pkPubkey
+            };
+          }
+          if (cashuStore.privkey) {
+            retrySendOptions.privkey = cashuStore.privkey;
+          }
+
+          const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, retrySendOptions);
 
           // Create new token for the proofs we're keeping
           if (proofsToKeep.length > 0) {

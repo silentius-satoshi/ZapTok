@@ -33,7 +33,7 @@ export function useUrlTokenProcessor() {
         const result = await receiveToken(token);
 
         // Calculate total amount
-        const totalAmount = result.proofs.reduce((sum, p) => sum + p.amount, 0);
+        const totalAmount = result.reduce((sum, p) => sum + p.amount, 0);
 
         // Show success notification
         toast.success('eCash received!', {
@@ -75,7 +75,7 @@ export function useOnboardingTokenProcessor() {
         const result = await receiveToken(pendingToken);
 
         // Calculate total amount
-        const totalAmount = result.proofs.reduce((sum, p) => sum + p.amount, 0);
+        const totalAmount = result.reduce((sum, p) => sum + p.amount, 0);
 
         // Show success notification
         toast.success('Welcome bonus received!', {

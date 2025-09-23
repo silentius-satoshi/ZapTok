@@ -167,7 +167,7 @@ export function CashuWalletCard() {
     if (!wallet || !wallet.mints) return;
     if (!cashuStore.activeMintUrl) return;
     try {
-      await cleanSpentProofs.mutateAsync();
+      await cleanSpentProofs(mintUrl);
       console.log(`Cleaned spent proofs for mint: ${mintUrl}`);
     } catch (error) {
       console.error('Error cleaning spent proofs:', error);
