@@ -1,7 +1,7 @@
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CASHU_EVENT_KINDS, CashuWalletStruct, CashuToken, activateMint, updateMintKeys, defaultMints, getTotalBalance } from '@/lib/cashu';
+import { CASHU_EVENT_KINDS, CashuWalletStruct, CashuToken, activateMint, updateMintKeys, defaultMints } from '@/lib/cashu';
 import { NostrEvent, getPublicKey } from 'nostr-tools';
 import { useCashuStore, Nip60TokenEvent } from '@/stores/cashuStore';
 import { Proof } from '@cashu/cashu-ts';
@@ -21,6 +21,9 @@ export function useCashuWallet() {
   const queryClient = useQueryClient();
   const cashuStore = useCashuStore();
   const { createNutzapInfo } = useNutzaps();
+
+  // Subscribe to balance changes for reactive updates
+  const currentBalance = useCashuStore((state) => state.getTotalBalance());
 
   // Fetch wallet information (kind 17375)
   const walletQuery = useQuery({
@@ -241,10 +244,10 @@ export function useCashuWallet() {
             signerMethods: Object.getOwnPropertyNames(user.signer.nip44)
           });            // Log the exact function call before making it
             console.debug(`About to call:`, `user.signer.nip44.decrypt("${user.pubkey}", "${event.content.substring(0, 20)}...")`);
-            
+
           // Try the decryption with additional error checking
           const decryptResult = await user.signer.nip44.decrypt(user.pubkey, event.content);
-          
+
           console.debug(`Raw decrypt result:`, {
             result: decryptResult,
             type: typeof decryptResult,
@@ -254,18 +257,18 @@ export function useCashuWallet() {
             length: decryptResult?.length,
             constructor: decryptResult?.constructor?.name
           });
-          
+
           // Check if result is valid before assigning
           if (decryptResult === undefined || decryptResult === null) {
             console.debug(`Primary decrypt failed, trying nostr-tools fallback...`);
-            
+
             // Try using nostr-tools nip44 directly as fallback
             try {
               const { nip44 } = await import('nostr-tools');
-              
+
               // For nsec signers, try to get private key if available
               let fallbackResult: string | null = null;
-              
+
               if ((user.signer as any).getPrivateKey) {
                 try {
                   const privateKey = await (user.signer as any).getPrivateKey();
@@ -274,13 +277,13 @@ export function useCashuWallet() {
                   console.debug(`Private key access failed:`, privKeyError);
                 }
               }
-              
+
               console.debug(`Nostr-tools fallback result:`, {
                 result: fallbackResult,
                 type: typeof fallbackResult,
                 isValid: typeof fallbackResult === 'string' && fallbackResult.length > 0
               });
-              
+
               if (typeof fallbackResult === 'string' && fallbackResult.length > 0) {
                 decrypted = fallbackResult;
                 console.debug(`✅ Nostr-tools fallback successful for event ${event.id}`);
@@ -289,7 +292,7 @@ export function useCashuWallet() {
               }
             } catch (fallbackError) {
               console.debug(`Nostr-tools fallback failed:`, fallbackError);
-              
+
               // Final attempt: try alternative parameter order for self-encrypted events
               if (event.pubkey === user.pubkey) {
                 console.debug(`Final attempt: alternative parameter order for self-encrypted event...`);
@@ -330,13 +333,13 @@ export function useCashuWallet() {
             });
             throw decryptError;
           }
-          
+
           // Validate decryption result
           if (!decrypted || typeof decrypted !== 'string') {
-            console.warn(`Skipping token event ${event.id}: decryption returned invalid result:`, { 
-              decrypted, 
+            console.warn(`Skipping token event ${event.id}: decryption returned invalid result:`, {
+              decrypted,
               type: typeof decrypted,
-              length: decrypted?.length 
+              length: decrypted?.length
             });
             continue;
           }
@@ -455,7 +458,7 @@ export function useCashuWallet() {
 
   // Helper function to get total balance
   const getTotalBalanceHelper = () => {
-    return getTotalBalance(cashuStore.proofs);
+    return currentBalance;
   };
 
   return {
@@ -467,6 +470,7 @@ export function useCashuWallet() {
     createWalletAsync: createWalletMutation.mutateAsync,
     updateProofs: updateProofsMutation.mutateAsync,
     getTotalBalance: getTotalBalanceHelper,
+    totalBalance: currentBalance, // Reactive balance value
 
     // Legacy compatibility properties
     mints: walletQuery.data?.wallet?.mints || [],

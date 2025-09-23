@@ -29,12 +29,12 @@ export function LoginArea({ className }: LoginAreaProps) {
 
   // Get global store for comparison
   const globalCashuStore = useCashuStore();
-  
+
   // Use global currency store instead of local state
   const { showSats, toggleCurrency } = useCurrencyDisplayStore();
-  
+
   // Use modern Cashu hooks following Chorus patterns
-  const { getTotalBalance } = useCashuWallet();
+  const { totalBalance: cashuBalance } = useCashuWallet();
 
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [addAccountDialogOpen, setAddAccountDialogOpen] = useState(false);
@@ -46,7 +46,7 @@ export function LoginArea({ className }: LoginAreaProps) {
   useEffect(() => {
     if (currentUser?.pubkey) {
       console.log("Login area initializing for user:", currentUser.pubkey);
-      
+
       // Use modern initialization following Chorus patterns
       // The useCashuWallet hook handles wallet initialization automatically
       console.log("Wallet initialization handled by modern hooks");
@@ -77,9 +77,8 @@ export function LoginArea({ className }: LoginAreaProps) {
   const formatBalance = useCallback(() => {
     // Get balances from both sources
     const lightningBalance = userHasLightningAccess ? (walletInfo?.balance || 0) : 0;
-    
-    // Use modern hook for Cashu balance
-    const cashuBalance = getTotalBalance();
+
+    // Use reactive Cashu balance directly
     const globalCashuBalance = globalCashuStore?.getTotalBalance?.() || 0;
 
     // Calculate total balance as Lightning + Cashu
@@ -118,7 +117,7 @@ export function LoginArea({ className }: LoginAreaProps) {
         return `${totalBalance.toLocaleString()} sats (price loading...)`;
       }
     }
-  }, [walletInfo?.balance, getTotalBalance, globalCashuStore, showSats, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
+  }, [walletInfo?.balance, cashuBalance, globalCashuStore, showSats, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
 
   // Cashu wallet button - Enhanced with better styling
   const LightningWalletButton = () => (

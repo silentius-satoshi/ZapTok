@@ -31,28 +31,27 @@ export function CashuWallet() {
 
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  
+
   // Wallet detection
   const { isBunkerSigner, isNsecSigner, isExtensionSigner } = useWallet();
-  
+
   // User state
   const { user } = useCurrentUser();
-  
+
   // Cashu store states
   const cashuStore = useCashuStore();
-  const { getTotalBalance } = useCashuWallet();
-  
+  const { totalBalance } = useCashuWallet();
+
   // Price and currency
   const { data: btcPrice } = useBitcoinPrice();
   const { showSats, toggleCurrency } = useCurrencyDisplayStore();
-  
-  // Calculate total Cashu balance using modern hook
-  const totalBalance = getTotalBalance();
+
+  // Calculate total Cashu balance using reactive value
 
   // Debug balance calculation in CashuWallet page (bundled and throttled)
   React.useEffect(() => {
     if (import.meta.env.DEV && user?.pubkey) {
-      bundleLog('cashuWallet', `Balance: ${totalBalance} sats (modern hook)`);
+      bundleLog('cashuWallet', `Balance: ${totalBalance} sats (reactive value)`);
     }
   }, [totalBalance, user?.pubkey]);
 

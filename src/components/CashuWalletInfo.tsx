@@ -8,12 +8,11 @@ import { Badge } from "@/components/ui/badge";
 
 export function CashuWalletInfo() {
   const { user } = useCurrentUser();
-  const { wallet, isLoading, getTotalBalance } = useCashuWallet();
+  const { wallet, isLoading, totalBalance } = useCashuWallet();
   const { data: btcPrice } = useBitcoinPrice();
   const { showSats } = useCurrencyDisplayStore();
 
-  // Get wallet total balance from user-specific store
-  const totalBalance = getTotalBalance();
+  // Use reactive balance value directly
 
   if (isLoading) {
     return (
