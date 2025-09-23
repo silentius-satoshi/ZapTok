@@ -164,19 +164,6 @@ export function MobileNavigation() {
     { id: 'following', icon: Users, label: 'Following', path: '/' },
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    // Wallet items - now available for all users
-    {
-      id: 'cashu-wallet',
-      icon: () => <img src={`${import.meta.env.BASE_URL}images/cashu-icon.png`} alt="Cashu" className="w-5 h-5 object-contain" />,
-      label: 'Cashu Wallet',
-      path: '/cashu-wallet'
-    },
-    {
-      id: 'bitcoin-connect-wallet',
-      icon: Zap,
-      label: 'Bitcoin Connect',
-      path: '/bitcoin-connect-wallet'
-    },
     { id: 'live-stream', icon: Radio, label: 'Live Stream', action: 'liveStream' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
     { id: 'upload-video', icon: PlusSquare, label: 'Upload Video', action: 'uploadVideo' },
@@ -186,7 +173,7 @@ export function MobileNavigation() {
   const bottomNavItems = [
     { id: 'global', icon: Globe, label: 'Global', path: '/global' },
     { id: 'following', icon: Users, label: 'Following', path: '/' },
-    { id: 'lightning', icon: Zap, label: 'Wallet', path: '/cashu-wallet', isCenter: true },
+    { id: 'lightning', icon: Zap, label: 'Wallet', path: '/bitcoin-connect-wallet', isCenter: true },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
     { id: 'profile', icon: User, label: 'Profile', isUserProfile: true },
   ];

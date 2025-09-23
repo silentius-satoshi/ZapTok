@@ -98,23 +98,10 @@ export function Navigation() {
 
     const navItems = [
     { id: 'search', icon: Search, label: 'Discover', path: '/discover' },
-    { id: 'global', icon: Globe, label: 'Global', path: '/global' },
-    { id: 'following', icon: Users, label: 'Following', path: '/' },
-    { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    // Wallet options - now available for all users
-    {
-      id: 'wallet',
-      icon: Wallet,
-      label: 'Cashu Wallet',
-      path: '/cashu-wallet'
-    },
-    {
-      id: 'bitcoin-connect-wallet',
-      icon: Zap,
-      label: 'Bitcoin Connect',
-      path: '/bitcoin-connect-wallet'
-    },
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
+    { id: 'following', icon: Users, label: 'Following', path: '/' },
+    { id: 'global', icon: Globe, label: 'Global', path: '/global' },
+    { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
