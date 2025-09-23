@@ -24,12 +24,8 @@ export function BitcoinConnectBalanceDisplay({
     navigate('/bitcoin-connect-wallet');
   };
 
-  // Don't show if no wallet is connected
-  if (!isConnected || !walletInfo) {
-    return null;
-  }
-
-  const balance = walletInfo.balance || 0;
+  // Use balance from connected wallet or show 0 if not connected
+  const balance = (isConnected && walletInfo) ? walletInfo.balance || 0 : 0;
 
   // Format balance based on currency preference
   const displayBalance = showSats 
@@ -38,7 +34,9 @@ export function BitcoinConnectBalanceDisplay({
       ? formatUSD(satsToUSD(balance, btcPrice.USD))
       : formatBalance(balance);
 
-  const balanceText = 'bitcoin connect wallet';
+  const balanceText = isConnected && walletInfo 
+    ? 'bitcoin connect wallet' 
+    : 'bitcoin connect (not connected)';
 
   if (variant === 'compact') {
     return (
@@ -48,7 +46,10 @@ export function BitcoinConnectBalanceDisplay({
           className
         )}
         onClick={handleClick}
-        title="Click to open Bitcoin Connect wallet"
+        title={isConnected && walletInfo 
+          ? "Click to open Bitcoin Connect wallet" 
+          : "Click to connect Bitcoin Connect wallet"
+        }
       >
         <div className="w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
           <span className="text-xs font-bold text-white">₿</span>
@@ -68,7 +69,10 @@ export function BitcoinConnectBalanceDisplay({
         className
       )}
       onClick={handleClick}
-      title="Click to open Bitcoin Connect wallet"
+      title={isConnected && walletInfo 
+        ? "Click to open Bitcoin Connect wallet" 
+        : "Click to connect Bitcoin Connect wallet"
+      }
     >
       <div className="flex items-center space-x-3">
         <div className="p-2 rounded-full bg-orange-500/10">
@@ -79,7 +83,12 @@ export function BitcoinConnectBalanceDisplay({
         <div>
           <p className="text-sm text-muted-foreground">Bitcoin Connect Balance</p>
           <p className="text-2xl font-bold">{displayBalance}</p>
-          <p className="text-xs text-muted-foreground">Click to open wallet • Use currency toggle in nav to switch {showSats ? 'USD' : 'sats'}</p>
+          <p className="text-xs text-muted-foreground">
+            {isConnected && walletInfo 
+              ? `Click to open wallet • Use currency toggle in nav to switch ${showSats ? 'USD' : 'sats'}`
+              : 'Click to connect Bitcoin Connect wallet'
+            }
+          </p>
         </div>
       </div>
     </div>
