@@ -168,7 +168,7 @@ export async function payMeltQuote(mintUrl: string, quoteId: string, proofs: Pro
     // Melt the selected proofs to pay the Lightning invoice
     let meltResponse;
     try {
-      meltResponse = await wallet.meltProofs(meltQuote, send);
+      meltResponse = await wallet.meltProofs(meltQuote, send, { privkey: useCashuStore.getState().privkey });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
 
