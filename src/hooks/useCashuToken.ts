@@ -42,21 +42,11 @@ export function useCashuToken() {
       }
 
       try {
-        // Debug logging to understand the P2PK situation
-        console.log('🔐 [P2PK Debug] Sending token with:', {
-          amount,
-          p2pkPubkey,
-          proofsCount: proofs.length,
-          senderPrivkey: cashuStore.privkey ? 'present' : 'missing'
-        });
-
         // Validate P2PK setup for sender's existing proofs
         if (cashuStore.privkey) {
           const senderP2PKPubkey = deriveP2PKPubkey(cashuStore.privkey);
-          console.log('🔐 [P2PK Debug] Sender P2PK validation:', {
-            senderP2PKPubkey,
-            isValid: validateP2PKKeypair(cashuStore.privkey, senderP2PKPubkey)
-          });
+          const isValid = validateP2PKKeypair(cashuStore.privkey, senderP2PKPubkey);
+          // Validation result is available but not logged to reduce console spam
         }
 
         // For regular token, create a token string
@@ -72,8 +62,6 @@ export function useCashuToken() {
         if (cashuStore.privkey) {
           sendOptions.privkey = cashuStore.privkey;
         }
-
-        console.log('🔐 [P2PK Debug] Send options (legacy format):', sendOptions);
 
         const { keep: proofsToKeep, send: proofsToSend } = await wallet.send(amount, proofs, sendOptions);
 

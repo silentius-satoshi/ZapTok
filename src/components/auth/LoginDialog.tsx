@@ -5,6 +5,7 @@ import React, { useRef, useState } from 'react';
 import { Shield, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { Input } from '@/components/ui/input.tsx';
+import { devError } from '@/lib/devConsole';
 import {
   Dialog,
   DialogContent,
@@ -69,7 +70,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
       onLogin();
       onClose();
     } catch (error) {
-      console.error('Bunker login failed:', error);
+      devError('Bunker login failed:', error);
     } finally {
       setIsLoading(false);
     }

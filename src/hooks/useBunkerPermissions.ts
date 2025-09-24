@@ -1,4 +1,5 @@
 import { useToast } from '@/hooks/useToast';
+import { devLog } from '@/lib/devConsole';
 
 /**
  * Hook to manage bunker signer permissions for specific event kinds
@@ -12,7 +13,7 @@ export function useBunkerPermissions() {
    * @param requiredKinds - Array of event kinds to request permissions for
    */
   const requestVideoPermissions = async (requiredKinds: number[] = [1, 21, 22, 9734, 9735, 7374, 7375, 7376, 17375, 9321, 10019, 13194, 23194, 23195, 23197]): Promise<void> => {
-    console.log('🔐 Requesting bunker permissions for event kinds:', requiredKinds);
+    devLog('🔐 Requesting bunker permissions for event kinds:', requiredKinds);
     
     // Show user what permissions we're requesting
     const kindDescriptions = {
@@ -95,7 +96,7 @@ export function useBunkerPermissions() {
     // For bunker signers, we assume permissions were granted during connection
     // The bunker service will reject signing attempts for unauthorized kinds
     if (user?.signer?.constructor?.name === 'NostrToolsSigner') {
-      console.log('🔍 Bunker signer detected - assuming permissions granted during connection');
+      devLog('🔍 Bunker signer detected - assuming permissions granted during connection');
       return true;
     }
     

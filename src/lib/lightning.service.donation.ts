@@ -4,6 +4,7 @@ import { makeZapRequest } from 'nostr-tools/nip57';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { ZAPTOK_CONFIG } from '@/constants';
 import { debugLog } from '@/lib/debug';
+import { devLog } from '@/lib/devConsole';
 import { useNostr } from '@nostrify/react';
 import {
   init,
@@ -225,9 +226,9 @@ export class LightningService {
     });
     
     // Deep inspection of signer object
-    console.log('🔍 Signer Object Details:', user.signer);
+    debugLog.lightning('Signer Object Details:', user.signer);
     if (user.signer?.bunkerSigner) {
-      console.log('🔍 Bunker Signer Details:', user.signer.bunkerSigner);
+      devLog('🔍 Bunker Signer Details:', user.signer.bunkerSigner);
     }
 
     // Handle different signer types and method access patterns
@@ -258,7 +259,7 @@ export class LightningService {
     }
     // PRIORITY 3: Deep prototype chain search on main signer (for service worker bunker signers)
     else if (user?.signer) {
-      console.log('🔍 [Lightning] Service worker bunker pattern: Searching prototype chain on main signer...');
+      devLog('🔍 [Lightning] Service worker bunker pattern: Searching prototype chain on main signer...');
       let currentProto = user.signer;
       let depth = 0;
       while (currentProto && depth < 10) {
@@ -293,14 +294,14 @@ export class LightningService {
       const bunkerSigner = user.signer.bunkerSigner;
       
       // Detailed inspection of bunkerSigner methods
-      console.log('🔍 [Lightning] Detailed bunker signer inspection:');
-      console.log('🔍 Own properties:', Object.getOwnPropertyNames(bunkerSigner));
-      console.log('🔍 Keys:', Object.keys(bunkerSigner));
+      devLog('🔍 [Lightning] Detailed bunker signer inspection:');
+      devLog('🔍 Own properties:', Object.getOwnPropertyNames(bunkerSigner));
+      devLog('🔍 Keys:', Object.keys(bunkerSigner));
       
       // Check if bunker signer has signEvent method
       if (typeof bunkerSigner.signEvent === 'function') {
         signEventMethod = bunkerSigner.signEvent.bind(bunkerSigner);
-        console.log('✅ [Lightning] Found signEvent method on bunkerSigner');
+        devLog('✅ [Lightning] Found signEvent method on bunkerSigner');
       }
       // Try accessing through prototype chain
       else {
@@ -347,12 +348,12 @@ export class LightningService {
     // For nostr-tools bunker signers, the signer itself might be the bunker signer
     else if (user?.signer && typeof user.signer.signEvent === 'function') {
       signEventMethod = user.signer.signEvent.bind(user.signer);
-      console.log('✅ [Lightning] Found signEvent method directly on bunker signer');
+      devLog('✅ [Lightning] Found signEvent method directly on bunker signer');
     }
     // If we still haven't found anything, but we know it's a bunker signer, do fallback checks
     else if (user?.signer) {
-      console.log('🔍 [Lightning] Fallback: Checking signer object for any signing methods...');
-      console.log('🔍 Signer own properties:', Object.getOwnPropertyNames(user.signer));
+      devLog('🔍 [Lightning] Fallback: Checking signer object for any signing methods...');
+      devLog('🔍 Signer own properties:', Object.getOwnPropertyNames(user.signer));
       
       // Check for any method that might be used for signing
       const allMethods = Object.getOwnPropertyNames(user.signer)

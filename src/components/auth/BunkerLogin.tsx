@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Zap, HelpCircle, Link, AlertTriangle } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrToolsBunkerLogin } from '@/hooks/useNostrToolsBunkerLogin';
+import { devLog, devError } from '@/lib/devConsole';
 
 interface BunkerLoginProps {
   login: (bunkerUrl: string) => Promise<void>;
@@ -60,7 +61,7 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
 
     try {
       // Try the new nostr-tools implementation first
-      console.log('🔧 Attempting bunker login with nostr-tools...');
+      devLog('🔧 Attempting bunker login with nostr-tools...');
       const loginData = await nostrToolsBunkerLogin(bunkerUrl);
 
       if (loginData && onLoginSuccess) {
@@ -68,11 +69,11 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
       }
 
       setIsBunkerLoading(false);
-      console.log('✅ nostr-tools bunker login successful!');
+      devLog('✅ nostr-tools bunker login successful!');
       return;
 
     } catch (nostrToolsError) {
-      console.log('❌ nostr-tools bunker login failed, falling back to Nostrify...', nostrToolsError);
+      devLog('❌ nostr-tools bunker login failed, falling back to Nostrify...', nostrToolsError);
 
       // Fallback to the original Nostrify implementation
       try {
@@ -88,16 +89,16 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
       } catch (error) {
         // Check if the error is actually a confirmation URL
         if (error instanceof Error && error.message.startsWith('https://')) {
-          console.log('Bunker confirmation required:', error.message);
+          devLog('Bunker confirmation required:', error.message);
           setIsWaitingForConfirmation(true);
           setAuthUrl(error.message);
 
           // Copy the confirmation URL to clipboard for easy access
           try {
             await navigator.clipboard.writeText(error.message);
-            console.log('Confirmation URL copied to clipboard');
+            devLog('Confirmation URL copied to clipboard');
           } catch (clipboardError) {
-            console.log('Could not copy to clipboard:', clipboardError);
+            devLog('Could not copy to clipboard:', clipboardError);
           }
 
           // Start polling for successful connection by checking user state
@@ -106,11 +107,11 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
 
           pollIntervalRef.current = setInterval(async () => {
             attempts++;
-            console.log(`Polling for bunker connection (attempt ${attempts}/${maxAttempts})...`);
+            devLog(`Polling for bunker connection (attempt ${attempts}/${maxAttempts})...`);
 
             // Instead of calling login() again, just check if user is logged in
             if (user) {
-              console.log('Bunker connection successful - user is now logged in!');
+              devLog('Bunker connection successful - user is now logged in!');
               if (pollIntervalRef.current) {
                 clearInterval(pollIntervalRef.current);
                 pollIntervalRef.current = null;
@@ -123,10 +124,10 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
             // Try one more login attempt (but with less frequency to avoid timeouts)
             if (attempts % 3 === 0) { // Only retry every 3rd attempt (every 15 seconds)
               try {
-                console.log(`Retrying bunker login on attempt ${attempts}...`);
+                devLog(`Retrying bunker login on attempt ${attempts}...`);
                 await login(bunkerUrl);
                 // If we get here, login succeeded
-                console.log('Bunker connection successful!');
+                devLog('Bunker connection successful!');
                 if (pollIntervalRef.current) {
                   clearInterval(pollIntervalRef.current);
                   pollIntervalRef.current = null;
@@ -135,7 +136,7 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
                 setIsBunkerLoading(false);
                 return;
               } catch (retryError) {
-                console.log(`Retry attempt ${attempts} failed:`, retryError);
+                devLog(`Retry attempt ${attempts} failed:`, retryError);
                 // Continue polling even if retry fails
               }
             }
@@ -148,7 +149,7 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
               }
               setIsWaitingForConfirmation(false);
               setIsBunkerLoading(false);
-              console.error('Bunker connection timeout after', maxAttempts, 'attempts');
+              devError('Bunker connection timeout after', maxAttempts, 'attempts');
             }
           }, 5000); // Poll every 5 seconds
 

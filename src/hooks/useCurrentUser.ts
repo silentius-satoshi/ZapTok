@@ -1,6 +1,7 @@
 import { type NLoginType, NUser, useNostrLogin } from '@nostrify/react/login';
 import { useNostr } from '@nostrify/react';
 import { useCallback, useMemo, useEffect, useRef } from 'react';
+import { devWarn } from '@/lib/devConsole';
 
 import { useAuthor } from './useAuthor.ts';
 import { NostrToolsSigner } from './useNostrToolsBridge.ts';
@@ -24,7 +25,7 @@ export function useCurrentUser() {
         // Check if we have the required properties - handle both old and new formats
         const bunkerUrl = customLogin.bunkerUrl || customLogin.data?.bunkerUrl;
         if (!bunkerUrl || !customLogin.pubkey) {
-          console.warn('⚠️  Invalid x-bunker-nostr-tools login detected:', {
+          devWarn('⚠️  Invalid x-bunker-nostr-tools login detected:', {
             id: login.id,
             hasBunkerUrl: !!bunkerUrl,
             hasPubkey: !!customLogin.pubkey,

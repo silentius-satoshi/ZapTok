@@ -2,6 +2,7 @@ import { useNostr } from '@nostrify/react';
 import { NLogin, useNostrLogin } from '@nostrify/react/login';
 import { useAuthState } from './useAuthState';
 import { useNostrToolsBunkerLogin } from './useNostrToolsBunkerLogin';
+import { devLog, devError } from '@/lib/devConsole';
 
 // NOTE: This file should not be edited except for adding new login methods.
 
@@ -61,9 +62,9 @@ export function useLoginActions() {
             // Remove the localStorage data to prevent restoration
             const storageKey = `bunker-${login.pubkey}`;
             localStorage.removeItem(storageKey);
-            console.log('🗑️ Removed bunker session storage for:', login.pubkey?.substring(0, 16) + '...');
+            devLog('🗑️ Removed bunker session storage for:', login.pubkey?.substring(0, 16) + '...');
           } catch (error) {
-            console.warn('Failed to remove bunker session storage:', error);
+            devError('Failed to remove bunker session storage:', error);
           }
         }
         
