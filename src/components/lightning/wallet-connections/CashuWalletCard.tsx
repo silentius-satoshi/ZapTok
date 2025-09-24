@@ -17,6 +17,7 @@ import { useBitcoinPrice, satsToUSD, formatUSD } from "@/hooks/useBitcoinPrice";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   AlertCircle,
+  AlertTriangle,
   ChevronDown,
   ChevronUp,
   Plus,
@@ -36,7 +37,7 @@ export function CashuWalletCard() {
   const { user } = useCurrentUser();
   const { wallet, isLoading, createWallet: updateWallet } = useCashuWallet();
   const cashuStore = useCashuStore();
-  const { cleanSpentProofs } = useCashuToken();
+  const { cleanSpentProofs, cleanUnspendableP2PKProofs } = useCashuToken();
   const { data: btcPrice } = useBitcoinPrice();
   const { showSats } = useCurrencyDisplayStore();
   const walletUiStore = useWalletUiStore();
@@ -171,6 +172,18 @@ export function CashuWalletCard() {
       console.log(`Cleaned spent proofs for mint: ${mintUrl}`);
     } catch (error) {
       console.error('Error cleaning spent proofs:', error);
+    }
+  };
+
+  const handleCleanP2PKIssues = async (mintUrl: string) => {
+    if (!wallet || !wallet.mints) return;
+    if (!cashuStore.activeMintUrl) return;
+    try {
+      const removedProofs = await cleanUnspendableP2PKProofs(mintUrl);
+      const proofSum = removedProofs.reduce((sum, proof) => sum + proof.amount, 0);
+      console.log(`Removed ${removedProofs.length} unspendable P2PK proofs totaling ${proofSum} sats from ${mintUrl}`);
+    } catch (error) {
+      console.error('Error cleaning P2PK proofs:', error);
     }
   };
 
@@ -310,25 +323,36 @@ export function CashuWalletCard() {
                           </div>
                         </div>
                         {isExpanded && (
-                          <div className="pl-4 flex justify-end gap-2 pt-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCleanSpentProofs(mint)}
-                              className="border-muted-foreground/20 hover:bg-muted"
-                            >
-                              <Eraser className="h-4 w-4 mr-1 text-amber-500" />
-                              Cleanup Wallet
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRemoveMint(mint)}
-                              className="border-muted-foreground/20 hover:bg-destructive/10"
-                            >
-                              <Trash className="h-4 w-4 mr-1 text-destructive" />
-                              Remove
-                            </Button>
+                          <div className="pl-4 flex flex-col gap-2 pt-1">
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCleanSpentProofs(mint)}
+                                className="border-muted-foreground/20 hover:bg-muted"
+                              >
+                                <Eraser className="h-4 w-4 mr-1 text-amber-500" />
+                                Clean All Spent
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCleanP2PKIssues(mint)}
+                                className="border-muted-foreground/20 hover:bg-orange-100"
+                              >
+                                <AlertTriangle className="h-4 w-4 mr-1 text-orange-500" />
+                                Clean P2PK Issues
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRemoveMint(mint)}
+                                className="border-muted-foreground/20 hover:bg-destructive/10"
+                              >
+                                <Trash className="h-4 w-4 mr-1 text-destructive" />
+                                Remove
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>
