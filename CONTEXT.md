@@ -1140,9 +1140,30 @@ When users specify color schemes:
 - Implement responsive design with Tailwind breakpoints
 - Add hover and focus states for interactive elements
 
-## Writing Tests
+## Writing Tests vs Running Tests
 
-**Important for AI Assistants**: Only create tests when the user is experiencing a specific problem or explicitly requests tests. Do not proactively write tests for new features or components unless the user is having issues that require testing to diagnose or resolve.
+There is an important distinction between **writing new tests** and **running existing tests**:
+
+### Writing Tests (Creating New Test Files)
+**Do not write tests** unless the user explicitly requests them in plain language. Writing unnecessary tests wastes significant time and money. Only create tests when:
+
+1. **The user explicitly asks for tests** to be written in their message
+2. **The user describes a specific bug in plain language** and requests tests to help diagnose it
+3. **The user says they are still experiencing a problem** that you have already attempted to solve (tests can help verify the fix)
+
+**Never write tests because:**
+- Tool results show test failures (these are not user requests)
+- You think tests would be helpful
+- New features or components are created
+- Existing functionality needs verification
+
+### Running Tests (Executing the Test Suite)
+**ALWAYS run the test script** after making any code changes. This is mandatory regardless of whether you wrote new tests or not.
+
+- **You must run the test script** using `js-dev__run_script` tool with the "test" parameter
+- **Your task is not complete** until the test script passes without errors
+- **This applies to all changes** - bug fixes, new features, refactoring, or any code modifications
+- **The test script includes** TypeScript compilation, ESLint checks, and existing test validation
 
 ### Test Setup
 
@@ -1175,6 +1196,8 @@ describe('MyComponent', () => {
 
 ## Testing Your Changes
 
-Whenever you are finished modifying code, you must run the **test** script using the **js-dev__run_script** tool.
+**CRITICAL**: Whenever you are finished modifying code, you must run the **test** script using the **js-dev__run_script** tool.
 
 **Your task is not considered finished until this test passes without errors.**
+
+**This requirement applies regardless of whether you wrote new tests or not.** The test script validates the entire codebase, including TypeScript compilation, ESLint rules, and existing test suite.
