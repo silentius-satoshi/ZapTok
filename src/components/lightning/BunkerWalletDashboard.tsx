@@ -378,7 +378,7 @@ export function BunkerWalletDashboard({ className }: BunkerWalletDashboardProps)
       </CardHeader>
 
       <CardContent className="relative space-y-6">
-        {/* Connected Wallet Dashboard */}
+        {/* Cashu Wallet Dashboard */}
         <div className="space-y-6">
             {/* Balance Section */}
             <div className="text-center space-y-3">

@@ -98,7 +98,7 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
 
         {/* Cashu Wallet */}
         <DropdownMenuItem
-          onClick={() => navigate('/settings?section=connected-wallets')}
+          onClick={() => navigate('/settings?section=cashu-wallet')}
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
           <Wallet className='w-4 h-4' />

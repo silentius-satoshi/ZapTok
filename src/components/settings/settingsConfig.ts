@@ -6,7 +6,7 @@ import { FeedsSettings } from './FeedsSettings';
 import { DiscoverySettings } from './DiscoverySettings';
 import { MediaUploadsSettings } from './MediaUploadsSettings';
 import { StreamSettings } from './StreamSettings';
-import { ConnectedWalletsSettings } from './ConnectedWalletsSettings';
+import { CashuWalletSettings } from './CashuWalletSettings';
 import { NotificationsSettings } from './NotificationsSettings';
 import { NetworkSettings } from './NetworkSettings';
 import { ZapsSettings } from './ZapsSettings';
@@ -35,9 +35,9 @@ export const settingsSections: SettingsSectionConfig[] = [
 
   // Connection & Network Settings
   {
-    id: 'connected-wallets',
-    title: 'Connected Wallets',
-    component: ConnectedWalletsSettings,
+    id: 'cashu-wallet',
+    title: 'Cashu Wallet',
+    component: CashuWalletSettings,
     category: 'network',
     requiresProps: true
   },

@@ -3,13 +3,14 @@ import { SettingsSection } from './SettingsSection';
 import { useWallet } from '@/hooks/useWallet';
 import { LightningWalletInfo } from '@/components/LightningWalletInfo';
 import { CashuWalletInfo } from '@/components/CashuWalletInfo';
+import { CashuDebugInfo } from '@/components/CashuDebugInfo';
 
-export function ConnectedWalletsSettings() {
+export function CashuWalletSettings() {
   const { isCashuCompatible, isExtensionSigner } = useWallet();
 
   return (
     <SettingsSection
-      description="Manage your connected Lightning and Cashu wallets:"
+      description="Manage your Lightning and Cashu wallets:"
     >
       <div className="space-y-4">
         {/* Lightning Wallet Info - Only show for extension signers */}
@@ -27,6 +28,9 @@ export function ConnectedWalletsSettings() {
             <CashuWalletInfo />
             <div className="mt-3">
               <CashuRelaySettings alwaysExpanded={true} />
+            </div>
+            <div className="mt-4">
+              <CashuDebugInfo />
             </div>
           </div>
         )}

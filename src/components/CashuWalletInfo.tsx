@@ -55,7 +55,7 @@ export function CashuWalletInfo() {
           <span className="text-sm text-muted-foreground">Balance:</span>
           <div className="text-right">
             <div className="font-medium">
-              {formatBalance(totalBalance)} sats
+              {formatBalance(totalBalance)}
             </div>
             {btcPrice && !showSats && (
               <div className="text-xs text-muted-foreground">

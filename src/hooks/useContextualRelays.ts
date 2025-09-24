@@ -10,7 +10,7 @@ import { logRoute } from '@/lib/devLogger';
  */
 const routeContextMap: Record<string, RelayContext> = {
   // Settings routes - no relays (except Cashu-related) - MUST come before '/'
-  '/settings/connected-wallets': 'settings-cashu', // Has Cashu relay settings
+  '/settings/cashu-wallet': 'settings-cashu', // Has Cashu relay settings
   '/settings/profile': 'none',
   '/settings/relays': 'none',
   '/settings/appearance': 'none',

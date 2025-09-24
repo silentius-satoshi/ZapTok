@@ -10,7 +10,7 @@ import { useSeoMeta } from '@unhead/react';
 import {
   settingsSections,
   getSettingSectionById,
-  ConnectedWalletsSettings,
+  CashuWalletSettings,
   NetworkSettings,
   KeysSettings,
   GenericSettings
@@ -61,9 +61,9 @@ export function Settings() {
 
   const renderSettingsContent = () => {
     if (!selectedSection) {
-      // Filter out connected-wallets section for bunker signers
+      // Filter out cashu-wallet section for bunker signers
       const availableSections = settingsSections.filter(section => {
-        if (section.id === 'connected-wallets' && isBunkerSigner) {
+        if (section.id === 'cashu-wallet' && isBunkerSigner) {
           return false;
         }
         return true;
@@ -95,14 +95,14 @@ export function Settings() {
     const { component: Component } = sectionConfig;
 
     // Handle sections that require props
-    if (selectedSection === 'connected-wallets') {
-      // Redirect bunker signers away from connected-wallets section
+    if (selectedSection === 'cashu-wallet') {
+      // Redirect bunker signers away from cashu-wallet section
       if (isBunkerSigner) {
         navigate('/settings');
         return <GenericSettings sectionId={selectedSection} title="Access Denied" />;
       }
       return (
-        <ConnectedWalletsSettings />
+        <CashuWalletSettings />
       );
     }
 
@@ -153,7 +153,7 @@ export function Settings() {
     }
 
     const sectionConfig = getSettingSectionById(selectedSection);
-    const sectionTitle = selectedSection === 'connected-wallets' ? 'connected wallets' :
+    const sectionTitle = selectedSection === 'cashu-wallet' ? 'cashu wallet' :
                         selectedSection === 'network' ? 'network' :
                         selectedSection === 'keys' ? 'keys' :
                         selectedSection === 'media-uploads' ? 'media uploads' :

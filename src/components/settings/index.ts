@@ -6,7 +6,7 @@ export { DiscoverySettings } from './DiscoverySettings';
 export { MediaUploadsSettings } from './MediaUploadsSettings';
 export { BlossomSettings } from './BlossomSettings';
 export { StreamSettings } from './StreamSettings';
-export { ConnectedWalletsSettings } from './ConnectedWalletsSettings';
+export { CashuWalletSettings } from './CashuWalletSettings';
 export { CashuRelaySettings } from './CashuRelaySettings';
 export { NotificationsSettings } from './NotificationsSettings';
 export { NetworkSettings } from './NetworkSettings';
