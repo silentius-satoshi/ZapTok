@@ -59,11 +59,6 @@ export function LightningDebugInfo() {
             bunkerSignerSignEventType: typeof (user.signer as any).bunkerSigner?.signEvent
           } : null
         } : null,
-        lightning: {
-          defaultRelay: ZAPTOK_CONFIG.DEFAULT_RELAY_URL,
-          lightningAddress: ZAPTOK_CONFIG.LIGHTNING_ADDRESS,
-          devPubkey: ZAPTOK_CONFIG.DEV_PUBKEY.substring(0, 16) + '...',
-        },
         webln: {
           hasWebLN: typeof window !== 'undefined' && 'webln' in window,
           weblnEnabled: typeof window !== 'undefined' && window.webln?.isEnabled,
@@ -243,18 +238,6 @@ export function LightningDebugInfo() {
                 <Separator className="bg-zinc-700" />
               </>
             )}
-
-            {/* Lightning Configuration */}
-            <div>
-              <h4 className="text-white font-medium mb-2">Lightning Configuration</h4>
-              <div className="text-zinc-400 text-sm space-y-1">
-                <p><span className="font-medium">Default Relay:</span> {debugInfo.lightning.defaultRelay}</p>
-                <p><span className="font-medium">Lightning Address:</span> {debugInfo.lightning.lightningAddress}</p>
-                <p><span className="font-medium">Dev Pubkey:</span> {debugInfo.lightning.devPubkey}</p>
-              </div>
-            </div>
-
-            <Separator className="bg-zinc-700" />
 
             {/* WebLN Status */}
             <div>

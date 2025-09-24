@@ -10,7 +10,7 @@ export function CashuWalletSettings() {
 
   return (
     <SettingsSection
-      description="Manage your Lightning and Cashu wallets:"
+      description="Manage your Lightning & Cashu wallet:"
     >
       <div className="space-y-4">
         {/* Lightning Wallet Info - Only show for extension signers */}

@@ -11,7 +11,7 @@ import { NotificationsSettings } from './NotificationsSettings';
 import { NetworkSettings } from './NetworkSettings';
 import { ZapsSettings } from './ZapsSettings';
 import { GenericSettings } from './GenericSettings';
-import { DeveloperSettings } from './DeveloperSettings';
+import { ConsolidatedDeveloperSettings } from '../debug/ConsolidatedDeveloperSettings';
 import { KeysSettings } from './KeysSettings';
 import { CacheManagementSettings } from './CacheManagementSettings';
 import { PWAManagementSettings } from './PWAManagementSettings';
@@ -121,7 +121,7 @@ export const settingsSections: SettingsSectionConfig[] = [
   {
     id: 'developer',
     title: 'Developer Debug',
-    component: DeveloperSettings,
+    component: ConsolidatedDeveloperSettings,
     category: 'developer'
   },
 

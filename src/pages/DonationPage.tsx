@@ -13,6 +13,7 @@ export function DonationPage() {
   const navigate = useNavigate();
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState<number | undefined>(undefined);
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
 
   const handleAmountSelect = (amount: number) => {
     setSelectedAmount(amount);
@@ -48,11 +49,21 @@ export function DonationPage() {
               <Zap className="h-6 w-6" />
               <span>Support ZapTok Development</span>
               <TooltipProvider>
-                <Tooltip>
+                <Tooltip open={isTooltipOpen} onOpenChange={setIsTooltipOpen}>
                   <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-gray-400 hover:text-yellow-400 cursor-help" />
+                    <button
+                      className="h-4 w-4 text-gray-400 hover:text-yellow-400 cursor-help focus:outline-none focus:text-yellow-400"
+                      onClick={() => setIsTooltipOpen(!isTooltipOpen)}
+                      onTouchStart={() => setIsTooltipOpen(!isTooltipOpen)}
+                      aria-label="How Lightning donations work"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
+                  <TooltipContent 
+                    className="max-w-xs"
+                    onPointerDownOutside={() => setIsTooltipOpen(false)}
+                  >
                     <div className="text-sm space-y-2">
                       <div className="font-semibold">How Lightning Donations Work:</div>
                       <div className="space-y-1">

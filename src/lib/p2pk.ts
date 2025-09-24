@@ -77,7 +77,32 @@ export function validateP2PKKeypair(privateKey: string, p2pkPubkey: string): boo
     
     const matches = directMatch || naturalMatch;
 
-    console.log('🔐 [P2PK Validation]', {
+    return matches;
+  } catch (error) {
+    console.error('🔐 [P2PK Validation Error]', error);
+    return false;
+  }
+}
+
+/**
+ * Debug version of P2PK validation with detailed console logging
+ * Use this when you need to see detailed validation information
+ */
+export function validateP2PKKeypairWithLogging(privateKey: string, p2pkPubkey: string): boolean {
+  try {
+    const derivedPubkey = deriveP2PKPubkey(privateKey);
+    
+    // Direct match check
+    const directMatch = derivedPubkey === p2pkPubkey;
+    
+    // Also check if the natural key (before "02" conversion) would match
+    // This handles cases where p2pkPubkey might be the natural "03" key
+    const naturalPubkey = createP2PKKeypairFromPrivateKey(privateKey);
+    const naturalMatch = naturalPubkey === p2pkPubkey;
+    
+    const matches = directMatch || naturalMatch;
+
+    console.log('🔐 [P2PK Validation - Debug Mode]', {
       privateKey: privateKey ? 'present' : 'missing',
       p2pkPubkey,
       derivedPubkey: derivedPubkey,

@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Copy, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
+import { Copy, Eye, EyeOff, CheckCircle, AlertCircle, Shield, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '@nostrify/react/login';
 import { nip19, getPublicKey as derivePublicKeyFromSecret } from 'nostr-tools';
+import { deriveP2PKPubkey } from '@/lib/p2pk';
 
 export function KeysSettings() {
   const { user } = useCurrentUser();
   const { logins } = useNostrLogin();
   const { toast } = useToast();
   const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [showP2PKPrivateKey, setShowP2PKPrivateKey] = useState(false);
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
@@ -68,6 +70,40 @@ export function KeysSettings() {
   const privateKey = getPrivateKey();
   const isExtensionLogin = currentLogin?.type === 'extension';
   const canShowPrivateKey = currentLogin?.type === 'nsec' && privateKey.length > 0;
+
+  // Derive P2PK keys - attempt for all login types
+  let p2pkPrivateKey: string | null = null;
+  let p2pkPublicKey: string | null = null;
+  
+  // Method 1: Direct derivation from available private key (nsec logins)
+  if (privateKey) {
+    try {
+      const secretKey = nip19.decode(privateKey).data as Uint8Array;
+      const hexPrivateKey = Array.from(secretKey).map(b => b.toString(16).padStart(2, '0')).join('');
+      p2pkPrivateKey = hexPrivateKey;
+      p2pkPublicKey = deriveP2PKPubkey(hexPrivateKey);
+    } catch (error) {
+      console.error('Error deriving P2PK keys from private key:', error);
+    }
+  }
+  
+  // Method 2: For extension users, try to derive P2PK keys using signer capabilities
+  if (!p2pkPrivateKey && isExtensionLogin && user?.signer) {
+    try {
+      // We can't get the raw private key, but we can still derive the P2PK public key
+      // The extension should be able to provide P2PK functionality
+      // For now, we'll indicate that P2PK keys could be available but aren't exposed
+      console.log('Extension login detected - P2PK private key not directly accessible');
+      
+      // TODO: Check if the extension supports P2PK key derivation
+      // Some extensions might implement P2PK support in the future
+    } catch (error) {
+      console.error('Error checking extension P2PK capabilities:', error);
+    }
+  }
+
+  // P2PK keys are available for nsec logins only (for now)
+  const canShowP2PKKeys = canShowPrivateKey && p2pkPrivateKey;
 
   // Verify that the private key generates the correct public key
   const verifyKeyPair = (): boolean => {
@@ -173,6 +209,114 @@ export function KeysSettings() {
             : "Keep your private key safe! It's like a password to your Nostr identity. Anyone with this key can post as you."
           }
         </p>
+      </div>
+
+      {/* P2PK Keys Section */}
+      <div className="space-y-6 p-6 bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-800/30 rounded-lg">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-amber-600" />
+            <h3 className="text-xl font-medium">P2PK-locked ecash</h3>
+          </div>
+          <div className="flex items-center gap-1 text-amber-600 text-sm">
+            <Wallet className="w-4 h-4" />
+            <span>For Cashu P2PK Proofs</span>
+          </div>
+        </div>
+
+        <div className="bg-amber-100/50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="space-y-2">
+              <p className="text-amber-800 dark:text-amber-200 font-medium text-sm">
+                🔐 Critical Security Notice
+              </p>
+              <p className="text-amber-700 dark:text-amber-300 text-sm">
+                This feature is experimental. Your P2PK-locked ecash are permanently locked to your private key. Only use with small amounts. If you lose this private key or switch to a different wallet without backing it up, any P2PK proofs (from nutzaps) will become permanently unspendable. Nobody will be able to unlock the ecash locked to it anymore. Always backup your private keys!
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* P2PK Public Key */}
+        <div className="space-y-3">
+          <h4 className="text-lg font-medium">P2PK Public Key</h4>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg p-4 font-mono text-sm break-all overflow-hidden min-w-0">
+              {p2pkPublicKey || 'Not available'}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => copyToClipboard(p2pkPublicKey || '', 'P2PK public key')}
+              disabled={!p2pkPublicKey}
+              className="text-gray-400 hover:text-white flex-shrink-0"
+            >
+              <Copy className="w-4 h-4" />
+            </Button>
+          </div>
+          <p className="text-gray-500 text-sm">
+            This public key is used to lock Cashu P2PK proofs. When you receive nutzaps, they are locked to this key.
+          </p>
+        </div>
+
+        {/* P2PK Private Key */}
+        <div className="space-y-3">
+          <h4 className="text-lg font-medium">P2PK Private Key (nsec)</h4>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg p-4 font-mono text-sm break-all overflow-hidden min-w-0">
+              {canShowP2PKKeys ? (
+                showP2PKPrivateKey ? p2pkPrivateKey : '•'.repeat(64)
+              ) : (
+                '•'.repeat(32)
+              )}
+            </div>
+            <div className="flex gap-1 flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowP2PKPrivateKey(!showP2PKPrivateKey)}
+                disabled={!canShowP2PKKeys}
+                className="text-gray-400 hover:text-white"
+              >
+                {showP2PKPrivateKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => copyToClipboard(p2pkPrivateKey || '', 'P2PK private key')}
+                disabled={!canShowP2PKKeys || !p2pkPrivateKey}
+                className="text-gray-400 hover:text-white"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-gray-500 text-sm">
+              {isExtensionLogin 
+                ? "⚠️ Extension Limitation: Your browser extension doesn't expose P2PK private keys. To access P2PK functionality for spending nutzaps, you'll need to login with your nsec key directly or use an extension that supports P2PK operations."
+                : canShowP2PKKeys
+                ? "⚠️ BACKUP ESSENTIAL: This private key is required to spend any P2PK proofs (nutzaps) you receive. Store it safely alongside your Nostr key."
+                : "P2PK private key derived from your Nostr private key. Required for spending P2PK proofs."
+              }
+            </p>
+            {canShowP2PKKeys && (
+              <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                <p className="text-red-700 dark:text-red-300 text-sm">
+                  <strong>⚠️ Security Warning:</strong> Anyone with this private key can spend your P2PK proofs. Never share it publicly or store it in unsecured locations.
+                </p>
+              </div>
+            )}
+            {isExtensionLogin && (
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                <p className="text-amber-700 dark:text-amber-300 text-sm">
+                  <strong>💡 Workaround:</strong> To access P2PK functionality while using an extension, you can temporarily login with your nsec key to view/backup your P2PK keys, then switch back to your extension for daily use.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

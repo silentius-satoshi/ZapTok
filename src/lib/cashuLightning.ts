@@ -155,15 +155,77 @@ export async function payMeltQuote(mintUrl: string, quoteId: string, proofs: Pro
     // Calculate total amount needed, including fee
     const amountToSend = meltQuote.amount + meltQuote.fee_reserve;
 
-    const proofsAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
-    if (proofsAmount < amountToSend) {
-      throw new Error(`Not enough funds on mint ${mintUrl}`);
+    // Separate P2PK proofs from regular proofs
+    const regularProofs: Proof[] = [];
+    const p2pkProofs: Proof[] = [];
+
+    proofs.forEach(proof => {
+      try {
+        // Check if the secret is a P2PK secret
+        if (proof.secret && proof.secret.startsWith('["P2PK",')) {
+          p2pkProofs.push(proof);
+        } else {
+          regularProofs.push(proof);
+        }
+      } catch (error) {
+        // If we can't parse the secret, treat it as regular
+        regularProofs.push(proof);
+      }
+    });
+
+    // If we have P2PK proofs, we need to unlock them first by converting to regular proofs
+    const regularProofsCopy = [...regularProofs];
+    const privkey = useCashuStore.getState().privkey;
+    let proofsToUse = regularProofsCopy;
+
+    if (p2pkProofs.length > 0 && privkey) {
+      try {
+        // Unlock P2PK proofs by sending them to ourselves (swap operation)
+        const unlockOptions = {
+          privkey: privkey,
+          includeFees: true
+        };
+
+        const p2pkAmount = p2pkProofs.reduce((sum, p) => sum + p.amount, 0);
+        const { send: unlockedProofs } = await wallet.send(p2pkAmount, p2pkProofs, unlockOptions);
+
+        // Create new array combining regular proofs and unlocked P2PK proofs
+        proofsToUse = [...regularProofsCopy, ...unlockedProofs];
+      } catch (unlockError) {
+        // If P2PK unlocking fails, try to use only regular proofs
+        const regularAmount = regularProofs.reduce((sum, p) => sum + p.amount, 0);
+        if (regularAmount < amountToSend) {
+          throw new Error(`Failed to unlock P2PK proofs for Lightning payment: ${unlockError instanceof Error ? unlockError.message : String(unlockError)}`);
+        }
+      }
     }
 
-    // Perform coin selection
-    const { keep, send } = await wallet.send(amountToSend, proofs, {
-      includeFees: true, privkey: useCashuStore.getState().privkey
-    });
+    const totalUsableAmount = proofsToUse.reduce((sum, p) => sum + p.amount, 0);
+    if (totalUsableAmount < amountToSend) {
+      throw new Error(`Not enough funds on mint ${mintUrl}. Need: ${amountToSend} sats, Available: ${totalUsableAmount} sats`);
+    }
+
+    // Perform coin selection with regular proofs only
+    const sendOptions: any = {
+      includeFees: true
+    };
+
+    // For regular proofs in Lightning payments, we typically don't need the privkey
+    // since they're not P2PK locked, but include it for consistency
+    if (privkey) {
+      sendOptions.privkey = privkey;
+    }
+
+    let keep, send;
+    try {
+      const result = await wallet.send(amountToSend, proofsToUse, sendOptions);
+      keep = result.keep;
+      send = result.send;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // Re-throw with more context
+      throw new Error(`Failed to select proofs for Lightning payment: ${message}`);
+    }
 
     // Melt the selected proofs to pay the Lightning invoice
     let meltResponse;
@@ -174,9 +236,6 @@ export async function payMeltQuote(mintUrl: string, quoteId: string, proofs: Pro
 
       // Check if error is "Token already spent"
       if (message.includes("Token already spent")) {
-      if (import.meta.env.DEV) {
-        console.log("Detected spent tokens, cleaning up and retrying...");
-      }
         error.message = "Token already spent. Please go to your wallet and press Cleanup Wallet for this mint.";
         throw error;
       }

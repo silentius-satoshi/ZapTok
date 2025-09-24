@@ -44,9 +44,7 @@ export function LoginDebugInfo() {
                              logins.find(login => login.pubkey === user?.pubkey)?.type === 'x-bunker-nostr-tools' ||
                              user?.signer?.constructor?.name?.includes('bunker'),
               isNsecSigner: logins.find(login => login.pubkey === user?.pubkey)?.type === 'nsec' || 
-                           user?.signer?.constructor?.name?.includes('nsec'),
-              shouldShowEnhancedBitcoinConnect: "Will be determined by mobile check",
-              shouldShowStandardBitcoinConnect: "Will be determined by mobile check"
+                           user?.signer?.constructor?.name?.includes('nsec')
             }, null, isMobile ? 1 : 2)}
           </pre>
         </div>
