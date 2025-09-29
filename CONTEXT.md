@@ -1018,6 +1018,41 @@ The router includes automatic scroll-to-top functionality and a 404 NotFound pag
 - Comprehensive provider setup with NostrLoginProvider, QueryClientProvider, and custom AppProvider
 - **Never use the `any` type**: Always use proper TypeScript types for type safety
 
+### Commit Message Guidelines
+
+**Format**: Use clear, descriptive commit messages without emojis or special characters
+
+**Structure**:
+```
+Brief summary line (50 chars max)
+
+Detailed description organized by categories:
+- Core Changes: Main functionality modifications
+- New Components: Added components and their purpose
+- Improvements: Enhancements and optimizations
+- Bug Fixes: Issues resolved and their impact
+```
+
+**Examples**:
+```
+Enhanced QR code system with ZapTok branding
+
+Core Changes:
+- Implemented styled QR components with brand integration
+- Updated Lightning invoice display with new QR system
+
+New Components:
+- QrCode: Branded QR component with icon overlay
+- LightningInvoiceQrCode: Modal QR display for invoices
+```
+
+**Guidelines**:
+- **No emojis or special symbols** in commit messages
+- **Start with verb**: "Enhanced", "Added", "Fixed", "Updated"
+- **Be specific**: Mention component names and key changes
+- **Group related changes**: Use bullet points for organization
+- **Include impact**: Mention user-facing improvements when relevant
+
 ## Loading States
 
 **Use skeleton loading** for structured content (feeds, profiles, forms). **Use spinners** only for buttons or short operations.
