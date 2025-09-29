@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronUp, QrCode, Zap, Copy, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronUp, QrCode as QrCodeIcon, Zap, Copy, Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,9 +13,9 @@ import { useCashuHistory } from '@/hooks/useCashuHistory';
 import { useTransactionHistoryStore, PendingTransaction } from '@/stores/transactionHistoryStore';
 import { useWalletUiStore } from '@/stores/walletUiStore';
 import { createLightningInvoice, mintTokensFromPaidInvoice, createMeltQuote, payLightningInvoice } from '@/lib/cashuLightning';
-import { QRScanner } from '@/components/QRScanner';
+import { EnhancedQRScanner } from '@/components/EnhancedQRScanner';
 import { v4 as uuidv4 } from 'uuid';
-import QRCode from 'react-qr-code';
+import QrCode from '@/components/QrCode';
 import { formatBalance } from '@/lib/cashu';
 import { AlertCircle as _A11yIgnore } from 'lucide-react'; // keep import unique (eslint satisfaction)
 // Chorus-style Lightning card replication: invoice QR, copy, cancel flow, fee display, improved loading states
@@ -407,9 +407,9 @@ export function CashuWalletLightningCard() {
                 )}
                 {invoice && (
                   <div className="space-y-4">
-                    <div className="bg-white p-4 rounded-md flex items-center justify-center">
+                    <div className="flex items-center justify-center">
                       <div className="border border-border w-48 h-48 flex items-center justify-center bg-white p-2 rounded-md">
-                        <QRCode value={invoice} size={180} />
+                        <QrCode value={invoice} size={180} />
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -466,7 +466,7 @@ export function CashuWalletLightningCard() {
                           title="Scan QR Code"
                           disabled={isProcessing || compositeLoading}
                         >
-                          <QrCode className="h-4 w-4" />
+                          <QrCodeIcon className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -525,12 +525,13 @@ export function CashuWalletLightningCard() {
           )}
         </CardContent>
       )}
-      <QRScanner
+      <EnhancedQRScanner
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
         onScan={handleQRScan}
         title="Scan Lightning Invoice"
         description="Position the Lightning invoice QR code within the frame"
+        expectedType="lightning"
       />
     </Card>
   );

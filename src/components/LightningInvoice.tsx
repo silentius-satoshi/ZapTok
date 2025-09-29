@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { decodeLightningInvoice, generateInvoiceQR, type LightningInvoiceData } from '@/lib/lightning-invoice';
 import { formatBalance } from '@/lib/cashu';
 import { useToast } from '@/hooks/useToast';
+import LightningInvoiceQrCode from '@/components/LightningInvoiceQrCode';
 
 interface LightningInvoiceProps {
   invoice: string;
@@ -138,6 +139,7 @@ export function LightningInvoice({
         )}
 
         <div className="ml-auto flex gap-2">
+          <LightningInvoiceQrCode invoice={invoice} amount={invoiceData.amount} />
           <Button size="sm" variant="outline" onClick={handleCopyInvoice}>
             <Copy className="h-3 w-3" />
           </Button>
