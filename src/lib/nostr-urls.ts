@@ -82,6 +82,36 @@ export function isValidNostrIdentifier(identifier: string): boolean {
 }
 
 /**
+ * Create minimal nevent encoding for Universal Link compatibility
+ * Produces the shortest possible nevent identifier for better URL compatibility
+ */
+export function createMinimalNevent(eventId: string, authorPubkey?: string): string {
+  try {
+    // Create minimal nevent with just event ID (no relay hints for shortest URL)
+    const neventData: Parameters<typeof nip19.neventEncode>[0] = {
+      id: eventId
+    };
+
+    // Only add author if provided (for better compatibility but longer URL)
+    if (authorPubkey) {
+      neventData.author = authorPubkey;
+    }
+
+    return nip19.neventEncode(neventData);
+  } catch (error) {
+    console.error('Error creating minimal nevent:', error);
+    // Fallback to note encoding if nevent fails
+    try {
+      return nip19.noteEncode(eventId);
+    } catch (noteError) {
+      console.error('Error creating note fallback:', noteError);
+      // If both fail, return the original input (for test compatibility)
+      return eventId;
+    }
+  }
+}
+
+/**
  * Convert any Nostr identifier to njump.me URL
  * Universal fallback that works with all Nostr clients
  */
@@ -111,14 +141,11 @@ export function pubkeyToNjumpURL(pubkey: string): string {
 
 /**
  * Convert event to nevent and then to njump URL
+ * Uses minimal nevent encoding for better Universal Link compatibility
  */
 export function eventToNjumpURL(event: NostrEvent, relays?: string[]): string {
-  const nevent = nip19.neventEncode({
-    id: event.id,
-    relays: relays || [],
-    author: event.pubkey
-  });
-
+  // Use minimal nevent encoding for shorter, more compatible URLs
+  const nevent = createMinimalNevent(event.id, event.pubkey);
   return toNjumpURL(nevent);
 }
 

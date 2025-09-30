@@ -12,6 +12,7 @@ import {
   pubkeyToNjumpURL,
   eventToNjumpURL,
   naddrToNjumpURL,
+  createMinimalNevent,
   generateShareableURLs,
   generateEnhancedShareableURLs,
   generateQRData,
@@ -125,24 +126,49 @@ describe('nostr-urls utilities', () => {
     });
   });
 
+  describe('createMinimalNevent', () => {
+    test('creates minimal nevent with only event ID', () => {
+      const result = createMinimalNevent(testEventId);
+      expect(result).toMatch(/^nevent1[023456789acdefghjklmnpqrstuvwxyz]+$/);
+      
+      // Decode and verify it contains the event ID
+      const decoded = nip19.decode(result);
+      expect(decoded.type).toBe('nevent');
+      expect((decoded.data as any).id).toBe(testEventId);
+    });
+
+    test('creates minimal nevent with author when provided', () => {
+      const result = createMinimalNevent(testEventId, testPubkey);
+      expect(result).toMatch(/^nevent1[023456789acdefghjklmnpqrstuvwxyz]+$/);
+      
+      // Decode and verify it contains both event ID and author
+      const decoded = nip19.decode(result);
+      expect(decoded.type).toBe('nevent');
+      expect((decoded.data as any).id).toBe(testEventId);
+      expect((decoded.data as any).author).toBe(testPubkey);
+    });
+
+    test('falls back gracefully on encoding errors', () => {
+      // Use an invalid event ID that will cause both nevent and note encoding to fail
+      const invalidEventId = 'not-a-valid-hex-string';
+      const result = createMinimalNevent(invalidEventId);
+      
+      // Should return the original input when both encodings fail
+      expect(result).toBe(invalidEventId);
+    });
+  });
+
   describe('eventToNjumpURL', () => {
-    test('converts event to njump URL', () => {
+    test('converts event to njump URL using minimal nevent', () => {
       const result = eventToNjumpURL(testEvent, ['wss://relay.damus.io']);
-      const expectedNevent = nip19.neventEncode({
-        id: testEvent.id,
-        relays: ['wss://relay.damus.io'],
-        author: testEvent.pubkey
-      });
+      // Should use minimal nevent (no relay hints)
+      const expectedNevent = createMinimalNevent(testEvent.id, testEvent.pubkey);
       expect(result).toBe(`https://njump.me/${expectedNevent}`);
     });
 
-    test('handles events without relays', () => {
+    test('handles events without relays using minimal encoding', () => {
       const result = eventToNjumpURL(testEvent);
-      const expectedNevent = nip19.neventEncode({
-        id: testEvent.id,
-        relays: [],
-        author: testEvent.pubkey
-      });
+      const expectedNevent = createMinimalNevent(testEvent.id, testEvent.pubkey);
       expect(result).toBe(`https://njump.me/${expectedNevent}`);
     });
   });

@@ -159,6 +159,38 @@ export function QRModal({
     }
   };
 
+  // Phase 4: Native Share API integration
+  const handleNativeShare = async (url: string, title: string) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${title} on ZapTok`,
+          text: `Check out ${displayName} on ZapTok`,
+          url: url,
+        });
+        
+        toast({
+          title: 'Shared!',
+          description: 'Content shared successfully',
+        });
+      } catch (error) {
+        // User cancelled or share failed
+        if ((error as Error).name !== 'AbortError') {
+          // Fallback to copy if share fails (but not if user cancelled)
+          await copyToClipboard(url, 'sharelink');
+        }
+      }
+    } else {
+      // Fallback to copy if Web Share API not available
+      await copyToClipboard(url, 'sharelink');
+    }
+  };
+
+  // Check if native sharing is available
+  const isNativeShareAvailable = () => {
+    return typeof navigator !== 'undefined' && !!navigator.share;
+  };
+
   const formatNpub = (npubKey: string) => {
     return `${npubKey.slice(0, 12)}...${npubKey.slice(-8)}`;
   };
@@ -325,8 +357,15 @@ export function QRModal({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => copyToClipboard(enhancedURLs.primary, 'sharelink')}
+                              onClick={() => {
+                                if (isNativeShareAvailable()) {
+                                  handleNativeShare(enhancedURLs.primary, displayName);
+                                } else {
+                                  copyToClipboard(enhancedURLs.primary, 'sharelink');
+                                }
+                              }}
                               className="h-6 w-6 p-0"
+                              title={isNativeShareAvailable() ? "Share" : "Copy"}
                             >
                               {shareLinkCopied ? (
                                 <Check className="h-3 w-3 text-green-500" />
@@ -356,8 +395,15 @@ export function QRModal({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => copyToClipboard(basicURLs.fallback, 'sharelink')}
+                            onClick={() => {
+                              if (isNativeShareAvailable()) {
+                                handleNativeShare(basicURLs.fallback, displayName);
+                              } else {
+                                copyToClipboard(basicURLs.fallback, 'sharelink');
+                              }
+                            }}
                             className="h-6 w-6 p-0"
+                            title={isNativeShareAvailable() ? "Share" : "Copy"}
                           >
                             <Copy className="h-3 w-3" />
                           </Button>
