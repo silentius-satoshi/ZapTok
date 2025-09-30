@@ -373,11 +373,12 @@ describe('nostr-urls utilities', () => {
     describe('ZAPTOK_CONFIG', () => {
       test('has correct domain and paths', () => {
         expect(ZAPTOK_CONFIG.domain).toBe('https://zaptok.social');
-        expect(ZAPTOK_CONFIG.paths.profile).toBe('@');
-        expect(ZAPTOK_CONFIG.paths.video).toBe('v');
-        expect(ZAPTOK_CONFIG.paths.event).toBe('e');
-        expect(ZAPTOK_CONFIG.paths.note).toBe('n');
-        expect(ZAPTOK_CONFIG.paths.raw).toBe('raw');
+        expect(ZAPTOK_CONFIG.paths.profile).toBe('/@');
+        expect(ZAPTOK_CONFIG.paths.video).toBe('/v');
+        expect(ZAPTOK_CONFIG.paths.event).toBe('/e');
+        expect(ZAPTOK_CONFIG.paths.note).toBe('/n');
+        expect(ZAPTOK_CONFIG.paths.vanityProfile).toBe('/@');
+        expect(ZAPTOK_CONFIG.paths.vanityVideo).toBe('/v');
       });
     });
 

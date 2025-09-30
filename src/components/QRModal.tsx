@@ -15,8 +15,11 @@ import {
   generateVideoShareURL,
   generateEnhancedProfileShareURL,
   generateEnhancedVideoShareURL,
-  isValidVanityName
+  isValidVanityName,
+  isZapTokEnabled
 } from '@/lib/nostr-urls';
+import { getUserSharingPreferences, getContextualQRData } from '@/lib/sharing-preferences';
+import { getSharingConfig } from '@/config/sharing';
 import type { NostrMetadata, NostrEvent } from '@nostrify/nostrify';
 import type { EnhancedShareableURL } from '@/lib/nostr-urls';
 
@@ -94,6 +97,9 @@ export function QRModal({
   // Smart detection for enhanced URL capability
   const canGenerateEnhancedURL = () => {
     try {
+      // Check if ZapTok is enabled
+      if (!isZapTokEnabled()) return false;
+
       // Validate input data
       if (!pubkey || pubkey.length !== 64) return false;
       if (event && (!event.id || !event.pubkey)) return false;
@@ -221,32 +227,24 @@ export function QRModal({
               {activeTab === 'share' && (
                 <QrCode
                   value={(() => {
-                    // Generate the appropriate URL for QR code
-                    if (showZapTokLink) {
-                      try {
-                        const validVanity = vanityName && !vanityNameError ? vanityName : undefined;
-                        const enhancedURL = event
-                          ? generateEnhancedVideoShareURL(event, {
-                              relays,
-                              vanityName: validVanity,
-                              title: event.tags.find(tag => tag[0] === 'title')?.[1] || event.content?.slice(0, 50)
-                            })
-                          : generateEnhancedProfileShareURL(pubkey, {
-                              metadata,
-                              relays,
-                              vanityName: validVanity
-                            });
-                        return enhancedURL.primary;
-                      } catch {
-                        // Fall back to basic URL if enhanced generation fails
-                      }
+                    try {
+                      // Get user preferences and contextual QR data
+                      const preferences = getUserSharingPreferences();
+                      const contextualQRData = getContextualQRData(
+                        event, 
+                        pubkey, 
+                        metadata, 
+                        relays, 
+                        vanityName && !vanityNameError ? vanityName : undefined, 
+                        preferences
+                      );
+
+                      return contextualQRData;
+                    } catch (error) {
+                      console.error('QR code generation error:', error);
+                      // Ultimate fallback to npub
+                      return nip19.npubEncode(pubkey);
                     }
-                    
-                    // Use basic URL for QR code (fallback or when enhanced not available)
-                    const basicURL = event
-                      ? generateVideoShareURL(event, relays)
-                      : generateProfileShareURL(pubkey, metadata, relays);
-                    return basicURL.fallback;
                   })()}
                   size={288}
                 />
@@ -317,51 +315,94 @@ export function QRModal({
             {activeTab === 'share' && (
               <div className="space-y-3">
                 {(() => {
-                  // Generate basic URLs (always available)
-                  const basicURLs = event
-                    ? generateVideoShareURL(event, relays)
-                    : generateProfileShareURL(pubkey, metadata, relays);
+                  try {
+                    // Get user preferences
+                    const preferences = getUserSharingPreferences();
+                    
+                    // Generate basic URLs (always available)
+                    const basicURLs = event
+                      ? generateVideoShareURL(event, relays)
+                      : generateProfileShareURL(pubkey, metadata, relays);
 
-                  // Generate enhanced URLs only if smart detection passes
-                  let enhancedURLs: EnhancedShareableURL | null = null;
-                  if (showZapTokLink) {
-                    try {
-                      const validVanity = vanityName && !vanityNameError ? vanityName : undefined;
-                      enhancedURLs = event
-                        ? generateEnhancedVideoShareURL(event, {
-                            relays,
-                            vanityName: validVanity,
-                            title: event.tags.find(tag => tag[0] === 'title')?.[1] || event.content?.slice(0, 50)
-                          })
-                        : generateEnhancedProfileShareURL(pubkey, {
-                            metadata,
-                            relays,
-                            vanityName: validVanity
-                          });
-                    } catch {
-                      // If enhanced generation fails, enhancedURLs remains null
-                      enhancedURLs = null;
+                    // Generate enhanced URLs only if ZapTok is enabled
+                    let enhancedURLs: EnhancedShareableURL | null = null;
+                    if (isZapTokEnabled() && preferences.preferredUrlType === 'zaptok') {
+                      try {
+                        const validVanity = vanityName && !vanityNameError ? vanityName : undefined;
+                        enhancedURLs = event
+                          ? generateEnhancedVideoShareURL(event, {
+                              relays,
+                              vanityName: validVanity,
+                              title: event.tags.find(tag => tag[0] === 'title')?.[1] || event.content?.slice(0, 50)
+                            })
+                          : generateEnhancedProfileShareURL(pubkey, {
+                              metadata,
+                              relays,
+                              vanityName: validVanity
+                            });
+                      } catch (error) {
+                        console.error('Enhanced URL generation failed:', error);
+                        enhancedURLs = null;
+                      }
                     }
-                  }
 
-                  return (
-                    <>
-                      {/* ZapTok Link (Enhanced) - Only show if smart detection passes and generation succeeds */}
-                      {enhancedURLs && (
+                    return (
+                      <>
+                        {/* ZapTok Link - Only show if available */}
+                        {enhancedURLs && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">ZapTok Link:</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground font-mono max-w-[200px] truncate">
+                                {enhancedURLs.primary}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (isNativeShareAvailable()) {
+                                    handleNativeShare(enhancedURLs.primary, displayName);
+                                  } else {
+                                    copyToClipboard(enhancedURLs.primary, 'sharelink');
+                                  }
+                                }}
+                                className="h-6 w-6 p-0"
+                                title={isNativeShareAvailable() ? "Share" : "Copy"}
+                              >
+                                {shareLinkCopied ? (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Copy className="h-3 w-3" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(enhancedURLs.primary, '_blank')}
+                                className="h-6 w-6 p-0"
+                                title="Open in new tab"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Universal Link - Always available */}
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">ZapTok Link:</span>
+                          <span className="text-sm text-muted-foreground">Universal Link:</span>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground font-mono max-w-[200px] truncate">
-                              {enhancedURLs.primary}
+                              {basicURLs.fallback}
                             </span>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => {
                                 if (isNativeShareAvailable()) {
-                                  handleNativeShare(enhancedURLs.primary, displayName);
+                                  handleNativeShare(basicURLs.fallback, displayName);
                                 } else {
-                                  copyToClipboard(enhancedURLs.primary, 'sharelink');
+                                  copyToClipboard(basicURLs.fallback, 'sharelink');
                                 }
                               }}
                               className="h-6 w-6 p-0"
@@ -376,71 +417,64 @@ export function QRModal({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => window.open(enhancedURLs.primary, '_blank')}
+                              onClick={() => window.open(basicURLs.fallback, '_blank')}
                               className="h-6 w-6 p-0"
+                              title="Open in new tab"
                             >
                               <ExternalLink className="h-3 w-3" />
                             </Button>
                           </div>
                         </div>
-                      )}
 
-                      {/* Universal Link (Basic) - Always available */}
+                        {/* Nostr Identifier - Show based on user preferences */}
+                        {preferences.preferredUrlType === 'raw' && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Nostr ID:</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground font-mono max-w-[200px] truncate">
+                                {basicURLs.raw}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(basicURLs.raw, 'nostrid')}
+                                className="h-6 w-6 p-0"
+                                title="Copy Nostr identifier"
+                              >
+                                {nostrIdCopied ? (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Copy className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  } catch (error) {
+                    console.error('Share links generation error:', error);
+                    // Fallback UI for errors
+                    const fallbackURL = nip19.npubEncode(pubkey);
+                    return (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Universal Link:</span>
+                        <span className="text-sm text-muted-foreground">Nostr Profile:</span>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground font-mono max-w-[200px] truncate">
-                            {basicURLs.fallback}
+                            {fallbackURL}
                           </span>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              if (isNativeShareAvailable()) {
-                                handleNativeShare(basicURLs.fallback, displayName);
-                              } else {
-                                copyToClipboard(basicURLs.fallback, 'sharelink');
-                              }
-                            }}
+                            onClick={() => copyToClipboard(fallbackURL, 'sharelink')}
                             className="h-6 w-6 p-0"
-                            title={isNativeShareAvailable() ? "Share" : "Copy"}
                           >
                             <Copy className="h-3 w-3" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(basicURLs.fallback, '_blank')}
-                            className="h-6 w-6 p-0"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </Button>
                         </div>
                       </div>
-
-                      {/* Nostr ID - Always available */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Nostr ID:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground font-mono max-w-[200px] truncate">
-                            {basicURLs.raw}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(basicURLs.raw, 'nostrid')}
-                            className="h-6 w-6 p-0"
-                          >
-                            {nostrIdCopied ? (
-                              <Check className="h-3 w-3 text-green-500" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    </>
-                  );
+                    );
+                  }
                 })()}
 
               </div>

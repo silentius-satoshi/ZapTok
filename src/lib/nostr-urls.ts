@@ -8,6 +8,7 @@
 
 import { nip19 } from 'nostr-tools';
 import type { NostrEvent, NostrMetadata } from '@nostrify/nostrify';
+import { getSharingConfig } from '@/config/sharing';
 
 /**
  * URL hierarchy strategy following the implementation guide
@@ -48,13 +49,64 @@ export interface EnhancedShareableURL extends ShareableURL {
 export const ZAPTOK_CONFIG = {
   domain: 'https://zaptok.social',
   paths: {
-    profile: '@',          // zaptok.social/@alice
-    video: 'v',           // zaptok.social/v/nevent1...
-    event: 'e',           // zaptok.social/e/nevent1...
-    note: 'n',            // zaptok.social/n/note1...
-    raw: 'raw'            // zaptok.social/raw/npub1...
+    profile: '/@',      // /@{npub} or /@{vanity}
+    video: '/v',        // /v/{nevent} or /v/{vanity}
+    event: '/e',        // /e/{nevent}
+    note: '/n',         // /n/{note1}
+    vanityProfile: '/@', // /@{vanity}
+    vanityVideo: '/v',   // /v/{vanity}
+  },
+  features: {
+    vanityNames: true,
+    seoFriendlyUrls: true,
+    customThumbnails: true,
   }
-} as const;
+};
+
+/**
+ * Check if ZapTok URLs are enabled based on configuration
+ */
+export function isZapTokEnabled(): boolean {
+  return getSharingConfig().zapTokEnabled;
+}
+
+/**
+ * Generate ZapTok-specific URLs for different content types
+ */
+export function generateZapTokURL(
+  type: 'profile' | 'video' | 'event' | 'note',
+  identifier: string,
+  vanityName?: string
+): string {
+  const { domain, paths } = ZAPTOK_CONFIG;
+
+  // Use vanity name if provided and applicable
+  if (vanityName) {
+    switch (type) {
+      case 'profile':
+        return `${domain}${paths.vanityProfile}${vanityName}`;
+      case 'video':
+        return `${domain}${paths.vanityVideo}/${vanityName}`;
+      default:
+        // Fall through to regular URL for events/notes
+        break;
+    }
+  }
+
+  // Regular ZapTok URLs
+  switch (type) {
+    case 'profile':
+      return `${domain}${paths.profile}/${identifier}`;
+    case 'video':
+      return `${domain}${paths.video}/${identifier}`;
+    case 'event':
+      return `${domain}${paths.event}/${identifier}`;
+    case 'note':
+      return `${domain}${paths.note}/${identifier}`;
+    default:
+      throw new Error(`Unsupported ZapTok URL type: ${type}`);
+  }
+}
 
 /**
  * Validate if a string is a valid Nostr identifier
@@ -175,6 +227,12 @@ export function toZapTokURL(identifier: string, options?: {
     videoId?: string;
   };
 }): string {
+  // Check if ZapTok URLs are enabled
+  if (!isZapTokEnabled()) {
+    // Fallback to njump.me if ZapTok is disabled
+    return toNjumpURL(identifier);
+  }
+
   const cleanIdentifier = identifier.startsWith('nostr:') ? identifier.slice(6) : identifier;
 
   if (!isValidNostrIdentifier(cleanIdentifier)) {
@@ -183,11 +241,6 @@ export function toZapTokURL(identifier: string, options?: {
 
   const { domain, paths } = ZAPTOK_CONFIG;
 
-  // Handle vanity names for profiles
-  if (options?.vanityName && options?.type === 'profile') {
-    return `${domain}/${paths.profile}${options.vanityName}`;
-  }
-
   // Determine URL path based on identifier type and options
   const identifierType = detectNostrIdentifierType(cleanIdentifier);
   const urlType = options?.type || mapIdentifierToType(identifierType);
@@ -195,24 +248,27 @@ export function toZapTokURL(identifier: string, options?: {
   // Generate branded URLs based on content type
   switch (urlType) {
     case 'profile':
-      return `${domain}/${paths.profile}${cleanIdentifier}`;
+      if (options?.vanityName) {
+        return `${domain}${paths.vanityProfile}${options.vanityName}`;
+      }
+      return `${domain}${paths.profile}${cleanIdentifier}`;
 
     case 'video':
       // Support custom video IDs for better SEO
       if (options?.metadata?.videoId) {
-        return `${domain}/${paths.video}/${options.metadata.videoId}`;
+        return `${domain}${paths.video}/${options.metadata.videoId}`;
       }
-      return `${domain}/${paths.video}/${cleanIdentifier}`;
+      return `${domain}${paths.video}/${cleanIdentifier}`;
 
     case 'event':
-      return `${domain}/${paths.event}/${cleanIdentifier}`;
+      return `${domain}${paths.event}/${cleanIdentifier}`;
 
     case 'note':
-      return `${domain}/${paths.note}/${cleanIdentifier}`;
+      return `${domain}${paths.note}/${cleanIdentifier}`;
 
     default:
-      // Fallback to raw path for unknown types
-      return `${domain}/${paths.raw}/${cleanIdentifier}`;
+      // Fallback to profile path for unknown types
+      return `${domain}${paths.profile}${cleanIdentifier}`;
   }
 }
 
@@ -721,10 +777,9 @@ export function parseZapTokURL(url: string): {
 
     const type = (() => {
       switch (prefix) {
-        case ZAPTOK_CONFIG.paths.video: return 'video' as const;
-        case ZAPTOK_CONFIG.paths.event: return 'event' as const;
-        case ZAPTOK_CONFIG.paths.note: return 'note' as const;
-        case ZAPTOK_CONFIG.paths.raw: return 'raw' as const;
+        case ZAPTOK_CONFIG.paths.video.slice(1): return 'video' as const;
+        case ZAPTOK_CONFIG.paths.event.slice(1): return 'event' as const;
+        case ZAPTOK_CONFIG.paths.note.slice(1): return 'note' as const;
         default:
           // Handle @profile format with identifier
           if (prefix.startsWith('@')) {
