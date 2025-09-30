@@ -1,5 +1,4 @@
 import { decode } from 'light-bolt11-decoder';
-import QRCode from 'qrcode';
 
 export interface DecodedInvoice {
   paymentRequest: string;
@@ -107,28 +106,6 @@ export function formatInvoiceAmount(amount?: number): string {
     return `${(amount / 1000).toFixed(3)} k sats`;
   } else {
     return `${amount.toLocaleString()} sats`;
-  }
-}
-
-// QR generation using qrcode library
-export async function generateInvoiceQR(invoice: string): Promise<string> {
-  try {
-    // Add lightning: prefix for better wallet recognition
-    const qrData = invoice.startsWith('lightning:') ? invoice : `lightning:${invoice}`;
-    
-    return await QRCode.toDataURL(qrData, {
-      width: 256,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      },
-      errorCorrectionLevel: 'M'
-    });
-  } catch (error) {
-    console.error('Failed to generate QR code:', error);
-    // Fallback to placeholder SVG
-    return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/><text x="100" y="100" text-anchor="middle" fill="black">QR Error</text></svg>`;
   }
 }
 

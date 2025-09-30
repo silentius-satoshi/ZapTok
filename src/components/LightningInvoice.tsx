@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Copy, Clock, Zap, QrCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { decodeLightningInvoice, generateInvoiceQR, type LightningInvoiceData } from '@/lib/lightning-invoice';
+import { decodeLightningInvoice, type LightningInvoiceData } from '@/lib/lightning-invoice';
 import { formatBalance } from '@/lib/cashu';
 import { useToast } from '@/hooks/useToast';
 import LightningInvoiceQrCode from '@/components/LightningInvoiceQrCode';
@@ -30,28 +30,12 @@ export function LightningInvoice({
   const [invoiceData, setInvoiceData] = useState<LightningInvoiceData | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [showQRCode, setShowQRCode] = useState(false);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
-  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     const decoded = decodeLightningInvoice(invoice);
     setInvoiceData(decoded);
   }, [invoice]);
-
-  // Generate QR code when requested
-  useEffect(() => {
-    if (showQRCode && !qrCodeDataUrl && !isGeneratingQR) {
-      setIsGeneratingQR(true);
-      generateInvoiceQR(invoice).then((dataUrl) => {
-        setQrCodeDataUrl(dataUrl);
-        setIsGeneratingQR(false);
-      }).catch((error) => {
-        console.error('Failed to generate QR code:', error);
-        setIsGeneratingQR(false);
-      });
-    }
-  }, [showQRCode, qrCodeDataUrl, isGeneratingQR, invoice]);
 
   // Update countdown timer
   useEffect(() => {
@@ -199,25 +183,17 @@ export function LightningInvoice({
         {showQR && (
           <div className="text-center">
             {showQRCode ? (
-              <div className="space-y-2">
-                {isGeneratingQR ? (
-                  <div className="mx-auto w-32 h-32 border rounded flex items-center justify-center">
-                    <div className="text-sm text-muted-foreground">Generating QR...</div>
-                  </div>
-                ) : (
-                  <img
-                    src={qrCodeDataUrl}
-                    alt="Lightning invoice QR code"
-                    className="mx-auto w-32 h-32 border rounded"
+              <div className="space-y-4">
+                <div className="mx-auto w-64 h-64">
+                  <LightningInvoiceQrCode 
+                    invoice={invoice} 
+                    amount={invoiceData.amount} 
                   />
-                )}
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setShowQRCode(false);
-                    setQrCodeDataUrl(''); // Clear QR to regenerate if shown again
-                  }}
+                  onClick={() => setShowQRCode(false)}
                 >
                   Hide QR
                 </Button>
