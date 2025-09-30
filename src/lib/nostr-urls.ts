@@ -1,7 +1,7 @@
 /**
  * Nostr URL utilities for ZapTok Comprehensive Sharing System
  * Provides URL conversion, validation, and sharing functionality
- * 
+ *
  * Implementation follows the strategy outlined in the ZapTok Comprehensive Sharing System
  * Implementation Guide, starting with Phase 1: Core njump.me QR Integration
  */
@@ -63,18 +63,18 @@ export function isValidNostrIdentifier(identifier: string): boolean {
   try {
     // Remove nostr: prefix if present
     const cleanIdentifier = identifier.startsWith('nostr:') ? identifier.slice(6) : identifier;
-    
+
     // Check NIP-19 formats
     if (cleanIdentifier.match(/^(npub|nsec|note|nevent|nprofile|naddr)1[023456789acdefghjklmnpqrstuvwxyz]+$/)) {
       nip19.decode(cleanIdentifier);
       return true;
     }
-    
+
     // Check hex format (64 char hex string for pubkeys/event IDs)
     if (cleanIdentifier.match(/^[0-9a-f]{64}$/i)) {
       return true;
     }
-    
+
     return false;
   } catch {
     return false;
@@ -88,12 +88,12 @@ export function isValidNostrIdentifier(identifier: string): boolean {
 export function toNjumpURL(identifier: string): string {
   // Remove nostr: prefix if present
   const cleanIdentifier = identifier.startsWith('nostr:') ? identifier.slice(6) : identifier;
-  
+
   // Validate identifier
   if (!isValidNostrIdentifier(cleanIdentifier)) {
     throw new Error('Invalid Nostr identifier');
   }
-  
+
   return `https://njump.me/${cleanIdentifier}`;
 }
 
@@ -104,7 +104,7 @@ export function pubkeyToNjumpURL(pubkey: string): string {
   if (!pubkey.match(/^[0-9a-f]{64}$/i)) {
     throw new Error('Invalid pubkey format');
   }
-  
+
   const npub = nip19.npubEncode(pubkey);
   return toNjumpURL(npub);
 }
@@ -118,7 +118,7 @@ export function eventToNjumpURL(event: NostrEvent, relays?: string[]): string {
     relays: relays || [],
     author: event.pubkey
   });
-  
+
   return toNjumpURL(nevent);
 }
 
@@ -132,7 +132,7 @@ export function naddrToNjumpURL(kind: number, pubkey: string, identifier: string
     identifier,
     relays: relays || []
   });
-  
+
   return toNjumpURL(naddr);
 }
 
@@ -149,40 +149,40 @@ export function toZapTokURL(identifier: string, options?: {
   };
 }): string {
   const cleanIdentifier = identifier.startsWith('nostr:') ? identifier.slice(6) : identifier;
-  
+
   if (!isValidNostrIdentifier(cleanIdentifier)) {
     throw new Error('Invalid Nostr identifier');
   }
-  
+
   const { domain, paths } = ZAPTOK_CONFIG;
-  
+
   // Handle vanity names for profiles
   if (options?.vanityName && options?.type === 'profile') {
     return `${domain}/${paths.profile}${options.vanityName}`;
   }
-  
+
   // Determine URL path based on identifier type and options
   const identifierType = detectNostrIdentifierType(cleanIdentifier);
   const urlType = options?.type || mapIdentifierToType(identifierType);
-  
+
   // Generate branded URLs based on content type
   switch (urlType) {
     case 'profile':
       return `${domain}/${paths.profile}${cleanIdentifier}`;
-    
+
     case 'video':
       // Support custom video IDs for better SEO
       if (options?.metadata?.videoId) {
         return `${domain}/${paths.video}/${options.metadata.videoId}`;
       }
       return `${domain}/${paths.video}/${cleanIdentifier}`;
-    
+
     case 'event':
       return `${domain}/${paths.event}/${cleanIdentifier}`;
-    
+
     case 'note':
       return `${domain}/${paths.note}/${cleanIdentifier}`;
-    
+
     default:
       // Fallback to raw path for unknown types
       return `${domain}/${paths.raw}/${cleanIdentifier}`;
@@ -234,11 +234,11 @@ export function generateShareableURLs(identifier: string, metadata?: {
   thumbnail?: string;
 }): ShareableURL {
   const cleanIdentifier = identifier.startsWith('nostr:') ? identifier.slice(6) : identifier;
-  
+
   if (!isValidNostrIdentifier(cleanIdentifier)) {
     throw new Error('Invalid Nostr identifier');
   }
-  
+
   // Primary URL - ZapTok branded with vanity support
   const primary = toZapTokURL(cleanIdentifier, {
     type: metadata?.type,
@@ -247,19 +247,19 @@ export function generateShareableURLs(identifier: string, metadata?: {
       title: metadata?.title
     }
   });
-  
+
   // Fallback URL - njump.me for universal access
   const fallback = toNjumpURL(cleanIdentifier);
-  
+
   // Raw identifier - for technical users
   const raw = cleanIdentifier.startsWith('nostr:') ? cleanIdentifier : `nostr:${cleanIdentifier}`;
-  
+
   // JSON export - for developers
   let json: string | undefined;
   if (metadata?.eventData) {
     json = JSON.stringify(metadata.eventData, null, 2);
   }
-  
+
   return {
     primary,
     fallback,
@@ -285,35 +285,35 @@ export function generateEnhancedShareableURLs(identifier: string, options?: {
   eventData?: NostrEvent;
 }): EnhancedShareableURL {
   const cleanIdentifier = identifier.startsWith('nostr:') ? identifier.slice(6) : identifier;
-  
+
   if (!isValidNostrIdentifier(cleanIdentifier)) {
     throw new Error('Invalid Nostr identifier');
   }
-  
+
   const type = options?.type || mapIdentifierToType(detectNostrIdentifierType(cleanIdentifier));
-  
+
   // Generate all URL variants
-  const vanityURL = options?.vanityName ? 
-    toZapTokURL(cleanIdentifier, { type, vanityName: options.vanityName }) : 
+  const vanityURL = options?.vanityName ?
+    toZapTokURL(cleanIdentifier, { type, vanityName: options.vanityName }) :
     undefined;
-  
-  const brandedURL = toZapTokURL(cleanIdentifier, { 
-    type, 
-    metadata: { 
+
+  const brandedURL = toZapTokURL(cleanIdentifier, {
+    type,
+    metadata: {
       title: options?.metadata?.title,
-      videoId: options?.metadata?.videoId 
-    } 
+      videoId: options?.metadata?.videoId
+    }
   });
-  
+
   const universalURL = toNjumpURL(cleanIdentifier);
   const rawIdentifier = cleanIdentifier.startsWith('nostr:') ? cleanIdentifier : `nostr:${cleanIdentifier}`;
-  
+
   // JSON export for developers
   let json: string | undefined;
   if (options?.eventData) {
     json = JSON.stringify(options.eventData, null, 2);
   }
-  
+
   return {
     primary: vanityURL || brandedURL,  // Prefer vanity if available
     fallback: universalURL,
@@ -339,16 +339,16 @@ export function generateQRData(identifier: string, options?: {
   vanityName?: string;
 }): string {
   const cleanIdentifier = identifier.startsWith('nostr:') ? identifier.slice(6) : identifier;
-  
+
   if (!isValidNostrIdentifier(cleanIdentifier)) {
     throw new Error('Invalid Nostr identifier');
   }
-  
+
   // Phase 2: Smart QR generation with ZapTok branding preference
   if (options?.preferRaw) {
     return options.includeNostrPrefix ? `nostr:${cleanIdentifier}` : cleanIdentifier;
   }
-  
+
   // Prefer ZapTok branded URLs for better brand recognition in QR codes
   if (options?.preferZapTok) {
     try {
@@ -361,7 +361,7 @@ export function generateQRData(identifier: string, options?: {
       return toNjumpURL(cleanIdentifier);
     }
   }
-  
+
   // Default: Use njump.me URL for maximum universal compatibility
   return toNjumpURL(cleanIdentifier);
 }
@@ -374,7 +374,7 @@ export function generateProfileShareURL(pubkey: string, metadata?: NostrMetadata
 }): ShareableURL {
   // Use nprofile for richer metadata if available
   let identifier: string;
-  
+
   if (relays && relays.length > 0) {
     identifier = nip19.nprofileEncode({
       pubkey,
@@ -383,7 +383,7 @@ export function generateProfileShareURL(pubkey: string, metadata?: NostrMetadata
   } else {
     identifier = nip19.npubEncode(pubkey);
   }
-  
+
   return generateShareableURLs(identifier, {
     type: 'profile',
     relays,
@@ -404,7 +404,7 @@ export function generateEnhancedProfileShareURL(pubkey: string, options?: {
 }): EnhancedShareableURL {
   // Use nprofile for richer metadata if available
   let identifier: string;
-  
+
   if (options?.relays && options.relays.length > 0) {
     identifier = nip19.nprofileEncode({
       pubkey,
@@ -413,7 +413,7 @@ export function generateEnhancedProfileShareURL(pubkey: string, options?: {
   } else {
     identifier = nip19.npubEncode(pubkey);
   }
-  
+
   return generateEnhancedShareableURLs(identifier, {
     type: 'profile',
     vanityName: options?.vanityName,
@@ -440,12 +440,12 @@ export function generateVideoShareURL(event: NostrEvent, relays?: string[], opti
       relays: relays || [],
       author: event.pubkey
     });
-    
+
     // Extract title from event content or tags
-    const eventTitle = options?.title || 
-      event.tags.find(tag => tag[0] === 'title')?.[1] || 
+    const eventTitle = options?.title ||
+      event.tags.find(tag => tag[0] === 'title')?.[1] ||
       event.content?.slice(0, 50) + (event.content?.length > 50 ? '...' : '');
-    
+
     return generateShareableURLs(nevent, {
       type: 'video',
       relays,
@@ -476,6 +476,7 @@ export function generateEnhancedVideoShareURL(event: NostrEvent, options?: {
   title?: string;
   thumbnail?: string;
   description?: string;
+  vanityName?: string; // Phase 3: Add vanity name support for videos
 }): EnhancedShareableURL {
   try {
     const nevent = nip19.neventEncode({
@@ -483,16 +484,17 @@ export function generateEnhancedVideoShareURL(event: NostrEvent, options?: {
       relays: options?.relays || [],
       author: event.pubkey
     });
-    
+
     // Extract or use provided metadata
-    const eventTitle = options?.title || 
-      event.tags.find(tag => tag[0] === 'title')?.[1] || 
+    const eventTitle = options?.title ||
+      event.tags.find(tag => tag[0] === 'title')?.[1] ||
       event.content?.slice(0, 50) + (event.content?.length > 50 ? '...' : '');
-    
+
     const eventDescription = options?.description || event.content;
-    
+
     return generateEnhancedShareableURLs(nevent, {
       type: 'video',
+      vanityName: options?.vanityName, // Phase 3: Pass vanity name
       metadata: {
         title: eventTitle,
         description: eventDescription,
@@ -529,33 +531,33 @@ export function detectAndNormalizeNostrURL(input: string): {
   njumpURL?: string;
 } {
   const trimmed = input.trim();
-  
+
   try {
     // Remove various prefixes
     const cleanInput = trimmed
       .replace(/^nostr:/, '')
       .replace(/^https?:\/\/njump\.me\//, '')
       .replace(/^https?:\/\/[^/]+\//, ''); // Remove any domain
-    
+
     // Detect type
     let type: 'npub' | 'note' | 'nevent' | 'nprofile' | 'naddr' | 'hex' | 'unknown' = 'unknown';
-    
+
     if (cleanInput.startsWith('npub1')) type = 'npub';
     else if (cleanInput.startsWith('note1')) type = 'note';
     else if (cleanInput.startsWith('nevent1')) type = 'nevent';
     else if (cleanInput.startsWith('nprofile1')) type = 'nprofile';
     else if (cleanInput.startsWith('naddr1')) type = 'naddr';
     else if (cleanInput.match(/^[0-9a-f]{64}$/i)) type = 'hex';
-    
+
     // Validate
     const isValid = isValidNostrIdentifier(cleanInput);
-    
+
     // Generate njump URL if valid
     let njumpURL: string | undefined;
     if (isValid) {
       njumpURL = toNjumpURL(cleanInput);
     }
-    
+
     return {
       type,
       identifier: cleanInput,
@@ -584,7 +586,7 @@ export interface DualDisplay {
 
 export function generateDualDisplay(identifier: string): DualDisplay[] {
   const normalized = detectAndNormalizeNostrURL(identifier);
-  
+
   if (!normalized.isValid) {
     return [{
       label: 'Invalid Identifier',
@@ -593,9 +595,9 @@ export function generateDualDisplay(identifier: string): DualDisplay[] {
       isURL: false
     }];
   }
-  
+
   const displays: DualDisplay[] = [];
-  
+
   // Add njump URL
   if (normalized.njumpURL) {
     displays.push({
@@ -605,7 +607,7 @@ export function generateDualDisplay(identifier: string): DualDisplay[] {
       isURL: true
     });
   }
-  
+
   // Add raw identifier
   displays.push({
     label: 'Nostr Identifier',
@@ -613,7 +615,7 @@ export function generateDualDisplay(identifier: string): DualDisplay[] {
     copyValue: `nostr:${normalized.identifier}`,
     isURL: false
   });
-  
+
   return displays;
 }
 
@@ -629,11 +631,11 @@ export function isValidVanityName(name: string): boolean {
   if (!name || name.length < 3 || name.length > 30) {
     return false;
   }
-  
+
   if (name.startsWith('_')) {
     return false;
   }
-  
+
   return /^[a-zA-Z0-9][a-zA-Z0-9_]*$/.test(name);
 }
 
@@ -649,24 +651,24 @@ export function parseZapTokURL(url: string): {
 } {
   try {
     const urlObj = new URL(url);
-    
+
     // Only handle zaptok.social URLs
     if (urlObj.hostname !== 'zaptok.social') {
       return { type: 'unknown', isValid: false };
     }
-    
+
     const pathParts = urlObj.pathname.split('/').filter(Boolean);
-    
+
     if (pathParts.length === 0) {
       return { type: 'unknown', isValid: false };
     }
-    
+
     const [prefix, identifier] = pathParts;
-    
+
     // Handle vanity profiles (@username) and npub profiles (@npub...)
     if (prefix.startsWith('@')) {
       const potential = prefix.slice(1);
-      
+
       // Check if it's a valid Nostr identifier (like npub...)
       if (isValidNostrIdentifier(potential)) {
         return {
@@ -675,7 +677,7 @@ export function parseZapTokURL(url: string): {
           isValid: true
         };
       }
-      
+
       // Otherwise, treat as vanity name
       const vanityName = potential;
       return {
@@ -684,12 +686,12 @@ export function parseZapTokURL(url: string): {
         isValid: isValidVanityName(vanityName)
       };
     }
-    
+
     // Handle typed URLs (v/video, e/event, etc.)
     if (!identifier) {
       return { type: 'unknown', isValid: false };
     }
-    
+
     const type = (() => {
       switch (prefix) {
         case ZAPTOK_CONFIG.paths.video: return 'video' as const;
@@ -704,9 +706,9 @@ export function parseZapTokURL(url: string): {
           return 'unknown' as const;
       }
     })();
-    
+
     const isValidIdentifier = isValidNostrIdentifier(identifier);
-    
+
     return {
       type,
       identifier,
@@ -729,10 +731,10 @@ export function convertURL(inputURL: string, targetFormat: 'zaptok' | 'njump' | 
     // Parse input URL
     const zapTokParsed = parseZapTokURL(inputURL);
     const normalizedNostr = detectAndNormalizeNostrURL(inputURL);
-    
+
     let identifier: string;
     let type: 'profile' | 'video' | 'event' | 'note' | undefined;
-    
+
     if (zapTokParsed.isValid && zapTokParsed.identifier) {
       identifier = zapTokParsed.identifier;
       type = zapTokParsed.type !== 'unknown' && zapTokParsed.type !== 'raw' ? zapTokParsed.type : undefined;
@@ -742,7 +744,7 @@ export function convertURL(inputURL: string, targetFormat: 'zaptok' | 'njump' | 
     } else {
       return null;
     }
-    
+
     // Convert to target format
     switch (targetFormat) {
       case 'zaptok':
@@ -750,13 +752,13 @@ export function convertURL(inputURL: string, targetFormat: 'zaptok' | 'njump' | 
           type: type || options?.type,
           vanityName: options?.vanityName
         });
-      
+
       case 'njump':
         return toNjumpURL(identifier);
-      
+
       case 'raw':
         return identifier.startsWith('nostr:') ? identifier : `nostr:${identifier}`;
-      
+
       default:
         return null;
     }

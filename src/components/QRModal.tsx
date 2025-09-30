@@ -1,15 +1,24 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Copy, Check, ExternalLink } from 'lucide-react';
+import { Copy, Check, ExternalLink, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { getLightningAddress } from '@/lib/lightning';
 import { nip19 } from 'nostr-tools';
 import QrCode from '@/components/QrCode';
-import { generateProfileShareURL, generateDualDisplay, generateVideoShareURL } from '@/lib/nostr-urls';
+import {
+  generateProfileShareURL,
+  generateVideoShareURL,
+  generateEnhancedProfileShareURL,
+  generateEnhancedVideoShareURL,
+  isValidVanityName
+} from '@/lib/nostr-urls';
 import type { NostrMetadata, NostrEvent } from '@nostrify/nostrify';
+import type { EnhancedShareableURL } from '@/lib/nostr-urls';
 
 interface QRModalProps {
   isOpen: boolean;
@@ -19,21 +28,38 @@ interface QRModalProps {
   displayName: string;
   relays?: string[]; // Added for richer profile sharing
   event?: NostrEvent; // Optional: for event-specific sharing
+  vanityName?: string; // Phase 3: Custom vanity name for branded URLs
+  enableVanityInput?: boolean; // Phase 3: Allow user to input/edit vanity names
 }
 
-export function QRModal({ isOpen, onClose, pubkey, metadata, displayName, relays, event }: QRModalProps) {
+export function QRModal({
+  isOpen,
+  onClose,
+  pubkey,
+  metadata,
+  displayName,
+  relays,
+  event,
+  vanityName: initialVanityName,
+  enableVanityInput = false
+}: QRModalProps) {
   const [activeTab, setActiveTab] = useState<'share' | 'pubkey' | 'lightning'>('share');
   const [pubkeyCopied, setPubkeyCopied] = useState(false);
   const [npubCopied, setNpubCopied] = useState(false);
   const [lightningCopied, setLightningCopied] = useState(false);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [nostrIdCopied, setNostrIdCopied] = useState(false);
+
+  // Phase 3: Vanity name state management
+  const [vanityName, setVanityName] = useState(initialVanityName || '');
+  const [vanityNameError, setVanityNameError] = useState('');
+
   const { toast } = useToast();
 
   const lightningAddress = getLightningAddress(metadata);
   const nip05 = metadata?.nip05;
   const profilePicture = metadata?.picture;
-  
+
   // Safely encode npub, handling invalid pubkeys (e.g., in tests)
   let npub: string;
   try {
@@ -42,12 +68,54 @@ export function QRModal({ isOpen, onClose, pubkey, metadata, displayName, relays
     // Fallback for invalid pubkeys (e.g., test data)
     npub = pubkey.startsWith('npub') ? pubkey : `npub${pubkey}`;
   }
-  
-  // Generate comprehensive sharing URLs - prefer event sharing if event is provided
-  const shareableURLs = event 
-    ? generateVideoShareURL(event, relays)
-    : generateProfileShareURL(pubkey, metadata, relays);
-  const dualDisplay = generateDualDisplay(shareableURLs.raw);
+
+  // Phase 3: Vanity name validation
+  const validateVanityName = (name: string) => {
+    if (!name) {
+      setVanityNameError('');
+      return true;
+    }
+
+    if (!isValidVanityName(name)) {
+      setVanityNameError('Vanity name must be 3-30 characters, alphanumeric or underscore, cannot start with underscore');
+      return false;
+    }
+
+    setVanityNameError('');
+    return true;
+  };
+
+  // Phase 3: Handle vanity name changes
+  const handleVanityNameChange = (name: string) => {
+    setVanityName(name);
+    validateVanityName(name);
+  };
+
+  // Smart detection for enhanced URL capability
+  const canGenerateEnhancedURL = () => {
+    try {
+      // Validate input data
+      if (!pubkey || pubkey.length !== 64) return false;
+      if (event && (!event.id || !event.pubkey)) return false;
+      
+      // Test enhanced URL generation (without vanity name first)
+      const testURL = event 
+        ? generateEnhancedVideoShareURL(event, { 
+            relays,
+            title: event.tags.find(tag => tag[0] === 'title')?.[1] || event.content?.slice(0, 50)
+          })
+        : generateEnhancedProfileShareURL(pubkey, { metadata, relays });
+      
+      // Validate result has required structure
+      return testURL && testURL.primary && testURL.fallback && 
+             testURL.primary.startsWith('https://') && 
+             testURL.fallback.startsWith('https://');
+    } catch {
+      return false;
+    }
+  };
+
+  const showZapTokLink = canGenerateEnhancedURL();
 
   const copyToClipboard = async (text: string, type: 'pubkey' | 'npub' | 'lightning' | 'sharelink' | 'nostrid') => {
     try {
@@ -91,10 +159,6 @@ export function QRModal({ isOpen, onClose, pubkey, metadata, displayName, relays
     }
   };
 
-  const formatPubkey = (key: string) => {
-    return `${key.slice(0, 8)}...${key.slice(-8)}`;
-  };
-
   const formatNpub = (npubKey: string) => {
     return `${npubKey.slice(0, 12)}...${npubKey.slice(-8)}`;
   };
@@ -123,21 +187,48 @@ export function QRModal({ isOpen, onClose, pubkey, metadata, displayName, relays
           <div className="flex flex-col items-center">
             <div className="p-4 bg-white rounded-lg shadow-sm mb-4">
               {activeTab === 'share' && (
-                <QrCode 
-                  value={shareableURLs.fallback} // Use njump.me URL for universal access
-                  size={288} 
+                <QrCode
+                  value={(() => {
+                    // Generate the appropriate URL for QR code
+                    if (showZapTokLink) {
+                      try {
+                        const validVanity = vanityName && !vanityNameError ? vanityName : undefined;
+                        const enhancedURL = event
+                          ? generateEnhancedVideoShareURL(event, {
+                              relays,
+                              vanityName: validVanity,
+                              title: event.tags.find(tag => tag[0] === 'title')?.[1] || event.content?.slice(0, 50)
+                            })
+                          : generateEnhancedProfileShareURL(pubkey, {
+                              metadata,
+                              relays,
+                              vanityName: validVanity
+                            });
+                        return enhancedURL.primary;
+                      } catch {
+                        // Fall back to basic URL if enhanced generation fails
+                      }
+                    }
+                    
+                    // Use basic URL for QR code (fallback or when enhanced not available)
+                    const basicURL = event
+                      ? generateVideoShareURL(event, relays)
+                      : generateProfileShareURL(pubkey, metadata, relays);
+                    return basicURL.fallback;
+                  })()}
+                  size={288}
                 />
               )}
               {activeTab === 'pubkey' && (
-                <QrCode 
-                  value={npub} 
-                  size={288} 
+                <QrCode
+                  value={npub}
+                  size={288}
                 />
               )}
               {activeTab === 'lightning' && lightningAddress && (
-                <QrCode 
-                  value={lightningAddress} 
-                  size={288} 
+                <QrCode
+                  value={lightningAddress}
+                  size={288}
                 />
               )}
               {activeTab === 'lightning' && !lightningAddress && (
@@ -160,62 +251,152 @@ export function QRModal({ isOpen, onClose, pubkey, metadata, displayName, relays
             </Tabs>
           </div>
 
-          {/* Bottom - Copy Fields with Enhanced Sharing */}
+          {/* Vanity Name Input for Enhanced Links */}
+          {activeTab === 'share' && enableVanityInput && (
+            <div className="space-y-2 border-t pt-4">
+              <div className="flex items-center gap-2">
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="vanity-name" className="text-sm font-medium">
+                  Custom Vanity Name (Optional)
+                </Label>
+              </div>
+              <Input
+                id="vanity-name"
+                type="text"
+                placeholder={event ? "my-awesome-video" : "my-username"}
+                value={vanityName}
+                onChange={(e) => handleVanityNameChange(e.target.value)}
+                className={`text-sm ${vanityNameError ? 'border-red-500' : ''}`}
+              />
+              {vanityNameError && (
+                <p className="text-xs text-red-500">{vanityNameError}</p>
+              )}
+              {vanityName && !vanityNameError && (
+                <p className="text-xs text-muted-foreground">
+                  Preview: zaptok.social/{event ? 'v/' : '@'}{vanityName}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Bottom - Three Clear Link Options */}
           <div className="space-y-4">
-            {/* Universal Share Link Section */}
+            {/* Share Link Section - Always show all 3 options */}
             {activeTab === 'share' && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Universal Link:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground font-mono max-w-[200px] truncate">
-                      {shareableURLs.fallback}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyToClipboard(shareableURLs.fallback, 'sharelink')}
-                      className="h-6 w-6 p-0"
-                    >
-                      {shareLinkCopied ? (
-                        <Check className="h-3 w-3 text-green-500" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
+                {(() => {
+                  // Generate basic URLs (always available)
+                  const basicURLs = event
+                    ? generateVideoShareURL(event, relays)
+                    : generateProfileShareURL(pubkey, metadata, relays);
+
+                  // Generate enhanced URLs only if smart detection passes
+                  let enhancedURLs: EnhancedShareableURL | null = null;
+                  if (showZapTokLink) {
+                    try {
+                      const validVanity = vanityName && !vanityNameError ? vanityName : undefined;
+                      enhancedURLs = event
+                        ? generateEnhancedVideoShareURL(event, {
+                            relays,
+                            vanityName: validVanity,
+                            title: event.tags.find(tag => tag[0] === 'title')?.[1] || event.content?.slice(0, 50)
+                          })
+                        : generateEnhancedProfileShareURL(pubkey, {
+                            metadata,
+                            relays,
+                            vanityName: validVanity
+                          });
+                    } catch {
+                      // If enhanced generation fails, enhancedURLs remains null
+                      enhancedURLs = null;
+                    }
+                  }
+
+                  return (
+                    <>
+                      {/* ZapTok Link (Enhanced) - Only show if smart detection passes and generation succeeds */}
+                      {enhancedURLs && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">ZapTok Link:</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground font-mono max-w-[200px] truncate">
+                              {enhancedURLs.primary}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(enhancedURLs.primary, 'sharelink')}
+                              className="h-6 w-6 p-0"
+                            >
+                              {shareLinkCopied ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => window.open(enhancedURLs.primary, '_blank')}
+                              className="h-6 w-6 p-0"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
                       )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(shareableURLs.fallback, '_blank')}
-                      className="h-6 w-6 p-0"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Nostr ID:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground font-mono max-w-[200px] truncate">
-                      {shareableURLs.raw}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyToClipboard(shareableURLs.raw, 'nostrid')}
-                      className="h-6 w-6 p-0"
-                    >
-                      {nostrIdCopied ? (
-                        <Check className="h-3 w-3 text-green-500" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                <div className="text-xs text-muted-foreground text-center p-2 bg-muted rounded">
-                  Share this universal link to let others view your profile in any Nostr client
-                </div>
+
+                      {/* Universal Link (Basic) - Always available */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Universal Link:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground font-mono max-w-[200px] truncate">
+                            {basicURLs.fallback}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(basicURLs.fallback, 'sharelink')}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(basicURLs.fallback, '_blank')}
+                            className="h-6 w-6 p-0"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Nostr ID - Always available */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Nostr ID:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground font-mono max-w-[200px] truncate">
+                            {basicURLs.raw}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(basicURLs.raw, 'nostrid')}
+                            className="h-6 w-6 p-0"
+                          >
+                            {nostrIdCopied ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+
               </div>
             )}
 
