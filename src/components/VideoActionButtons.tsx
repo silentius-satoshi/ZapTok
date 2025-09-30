@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MessageCircle, Bookmark, Plus, Repeat2, ArrowUpRight, Check } from 'lucide-react';
+import { MessageCircle, Bookmark, Plus, Repeat2, ArrowUpRight, Check, QrCode } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -17,6 +17,7 @@ import { genUserName } from '@/lib/genUserName';
 import { ZapButton } from '@/components/ZapButton';
 import { NutzapButton } from '@/components/users/NutzapButton';
 import { CommentsModal } from '@/components/CommentsModal';
+import { QRModal } from '@/components/QRModal';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -26,6 +27,7 @@ import { useNostr } from '@/hooks/useNostr';
 import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
+import { useAppContext } from '@/hooks/useAppContext';
 
 interface VideoActionButtonsProps {
   event: NostrEvent;
@@ -51,9 +53,11 @@ export function VideoActionButtons({
   onShare,
 }: VideoActionButtonsProps) {
   const { user } = useCurrentUser();
+  const { config } = useAppContext();
   const { logins } = useNostrLogin();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const [showQRModal, setShowQRModal] = useState(false);
   const reactions = useVideoReactions(event.id);
   const { data: commentsData } = useVideoComments(event.id);
   const { data: repostsData } = useVideoReposts(event.id);
@@ -381,6 +385,29 @@ export function VideoActionButtons({
             Share
           </span>
         </div>
+
+        {/* 8. QR Code Button */}
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`group rounded-full bg-transparent hover:bg-white/10 text-white transition-all duration-200 ${
+              isMobile ? 'h-12 w-12' : 'h-20 w-20'
+            }`}
+            onClick={() => setShowQRModal(true)}
+          >
+            <QrCode
+              className="text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-green-300 group-hover:scale-110 transition-all duration-200"
+              style={{
+                width: isMobile ? '28px' : '30px',
+                height: isMobile ? '28px' : '30px'
+              }}
+            />
+          </Button>
+          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
+            QR
+          </span>
+        </div>
       </div>
 
       {/* Comments Modal */}
@@ -388,6 +415,17 @@ export function VideoActionButtons({
         isOpen={isCommentsModalOpen}
         onClose={() => setIsCommentsModalOpen(false)}
         videoEvent={event}
+      />
+
+      {/* QR Modal for Video Sharing */}
+      <QRModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        pubkey={event.pubkey}
+        metadata={author.data?.metadata}
+        displayName={displayName || genUserName(event.pubkey)}
+        relays={config.relayUrls}
+        event={event}
       />
     </>
   );

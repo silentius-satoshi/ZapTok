@@ -28,12 +28,14 @@ import { ZapButton } from '@/components/ZapButton';
 import { NutzapButton } from '@/components/users/NutzapButton';
 import { UserNutzapDialog } from '@/components/users/UserNutzapDialog';
 import { useToast } from '@/hooks/useToast';
+import { useAppContext } from '@/hooks/useAppContext';
 import { useNostrLogin } from '@nostrify/react/login';
 import { nip19 } from 'nostr-tools';
 
 const Profile = () => {
   const { pubkey: paramPubkey } = useParams();
   const { user } = useCurrentUser();
+  const { config } = useAppContext();
   const { logins } = useNostrLogin();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'bookmarks'>('posts');
@@ -456,6 +458,7 @@ const Profile = () => {
         pubkey={targetPubkey}
         metadata={metadata}
         displayName={displayName}
+        relays={config.relayUrls}
       />
 
       {/* User Nutzap Dialog */}
