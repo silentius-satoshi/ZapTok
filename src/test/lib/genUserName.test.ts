@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { genUserName } from './genUserName';
+import { genUserName } from '../../lib/genUserName';
 
 describe('genUserName', () => {
   it('generates a deterministic name from a seed', () => {

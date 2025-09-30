@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateVideoEvent } from './validateVideoEvent';
+import { validateVideoEvent } from '../../lib/validateVideoEvent';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 describe('NIP-71 Video Event Compliance', () => {

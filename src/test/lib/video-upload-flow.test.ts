@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createHybridVideoEvent, type HybridVideoEventData } from './hybridEventStrategy';
+import { createHybridVideoEvent, type HybridVideoEventData } from '../../lib/hybridEventStrategy';
 
 describe('Video Upload/Publishing Flow Logic', () => {
   describe('Hybrid Video Event Creation', () => {

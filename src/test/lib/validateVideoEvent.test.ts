@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateVideoEvent, hasVideoContent, normalizeVideoUrl } from './validateVideoEvent';
+import { validateVideoEvent, hasVideoContent, normalizeVideoUrl } from '../../lib/validateVideoEvent';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 describe('validateVideoEvent', () => {

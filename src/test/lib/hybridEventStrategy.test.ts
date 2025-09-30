@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createHybridVideoEvent, createNip71VideoEvent, createDualVideoEvents } from './hybridEventStrategy';
-import type { HybridVideoEventData } from './hybridEventStrategy';
+import { createHybridVideoEvent, createNip71VideoEvent, createDualVideoEvents } from '../../lib/hybridEventStrategy';
+import type { HybridVideoEventData } from '../../lib/hybridEventStrategy';
 
 describe('Hybrid Event Strategy', () => {
   const mockVideoData: HybridVideoEventData = {
