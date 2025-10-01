@@ -9,6 +9,7 @@ import { useLocation } from 'react-router-dom';
 import { logRelay } from '@/lib/devLogger';
 import { useNostrLogin } from '@nostrify/react/login';
 import relayListService, { type RelayListConfig } from '@/services/relayList.service';
+import smartRelaySelectionService from '@/services/smartRelaySelection.service';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -271,7 +272,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     }
   }, [relayContext, config.relayUrls, cashuRelayStore.activeRelay, queryClient, logins.length]);
 
-  // Initialize NPool only once
+  // Initialize NPool only once with Priority 2 enhancements
   if (!pool.current) {
     pool.current = new NPool({
       open(url: string) {
@@ -326,15 +327,20 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return relay;
       },
       reqRouter(filters) {
-        // Distribute requests across all selected relays
+        // Use smart relay selection for optimal request distribution
         const relayMap = new Map<string, typeof filters>();
+        
+        // For now, use basic relay distribution while Priority 2 services are integrated
+        // TODO: Integrate smart relay selection when filter analysis is implemented
         for (const relayUrl of relayUrls.current) {
           relayMap.set(relayUrl, filters);
         }
+        
         return relayMap;
       },
-      eventRouter(_event: NostrEvent) {
-        // Publish only to the configured relays - don't auto-add preset relays
+      eventRouter(event: NostrEvent) {
+        // For now, publish to all configured relays
+        // TODO: Use smart relay selection for event publishing
         return [...relayUrls.current];
       },
     });

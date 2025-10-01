@@ -30,24 +30,38 @@ class RelayListService {
     'wss://nostr.mom'
   ];
 
-  // DataLoader for batched relay list fetching
-  private relayListDataLoader = new DataLoader<string, RelayListConfig>(
-    async (pubkeys) => {
-      return this.batchFetchRelayLists(Array.from(pubkeys));
-    },
-    {
-      maxBatchSize: 50, // Jumble uses similar batch sizes
-      batchScheduleFn: (callback) => setTimeout(callback, 10), // Small delay for batching
-      cacheKeyFn: (pubkey) => pubkey,
-      cache: false // We handle caching manually with TTL
+  // DataLoader for batched relay list fetching - will be created per nostr instance
+  private relayListDataLoaders = new Map<any, DataLoader<string, RelayListConfig>>();
+
+  /**
+   * Get or create a DataLoader for a specific nostr instance
+   */
+  private getDataLoader(nostr?: any): DataLoader<string, RelayListConfig> {
+    const key = nostr || 'default';
+    
+    if (!this.relayListDataLoaders.has(key)) {
+      const dataLoader = new DataLoader<string, RelayListConfig>(
+        async (pubkeys) => {
+          return this.batchFetchRelayLists(Array.from(pubkeys), nostr);
+        },
+        {
+          maxBatchSize: 50, // Jumble uses similar batch sizes
+          batchScheduleFn: (callback) => setTimeout(callback, 10), // Small delay for batching
+          cacheKeyFn: (pubkey) => pubkey,
+          cache: false // We handle caching manually with TTL
+        }
+      );
+      this.relayListDataLoaders.set(key, dataLoader);
     }
-  );
+    
+    return this.relayListDataLoaders.get(key)!;
+  }
 
   /**
    * Batch fetch relay lists for multiple users
    * Efficient batching pattern with IndexedDB coordination
    */
-  private async batchFetchRelayLists(pubkeys: string[]): Promise<RelayListConfig[]> {
+  private async batchFetchRelayLists(pubkeys: string[], nostr?: any): Promise<RelayListConfig[]> {
     try {
       // First check IndexedDB for cached entries
       const cachedResults = await Promise.all(
@@ -78,12 +92,8 @@ class RelayListService {
       // Fetch uncached entries from nostr if needed
       const freshEventMap = new Map<string, NostrEvent>();
       if (uncachedPubkeys.length > 0) {
-        // Use global nostr instance for batched query
-        const { useNostr } = await import('@/hooks/useNostr');
-        const nostr = (useNostr as any)()?.nostr;
-
         if (!nostr) {
-          console.warn('Nostr instance not available for batch fetch');
+          console.warn('Nostr instance not available for batch fetch, using defaults');
           // Fill remaining with defaults
           uncachedPubkeys.forEach(pubkey => {
             cachedConfigs.set(pubkey, this.getDefaultRelayList());
@@ -190,10 +200,11 @@ class RelayListService {
       if (forceRefresh) {
         // Clear cache and DataLoader cache for this pubkey
         this.clearCache(pubkey);
-        this.relayListDataLoader.clear(pubkey);
+        const dataLoader = this.getDataLoader(nostr);
+        dataLoader.clear(pubkey);
       }
 
-      return await this.relayListDataLoader.load(pubkey);
+      return await this.getDataLoader(nostr).load(pubkey);
     } catch (error) {
       console.error('Failed to fetch relay list for', pubkey, error);
 
@@ -210,17 +221,18 @@ class RelayListService {
    * Batch fetch relay lists for multiple users efficiently
    * Optimized pattern for handling multiple user queries
    */
-  async getUserRelayLists(pubkeys: string[], forceRefresh: boolean = false): Promise<RelayListConfig[]> {
+  async getUserRelayLists(pubkeys: string[], nostr?: any, forceRefresh: boolean = false): Promise<RelayListConfig[]> {
     if (forceRefresh) {
       // Clear caches for all requested pubkeys
+      const dataLoader = this.getDataLoader(nostr);
       pubkeys.forEach(pubkey => {
         this.clearCache(pubkey);
-        this.relayListDataLoader.clear(pubkey);
+        dataLoader.clear(pubkey);
       });
     }
 
     try {
-      const results = await this.relayListDataLoader.loadMany(pubkeys);
+      const results = await this.getDataLoader(nostr).loadMany(pubkeys);
 
       // Handle potential errors in DataLoader results
       return results.map((result, index) => {
@@ -315,7 +327,11 @@ class RelayListService {
       const relayList = this.parseRelayList(event);
       this.updateCache(event.pubkey, relayList);
       await indexedDBService.putRelayListEvent(event);
-      this.relayListDataLoader.prime(event.pubkey, relayList);
+      
+      // Prime all DataLoaders that might be interested in this pubkey
+      this.relayListDataLoaders.forEach(dataLoader => {
+        dataLoader.prime(event.pubkey, relayList);
+      });
     }
   }
 
@@ -361,12 +377,18 @@ class RelayListService {
   clearCache(pubkey?: string): void {
     if (pubkey) {
       this.cache.delete(pubkey);
-      this.relayListDataLoader.clear(pubkey);
+      // Clear from all DataLoaders
+      this.relayListDataLoaders.forEach(dataLoader => {
+        dataLoader.clear(pubkey);
+      });
       // Clear from IndexedDB as well
       indexedDBService.deleteRelayListEvent(pubkey).catch(console.warn);
     } else {
       this.cache.clear();
-      this.relayListDataLoader.clearAll();
+      // Clear all DataLoaders
+      this.relayListDataLoaders.forEach(dataLoader => {
+        dataLoader.clearAll();
+      });
       // Clear all relay lists from IndexedDB
       indexedDBService.clearRelayLists().catch(console.warn);
     }
@@ -406,7 +428,10 @@ class RelayListService {
    */
   primeCache(pubkey: string, relayList: RelayListConfig): void {
     this.updateCache(pubkey, relayList);
-    this.relayListDataLoader.prime(pubkey, relayList);
+    // Prime all DataLoaders
+    this.relayListDataLoaders.forEach(dataLoader => {
+      dataLoader.prime(pubkey, relayList);
+    });
   }
 }
 
