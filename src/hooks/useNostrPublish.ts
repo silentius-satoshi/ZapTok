@@ -10,6 +10,7 @@ import {
   type SerializableEvent
 } from "@/lib/nip01-types";
 import { relayResponseMonitor } from "@/lib/relayResponseMonitor";
+import { relayListService } from "@/services/relayList.service";
 
 import type { NostrEvent } from "@nostrify/nostrify";
 
@@ -109,7 +110,28 @@ export function useNostrPublish(): UseMutationResult<NostrEvent> {
           // Clear any previous responses for this event
           relayResponseMonitor.clearResponses(event.id);
 
-          await nostr.event(event, { signal: AbortSignal.timeout(10000) });
+          // Get user's write relays for NIP-65 compliance
+          let writeRelays: string[] | undefined;
+          try {
+            const userRelayList = await relayListService.getUserRelayList(user.pubkey, nostr);
+            writeRelays = userRelayList.write;
+            
+            if (import.meta.env.DEV) {
+              devLog('[useNostrPublish] Using write relays from NIP-65:', {
+                relayCount: writeRelays.length,
+                relays: writeRelays.map(r => r.replace('wss://', ''))
+              });
+            }
+          } catch (error) {
+            devLog('[useNostrPublish] Failed to get user relay list, using defaults:', error);
+          }
+
+          // Publish to write relays if available, otherwise use default relay pool
+          const publishOptions = writeRelays && writeRelays.length > 0 
+            ? { signal: AbortSignal.timeout(10000), relays: writeRelays }
+            : { signal: AbortSignal.timeout(10000) };
+
+          await nostr.event(event, publishOptions);
 
           const publishDuration = Date.now() - publishStartTime;
           devLog('[useNostrPublish] ✅ Event published successfully', {

@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { validateVideoEvent, hasVideoContent } from '@/lib/validateVideoEvent';
 import type { VideoEvent } from '@/lib/validateVideoEvent';
+import { useNostrQuery } from './useNostrQuery';
 
 /**
  * Hook to fetch video events (kind 1 notes with video content) created by a specific user.
@@ -11,6 +12,7 @@ import type { VideoEvent } from '@/lib/validateVideoEvent';
 export function useUserVideos(pubkey?: string): UseQueryResult<VideoEvent[], Error> {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const { queryAuthor, queryOwnContent } = useNostrQuery();
 
   if (import.meta.env.DEV) {
     console.log('useUserVideos: pubkey =', pubkey, 'user authenticated =', !!user);
@@ -41,16 +43,22 @@ export function useUserVideos(pubkey?: string): UseQueryResult<VideoEvent[], Err
       const combinedSignal = AbortSignal.any([signal, timeout]);
 
       try {
-        const events = await nostr.query(
-          [
-            {
-              kinds: [1, 21, 22], // Include NIP-71 video events (21, 22) along with text notes (1)
-              authors: [pubkey],
-              limit: 50,
-            },
-          ],
-          { signal: combinedSignal }
-        );
+        // Use scope-aware query: own content vs author content
+        const events = user && pubkey === user.pubkey 
+          ? await queryOwnContent([
+              {
+                kinds: [1, 21, 22], // Include NIP-71 video events (21, 22) along with text notes (1)
+                authors: [pubkey],
+                limit: 50,
+              },
+            ], { signal: combinedSignal })
+          : await queryAuthor(pubkey, [
+              {
+                kinds: [1, 21, 22], // Include NIP-71 video events (21, 22) along with text notes (1)
+                authors: [pubkey],
+                limit: 50,
+              },
+            ], { signal: combinedSignal });
 
         if (import.meta.env.DEV) {
           console.log('useUserVideos: Received', events.length, 'events for pubkey:', pubkey);

@@ -8,6 +8,7 @@ import { useCashuRelayStore } from '@/stores/cashuRelayStore';
 import { useLocation } from 'react-router-dom';
 import { logRelay } from '@/lib/devLogger';
 import { useNostrLogin } from '@nostrify/react/login';
+import { relayListService, type RelayListConfig } from '@/services/relayList.service';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -25,6 +26,8 @@ interface NostrConnectionContextValue {
   totalRelayCount: number;
   activeRelays: string[];
   relayContext: RelayContext;
+  userRelayList: RelayListConfig | null;
+  refreshUserRelayList: () => Promise<void>;
 }
 
 const NostrConnectionContext = createContext<NostrConnectionContextValue>({
@@ -35,6 +38,8 @@ const NostrConnectionContext = createContext<NostrConnectionContextValue>({
   totalRelayCount: 0,
   activeRelays: [],
   relayContext: 'all',
+  userRelayList: null,
+  refreshUserRelayList: async () => {}
 });
 
 const NostrProvider: React.FC<NostrProviderProps> = (props) => {
@@ -47,6 +52,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
   // Track relay connection states
   const [connectionState, setConnectionState] = useState<RelayConnectionState>({});
+  
+  // Track user's NIP-65 relay list
+  const [userRelayList, setUserRelayList] = useState<RelayListConfig | null>(null);
 
   // Track connection summary for bundled logging
   const connectionSummary = useRef<{
@@ -63,6 +71,32 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
   // Create NPool instance only once
   const pool = useRef<NPool | undefined>(undefined);
+
+  // Function to refresh user's relay list
+  const refreshUserRelayList = useCallback(async () => {
+    const currentUser = logins[0]; // Get the first logged in user
+    if (!currentUser || !pool.current) return;
+
+    try {
+      const relayList = await relayListService.getUserRelayList(currentUser.pubkey, pool.current);
+      setUserRelayList(relayList);
+      
+      if (import.meta.env.DEV) {
+        logRelay('info', `Updated user relay list: ${relayList.read.length} read, ${relayList.write.length} write`);
+      }
+    } catch (error) {
+      console.warn('Failed to refresh user relay list:', error);
+    }
+  }, [logins]);
+
+  // Load user relay list when user logs in
+  useEffect(() => {
+    if (logins.length > 0 && pool.current) {
+      refreshUserRelayList();
+    } else {
+      setUserRelayList(null);
+    }
+  }, [logins.length, refreshUserRelayList]);
 
   // Get active relays based on context - with Cashu relay integration
   const relayContext = config.relayContext || 'all';
@@ -305,6 +339,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       totalRelayCount,
       activeRelays,
       relayContext,
+      userRelayList,
+      refreshUserRelayList,
     }}>
       <NostrContext.Provider value={{ nostr: pool.current }}>
         {children}
@@ -314,6 +350,13 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 };
 
 // Hook to access relay connection state
+export const useNostrConnectionState = () => {
+  const context = useContext(NostrConnectionContext);
+  if (!context) {
+    throw new Error('useNostrConnectionState must be used within a NostrProvider');
+  }
+  return context;
+};
 export const useNostrConnection = () => {
   return useContext(NostrConnectionContext);
 };

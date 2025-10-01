@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@/hooks/useNostr';
 import { validateVideoEvent } from '@/lib/validateVideoEvent';
+import { useNostrQuery } from './useNostrQuery';
 
 export function useSearchVideos(searchQuery: string) {
   const { nostr } = useNostr();
+  const { queryDiscovery } = useNostrQuery();
 
   return useQuery({
     queryKey: ['search-videos', searchQuery],
@@ -16,8 +18,8 @@ export function useSearchVideos(searchQuery: string) {
       const signal = AbortSignal.any([context.signal, AbortSignal.timeout(5000)]);
       
       try {
-        // Query with NIP-50 search filter
-        const events = await nostr.query([
+        // Query with NIP-50 search filter using read relays for content discovery
+        const events = await queryDiscovery([
           {
             kinds: [21, 22], // NIP-71 video events
             search: searchQuery,

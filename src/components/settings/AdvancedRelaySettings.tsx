@@ -9,6 +9,7 @@ import { Trash2, Plus, Info } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
 import { useNostr } from '@nostrify/react';
+import { useNostrConnectionState } from '@/components/NostrProvider';
 
 export interface MailboxRelay {
   url: string;
@@ -25,6 +26,7 @@ export function AdvancedRelaySettings() {
   const { user } = useCurrentUser();
   const { nostr } = useNostr();
   const { toast } = useToast();
+  const { refreshUserRelayList } = useNostrConnectionState();
   
   const [isEnabled, setIsEnabled] = useState(false);
   const [relays, setRelays] = useState<MailboxRelay[]>([]);
@@ -139,6 +141,9 @@ export function AdvancedRelaySettings() {
 
       await user.signer.signEvent(eventTemplate).then(signedEvent => nostr.event(signedEvent));
       setHasChanges(false);
+      
+      // Refresh the relay list in NostrProvider
+      await refreshUserRelayList();
       
       toast({
         title: 'Relay list saved',
