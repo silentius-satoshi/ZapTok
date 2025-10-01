@@ -53,7 +53,8 @@ function RouteHandler() {
 
   return (
     <Routes>
-      <Route path="/" element={<Index />} />
+      <Route path="/" element={<Global />} />
+      <Route path="/following" element={<Index />} />
       <Route path="/discover" element={<Discover />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/profile/:pubkey" element={<Profile />} />

@@ -3,7 +3,6 @@ import { GlobalVideoFeed } from '@/components/GlobalVideoFeed';
 import { Zap } from 'lucide-react';
 import { Navigation } from '@/components/Navigation';
 import { LoginArea } from '@/components/auth/LoginArea';
-import { AuthGate } from '@/components/AuthGate';
 import { LogoHeader } from '@/components/LogoHeader';
 import { MobileNavigation } from '@/components/MobileNavigation';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -19,7 +18,6 @@ const Global = () => {
   });
 
   return (
-    <AuthGate>
       <div className="min-h-screen bg-black text-white overflow-hidden">
         {/* Mobile Navigation */}
         {isMobile && <MobileNavigation />}
@@ -58,7 +56,6 @@ const Global = () => {
         </main>
 
       </div>
-    </AuthGate>
   );
 };
 

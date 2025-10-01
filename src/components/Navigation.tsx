@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useLoginPrompt } from '@/hooks/useLoginPrompt';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useNostrLogin } from '@nostrify/react/login';
 import { genUserName } from '@/lib/genUserName';
@@ -17,7 +18,8 @@ import { BitcoinConnectBalanceDisplay } from '@/components/BitcoinConnectBalance
 import { useWallet } from '@/hooks/useWallet';
 
 export function Navigation() {
-  const { user } = useCurrentUser();
+  const { user, isAuthenticated, checkLogin } = useCurrentUser();
+  const { withLoginCheck } = useLoginPrompt();
   const { logins } = useNostrLogin();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
@@ -47,8 +49,9 @@ export function Navigation() {
 
   // Set activeTab based on current route
   const [activeTab, setActiveTab] = useState(() => {
-    if (location.pathname === '/') return 'following';
-    return 'following'; // default to following for now
+    if (location.pathname === '/') return 'global';
+    if (location.pathname === '/following') return 'following';
+    return 'global'; // default to global for now
   });
 
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -99,8 +102,8 @@ export function Navigation() {
     const navItems = [
     { id: 'search', icon: Search, label: 'Discover', path: '/discover' },
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
-    { id: 'following', icon: Users, label: 'Following', path: '/' },
-    { id: 'global', icon: Globe, label: 'Global', path: '/global' },
+    { id: 'following', icon: Users, label: 'Following', path: '/following' },
+    { id: 'global', icon: Globe, label: 'Global', path: '/' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
   ];
@@ -111,6 +114,8 @@ export function Navigation() {
 
     // Map routes to navigation tabs
     if (pathname === '/') {
+      setActiveTab('global');
+    } else if (pathname === '/following') {
       setActiveTab('following');
     } else if (pathname === '/discover') {
       setActiveTab('discover');
@@ -144,8 +149,65 @@ export function Navigation() {
       <div className="hidden md:flex flex-col w-64 p-4 h-full">{/* Main Navigation */}
         <div className="space-y-2 flex-1">
           {navItems.map((item) => {
+            // Check if this item requires authentication
+            const requiresAuth = ['following', 'notifications'].includes(item.id);
+            
             // Special handling for items with paths (use Link for routing)
             if (item.path) {
+              // For authenticated routes, check login first
+              if (requiresAuth && !isAuthenticated) {
+                return (
+                  <Button
+                    key={item.id}
+                    variant={activeTab === item.id ? 'default' : 'ghost'}
+                    size={null}
+                    className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
+                      activeTab === item.id
+                        ? 'text-gray-400 hover:text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                    onClick={() => {
+                      withLoginCheck(() => {
+                        setActiveTab(item.id);
+                        handleNavigateToPage(item.path!);
+                      }, {
+                        loginMessage: `Login required to view ${item.label.toLowerCase()}`,
+                      });
+                    }}
+                    onMouseEnter={() => setHoveredItem(item.id)}
+                    onMouseLeave={() => setHoveredItem(null)}
+                  >
+                    <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
+                      activeTab === item.id || hoveredItem === item.id
+                        ? 'text-orange-500'
+                        : 'text-gray-400'
+                    }`} style={activeTab === item.id || hoveredItem === item.id ? {
+                      background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    } : {}}>
+                      {typeof item.icon === 'function' ? (
+                        React.createElement(item.icon, { size: 24 })
+                      ) : (
+                        React.createElement(item.icon as any, { size: 24 })
+                      )}
+                    </div>
+                    <span className={`font-medium text-lg ${
+                      activeTab === item.id || hoveredItem === item.id
+                        ? 'text-orange-500'
+                        : 'text-gray-400'
+                    }`} style={activeTab === item.id || hoveredItem === item.id ? {
+                      background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    } : {}}>{item.label}</span>
+                  </Button>
+                );
+              }
+              
+              // For non-authenticated routes or authenticated users, use normal Link
               return (
                 <Link key={item.id} to={item.path}>
                   <Button

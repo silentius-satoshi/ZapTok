@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useLoginPrompt } from '@/hooks/useLoginPrompt';
 import { useNostrLogin } from '@nostrify/react/login';
 import { useLogoutWithWarning } from '@/hooks/useLogoutWithWarning';
 import { useAuthor } from '@/hooks/useAuthor';
@@ -29,7 +30,8 @@ import { useCashuStore } from '@/stores/cashuStore';
 import { DollarSign, Bitcoin } from 'lucide-react';
 
 export function MobileNavigation() {
-  const { user } = useCurrentUser();
+  const { user, isAuthenticated } = useCurrentUser();
+  const { withLoginCheck } = useLoginPrompt();
   const { logins } = useNostrLogin();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
@@ -99,18 +101,34 @@ export function MobileNavigation() {
     navigate(path);
   };
 
-  const handleBottomNavClick = (path: string) => {
+  const handleBottomNavClick = (path: string, requiresAuth = false) => {
     bundleLog('mobileNavClick', `📱 Bottom nav clicked: ${path}, current: ${location.pathname}`);
 
+    // Handle authentication-required routes
+    if (requiresAuth && !isAuthenticated) {
+      withLoginCheck(() => {
+        // If login succeeds, then navigate
+        if (location.pathname === path && (path === '/following' || path === '/')) {
+          bundleLog('mobileNavRefresh', `📱 Same-page refresh triggered for path: ${path}`);
+          refreshCurrentFeed(path);
+          return;
+        }
+        navigate(path);
+      }, {
+        loginMessage: `Login required to view ${path === '/following' ? 'following feed' : 'this feature'}`,
+      });
+      return;
+    }
+
     // Check if user is clicking on the same feed they're currently viewing
-    if (location.pathname === path && (path === '/' || path === '/global')) {
+    if (location.pathname === path && (path === '/' || path === '/following')) {
       bundleLog('mobileNavRefresh', `📱 Same-page refresh triggered for path: ${path}`);
       refreshCurrentFeed(path);
       return; // Don't navigate, just refresh
     }
 
     // Different page navigation
-    if (path !== '/' && path !== '/global') {
+    if (path !== '/' && path !== '/following') {
       pauseAllVideos();
     } else {
       resumeAllVideos();
@@ -160,8 +178,8 @@ export function MobileNavigation() {
   const navItems: NavItem[] = [
     { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
-    { id: 'following', icon: Users, label: 'Following', path: '/' },
-    { id: 'global', icon: Globe, label: 'Global', path: '/global' },
+    { id: 'following', icon: Users, label: 'Following', path: '/following' },
+    { id: 'global', icon: Globe, label: 'Global', path: '/' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
     { id: 'live-stream', icon: Radio, label: 'Live Stream', action: 'liveStream' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
@@ -170,8 +188,8 @@ export function MobileNavigation() {
 
   // Core items for bottom navigation
   const bottomNavItems = [
-    { id: 'global', icon: Globe, label: 'Global', path: '/global' },
-    { id: 'following', icon: Users, label: 'Following', path: '/' },
+    { id: 'global', icon: Globe, label: 'Global', path: '/' },
+    { id: 'following', icon: Users, label: 'Following', path: '/following' },
     { id: 'lightning', icon: Zap, label: 'Wallet', path: '/bitcoin-connect-wallet', isCenter: true },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
     { id: 'profile', icon: User, label: 'Profile', isUserProfile: true },
@@ -363,27 +381,40 @@ export function MobileNavigation() {
                         // Navigation items with paths
                         if (!item.path) return null; // Skip items without paths
 
+                        // Check if this item requires authentication
+                        const requiresAuth = ['discover', 'following', 'notifications', 'lightning'].includes(item.id);
+
                         return (
-                          <Link key={item.id} to={item.path}>
-                            <Button
-                              variant="ghost"
-                              className={`w-full justify-start h-12 ${
-                                isActive(item.path)
-                                  ? 'bg-gray-800/50 text-orange-400'
-                                  : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
-                              }`}
-                              onClick={() => handleNavigateToPage(item.path!)}
-                            >
-                              <div className="w-5 h-5 mr-3 flex items-center justify-center">
-                                {typeof item.icon === 'function' ? (
-                                  (item.icon as () => JSX.Element)()
-                                ) : (
-                                  React.createElement(item.icon as React.ComponentType<{ size?: number }>, { size: 20 })
-                                )}
-                              </div>
-                              <span className="font-medium">{item.label}</span>
-                            </Button>
-                          </Link>
+                          <Button
+                            key={item.id}
+                            variant="ghost"
+                            className={`w-full justify-start h-12 ${
+                              isActive(item.path)
+                                ? 'bg-gray-800/50 text-orange-400'
+                                : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+                            }`}
+                            onClick={() => {
+                              if (requiresAuth && !isAuthenticated) {
+                                setIsOpen(false); // Close dropdown first
+                                withLoginCheck(() => {
+                                  handleNavigateToPage(item.path!);
+                                }, {
+                                  loginMessage: `Login required to access ${item.label}`,
+                                });
+                              } else {
+                                handleNavigateToPage(item.path!);
+                              }
+                            }}
+                          >
+                            <div className="w-5 h-5 mr-3 flex items-center justify-center">
+                              {typeof item.icon === 'function' ? (
+                                (item.icon as () => JSX.Element)()
+                              ) : (
+                                React.createElement(item.icon as React.ComponentType<{ size?: number }>, { size: 20 })
+                              )}
+                            </div>
+                            <span className="font-medium">{item.label}</span>
+                          </Button>
                         );
                       }
                     })}
@@ -451,65 +482,70 @@ export function MobileNavigation() {
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed left-0 right-0 z-50 bg-black/95 backdrop-blur-md" style={{ bottom: '16px' }}>
         <div className="flex items-center justify-around px-6 py-3 gap-4">
-          {bottomNavItems.map((item) => (
-            <div key={item.id} className="flex justify-center flex-1 max-w-[64px]">
-              {item.isUserProfile ? (
-                // Profile button with user avatar
-                user ? (
+          {bottomNavItems.map((item) => {
+            // Check if this item requires authentication
+            const requiresAuth = ['following', 'notifications', 'lightning', 'discover'].includes(item.id);
+            
+            return (
+              <div key={item.id} className="flex justify-center flex-1 max-w-[64px]">
+                {item.isUserProfile ? (
+                  // Profile button with user avatar or login prompt
+                  user ? (
+                    <button
+                      className={`h-12 w-12 flex items-center justify-center rounded-full transition-colors ${
+                        isActive('/profile')
+                          ? 'ring-2 ring-orange-400'
+                          : 'hover:ring-2 hover:ring-gray-600'
+                      }`}
+                      onClick={() => handleBottomNavClick('/profile')}
+                    >
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={metadata?.picture} alt={metadata?.name ?? genUserName(user.pubkey)} />
+                        <AvatarFallback className="text-xs bg-gray-700 text-gray-300">
+                          {(metadata?.name ?? genUserName(user.pubkey)).charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </button>
+                  ) : (
+                    <button
+                      className={`h-12 w-12 flex items-center justify-center rounded-full transition-colors ${
+                        isActive('/profile')
+                          ? 'text-orange-400 bg-gray-800/30'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+                      }`}
+                      onClick={() => handleBottomNavClick('/profile', true)}
+                    >
+                      <item.icon size={20} />
+                    </button>
+                  )
+                ) : item.isCenter ? (
+                  // Center lightning button - larger and highlighted
                   <button
-                    className={`h-12 w-12 flex items-center justify-center rounded-full transition-colors ${
-                      isActive('/profile')
-                        ? 'ring-2 ring-orange-400'
-                        : 'hover:ring-2 hover:ring-gray-600'
+                    className={`h-14 w-14 flex items-center justify-center rounded-full transition-colors ${
+                      isActive(item.path!)
+                        ? 'text-white bg-orange-600 shadow-lg shadow-orange-600/30'
+                        : 'text-orange-400 bg-gray-800/50 hover:text-white hover:bg-orange-600/20 border border-orange-400/20'
                     }`}
-                    onClick={() => handleBottomNavClick('/profile')}
+                    onClick={() => handleBottomNavClick(item.path!, requiresAuth)}
                   >
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={metadata?.picture} alt={metadata?.name ?? genUserName(user.pubkey)} />
-                      <AvatarFallback className="text-xs bg-gray-700 text-gray-300">
-                        {(metadata?.name ?? genUserName(user.pubkey)).charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <item.icon size={24} />
                   </button>
                 ) : (
+                  // Regular navigation buttons - icon only
                   <button
                     className={`h-12 w-12 flex items-center justify-center rounded-full transition-colors ${
-                      isActive('/profile')
+                      isActive(item.path!)
                         ? 'text-orange-400 bg-gray-800/30'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
                     }`}
-                    onClick={() => handleBottomNavClick('/profile')}
+                    onClick={() => handleBottomNavClick(item.path!, requiresAuth)}
                   >
                     <item.icon size={20} />
                   </button>
-                )
-              ) : item.isCenter ? (
-                // Center lightning button - larger and highlighted
-                <button
-                  className={`h-14 w-14 flex items-center justify-center rounded-full transition-colors ${
-                    isActive(item.path!)
-                      ? 'text-white bg-orange-600 shadow-lg shadow-orange-600/30'
-                      : 'text-orange-400 bg-gray-800/50 hover:text-white hover:bg-orange-600/20 border border-orange-400/20'
-                  }`}
-                  onClick={() => handleBottomNavClick(item.path!)}
-                >
-                  <item.icon size={24} />
-                </button>
-              ) : (
-                // Regular navigation buttons - icon only
-                <button
-                  className={`h-12 w-12 flex items-center justify-center rounded-full transition-colors ${
-                    isActive(item.path!)
-                      ? 'text-orange-400 bg-gray-800/30'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
-                  }`}
-                  onClick={() => handleBottomNavClick(item.path!)}
-                >
-                  <item.icon size={20} />
-                </button>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

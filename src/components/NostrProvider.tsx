@@ -71,7 +71,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     const isLoggedIn = logins.length > 0;
 
     // For public routes, always allow relay connections
-    const isPublicRoute = location.pathname === '/global' || location.pathname === '/about';
+    const isPublicRoute = location.pathname === '/' || location.pathname === '/global' || location.pathname === '/about';
 
     // Only connect to relays if:
     // 1. It's a public route, OR
