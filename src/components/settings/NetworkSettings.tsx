@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link, Trash2, Plug } from 'lucide-react';
 import { SettingsSection } from './SettingsSection';
+import { AdvancedRelaySettings } from './AdvancedRelaySettings';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useToast } from '@/hooks/useToast';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -248,6 +249,11 @@ export function NetworkSettings({
             )}
           </div>
         </div>
+      </div>
+
+      {/* Advanced Relay Management */}
+      <div className={`${isMobile ? 'px-4 pb-4' : 'px-6 pb-6'}`}>
+        <AdvancedRelaySettings />
       </div>
     </SettingsSection>
   );

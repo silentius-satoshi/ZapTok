@@ -10,6 +10,7 @@ export { CashuWalletSettings } from './CashuWalletSettings';
 export { CashuRelaySettings } from './CashuRelaySettings';
 export { NotificationsSettings } from './NotificationsSettings';
 export { NetworkSettings } from './NetworkSettings';
+export { AdvancedRelaySettings } from './AdvancedRelaySettings';
 export { ZapsSettings } from './ZapsSettings';
 export { GenericSettings } from './GenericSettings';
 export { DeveloperSettings } from './DeveloperSettings';
