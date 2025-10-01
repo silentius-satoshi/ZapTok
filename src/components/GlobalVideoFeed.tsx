@@ -11,7 +11,6 @@ import { useFollowing } from '@/hooks/useFollowing';
 import { useProfileCache } from '@/hooks/useProfileCache';
 import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
 import { useVideoCache } from '@/hooks/useVideoCache';
-import { useCaching } from '@/contexts/CachingContext';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
 import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent } from '@/lib/validateVideoEvent';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -26,7 +25,6 @@ export interface GlobalVideoFeedRef {
 
 export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   const { nostr } = useNostr();
-  const { currentService } = useCaching();
   const { user } = useCurrentUser();
   const following = useFollowing(user?.pubkey || '');
   const navigate = useNavigate();
@@ -70,7 +68,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
     isLoading,
     error,
   } = useInfiniteQuery({
-    queryKey: ['global-video-feed', currentService?.url],
+    queryKey: ['global-video-feed'],
     queryFn: async ({ pageParam, signal }) => {
       bundleLog('globalVideoFetch', '🌍 Fetching global video content');
 
@@ -164,7 +162,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
       setCurrentVideoIndex(0);
       
       // Reset the infinite query to start fresh and show latest videos
-      await queryClient.resetQueries({ queryKey: ['global-video-feed', currentService?.url] });
+      await queryClient.resetQueries({ queryKey: ['global-video-feed'] });
       
       // Brief delay to show refresh feedback
       setTimeout(() => {
@@ -176,7 +174,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
         }));
       }, 500);
     }
-  }), [queryClient, currentService?.url, setCurrentVideoIndex]);
+  }), [queryClient, setCurrentVideoIndex]);
 
   const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
 
@@ -398,7 +396,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
         setCurrentVideoIndex(0);
         
         // Reset query to get latest videos
-        await queryClient.resetQueries({ queryKey: ['global-video-feed', currentService?.url] });
+        await queryClient.resetQueries({ queryKey: ['global-video-feed'] });
         
         // Brief delay to show refresh feedback
         setTimeout(() => {
@@ -427,7 +425,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isMobile, pullToRefreshState.pullDistance, queryClient, currentService?.url, setCurrentVideoIndex]);
+  }, [isMobile, pullToRefreshState.pullDistance, queryClient, setCurrentVideoIndex]);
 
   // Auto-load more videos
   useEffect(() => {

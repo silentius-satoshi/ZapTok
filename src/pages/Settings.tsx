@@ -230,17 +230,6 @@ export function Settings() {
               ))}
             </div>
           </div>
-
-          {/* Caching Services Section */}
-          <div>
-            <h3 className="text-2xl font-semibold mb-6 text-white">Caching Services</h3>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 text-lg">
-                <div className="w-3 h-3 rounded-full bg-gray-500" />
-                <span className="truncate text-gray-500">No caching services</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

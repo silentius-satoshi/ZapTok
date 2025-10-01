@@ -48,7 +48,7 @@ export function useNostrToolsOnboarding() {
       'wss://relay.primal.net',
       'wss://relay.nostr.band',
       'wss://relay.chorus.community',
-      'wss://ditto.pub/relay'
+      'wss://pyramid.fiatjaf.com'
     ];
 
     try {

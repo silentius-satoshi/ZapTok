@@ -96,7 +96,7 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
           'wss://relay.damus.io',
           'wss://relay.nostr.band',
           'wss://relay.primal.net',
-          'wss://ditto.pub/relay',
+          'wss://pyramid.fiatjaf.com',
           'wss://relay.chorus.community'
         ]
       });
@@ -147,7 +147,7 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
           'wss://relay.damus.io',
           'wss://relay.nostr.band',
           'wss://relay.primal.net',
-          'wss://ditto.pub/relay',
+          'wss://pyramid.fiatjaf.com',
           'wss://relay.chorus.community'
         ]
       });

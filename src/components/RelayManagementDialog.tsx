@@ -57,9 +57,9 @@ export function RelayManagementDialog({
       reason: 'Good for finding cached events'
     },
     { 
-      url: 'wss://ditto.pub/relay', 
-      name: 'Ditto', 
-      description: 'Decentralized social platform relay',
+      url: 'wss://pyramid.fiatjaf.com', 
+      name: 'Pyramid', 
+      description: 'Reliable relay by fiatjaf',
       reason: 'Good coverage for social events'
     },
   ];

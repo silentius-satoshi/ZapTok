@@ -16,6 +16,13 @@ import { SupporterButton } from '@/components/SupporterButton';
 import { CashuBalanceDisplay } from '@/components/CashuBalanceDisplay';
 import { BitcoinConnectBalanceDisplay } from '@/components/BitcoinConnectBalanceDisplay';
 import { useWallet } from '@/hooks/useWallet';
+import { LoginModal } from '@/components/auth/LoginModal';
+import { useAppContext } from '@/hooks/useAppContext';
+import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
+import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
+import { useCashuWallet } from '@/hooks/useCashuWallet';
+import { useCashuStore } from '@/stores/cashuStore';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function Navigation() {
   const { user, isAuthenticated, checkLogin } = useCurrentUser();
@@ -29,6 +36,12 @@ export function Navigation() {
 
   // Get comprehensive wallet/signer detection
   const { isBunkerSigner, isNsecSigner, isExtensionSigner } = useWallet();
+
+  // Currency display and wallet hooks for toggle
+  const { showSats, toggleCurrency } = useCurrencyDisplayStore();
+  const { data: btcPrice } = useBitcoinPrice();
+  const { totalBalance: cashuBalance } = useCashuWallet();
+  const cashuStore = useCashuStore();
 
   // Check current user login for backwards compatibility
   const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
@@ -57,6 +70,7 @@ export function Navigation() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const handleProfileClick = () => {
     setActiveTab('profile');
@@ -154,8 +168,8 @@ export function Navigation() {
             
             // Special handling for items with paths (use Link for routing)
             if (item.path) {
-              // For authenticated routes, check login first
-              if (requiresAuth && !isAuthenticated) {
+              // For authenticated routes, show for all users but handle auth on click
+              if (requiresAuth) {
                 return (
                   <Button
                     key={item.id}
@@ -167,12 +181,12 @@ export function Navigation() {
                         : 'text-gray-400 hover:text-white'
                     }`}
                     onClick={() => {
-                      withLoginCheck(() => {
+                      if (!isAuthenticated) {
+                        setShowLoginModal(true);
+                      } else {
                         setActiveTab(item.id);
                         handleNavigateToPage(item.path!);
-                      }, {
-                        loginMessage: `Login required to view ${item.label.toLowerCase()}`,
-                      });
+                      }
                     }}
                     onMouseEnter={() => setHoveredItem(item.id)}
                     onMouseLeave={() => setHoveredItem(null)}
@@ -207,7 +221,7 @@ export function Navigation() {
                 );
               }
               
-              // For non-authenticated routes or authenticated users, use normal Link
+              // For non-authenticated routes, use normal Link
               return (
                 <Link key={item.id} to={item.path}>
                   <Button
@@ -265,10 +279,14 @@ export function Navigation() {
                     : 'text-gray-400 hover:text-white'
                 }`}
                 onClick={() => {
-                  setActiveTab(item.id);
-                  // Handle specific actions
-                  if (item.action === 'searchUsers') {
-                    handleUserSearchClick();
+                  if (item.action === 'searchUsers' && !isAuthenticated) {
+                    setShowLoginModal(true);
+                  } else {
+                    setActiveTab(item.id);
+                    // Handle specific actions
+                    if (item.action === 'searchUsers') {
+                      handleUserSearchClick();
+                    }
                   }
                 }}
                 onMouseEnter={() => setHoveredItem(item.id)}
@@ -304,130 +322,195 @@ export function Navigation() {
             );
           })}
 
-          {user && (
+          {/* Stream and Upload buttons - visible for all users */}
+          <Button
+            className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
+              activeTab === 'stream'
+                ? 'text-gray-400 hover:text-white'
+                : 'text-gray-400 hover:text-white'
+            }`}
+            size={null}
+            onClick={() => {
+              if (!user) {
+                setShowLoginModal(true);
+              } else {
+                setActiveTab('stream');
+                pauseAllVideos();
+                navigate('/stream', { state: { fromNavigation: true } });
+              }
+            }}
+            onMouseEnter={() => setHoveredItem('stream')}
+            onMouseLeave={() => setHoveredItem(null)}
+          >
+            <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
+              activeTab === 'stream' || hoveredItem === 'stream'
+                ? 'text-orange-500'
+                : 'text-gray-400'
+            }`} style={activeTab === 'stream' || hoveredItem === 'stream' ? {
+              background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            } : {}}>
+              <Radio size={24} />
+            </div>
+            <span className={`font-medium text-lg ${
+              activeTab === 'stream' || hoveredItem === 'stream'
+                ? 'text-orange-500'
+                : 'text-gray-400'
+            }`} style={activeTab === 'stream' || hoveredItem === 'stream' ? {
+              background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            } : {}}>Stream</span>
+          </Button>
+
+          <Button
+            className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
+              activeTab === 'upload'
+                ? 'text-gray-400 hover:text-white'
+                : 'text-gray-400 hover:text-white'
+            }`}
+            size={null}
+            onClick={() => {
+              if (!user) {
+                setShowLoginModal(true);
+              } else {
+                handleUploadClick();
+              }
+            }}
+            onMouseEnter={() => setHoveredItem('upload')}
+            onMouseLeave={() => setHoveredItem(null)}
+          >
+            <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
+              activeTab === 'upload' || hoveredItem === 'upload'
+                ? 'text-orange-500'
+                : 'text-gray-400'
+            }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
+              background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            } : {}}>
+              <PlusSquare size={24} />
+            </div>
+            <span className={`font-medium text-lg ${
+              activeTab === 'upload' || hoveredItem === 'upload'
+                ? 'text-orange-500'
+                : 'text-gray-400'
+            }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
+              background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            } : {}}>Upload</span>
+          </Button>
+        </div>
+
+                {/* Bottom Section with Balance, Supporter and Profile */}
+        <div className="mt-auto pt-4 space-y-3">
+          {/* Wallet displays - always visible, but with different behavior based on auth status */}
+          {user ? (
             <>
-              <Button
-                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
-                  activeTab === 'stream'
-                    ? 'text-gray-400 hover:text-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-                size={null}
-                onClick={() => {
-                  setActiveTab('stream');
-                  pauseAllVideos();
-                  navigate('/stream', { state: { fromNavigation: true } });
-                }}
-                onMouseEnter={() => setHoveredItem('stream')}
-                onMouseLeave={() => setHoveredItem(null)}
+              <BitcoinConnectBalanceDisplay variant="compact" />
+              <CashuBalanceDisplay variant="compact" />
+              <SupporterButton />
+            </>
+          ) : (
+            <>
+              {/* Read-only placeholders that trigger LoginModal */}
+              <div 
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                onClick={() => setShowLoginModal(true)}
+                title="Sign in to view your Lightning wallet"
               >
-                <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
-                  activeTab === 'stream' || hoveredItem === 'stream'
-                    ? 'text-orange-500'
-                    : 'text-gray-400'
-                }`} style={activeTab === 'stream' || hoveredItem === 'stream' ? {
-                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                } : {}}>
-                  <Radio size={24} />
+                <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
+                  <span className="text-xs font-bold text-white">₿</span>
                 </div>
-                <span className={`font-medium text-lg ${
-                  activeTab === 'stream' || hoveredItem === 'stream'
-                    ? 'text-orange-500'
-                    : 'text-gray-400'
-                }`} style={activeTab === 'stream' || hoveredItem === 'stream' ? {
-                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                } : {}}>Stream</span>
-              </Button>
+                <div className="text-sm">
+                  <span className="font-medium text-foreground">
+                    {showSats ? '0 sats' : '$0.00'}
+                  </span>
+                  <span className="text-muted-foreground ml-1">lightning</span>
+                </div>
+              </div>
+
+              <div 
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                onClick={() => setShowLoginModal(true)}
+                title="Sign in to view your Cashu wallet"
+              >
+                <img 
+                  src="/images/cashu-icon.png" 
+                  alt="Cashu" 
+                  className="w-5 h-5 rounded-full"
+                />
+                <div className="text-sm">
+                  <span className="font-medium text-foreground">
+                    {showSats ? '0 sats' : '$0.00'}
+                  </span>
+                  <span className="text-muted-foreground ml-1">cashu wallet</span>
+                </div>
+              </div>
 
               <Button
-                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
-                  activeTab === 'upload'
-                    ? 'text-gray-400 hover:text-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-                size={null}
-                onClick={handleUploadClick}
-                onMouseEnter={() => setHoveredItem('upload')}
-                onMouseLeave={() => setHoveredItem(null)}
+                onClick={() => setShowLoginModal(true)}
+                variant="outline"
+                className="hidden md:flex items-center gap-2 bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white hover:border-gray-500 transition-colors cursor-pointer"
+                title="Sign in to become a supporter"
               >
-                <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
-                  activeTab === 'upload' || hoveredItem === 'upload'
-                    ? 'text-orange-500'
-                    : 'text-gray-400'
-                }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
-                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                } : {}}>
-                  <PlusSquare size={24} />
-                </div>
-                <span className={`font-medium text-lg ${
-                  activeTab === 'upload' || hoveredItem === 'upload'
-                    ? 'text-orange-500'
-                    : 'text-gray-400'
-                }`} style={activeTab === 'upload' || hoveredItem === 'upload' ? {
-                  background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                } : {}}>Upload</span>
+                <Heart className="h-4 w-4 text-red-500" />
+                Become a Supporter
               </Button>
             </>
           )}
-        </div>
 
-        {/* Bottom Section with Balance, Supporter and Profile */}
-        {user && (
-          <div className="mt-auto pt-4 space-y-3">
-            <BitcoinConnectBalanceDisplay variant="compact" />
-            <CashuBalanceDisplay variant="compact" />
-            <SupporterButton />
-
-            {/* Profile Section */}
-            <button
-              className={`flex items-center gap-3 p-3 rounded-2xl transition-all w-full text-foreground ${
-                hoveredItem === 'profile'
-                  ? 'bg-gray-800/30 scale-105'
-                  : 'hover:bg-gray-800/20'
-              }`}
-              onClick={handleProfileClick}
-              onMouseEnter={() => setHoveredItem('profile')}
-              onMouseLeave={() => setHoveredItem(null)}
-              style={{
-                border: 'none',
-                outline: 'none',
-                boxShadow: 'none',
-                background: hoveredItem === 'profile' ? 'rgba(31, 41, 55, 0.3)' : 'transparent',
-              }}
-            >
-              <Avatar className={`w-10 h-10 transition-all ${
-                hoveredItem === 'profile' ? 'ring-2 ring-orange-400/50' : ''
+          {/* Profile Section - visible for all users */}
+          <button
+            className={`flex items-center gap-3 p-3 rounded-2xl transition-all w-full text-foreground ${
+              hoveredItem === 'profile'
+                ? 'bg-gray-800/30 scale-105'
+                : 'hover:bg-gray-800/20'
+            }`}
+            onClick={() => {
+              if (!user) {
+                setShowLoginModal(true);
+              } else {
+                handleProfileClick();
+              }
+            }}
+            onMouseEnter={() => setHoveredItem('profile')}
+            onMouseLeave={() => setHoveredItem(null)}
+            style={{
+              border: 'none',
+              outline: 'none',
+              boxShadow: 'none',
+              background: hoveredItem === 'profile' ? 'rgba(31, 41, 55, 0.3)' : 'transparent',
+            }}
+          >
+            <Avatar className={`w-10 h-10 transition-all ${
+              hoveredItem === 'profile' ? 'ring-2 ring-orange-400/50' : ''
+            }`}>
+              <AvatarImage src={metadata?.picture} alt={user ? (metadata?.name ?? genUserName(user.pubkey)) : 'Profile'} />
+              <AvatarFallback>{user ? (metadata?.name ?? genUserName(user.pubkey)).charAt(0) : 'P'}</AvatarFallback>
+            </Avatar>
+            <div className='flex-1 text-left hidden md:block truncate'>
+              <p className={`font-medium text-sm truncate transition-colors ${
+                hoveredItem === 'profile' ? 'text-white' : 'text-gray-300'
               }`}>
-                <AvatarImage src={metadata?.picture} alt={metadata?.name ?? genUserName(user.pubkey)} />
-                <AvatarFallback>{(metadata?.name ?? genUserName(user.pubkey)).charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div className='flex-1 text-left hidden md:block truncate'>
-                <p className={`font-medium text-sm truncate transition-colors ${
-                  hoveredItem === 'profile' ? 'text-white' : 'text-gray-300'
-                }`}>{metadata?.name ?? genUserName(user.pubkey)}</p>
-                {metadata?.nip05 && (
-                  <p className={`text-xs truncate transition-colors ${
-                    hoveredItem === 'profile' ? 'text-gray-400' : 'text-gray-500'
-                  }`}>
-                    {metadata.nip05}
-                  </p>
-                )}
-              </div>
-            </button>
-          </div>
-        )}
+                {user ? (metadata?.name ?? genUserName(user.pubkey)) : 'Log in'}
+              </p>
+              {user && metadata?.nip05 && (
+                <p className={`text-xs truncate transition-colors ${
+                  hoveredItem === 'profile' ? 'text-gray-400' : 'text-gray-500'
+                }`}>
+                  {metadata.nip05}
+                </p>
+              )}
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Video Upload Modal */}
@@ -440,6 +523,12 @@ export function Navigation() {
       <UserSearchModal
         open={showUserSearchModal}
         onOpenChange={handleUserSearchModalClose}
+      />
+
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
       />
     </>
   );

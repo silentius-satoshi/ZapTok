@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useVideoCache } from '@/hooks/useVideoCache';
-import { useCaching } from '@/contexts/CachingContext';
 import { clearCashuStoreCache } from '@/stores/userCashuStore';
 import { useCacheSize } from '@/hooks/useCacheSize';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -29,7 +28,6 @@ export function CacheManagementSettings({ className }: CacheManagementSettingsPr
   const [isClearingSpecific, setIsClearingSpecific] = useState<string | null>(null);
 
   const { cleanCache } = useVideoCache();
-  const { disconnectCachingService } = useCaching();
   const { breakdown, isLoading: isCacheLoading, formatSize, refresh: refreshCacheSize } = useCacheSize();
   const isMobile = useIsMobile();
 
@@ -81,9 +79,6 @@ export function CacheManagementSettings({ className }: CacheManagementSettingsPr
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
       }
-      
-      // Disconnect from caching services
-      disconnectCachingService();
       
       // Clear localStorage (except for essential settings)
       const keysToPreserve = ['nostr:login', 'nostr:relay-url', 'app:theme'];

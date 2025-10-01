@@ -11,7 +11,6 @@ import { useFollowing } from '@/hooks/useFollowing';
 import { useProfileCache } from '@/hooks/useProfileCache';
 import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
 import { useVideoCache } from '@/hooks/useVideoCache';
-import { useCaching } from '@/contexts/CachingContext';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
 import { useLoginAutoRefresh } from '@/hooks/useLoginAutoRefresh';
 import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent } from '@/lib/validateVideoEvent';
@@ -25,7 +24,6 @@ export interface FollowingVideoFeedRef {
 
 export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref) => {
   const { nostr } = useNostr();
-  const { currentService } = useCaching();
   const { user } = useCurrentUser();
   const following = useFollowing(user?.pubkey || '');
   const navigate = useNavigate();
@@ -66,7 +64,7 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
     isLoading,
     error,
   } = useInfiniteQuery({
-    queryKey: ['video-feed', following.data?.pubkeys, currentService?.url],
+    queryKey: ['video-feed', following.data?.pubkeys],
     queryFn: async ({ pageParam, signal }) => {
       // Bundle video processing logs
       const processingStats = {
@@ -184,7 +182,7 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
       
       // Reset the infinite query to start fresh and show latest videos
       await queryClient.resetQueries({ 
-        queryKey: ['following-video-feed', user?.pubkey, currentService?.url] 
+        queryKey: ['following-video-feed', user?.pubkey] 
       });
       
       // Reset video index to show newest content
@@ -195,7 +193,7 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
         containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }
-  }), [queryClient, user?.pubkey, currentService?.url]);
+  }), [queryClient, user?.pubkey]);
 
   // Auto-refresh following feed after login
   useEffect(() => {
@@ -207,7 +205,7 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
         try {
           // Reset the infinite query to fetch latest videos
           await queryClient.resetQueries({ 
-            queryKey: ['video-feed', following.data?.pubkeys, currentService?.url] 
+            queryKey: ['video-feed', following.data?.pubkeys] 
           });
           
           // Reset video index to start from the beginning
@@ -233,7 +231,7 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
       const timeoutId = setTimeout(performAutoRefresh, 300);
       return () => clearTimeout(timeoutId);
     }
-  }, [justLoggedIn, user?.pubkey, queryClient, following.data?.pubkeys, currentService?.url]);
+  }, [justLoggedIn, user?.pubkey, queryClient, following.data?.pubkeys]);
 
   const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
 
@@ -485,7 +483,7 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
           
           // Reset queries to get fresh data
           await queryClient.resetQueries({ 
-            queryKey: ['following-video-feed', user?.pubkey, currentService?.url] 
+            queryKey: ['following-video-feed', user?.pubkey] 
           });
           
           // Reset video index to show newest content
@@ -518,7 +516,7 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isMobile, queryClient, user?.pubkey, currentService?.url, pullToRefreshState.isPulling, pullToRefreshState.pullDistance, pullToRefreshState.isRefreshing]);
+  }, [isMobile, queryClient, user?.pubkey, pullToRefreshState.isPulling, pullToRefreshState.pullDistance, pullToRefreshState.isRefreshing]);
 
   // Show loading state while fetching following list or videos
   if (following.isLoading || isLoading || isAutoRefreshing) {

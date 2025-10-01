@@ -6,7 +6,6 @@ import NostrProvider from '@/components/NostrProvider';
 import { AppProvider } from '@/components/AppProvider';
 import { ZapProvider } from '@/contexts/ZapProvider';
 import { WalletProvider } from '@/contexts/WalletContext';
-import { CachingProvider } from '@/components/CachingProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
@@ -29,8 +28,9 @@ export function TestApp({ children }: TestAppProps) {
   const defaultConfig: AppConfig = {
     theme: 'light',
     relayUrls: [
+      'wss://relay.chorus.community',
       'wss://relay.nostr.band',
-      'wss://ditto.pub/relay',
+      'wss://pyramid.fiatjaf.com',
       'wss://relay.damus.io',
       'wss://relay.primal.net'
     ],
@@ -47,15 +47,13 @@ export function TestApp({ children }: TestAppProps) {
             <ZapProvider>
               <BrowserRouter>
                 <NostrProvider>
-                  <CachingProvider>
-                    <WalletProvider>
-                      <VideoPlaybackProvider>
-                        <CurrentVideoProvider>
-                          {children}
-                        </CurrentVideoProvider>
-                      </VideoPlaybackProvider>
-                    </WalletProvider>
-                  </CachingProvider>
+                  <WalletProvider>
+                    <VideoPlaybackProvider>
+                      <CurrentVideoProvider>
+                        {children}
+                      </CurrentVideoProvider>
+                    </VideoPlaybackProvider>
+                  </WalletProvider>
                 </NostrProvider>
               </BrowserRouter>
             </ZapProvider>

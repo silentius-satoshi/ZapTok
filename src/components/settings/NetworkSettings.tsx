@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Link, Trash2, HelpCircle, Plug } from 'lucide-react';
+import { Link, Trash2, Plug } from 'lucide-react';
 import { SettingsSection } from './SettingsSection';
 import { useAppContext } from '@/hooks/useAppContext';
-import { useCaching } from '@/contexts/CachingContext';
 import { useToast } from '@/hooks/useToast';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -31,11 +29,8 @@ export function NetworkSettings({
   setIsConnecting
 }: NetworkSettingsProps) {
   const { config, addRelay, removeRelay } = useAppContext();
-  const { currentService, connectToCachingService, disconnectCachingService } = useCaching();
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const [cachingServiceInput, setCachingServiceInput] = useState('');
-  const [isConnectingToCaching, setIsConnectingToCaching] = useState(false);
 
   // Function to normalize relay URL by adding wss:// if no protocol is present
   const normalizeRelayUrl = (url: string): string => {
@@ -94,37 +89,6 @@ export function NetworkSettings({
     });
   };
 
-  const handleConnectToCachingService = async () => {
-    if (!cachingServiceInput.trim()) {
-      toast({
-        title: "Invalid URL",
-        description: "Please enter a valid caching service URL",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const normalizedUrl = normalizeRelayUrl(cachingServiceInput);
-    setIsConnectingToCaching(true);
-
-    try {
-      await connectToCachingService(normalizedUrl);
-      setCachingServiceInput('');
-      toast({
-        title: "Connected",
-        description: "Successfully connected to caching service",
-      });
-    } catch (error) {
-      toast({
-        title: "Connection Failed",
-        description: error instanceof Error ? error.message : "Failed to connect to caching service",
-        variant: "destructive",
-      });
-    } finally {
-      setIsConnectingToCaching(false);
-    }
-  };
-
   // Get relay status based on current relay selection
   // const getRelayStatus = (relayUrl: string) => {
   //   if (config.relayUrls.includes(relayUrl)) {
@@ -158,108 +122,6 @@ export function NetworkSettings({
 
   return (
     <SettingsSection className={`space-y-6 ${isMobile ? 'px-4 pt-4 pb-4' : 'px-6 pt-6 pb-6'}`}>
-      {/* Caching Service Section */}
-      <div className={`border-b border-gray-800 ${isMobile ? 'pb-4' : 'pb-6'}`}>
-        <div className={`flex items-center gap-2 ${isMobile ? 'mb-3' : 'mb-4'}`}>
-          <h3 className={`font-semibold text-white ${isMobile ? 'text-base' : 'text-lg'}`}>Caching Service</h3>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-300 cursor-default" />
-              </TooltipTrigger>
-              <TooltipContent
-                className="max-w-sm p-4 bg-gray-900 border border-gray-700 rounded-lg shadow-xl"
-                sideOffset={8}
-              >
-                <p className="text-sm text-gray-200 leading-relaxed">
-                  Caching services supplement relay data for improved performance. The client randomly connects to one service from the pool for fail-over. Add or remove services as needed, or keep only one for a dedicated connection.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
-        <div className={`space-y-6 ${isMobile ? 'space-y-4' : ''}`}>
-          <div>
-            <p className={`text-gray-400 ${isMobile ? 'mb-2 text-sm' : 'mb-3'}`}>Connected caching service</p>
-            {currentService ? (
-              <div className={`flex items-center gap-4 py-3 ${isMobile ? 'text-base' : 'text-lg'}`}>
-                <div className={`w-3 h-3 rounded-full ${currentService.isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <span className="text-gray-300 truncate flex-1">{currentService.url}</span>
-                <div className={`flex items-center gap-2 ml-auto ${isMobile ? 'flex-col' : ''}`}>
-                  <Button
-                    variant="ghost"
-                    size={isMobile ? "sm" : "sm"}
-                    className="text-gray-500 hover:text-gray-300 hover:bg-gray-700"
-                    onClick={() => disconnectCachingService()}
-                  >
-                    disconnect
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size={isMobile ? "sm" : "sm"}
-                    className="text-red-500 hover:text-red-400 hover:bg-red-500/10 p-1"
-                    onClick={() => {
-                      disconnectCachingService();
-                      toast({
-                        title: "Service Removed",
-                        description: "Caching service has been disconnected and removed",
-                      });
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className={`flex items-center gap-4 ${isMobile ? 'text-base' : 'text-lg'}`}>
-                <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-                <span className="text-gray-400">No caching service connected</span>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <p className={`text-gray-400 ${isMobile ? 'mb-2 text-sm' : 'mb-3'}`}>Connect to a different caching service</p>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  placeholder="wss://cachingservice.url"
-                  value={cachingServiceInput}
-                  onChange={(e) => setCachingServiceInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleConnectToCachingService();
-                    }
-                  }}
-                  disabled={isConnectingToCaching}
-                  className={`w-full bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 disabled:opacity-50 ${
-                    isMobile ? 'p-2 text-sm' : 'p-3'
-                  }`}
-                />
-                <button
-                  onClick={handleConnectToCachingService}
-                  disabled={isConnectingToCaching || !cachingServiceInput.trim()}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plug className={`h-5 w-5 text-gray-400 hover:text-gray-300 transition-colors cursor-pointer ${
-                    isConnectingToCaching ? 'animate-pulse' : ''
-                  }`} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <Button
-            variant="ghost"
-            className="text-pink-500 hover:text-pink-400 hover:bg-pink-500/10 p-0 h-auto"
-          >
-            Restore default caching service
-          </Button>
-        </div>
-      </div>
-
       {/* Relays Section */}
       <div>
         <h3 className="text-lg font-semibold text-white mb-4">Relays</h3>

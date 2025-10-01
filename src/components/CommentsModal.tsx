@@ -19,6 +19,7 @@ import { usePublishComment } from '@/hooks/usePublishComment';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useLoginPrompt } from '@/hooks/useLoginPrompt';
 import { CommentPrompt } from '@/components/auth/LoginPrompt';
+import { LoginModal } from '@/components/auth/LoginModal';
 import { genUserName } from '@/lib/genUserName';
 import type { NostrEvent } from '@nostrify/nostrify';
 
@@ -36,6 +37,7 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
 
   const [commentText, setCommentText] = useState('');
   const [replyingTo, setReplyingTo] = useState<NostrEvent | null>(null);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
 
   const handleSubmitComment = async () => {
     if (!commentText.trim()) return;
@@ -152,14 +154,17 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
         ) : (
           <div className="border-t px-6 py-4">
             <CommentPrompt 
-              onLoginClick={() => {
-                // This would trigger the login modal
-                console.log('Open login modal from comments');
-              }}
+              onLoginClick={() => setLoginModalOpen(true)}
             />
           </div>
         )}
       </DialogContent>
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={loginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+      />
     </Dialog>
   );
 }

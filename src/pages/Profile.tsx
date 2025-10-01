@@ -13,6 +13,7 @@ import { useBookmarkedVideos } from '@/hooks/useBookmarkedVideos';
 import { useUserVideos } from '@/hooks/useUserVideos';
 import { useRepostedVideos } from '@/hooks/useRepostedVideos';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useLoginPrompt } from '@/hooks/useLoginPrompt';
 import { genUserName } from '@/lib/genUserName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,7 @@ const Profile = () => {
   const { config } = useAppContext();
   const { logins } = useNostrLogin();
   const { toast } = useToast();
+  const { withLoginCheck } = useLoginPrompt();
   const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'bookmarks'>('posts');
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -126,31 +128,39 @@ const Profile = () => {
   };
 
   const handleFollowToggle = async () => {
-    if (!user) return;
+    await withLoginCheck(async () => {
+      if (!user) return;
 
-    try {
-      const result = await followUser.mutateAsync({
-        pubkeyToFollow: targetPubkey,
-        isCurrentlyFollowing: isFollowingTarget
-      });
-      toast({
-        title: "Success",
-        description: result.isNowFollowing ? "User followed" : "User unfollowed",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update follow status",
-        variant: "destructive",
-      });
-    }
+      try {
+        const result = await followUser.mutateAsync({
+          pubkeyToFollow: targetPubkey,
+          isCurrentlyFollowing: isFollowingTarget
+        });
+        toast({
+          title: "Success",
+          description: result.isNowFollowing ? "User followed" : "User unfollowed",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to update follow status",
+          variant: "destructive",
+        });
+      }
+    }, {
+      loginMessage: 'Login required to follow users',
+    });
   };
 
   const handleDirectMessage = () => {
-    // TODO: Implement direct message functionality
-    toast({
-      title: "Coming Soon",
-      description: "Direct messaging feature is coming soon!",
+    withLoginCheck(() => {
+      // TODO: Implement direct message functionality
+      toast({
+        title: "Coming Soon",
+        description: "Direct messaging feature is coming soon!",
+      });
+    }, {
+      loginMessage: 'Login required to send direct messages',
     });
   };
 
@@ -208,22 +218,21 @@ const Profile = () => {
 
   return (
     <>
-      <AuthGate>
-        <div className={`min-h-screen bg-black text-white ${isMobile ? 'overflow-x-hidden' : ''}`}>
-          <main className="h-screen">
-            <div className="flex h-full">
-              {/* Left Sidebar - Logo and Navigation - Hidden on Mobile */}
-              {!isMobile && (
-                <div className="flex flex-col bg-black">
-                  <LogoHeader />
-                  <div className="flex-1">
-                    <Navigation />
-                  </div>
+      <div className={`min-h-screen bg-black text-white ${isMobile ? 'overflow-x-hidden' : ''}`}>
+        <main className="h-screen">
+          <div className="flex h-full">
+            {/* Left Sidebar - Logo and Navigation - Hidden on Mobile */}
+            {!isMobile && (
+              <div className="flex flex-col bg-black">
+                <LogoHeader />
+                <div className="flex-1">
+                  <Navigation />
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Profile Content - Full Width on Mobile */}
-              <div className={`flex-1 overflow-y-auto scrollbar-hide ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
+            {/* Profile Content - Full Width on Mobile */}
+            <div className={`flex-1 overflow-y-auto scrollbar-hide ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
                 <div className={`max-w-4xl mx-auto ${isMobile ? 'p-4' : 'p-6'}`}>
                   {/* Back Button - Show for own profile on mobile */}
                   {isMobile && isOwnProfile && (
@@ -337,7 +346,9 @@ const Profile = () => {
                         {isOwnProfile && (
                           <Button
                             variant="outline"
-                            onClick={() => setShowEditForm(true)}
+                            onClick={() => withLoginCheck(() => setShowEditForm(true), {
+                              loginMessage: 'Login required to edit profile',
+                            })}
                             className="flex items-center space-x-2"
                           >
                             <Edit className="w-4 h-4" />
@@ -442,7 +453,6 @@ const Profile = () => {
             </div>
           </main>
         </div>
-      </AuthGate>
 
       {/* Following List Modal */}
       <FollowingListModal

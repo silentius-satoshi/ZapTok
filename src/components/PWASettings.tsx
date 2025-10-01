@@ -19,7 +19,6 @@ import { Separator } from '@/components/ui/separator';
 import { usePWA } from '@/hooks/usePWA';
 import { PWAStatusIndicator, PWACapabilityCheck } from '@/components/PWAStatusIndicator';
 import { useVideoCache } from '@/hooks/useVideoCache';
-import { useCaching } from '@/contexts/CachingContext';
 import { clearCashuStoreCache } from '@/stores/userCashuStore';
 import { useCacheSize } from '@/hooks/useCacheSize';
 import { cn } from '@/lib/utils';
@@ -42,7 +41,6 @@ export function PWASettings({ className, showAdvanced = false }: PWASettingsProp
   } = usePWA();
   
   const { cleanCache } = useVideoCache();
-  const { disconnectCachingService } = useCaching();
   const { breakdown, isLoading, formatSize, refresh: refreshCacheSize } = useCacheSize();
   
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -106,9 +104,6 @@ export function PWASettings({ className, showAdvanced = false }: PWASettingsProp
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
       }
-      
-      // Disconnect from caching services
-      disconnectCachingService();
       
       // Clear localStorage (except for essential settings)
       const keysToPreserve = ['nostr:login', 'nostr:relay-url', 'app:theme'];

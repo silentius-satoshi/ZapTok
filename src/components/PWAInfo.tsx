@@ -15,7 +15,6 @@ import { usePWA } from '@/hooks/usePWA';
 import { PWAStatusIndicator, PWACapabilityCheck } from '@/components/PWAStatusIndicator';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useVideoCache } from '@/hooks/useVideoCache';
-import { useCaching } from '@/contexts/CachingContext';
 import { clearCashuStoreCache } from '@/stores/userCashuStore';
 import { useCacheSize } from '@/hooks/useCacheSize';
 import { cn } from '@/lib/utils';
@@ -32,8 +31,7 @@ export function PWAInfo({ className, showAdvanced = false }: PWAInfoProps) {
   } = usePWA();
   const isMobile = useIsMobile();
   const { cleanCache } = useVideoCache();
-  const { disconnectCachingService } = useCaching();
-  const { breakdown, isLoading: isCacheLoading, formatSize, refresh: refreshCacheSize } = useCacheSize();
+  const { breakdown, isLoading, formatSize, refresh: refreshCacheSize } = useCacheSize();
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -58,11 +56,6 @@ export function PWAInfo({ className, showAdvanced = false }: PWAInfoProps) {
       }
 
       // Reconnect to caching services to refresh their data
-      const { connectToCachingService, currentService } = await import('@/contexts/CachingContext').then(m => ({ 
-        connectToCachingService: () => {}, 
-        currentService: null 
-      }));
-      
       console.log('✅ Cache refresh completed');
       
       // Refresh cache size calculations
@@ -91,9 +84,6 @@ export function PWAInfo({ className, showAdvanced = false }: PWAInfoProps) {
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
       }
-      
-      // Disconnect from caching services
-      disconnectCachingService();
       
       // Clear localStorage (except for essential settings)
       const keysToPreserve = ['nostr:login', 'nostr:relay-url', 'app:theme'];
@@ -179,19 +169,19 @@ export function PWAInfo({ className, showAdvanced = false }: PWAInfoProps) {
             <div className="flex items-center justify-between">
               <span>Offline video cache</span>
               <Badge variant="secondary" className={isMobile ? 'text-xs' : ''}>
-                {isCacheLoading ? 'Loading...' : formatSize(breakdown.videoCache)}
+                {isLoading ? 'Loading...' : formatSize(breakdown.videoCache)}
               </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span>Profile images</span>
               <Badge variant="secondary" className={isMobile ? 'text-xs' : ''}>
-                {isCacheLoading ? 'Loading...' : formatSize(breakdown.profileImages)}
+                {isLoading ? 'Loading...' : formatSize(breakdown.profileImages)}
               </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span>App resources</span>
               <Badge variant="secondary" className={isMobile ? 'text-xs' : ''}>
-                {isCacheLoading ? 'Loading...' : formatSize(breakdown.appResources)}
+                {isLoading ? 'Loading...' : formatSize(breakdown.appResources)}
               </Badge>
             </div>
           </div>

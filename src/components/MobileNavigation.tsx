@@ -15,6 +15,7 @@ import { UserSearchModal } from '@/components/UserSearchModal';
 import { useVideoPlayback } from '@/contexts/VideoPlaybackContext';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { LoginArea } from '@/components/auth/LoginArea';
+import { LoginModal } from '@/components/auth/LoginModal';
 import { LogoutWarningModal } from '@/components/LogoutWarningModal';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useFeedRefresh } from '@/contexts/FeedRefreshContext';
@@ -69,6 +70,7 @@ export function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Format balance for currency toggle button (similar to desktop LoginArea)
   const formatToggleBalance = () => {
@@ -115,7 +117,11 @@ export function MobileNavigation() {
         }
         navigate(path);
       }, {
-        loginMessage: `Login required to view ${path === '/following' ? 'following feed' : 'this feature'}`,
+        loginMessage: `Login required to view ${
+          path === '/following' ? 'following feed' : 
+          path === '/profile' ? 'your profile' : 
+          'this feature'
+        }`,
       });
       return;
     }
@@ -211,107 +217,131 @@ export function MobileNavigation() {
         <div className="mx-auto flex w-full max-w-screen-sm items-center justify-between px-4 py-3">
           {/* Left side - Currency Toggle Button */}
           <div className="flex gap-6 font-semibold text-lg tracking-wide pointer-events-auto">
-            {user && (
-              <button
-                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
-                onClick={() => {
+            <button
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
+              onClick={() => {
+                if (!user) {
+                  setShowLoginModal(true);
+                } else {
                   toggleCurrency();
-                }}
-                title={`Switch to ${showSats ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`}
-              >
-                {showSats ? (
-                  <>
-                    <Bitcoin className="w-4 h-4 text-orange-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
-                    <span className="text-orange-200 font-medium text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
-                      {formatToggleBalance()} sats
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <DollarSign className="w-4 h-4 text-green-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
-                    <span className="text-green-200 font-medium text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
-                      ${formatToggleBalance()}
-                    </span>
-                    {isPriceLoading && <span className="opacity-50 ml-1 text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>⟳</span>}
-                  </>
-                )}
-              </button>
-            )}
+                }
+              }}
+              title={user ? `Switch to ${showSats ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}` : 'Sign in to view your balance'}
+            >
+              {showSats ? (
+                <>
+                  <Bitcoin className="w-4 h-4 text-orange-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                  <span className="text-orange-200 font-medium text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
+                    {user ? formatToggleBalance() : '0'} sats
+                  </span>
+                </>
+              ) : (
+                <>
+                  <DollarSign className="w-4 h-4 text-green-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                  <span className="text-green-200 font-medium text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
+                    ${user ? formatToggleBalance() : '0.00'}
+                  </span>
+                  {user && isPriceLoading && <span className="opacity-50 ml-1 text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>⟳</span>}
+                </>
+              )}
+            </button>
           </div>
 
           {/* Right side - Action icons */}
           <div className="flex items-center gap-6 pointer-events-auto">
-            {user && (
+            {/* Always show these icons, but trigger login for read-only users */}
+            
+            {/* Stream Icon */}
+            <button
+              onClick={() => {
+                if (!user) {
+                  setShowLoginModal(true);
+                } else {
+                  navigate('/stream');
+                }
+              }}
+              aria-label="Live Stream"
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <Radio className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+            </button>
+
+            {/* Search User Icon */}
+            <button
+              onClick={() => {
+                if (!user) {
+                  setShowLoginModal(true);
+                } else {
+                  handleUserSearchClick();
+                }
+              }}
+              aria-label="Search Users"
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <UserPlus className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+            </button>
+
+            {/* Wallet Icons - show based on user type or default for read-only */}
+            {user && isNsecSigner ? (
               <>
-                {/* Stream Icon */}
+                {/* Cashu Wallet Icon */}
                 <button
-                  onClick={() => navigate('/stream')}
-                  aria-label="Live Stream"
+                  onClick={() => navigate('/cashu-wallet')}
+                  aria-label="Cashu Wallet"
                   className="text-white/80 hover:text-white transition-colors"
                 >
-                  <Radio className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                  <img
+                    src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+                    alt="Cashu"
+                    className="w-6 h-6"
+                    style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
+                  />
                 </button>
 
-                {/* Search User Icon */}
+                {/* Bitcoin Connect Wallet Icon */}
                 <button
-                  onClick={handleUserSearchClick}
-                  aria-label="Search Users"
+                  onClick={() => navigate('/bitcoin-connect-wallet')}
+                  aria-label="Bitcoin Connect Wallet"
                   className="text-white/80 hover:text-white transition-colors"
                 >
-                  <UserPlus className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
-                </button>
-
-                {/* Wallet Icons - nsec signers see both, others see their respective wallet */}
-                {isNsecSigner ? (
-                  <>
-                    {/* Cashu Wallet Icon */}
-                    <button
-                      onClick={() => navigate('/cashu-wallet')}
-                      aria-label="Cashu Wallet"
-                      className="text-white/80 hover:text-white transition-colors"
-                    >
-                      <img
-                        src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
-                        alt="Cashu"
-                        className="w-6 h-6"
-                        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
-                      />
-                    </button>
-
-                    {/* Bitcoin Connect Wallet Icon */}
-                    <button
-                      onClick={() => navigate('/bitcoin-connect-wallet')}
-                      aria-label="Bitcoin Connect Wallet"
-                      className="text-white/80 hover:text-white transition-colors"
-                    >
-                      <Zap className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => navigate('/cashu-wallet')}
-                    aria-label="Cashu Wallet"
-                    className="text-white/80 hover:text-white transition-colors"
-                  >
-                    <img
-                      src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
-                      alt="Cashu"
-                      className="w-6 h-6"
-                        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
-                      />
-                  </button>
-                )}
-
-                {/* Upload Icon */}
-                <button
-                  onClick={handleUploadClick}
-                  aria-label="Upload"
-                  className="text-white/80 hover:text-white transition-colors"
-                >
-                  <PlusSquare className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                  <Zap className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
                 </button>
               </>
+            ) : (
+              <button
+                onClick={() => {
+                  if (!user) {
+                    setShowLoginModal(true);
+                  } else {
+                    navigate('/cashu-wallet');
+                  }
+                }}
+                aria-label="Cashu Wallet"
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <img
+                  src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+                  alt="Cashu"
+                  className="w-6 h-6"
+                  style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
+                />
+              </button>
             )}
+
+            {/* Upload Icon */}
+            <button
+              onClick={() => {
+                if (!user) {
+                  setShowLoginModal(true);
+                } else {
+                  handleUploadClick();
+                }
+              }}
+              aria-label="Upload"
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <PlusSquare className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+            </button>
 
             {/* Hamburger Icon */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -396,11 +426,7 @@ export function MobileNavigation() {
                             onClick={() => {
                               if (requiresAuth && !isAuthenticated) {
                                 setIsOpen(false); // Close dropdown first
-                                withLoginCheck(() => {
-                                  handleNavigateToPage(item.path!);
-                                }, {
-                                  loginMessage: `Login required to access ${item.label}`,
-                                });
+                                setShowLoginModal(true); // Open login modal directly
                               } else {
                                 handleNavigateToPage(item.path!);
                               }
@@ -513,7 +539,7 @@ export function MobileNavigation() {
                           ? 'text-orange-400 bg-gray-800/30'
                           : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
                       }`}
-                      onClick={() => handleBottomNavClick('/profile', true)}
+                      onClick={() => setShowLoginModal(true)}
                     >
                       <item.icon size={20} />
                     </button>
@@ -526,7 +552,13 @@ export function MobileNavigation() {
                         ? 'text-white bg-orange-600 shadow-lg shadow-orange-600/30'
                         : 'text-orange-400 bg-gray-800/50 hover:text-white hover:bg-orange-600/20 border border-orange-400/20'
                     }`}
-                    onClick={() => handleBottomNavClick(item.path!, requiresAuth)}
+                    onClick={() => {
+                      if (requiresAuth && !isAuthenticated) {
+                        setShowLoginModal(true);
+                      } else {
+                        handleBottomNavClick(item.path!);
+                      }
+                    }}
                   >
                     <item.icon size={24} />
                   </button>
@@ -538,7 +570,13 @@ export function MobileNavigation() {
                         ? 'text-orange-400 bg-gray-800/30'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
                     }`}
-                    onClick={() => handleBottomNavClick(item.path!, requiresAuth)}
+                    onClick={() => {
+                      if (requiresAuth && !isAuthenticated) {
+                        setShowLoginModal(true);
+                      } else {
+                        handleBottomNavClick(item.path!);
+                      }
+                    }}
                   >
                     <item.icon size={20} />
                   </button>
@@ -558,6 +596,12 @@ export function MobileNavigation() {
       <UserSearchModal
         open={showUserSearchModal}
         onOpenChange={handleUserSearchModalClose}
+      />
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
       />
 
       {/* Logout Warning Modal */}
