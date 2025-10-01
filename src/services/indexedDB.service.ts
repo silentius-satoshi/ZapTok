@@ -1,0 +1,457 @@
+/**
+ * IndexedDB service for persistent storage with TTL management
+ * Comprehensive IndexedDB architecture for enterprise-grade caching
+ */
+
+import { NostrEvent } from '@nostrify/nostrify';
+import { RelayListConfig } from './relayList.service';
+
+type TValue<T = any> = {
+  key: string;
+  value: T | null;
+  addedAt: number;
+};
+
+const StoreNames = {
+  RELAY_LIST_EVENTS: 'relayListEvents',
+  RELAY_INFOS: 'relayInfos',
+  FAVORITE_RELAY_EVENTS: 'favoriteRelayEvents',
+  RELAY_SET_EVENTS: 'relaySetEvents',
+  USER_PROFILES: 'userProfiles',
+} as const;
+
+export interface TRelayInfo {
+  url: string;
+  name?: string;
+  description?: string;
+  pubkey?: string;
+  contact?: string;
+  supported_nips?: number[];
+  software?: string;
+  version?: string;
+  limitation?: {
+    auth_required?: boolean;
+    payment_required?: boolean;
+  };
+}
+
+class IndexedDBService {
+  static instance: IndexedDBService;
+  private db: IDBDatabase | null = null;
+  private initPromise: Promise<void> | null = null;
+
+  static getInstance(): IndexedDBService {
+    if (!IndexedDBService.instance) {
+      IndexedDBService.instance = new IndexedDBService();
+      IndexedDBService.instance.init();
+    }
+    return IndexedDBService.instance;
+  }
+
+  init(): Promise<void> {
+    if (!this.initPromise) {
+      this.initPromise = new Promise((resolve, reject) => {
+        const request = window.indexedDB.open('zaptok', 2);
+
+        request.onerror = (event) => {
+          reject(event);
+        };
+
+        request.onsuccess = () => {
+          this.db = request.result;
+          resolve();
+        };
+
+        request.onupgradeneeded = () => {
+          const db = request.result;
+
+          // Create object stores with keyPath
+          if (!db.objectStoreNames.contains(StoreNames.RELAY_LIST_EVENTS)) {
+            db.createObjectStore(StoreNames.RELAY_LIST_EVENTS, { keyPath: 'key' });
+          }
+          if (!db.objectStoreNames.contains(StoreNames.RELAY_INFOS)) {
+            db.createObjectStore(StoreNames.RELAY_INFOS, { keyPath: 'key' });
+          }
+          if (!db.objectStoreNames.contains(StoreNames.FAVORITE_RELAY_EVENTS)) {
+            db.createObjectStore(StoreNames.FAVORITE_RELAY_EVENTS, { keyPath: 'key' });
+          }
+          if (!db.objectStoreNames.contains(StoreNames.RELAY_SET_EVENTS)) {
+            db.createObjectStore(StoreNames.RELAY_SET_EVENTS, { keyPath: 'key' });
+          }
+          if (!db.objectStoreNames.contains(StoreNames.USER_PROFILES)) {
+            db.createObjectStore(StoreNames.USER_PROFILES, { keyPath: 'key' });
+          }
+
+          this.db = db;
+        };
+      });
+
+      // Start cleanup after initialization
+      setTimeout(() => this.cleanUp(), 1000 * 60); // 1 minute
+    }
+    return this.initPromise;
+  }
+
+  /**
+   * Store NIP-65 relay list event
+   */
+  async putRelayListEvent(event: NostrEvent): Promise<NostrEvent> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.RELAY_LIST_EVENTS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.RELAY_LIST_EVENTS);
+      const key = event.pubkey;
+
+      const getRequest = store.get(key);
+      getRequest.onsuccess = () => {
+        const oldValue = getRequest.result as TValue<NostrEvent> | undefined;
+        if (oldValue?.value && oldValue.value.created_at >= event.created_at) {
+          transaction.commit();
+          return resolve(oldValue.value);
+        }
+
+        const putRequest = store.put(this.formatValue(key, event));
+        putRequest.onsuccess = () => {
+          transaction.commit();
+          resolve(event);
+        };
+
+        putRequest.onerror = (event) => {
+          transaction.commit();
+          reject(event);
+        };
+      };
+
+      getRequest.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Get NIP-65 relay list event for user
+   */
+  async getRelayListEvent(pubkey: string): Promise<NostrEvent | null> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.RELAY_LIST_EVENTS, 'readonly');
+      const store = transaction.objectStore(StoreNames.RELAY_LIST_EVENTS);
+      const request = store.get(pubkey);
+
+      request.onsuccess = () => {
+        transaction.commit();
+        resolve((request.result as TValue<NostrEvent>)?.value || null);
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Store relay information (NIP-11)
+   */
+  async putRelayInfo(relayInfo: TRelayInfo): Promise<void> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.RELAY_INFOS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.RELAY_INFOS);
+
+      const putRequest = store.put(this.formatValue(relayInfo.url, relayInfo));
+      putRequest.onsuccess = () => {
+        transaction.commit();
+        resolve();
+      };
+
+      putRequest.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Get relay information
+   */
+  async getRelayInfo(url: string): Promise<TRelayInfo | null> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.RELAY_INFOS, 'readonly');
+      const store = transaction.objectStore(StoreNames.RELAY_INFOS);
+      const request = store.get(url);
+
+      request.onsuccess = () => {
+        transaction.commit();
+        resolve((request.result as TValue<TRelayInfo>)?.value || null);
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Store favorite relay event (kind 30378)
+   */
+  async putFavoriteRelayEvent(event: NostrEvent): Promise<NostrEvent> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.FAVORITE_RELAY_EVENTS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.FAVORITE_RELAY_EVENTS);
+      const key = event.pubkey;
+
+      const getRequest = store.get(key);
+      getRequest.onsuccess = () => {
+        const oldValue = getRequest.result as TValue<NostrEvent> | undefined;
+        if (oldValue?.value && oldValue.value.created_at >= event.created_at) {
+          transaction.commit();
+          return resolve(oldValue.value);
+        }
+
+        const putRequest = store.put(this.formatValue(key, event));
+        putRequest.onsuccess = () => {
+          transaction.commit();
+          resolve(event);
+        };
+
+        putRequest.onerror = (event) => {
+          transaction.commit();
+          reject(event);
+        };
+      };
+
+      getRequest.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Get favorite relay event for user
+   */
+  async getFavoriteRelayEvent(pubkey: string): Promise<NostrEvent | null> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.FAVORITE_RELAY_EVENTS, 'readonly');
+      const store = transaction.objectStore(StoreNames.FAVORITE_RELAY_EVENTS);
+      const request = store.get(pubkey);
+
+      request.onsuccess = () => {
+        transaction.commit();
+        resolve((request.result as TValue<NostrEvent>)?.value || null);
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Format value with metadata for storage
+   */
+  private formatValue<T>(key: string, value: T): TValue<T> {
+    return {
+      key,
+      value,
+      addedAt: Date.now()
+    };
+  }
+
+  /**
+   * Clean up expired data
+   * Following Jumble's TTL management pattern
+   */
+  private async cleanUp() {
+    await this.initPromise;
+    if (!this.db) return;
+
+    const stores = [
+      {
+        name: StoreNames.RELAY_LIST_EVENTS,
+        expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 // 1 day
+      },
+      {
+        name: StoreNames.RELAY_INFOS,
+        expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 * 7 // 1 week
+      },
+      {
+        name: StoreNames.FAVORITE_RELAY_EVENTS,
+        expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 * 30 // 1 month
+      },
+      {
+        name: StoreNames.RELAY_SET_EVENTS,
+        expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 * 30 // 1 month
+      },
+      {
+        name: StoreNames.USER_PROFILES,
+        expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 // 1 day
+      }
+    ];
+
+    const transaction = this.db.transaction(
+      stores.map(store => store.name),
+      'readwrite'
+    );
+
+    await Promise.allSettled(
+      stores.map(({ name, expirationTimestamp }) => {
+        if (expirationTimestamp < 0) {
+          return Promise.resolve();
+        }
+
+        return new Promise<void>((resolve, reject) => {
+          const store = transaction.objectStore(name);
+          const request = store.openCursor();
+
+          request.onsuccess = (event) => {
+            const cursor = (event.target as IDBRequest).result;
+            if (cursor) {
+              const value: TValue = cursor.value;
+              if (value.addedAt < expirationTimestamp) {
+                cursor.delete();
+              }
+              cursor.continue();
+            } else {
+              resolve();
+            }
+          };
+
+          request.onerror = (event) => {
+            reject(event);
+          };
+        });
+      })
+    );
+  }
+
+  /**
+   * Delete a specific relay list event from IndexedDB
+   */
+  async deleteRelayListEvent(pubkey: string): Promise<void> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.RELAY_LIST_EVENTS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.RELAY_LIST_EVENTS);
+      const request = store.delete(pubkey);
+
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = (event) => {
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Clear all relay list events from IndexedDB
+   */
+  async clearRelayLists(): Promise<void> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.RELAY_LIST_EVENTS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.RELAY_LIST_EVENTS);
+      const request = store.clear();
+
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = (event) => {
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Delete a specific relay info from IndexedDB
+   */
+  async deleteRelayInfo(url: string): Promise<void> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.RELAY_INFOS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.RELAY_INFOS);
+      const request = store.delete(url);
+
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = (event) => {
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Clear all relay infos from IndexedDB
+   */
+  async clearRelayInfos(): Promise<void> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.RELAY_INFOS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.RELAY_INFOS);
+      const request = store.clear();
+
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = (event) => {
+        reject(event);
+      };
+    });
+  }
+}
+
+const indexedDBService = IndexedDBService.getInstance();
+export default indexedDBService;
