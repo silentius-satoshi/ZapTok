@@ -5,6 +5,14 @@ export interface RelayListConfig {
   write: string[];
 }
 
+// Default relays following Jumble's BIG_RELAY_URLS pattern
+const DEFAULT_RELAY_URLS = [
+  'wss://relay.damus.io',
+  'wss://relay.nostr.band',
+  'wss://relay.primal.net',
+  'wss://nos.lol'
+];
+
 /**
  * Service for managing NIP-65 relay lists with caching and performance optimization
  */
@@ -14,11 +22,44 @@ class RelayListService {
   private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
   /**
-   * Get user's relay list from NIP-65 events with caching
+   * Validates relay list following Jumble's logic
+   * Falls back to default relays if too many configured (>8)
    */
-  async getUserRelayList(pubkey: string, nostr: any): Promise<RelayListConfig> {
-    // Check cache first
-    if (this.cache.has(pubkey) && this.isCacheValid(pubkey)) {
+  validateRelayList(read: string[], write: string[]): RelayListConfig {
+    // Jumble's validation: fallback if too many relays (>8)
+    if (read.length > 8 || write.length > 8) {
+      console.warn('Too many relays configured, falling back to defaults');
+      return {
+        read: DEFAULT_RELAY_URLS,
+        write: DEFAULT_RELAY_URLS
+      };
+    }
+    
+    return {
+      read: read.length > 0 ? read : DEFAULT_RELAY_URLS,
+      write: write.length > 0 ? write : DEFAULT_RELAY_URLS
+    };
+  }
+
+  /**
+   * Creates default relay list for new users
+   */
+  getDefaultRelayList(): RelayListConfig {
+    return {
+      read: DEFAULT_RELAY_URLS,
+      write: DEFAULT_RELAY_URLS
+    };
+  }
+
+  /**
+   * Get user's relay list from NIP-65 events with caching
+   * @param pubkey User's public key
+   * @param nostr Nostr instance for querying
+   * @param forceRefresh Force refresh from relays, bypassing cache
+   */
+  async getUserRelayList(pubkey: string, nostr: any, forceRefresh: boolean = false): Promise<RelayListConfig> {
+    // Check cache first (unless force refresh is requested)
+    if (!forceRefresh && this.cache.has(pubkey) && this.isCacheValid(pubkey)) {
       return this.cache.get(pubkey)!;
     }
 
@@ -41,7 +82,7 @@ class RelayListService {
         return this.cache.get(pubkey)!;
       }
       
-      return this.getFallbackRelays();
+      return this.getDefaultRelayList();
     }
   }
 
@@ -50,7 +91,7 @@ class RelayListService {
    */
   private parseRelayList(event?: NostrEvent): RelayListConfig {
     if (!event) {
-      return this.getFallbackRelays();
+      return this.getDefaultRelayList();
     }
 
     const read: string[] = [];
@@ -73,31 +114,8 @@ class RelayListService {
       }
     });
 
-    // Ensure we have at least some relays
-    const result = {
-      read: read.length > 0 ? read : this.getFallbackRelays().read,
-      write: write.length > 0 ? write : this.getFallbackRelays().write
-    };
-
-    return result;
-  }
-
-  /**
-   * Get fallback relays when no NIP-65 list is available
-   */
-  private getFallbackRelays(): RelayListConfig {
-    const defaultRelays = [
-      'wss://relay.damus.io',
-      'wss://relay.nostr.band',
-      'wss://relay.chorus.community',
-      'wss://pyramid.fiatjaf.com',
-      'wss://relay.primal.net'
-    ];
-
-    return {
-      read: defaultRelays,
-      write: defaultRelays
-    };
+    // Validate relay counts following Jumble's approach
+    return this.validateRelayList(read, write);
   }
 
   /**
@@ -128,69 +146,8 @@ class RelayListService {
       this.cacheExpiry.clear();
     }
   }
-
-  /**
-   * Pre-warm cache for a list of pubkeys
-   */
-  async preloadRelayLists(pubkeys: string[], nostr: any): Promise<void> {
-    const promises = pubkeys.map(pubkey => 
-      this.getUserRelayList(pubkey, nostr).catch(err => {
-        console.warn('Failed to preload relay list for', pubkey, err);
-      })
-    );
-
-    await Promise.allSettled(promises);
-  }
-
-  /**
-   * Get cache statistics for debugging
-   */
-  getCacheStats(): { size: number; entries: string[] } {
-    return {
-      size: this.cache.size,
-      entries: Array.from(this.cache.keys())
-    };
-  }
-
-  /**
-   * Test relay connectivity
-   */
-  async testRelayConnectivity(relays: string[]): Promise<{ [url: string]: boolean }> {
-    const results: { [url: string]: boolean } = {};
-
-    const testPromises = relays.map(async (relay) => {
-      try {
-        const ws = new WebSocket(relay);
-        
-        const isConnected = await new Promise<boolean>((resolve) => {
-          const timeout = setTimeout(() => {
-            ws.close();
-            resolve(false);
-          }, 5000);
-
-          ws.onopen = () => {
-            clearTimeout(timeout);
-            ws.close();
-            resolve(true);
-          };
-
-          ws.onerror = () => {
-            clearTimeout(timeout);
-            resolve(false);
-          };
-        });
-
-        results[relay] = isConnected;
-      } catch (error) {
-        results[relay] = false;
-      }
-    });
-
-    await Promise.allSettled(testPromises);
-    return results;
-  }
 }
 
-// Export singleton instance
-export const relayListService = new RelayListService();
+// Singleton instance
+const relayListService = new RelayListService();
 export default relayListService;

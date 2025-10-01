@@ -43,10 +43,9 @@ export const settingsSections: SettingsSectionConfig[] = [
   },
   {
     id: 'network',
-    title: 'Network',
+    title: 'Network & Relays',
     component: NetworkSettings,
-    category: 'network',
-    requiresProps: true
+    category: 'network'
   },
 
   // Interface Settings

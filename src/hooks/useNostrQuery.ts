@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { relayListService } from '@/services/relayList.service';
+import relayListService from '@/services/relayList.service';
 
 // Define filter type locally based on common Nostr filter structure
 interface Filter {

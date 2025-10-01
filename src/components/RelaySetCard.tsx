@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, FolderClosed } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { TRelaySet } from '@/providers/FavoriteRelaysProvider'
+import type { RelaySet } from '@/providers/FavoriteRelaysProvider'
 import RelayIcon from './RelayIcon'
 
 export default function RelaySetCard({
@@ -9,7 +9,7 @@ export default function RelaySetCard({
   select,
   onSelectChange
 }: {
-  relaySet: TRelaySet
+  relaySet: RelaySet
   select: boolean
   onSelectChange: (select: boolean) => void
 }) {

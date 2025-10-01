@@ -8,7 +8,7 @@ import { useCashuRelayStore } from '@/stores/cashuRelayStore';
 import { useLocation } from 'react-router-dom';
 import { logRelay } from '@/lib/devLogger';
 import { useNostrLogin } from '@nostrify/react/login';
-import { relayListService, type RelayListConfig } from '@/services/relayList.service';
+import relayListService, { type RelayListConfig } from '@/services/relayList.service';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -27,7 +27,7 @@ interface NostrConnectionContextValue {
   activeRelays: string[];
   relayContext: RelayContext;
   userRelayList: RelayListConfig | null;
-  refreshUserRelayList: () => Promise<void>;
+  refreshUserRelayList: (forceRefresh?: boolean) => Promise<void>;
 }
 
 const NostrConnectionContext = createContext<NostrConnectionContextValue>({
@@ -73,12 +73,12 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const pool = useRef<NPool | undefined>(undefined);
 
   // Function to refresh user's relay list
-  const refreshUserRelayList = useCallback(async () => {
+  const refreshUserRelayList = useCallback(async (forceRefresh: boolean = false) => {
     const currentUser = logins[0]; // Get the first logged in user
     if (!currentUser || !pool.current) return;
 
     try {
-      const relayList = await relayListService.getUserRelayList(currentUser.pubkey, pool.current);
+      const relayList = await relayListService.getUserRelayList(currentUser.pubkey, pool.current, forceRefresh);
       setUserRelayList(relayList);
       
       if (import.meta.env.DEV) {
@@ -282,6 +282,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
         // Monitor connection status with bundled logging
         let hasLogged = false;
+        const cleanupTimeouts: NodeJS.Timeout[] = [];
+        
         const checkConnection = () => {
           if (relay.socket && !hasLogged) {
             if (relay.socket.readyState === 1) {
@@ -293,7 +295,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
               hasLogged = true;
 
               // Try to log summary after a delay to collect other connections
-              setTimeout(logConnectionSummary, 500);
+              const summaryTimeout = setTimeout(logConnectionSummary, 500);
+              cleanupTimeouts.push(summaryTimeout);
             } else if (relay.socket.readyState === 3) {
               // Failed - add to failed list (avoid duplicates)
               setConnectionState(prev => ({ ...prev, [url]: 'failed' }));
@@ -303,15 +306,22 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
               hasLogged = true;
 
               // Try to log summary after a delay to collect other connections
-              setTimeout(logConnectionSummary, 500);
+              const summaryTimeout = setTimeout(logConnectionSummary, 500);
+              cleanupTimeouts.push(summaryTimeout);
             }
           }
         };
 
         // Check connection status after delays
-        setTimeout(checkConnection, 1000);
-        setTimeout(checkConnection, 3000);
-        setTimeout(checkConnection, 5000);
+        const timeout1 = setTimeout(checkConnection, 1000);
+        const timeout2 = setTimeout(checkConnection, 3000);
+        const timeout3 = setTimeout(checkConnection, 5000);
+        cleanupTimeouts.push(timeout1, timeout2, timeout3);
+
+        // Store cleanup function on relay for later use
+        (relay as any)._cleanup = () => {
+          cleanupTimeouts.forEach(timeout => clearTimeout(timeout));
+        };
 
         return relay;
       },
@@ -329,6 +339,24 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       },
     });
   }
+
+  // Cleanup effect to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      // Clean up timers in all relays
+      if (pool.current) {
+        // Access the private relays Map from NPool
+        const relays = (pool.current as any)._relays;
+        if (relays && relays instanceof Map) {
+          for (const relay of relays.values()) {
+            if (relay._cleanup) {
+              relay._cleanup();
+            }
+          }
+        }
+      }
+    };
+  }, []);
 
   return (
     <NostrConnectionContext.Provider value={{

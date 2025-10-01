@@ -107,18 +107,7 @@ export function Settings() {
     }
 
     if (selectedSection === 'network') {
-      return (
-        <NetworkSettings
-          customRelay={customRelay}
-          setCustomRelay={setCustomRelay}
-          showCustomInput={showCustomInput}
-          setShowCustomInput={setShowCustomInput}
-          knownRelays={knownRelays}
-          setKnownRelays={setKnownRelays}
-          isConnecting={isConnecting}
-          setIsConnecting={setIsConnecting}
-        />
-      );
+      return <NetworkSettings />;
     }
 
     if (selectedSection === 'keys') {

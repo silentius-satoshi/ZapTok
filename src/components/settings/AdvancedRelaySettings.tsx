@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +9,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
 import { useNostr } from '@nostrify/react';
 import { useNostrConnectionState } from '@/components/NostrProvider';
+import relayListService from '@/services/relayList.service';
 
 export interface MailboxRelay {
   url: string;
@@ -26,39 +26,31 @@ export function AdvancedRelaySettings() {
   const { user } = useCurrentUser();
   const { nostr } = useNostr();
   const { toast } = useToast();
-  const { refreshUserRelayList } = useNostrConnectionState();
+  const { refreshUserRelayList, userRelayList } = useNostrConnectionState();
   
-  const [isEnabled, setIsEnabled] = useState(false);
   const [relays, setRelays] = useState<MailboxRelay[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [newRelayUrl, setNewRelayUrl] = useState('');
 
-  // Load existing relay list on mount
+  // Load existing relay list on mount and when userRelayList changes
   useEffect(() => {
     if (!user) return;
     
     loadRelayList();
-  }, [user]);
+  }, [user, userRelayList]);
 
   const loadRelayList = async () => {
     if (!user) return;
     
     setIsLoading(true);
     try {
-      // Query for kind 10002 (NIP-65 relay list) events
-      const events = await nostr.query([{
-        kinds: [10002],
-        authors: [user.pubkey],
-        limit: 1
-      }]);
-
-      if (events.length > 0) {
-        const relayListEvent = events[0];
-        const parsedRelays = parseRelayListEvent(relayListEvent);
-        setRelays(parsedRelays);
-        setIsEnabled(true);
-      }
+      // Use the shared relay list service instead of direct query
+      const relayListConfig = await relayListService.getUserRelayList(user.pubkey, nostr);
+      
+      // Convert RelayListConfig to MailboxRelay format
+      const parsedRelays = convertRelayListToMailboxRelays(relayListConfig);
+      setRelays(parsedRelays);
     } catch (error) {
       console.error('Failed to load relay list:', error);
     } finally {
@@ -66,18 +58,32 @@ export function AdvancedRelaySettings() {
     }
   };
 
-  const parseRelayListEvent = (event: any): MailboxRelay[] => {
-    const relays: MailboxRelay[] = [];
+  const convertRelayListToMailboxRelays = (relayListConfig: any): MailboxRelay[] => {
+    const relayMap = new Map<string, MailboxRelay>();
     
-    for (const tag of event.tags) {
-      if (tag[0] === 'r' && tag[1]) {
-        const url = normalizeRelayUrl(tag[1]);
-        const scope = tag[2] === 'read' ? 'read' : tag[2] === 'write' ? 'write' : 'both';
-        relays.push({ url, scope });
+    // Add read relays
+    relayListConfig.read.forEach((url: string) => {
+      const existing = relayMap.get(url);
+      if (existing) {
+        // If already exists as write, make it both
+        existing.scope = existing.scope === 'write' ? 'both' : 'read';
+      } else {
+        relayMap.set(url, { url: normalizeRelayUrl(url), scope: 'read' });
       }
-    }
+    });
     
-    return relays;
+    // Add write relays
+    relayListConfig.write.forEach((url: string) => {
+      const existing = relayMap.get(url);
+      if (existing) {
+        // If already exists as read, make it both
+        existing.scope = existing.scope === 'read' ? 'both' : 'write';
+      } else {
+        relayMap.set(url, { url: normalizeRelayUrl(url), scope: 'write' });
+      }
+    });
+    
+    return Array.from(relayMap.values());
   };
 
   const normalizeRelayUrl = (url: string): string => {
@@ -142,8 +148,17 @@ export function AdvancedRelaySettings() {
       await user.signer.signEvent(eventTemplate).then(signedEvent => nostr.event(signedEvent));
       setHasChanges(false);
       
-      // Refresh the relay list in NostrProvider
-      await refreshUserRelayList();
+      // Clear the service cache to ensure fresh data
+      relayListService.clearCache(user.pubkey);
+      
+      // Wait a moment for relay propagation
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Refresh the relay list in NostrProvider with force refresh
+      await refreshUserRelayList(true);
+      
+      // Reload local state with fresh data
+      await loadRelayList();
       
       toast({
         title: 'Relay list saved',
@@ -176,10 +191,10 @@ export function AdvancedRelaySettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Info className="h-5 w-5" />
-            Advanced Relay Management
+            Relay Configuration
           </CardTitle>
           <CardDescription>
-            Login required to manage read/write relay configuration
+            Login required to manage your relay configuration
           </CardDescription>
         </CardHeader>
       </Card>
@@ -189,26 +204,16 @@ export function AdvancedRelaySettings() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5" />
-              Advanced Relay Management
-            </CardTitle>
-            <CardDescription>
-              Configure separate read and write relays for optimal performance
-            </CardDescription>
-          </div>
-          <Switch
-            checked={isEnabled}
-            onCheckedChange={setIsEnabled}
-            disabled={isLoading}
-          />
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <Info className="h-5 w-5" />
+          Relay Configuration
+        </CardTitle>
+        <CardDescription>
+          Configure separate read and write relays for optimal performance
+        </CardDescription>
       </CardHeader>
 
-      {isEnabled && (
-        <CardContent className="space-y-6">
+      <CardContent className="space-y-6">
           {/* Information section */}
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>
@@ -314,7 +319,6 @@ export function AdvancedRelaySettings() {
             </div>
           )}
         </CardContent>
-      )}
     </Card>
   );
 }

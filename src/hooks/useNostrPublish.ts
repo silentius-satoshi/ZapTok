@@ -10,7 +10,7 @@ import {
   type SerializableEvent
 } from "@/lib/nip01-types";
 import { relayResponseMonitor } from "@/lib/relayResponseMonitor";
-import { relayListService } from "@/services/relayList.service";
+import relayListService from "@/services/relayList.service";
 
 import type { NostrEvent } from "@nostrify/nostrify";
 
@@ -116,7 +116,7 @@ export function useNostrPublish(): UseMutationResult<NostrEvent> {
             const userRelayList = await relayListService.getUserRelayList(user.pubkey, nostr);
             writeRelays = userRelayList.write;
             
-            if (import.meta.env.DEV) {
+            if (import.meta.env.DEV && writeRelays) {
               devLog('[useNostrPublish] Using write relays from NIP-65:', {
                 relayCount: writeRelays.length,
                 relays: writeRelays.map(r => r.replace('wss://', ''))
