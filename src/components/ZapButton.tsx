@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, MouseEvent, TouchEvent } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useLoginPrompt } from '@/hooks/useLoginPrompt';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useNostr } from '@/hooks/useNostr';
 import { useZap } from '@/contexts/ZapProvider';
@@ -38,7 +39,8 @@ export function ZapButton({
   variant = "ghost",
   size = "sm"
 }: ZapButtonProps) {
-  const { user } = useCurrentUser();
+  const { user, canSign } = useCurrentUser();
+  const { withLoginCheck } = useLoginPrompt();
   const { nostr } = useNostr();
   const { data: authorData } = useAuthor(recipientPubkey);
   const { toast } = useToast();
@@ -81,49 +83,57 @@ export function ZapButton({
   }, [recipientPubkey, authorData, user?.pubkey]);
 
   const handleZap = async () => {
-    try {
-      if (!user) {
-        throw new Error('You need to be logged in to zap');
-      }
-      setZapping(true);
+    await withLoginCheck(async () => {
+      try {
+        setZapping(true);
 
-      // Create the proper recipient for the zap call
-      const zapTarget = event || recipientPubkey;
+        // Create the proper recipient for the zap call
+        const zapTarget = event || recipientPubkey;
 
-      await lightningService.zap(
-        user.pubkey,
-        zapTarget,
-        defaultZapSats,
-        defaultZapComment,
-        nostr,
-        user
-      );
-
-      // Update local stats immediately for instant feedback
-      if (noteId) {
-        noteStatsService.addZap(
-          user.pubkey,
-          noteId,
-          `temp-${Date.now()}`, // Temporary PR until we get the real one
+        await lightningService.zap(
+          user!.pubkey,
+          zapTarget,
           defaultZapSats,
-          defaultZapComment
+          defaultZapComment,
+          nostr,
+          user!
         );
-      }
 
-      toast({
-        title: "Zap Sent!",
-        description: `Sent ${defaultZapSats} sats`,
-        variant: "default",
-      });
-    } catch (error) {
-      toast({
-        title: "Zap Failed",
-        description: `${(error as Error).message}`,
-        variant: "destructive",
-      });
-    } finally {
-      setZapping(false);
-    }
+        // Update local stats immediately for instant feedback
+        if (noteId) {
+          noteStatsService.addZap(
+            user!.pubkey,
+            noteId,
+            `temp-${Date.now()}`, // Temporary PR until we get the real one
+            defaultZapSats,
+            defaultZapComment
+          );
+        }
+
+        toast({
+          title: "Zap Sent!",
+          description: `Sent ${defaultZapSats} sats`,
+          variant: "default",
+        });
+      } catch (error) {
+        toast({
+          title: "Zap Failed",
+          description: `${(error as Error).message}`,
+          variant: "destructive",
+        });
+      } finally {
+        setZapping(false);
+      }
+    }, {
+      loginMessage: 'Login required to send zaps',
+      onLoginRequired: () => {
+        toast({
+          title: "Login Required",
+          description: "Please sign in to send Bitcoin zaps to creators",
+          variant: "default",
+        });
+      }
+    });
   };
 
   const handleDialogZap = async (amount: number, comment?: string) => {

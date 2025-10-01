@@ -20,9 +20,17 @@ import { devLog } from '@/lib/devConsole';
 
 export interface LoginAreaProps {
   className?: string;
+  showBrowseWithoutLogin?: boolean;
+  browseButtonText?: string;
+  onBrowseClick?: () => void;
 }
 
-export function LoginArea({ className }: LoginAreaProps) {
+export function LoginArea({ 
+  className, 
+  showBrowseWithoutLogin = false,
+  browseButtonText = "Browse Videos", 
+  onBrowseClick 
+}: LoginAreaProps) {
   const { currentUser } = useLoggedInAccounts();
   const { walletInfo, isConnected, getBalance, provider, userHasLightningAccess } = useWallet();
   const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
@@ -186,13 +194,26 @@ export function LoginArea({ className }: LoginAreaProps) {
           </div>
         </div>
       ) : (
-        <Button
-          onClick={() => setLoginModalOpen(true)}
-          className='flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground w-full font-medium transition-all hover:bg-primary/90 animate-scale-in'
-        >
-          <User className='w-4 h-4' />
-          <span className='truncate'>Log in</span>
-        </Button>
+        <div className="flex flex-col gap-2 w-full">
+          <Button
+            onClick={() => setLoginModalOpen(true)}
+            className='flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground w-full font-medium transition-all hover:bg-primary/90 animate-scale-in'
+          >
+            <User className='w-4 h-4' />
+            <span className='truncate'>Log in</span>
+          </Button>
+          
+          {/* Browse without login option */}
+          {showBrowseWithoutLogin && onBrowseClick && (
+            <Button
+              onClick={onBrowseClick}
+              variant="outline"
+              className='flex items-center gap-2 px-4 py-2 rounded-full w-full font-medium transition-all hover:bg-accent/50'
+            >
+              <span className='truncate'>{browseButtonText}</span>
+            </Button>
+          )}
+        </div>
       )}
 
       <LoginModal

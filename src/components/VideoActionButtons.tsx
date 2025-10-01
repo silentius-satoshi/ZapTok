@@ -4,6 +4,7 @@ import { nip19 } from 'nostr-tools';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useLoginPrompt } from '@/hooks/useLoginPrompt';
 import { useVideoReactions } from '@/hooks/useVideoReactions';
 import { useVideoComments } from '@/hooks/useVideoComments';
 import { useVideoReposts } from '@/hooks/useVideoReposts';
@@ -52,7 +53,8 @@ export function VideoActionButtons({
   onProfileClick,
   onShare,
 }: VideoActionButtonsProps) {
-  const { user } = useCurrentUser();
+  const { user, canSign, isReadOnly } = useCurrentUser();
+  const { withLoginCheck } = useLoginPrompt();
   const { config } = useAppContext();
   const { logins } = useNostrLogin();
   const { toast } = useToast();
@@ -144,28 +146,34 @@ export function VideoActionButtons({
   });
 
   const handleBookmark = onBookmark || (() => {
-    if (!user) return;
-
-    bookmarkVideo({
-      eventId: event.id,
-      isCurrentlyBookmarked: isCurrentlyBookmarked,
+    withLoginCheck(() => {
+      bookmarkVideo({
+        eventId: event.id,
+        isCurrentlyBookmarked: isCurrentlyBookmarked,
+      });
+    }, {
+      loginMessage: 'Login required to bookmark videos'
     });
   });
 
   const handleRepost = () => {
-    if (!user) return;
-
-    createRepost({
-      event: event,
+    withLoginCheck(() => {
+      createRepost({
+        event: event,
+      });
+    }, {
+      loginMessage: 'Login required to repost videos'
     });
   };
 
   const handleFollow = onFollow || (() => {
-    if (!user) return;
-
-    followUser({
-      pubkeyToFollow: event.pubkey,
-      isCurrentlyFollowing: isCurrentlyFollowing,
+    withLoginCheck(() => {
+      followUser({
+        pubkeyToFollow: event.pubkey,
+        isCurrentlyFollowing: isCurrentlyFollowing,
+      });
+    }, {
+      loginMessage: 'Login required to follow users'
     });
   });
 

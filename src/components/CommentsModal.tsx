@@ -17,6 +17,8 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useVideoComments } from '@/hooks/useVideoComments';
 import { usePublishComment } from '@/hooks/usePublishComment';
 import { useAuthor } from '@/hooks/useAuthor';
+import { useLoginPrompt } from '@/hooks/useLoginPrompt';
+import { CommentPrompt } from '@/components/auth/LoginPrompt';
 import { genUserName } from '@/lib/genUserName';
 import type { NostrEvent } from '@nostrify/nostrify';
 
@@ -27,7 +29,8 @@ interface CommentsModalProps {
 }
 
 export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProps) {
-  const { user } = useCurrentUser();
+  const { user, canSign, isReadOnly } = useCurrentUser();
+  const { withLoginCheck } = useLoginPrompt();
   const { data: commentsData, isLoading: isLoadingComments } = useVideoComments(videoEvent.id);
   const { mutate: publishComment, isPending: isPublishing } = usePublishComment();
 
@@ -35,9 +38,9 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
   const [replyingTo, setReplyingTo] = useState<NostrEvent | null>(null);
 
   const handleSubmitComment = async () => {
-    if (!commentText.trim() || !user) return;
+    if (!commentText.trim()) return;
 
-    try {
+    await withLoginCheck(async () => {
       await publishComment({
         content: commentText.trim(),
         videoEvent,
@@ -46,14 +49,22 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
 
       setCommentText('');
       setReplyingTo(null);
-    } catch (error) {
-      console.error('Failed to publish comment:', error);
-    }
+    }, {
+      loginMessage: 'Login required to comment',
+      onLoginRequired: () => {
+        // This would trigger the login modal
+        console.log('Login required for commenting');
+      }
+    });
   };
 
   const handleReply = (comment: NostrEvent) => {
-    setReplyingTo(comment);
-    // Focus will be handled by the effect when replyingTo changes
+    withLoginCheck(() => {
+      setReplyingTo(comment);
+      // Focus will be handled by the effect when replyingTo changes
+    }, {
+      loginMessage: 'Login required to reply to comments'
+    });
   };
 
   const handleCancelReply = () => {
@@ -91,7 +102,7 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
         </div>
 
         {/* Comment Input */}
-        {user ? (
+        {canSign ? (
           <div className="border-t px-6 py-4 space-y-3">
             {replyingTo && (
               <div className="bg-muted/50 rounded-lg p-3 text-sm">
@@ -139,8 +150,13 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
             </div>
           </div>
         ) : (
-          <div className="border-t px-6 py-4 text-center">
-            <p className="text-muted-foreground mb-2">Sign in to join the conversation</p>
+          <div className="border-t px-6 py-4">
+            <CommentPrompt 
+              onLoginClick={() => {
+                // This would trigger the login modal
+                console.log('Open login modal from comments');
+              }}
+            />
           </div>
         )}
       </DialogContent>
@@ -150,6 +166,7 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
 
 function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () => void }) {
   const author = useAuthor(comment.pubkey);
+  const { canSign } = useCurrentUser();
 
   const authorMetadata = author.data?.metadata;
   const displayName = authorMetadata?.display_name || authorMetadata?.name || genUserName(comment.pubkey);
@@ -178,24 +195,34 @@ function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () =>
           </div>
 
           <div className="flex items-center gap-4 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onReply}
-              className="h-6 px-2 text-xs gap-1 hover:bg-blue-500/10 hover:text-blue-500"
-            >
-              <Reply className="h-3 w-3" />
-              Reply
-            </Button>
+            {canSign && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onReply}
+                  className="h-6 px-2 text-xs gap-1 hover:bg-blue-500/10 hover:text-blue-500"
+                >
+                  <Reply className="h-3 w-3" />
+                  Reply
+                </Button>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs gap-1 hover:bg-red-500/10 hover:text-red-500"
-            >
-              <Heart className="h-3 w-3" />
-              Like
-            </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs gap-1 hover:bg-red-500/10 hover:text-red-500"
+                >
+                  <Heart className="h-3 w-3" />
+                  Like
+                </Button>
+              </>
+            )}
+            
+            {!canSign && (
+              <span className="text-xs text-muted-foreground">
+                Login to reply and like comments
+              </span>
+            )}
           </div>
         </div>
       </div>

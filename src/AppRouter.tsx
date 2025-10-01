@@ -27,6 +27,7 @@ import { NostrEntity } from "./pages/NostrEntity";
 import About from "./pages/About";
 import { ProModePage } from "./pages/ProModePage";
 import DonationPage from "./pages/DonationPage";
+import { ReadOnlyModeDemo } from "@/components/ReadOnlyModeDemo";
 import NotFound from "./pages/NotFound";
 
 function RouteHandler() {
@@ -66,6 +67,7 @@ function RouteHandler() {
       <Route path="/bitcoin-connect-wallet" element={<BitcoinConnectWallet />} />
       <Route path="/stream" element={<Stream />} />
       <Route path="/pro" element={<ProModePage />} />
+      <Route path="/read-only-demo" element={<ReadOnlyModeDemo />} />
       {/* Nostr entity handler - must be after specific routes */}
       <Route path="/:nip19Id" element={<NostrEntity />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

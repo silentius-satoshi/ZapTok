@@ -5,6 +5,7 @@ import { devWarn } from '@/lib/devConsole';
 
 import { useAuthor } from './useAuthor.ts';
 import { NostrToolsSigner } from './useNostrToolsBridge.ts';
+import { ReadOnlySigner, useReadOnlyMode } from './useReadOnlySigner.ts';
 
 export function useCurrentUser() {
   const { nostr } = useNostr();
@@ -113,13 +114,57 @@ export function useCurrentUser() {
 
   const user = users[0] as NUser | undefined;
   const author = useAuthor(user?.pubkey);
+  const { isReadOnlyUser } = useReadOnlyMode();
+
+  // Determine user capabilities based on signer type
+  const userCapabilities = useMemo(() => {
+    if (!user) {
+      return {
+        canSign: false,
+        canRead: true,
+        isReadOnly: true,
+        isAuthenticated: false,
+        requiresLogin: true
+      };
+    }
+
+    const isReadOnly = isReadOnlyUser(user.signer);
+    
+    return {
+      canSign: !isReadOnly,
+      canRead: true, 
+      isReadOnly,
+      isAuthenticated: !isReadOnly,
+      requiresLogin: isReadOnly
+    };
+  }, [user, isReadOnlyUser]);
+
+  // Enhanced checkLogin function that prompts for authentication when needed
+  const checkLogin = useCallback((callback?: () => void | Promise<void>) => {
+    if (userCapabilities.canSign && callback) {
+      // User is fully authenticated, execute callback
+      return Promise.resolve(callback());
+    }
+    
+    // User needs to login - this would trigger login modal
+    // For now, throw error with helpful message
+    const action = callback ? 'perform this action' : 'access this feature';
+    throw new Error(`Login required to ${action}. Please sign in to unlock full ZapTok features.`);
+  }, [userCapabilities.canSign]);
 
   // Memoize the return object to prevent unnecessary re-renders
   const result = useMemo(() => ({
     user,
     users,
     ...author.data,
-  }), [user, users, author.data]);
+    // Add read-only mode information
+    canSign: userCapabilities.canSign,
+    canRead: userCapabilities.canRead,
+    isReadOnly: userCapabilities.isReadOnly,
+    isAuthenticated: userCapabilities.isAuthenticated,
+    requiresLogin: userCapabilities.requiresLogin,
+    checkLogin,
+  }), [user, users, author.data, userCapabilities, checkLogin]);
 
   // Debug logging - only in development and throttled
   useMemo(() => {
