@@ -17,6 +17,7 @@ import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { cn } from '@/lib/utils';
 import { bundleLog } from '@/lib/logBundler';
 import { devLog } from '@/lib/devConsole';
+import FeedButton from '@/components/FeedButton';
 
 export interface LoginAreaProps {
   className?: string;
@@ -127,17 +128,6 @@ export function LoginArea({
     }
   }, [walletInfo?.balance, cashuBalance, globalCashuStore, showSats, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
 
-  // Cashu wallet button - Enhanced with better styling
-  const LightningWalletButton = () => (
-    <button
-      className='group flex items-center justify-center p-2.5 rounded-lg bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200'
-      onClick={() => navigate('/wallet')}
-      title="Cashu Wallet"
-    >
-      <Zap className='w-3.5 h-3.5 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-200' />
-    </button>
-  );
-
   // Determine if currency toggle should be shown - Always show for logged-in users
   const shouldShowCurrencyToggle = useMemo(() => {
     // Always show currency toggle for any logged-in user
@@ -177,11 +167,11 @@ export function LoginArea({
 
   return (
     <div className={cn("inline-flex items-center justify-start min-w-0", className)}>
+      {/* Feed Selection Button - Always visible */}
+      <FeedButton />
+      
       {currentUser ? (
-        <div className="flex items-center gap-2">
-          {/* Cashu Wallet Button */}
-          <LightningWalletButton />
-
+        <div className="flex items-center gap-2 ml-2">
           {/* Currency Toggle Button - show based on computed logic */}
           {shouldShowCurrencyToggle && <CurrencyToggleButton />}
 
@@ -194,7 +184,7 @@ export function LoginArea({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-2 w-full">
+        <div className="flex flex-col gap-2 w-full ml-2">
           <Button
             onClick={() => setLoginModalOpen(true)}
             className='flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground w-full font-medium transition-all hover:bg-primary/90 animate-scale-in'

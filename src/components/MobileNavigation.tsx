@@ -29,6 +29,7 @@ import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
 import { DollarSign, Bitcoin } from 'lucide-react';
+import FeedButton from '@/components/FeedButton';
 
 export function MobileNavigation() {
   const { user, isAuthenticated } = useCurrentUser();
@@ -215,8 +216,8 @@ export function MobileNavigation() {
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="mx-auto flex w-full max-w-screen-sm items-center justify-between px-4 py-3">
-          {/* Left side - Currency Toggle Button */}
-          <div className="flex gap-6 font-semibold text-lg tracking-wide pointer-events-auto">
+          {/* Left side - Currency Toggle Button + Feed Button */}
+          <div className="flex gap-2 font-semibold text-lg tracking-wide pointer-events-auto">
             <button
               className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
               onClick={() => {
@@ -245,6 +246,9 @@ export function MobileNavigation() {
                 </>
               )}
             </button>
+            
+            {/* Feed Selection Button */}
+            <FeedButton />
           </div>
 
           {/* Right side - Action icons */}

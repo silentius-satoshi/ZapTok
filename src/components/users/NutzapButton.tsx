@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { DollarSign, Bitcoin } from "lucide-react";
+import { Bitcoin } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostr } from "@/hooks/useNostr";
@@ -136,25 +136,16 @@ export function NutzapButton({ postId, showText = true, onToggle, isOpen = false
       }`}
       onClick={handleZapClick}
     >
-      {showSats ? (
-        <img 
-          src="/images/cashu-icon.png" 
-          alt="Cashu" 
-          className="drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:scale-110 transition-all duration-200"
-          style={{
-            width: isMobile ? '28px' : '30px',
-            height: isMobile ? '28px' : '30px'
-          }}
-        />
-      ) : (
-        <DollarSign 
-          className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-green-300 group-hover:scale-110 transition-all duration-200 ${nutzapTotal > 0 ? 'text-green-500' : ''}`}
-          style={{
-            width: isMobile ? '28px' : '30px',
-            height: isMobile ? '28px' : '30px'
-          }}
-        />
-      )}
+      {/* Always show Cashu icon since this is specifically for Cashu payments */}
+      <img 
+        src="/images/cashu-icon.png" 
+        alt="Cashu" 
+        className="drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:scale-110 transition-all duration-200"
+        style={{
+          width: isMobile ? '28px' : '30px',
+          height: isMobile ? '28px' : '30px'
+        }}
+      />
       {showText && <span className="text-xs ml-0.5">{formatAmount(nutzapTotal)}</span>}
     </Button>
   );

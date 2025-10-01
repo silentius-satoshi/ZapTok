@@ -10,6 +10,9 @@ import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext';
 import { CurrentVideoProvider } from '@/contexts/CurrentVideoContext';
+import { FeedProvider } from '@/providers/FeedProvider';
+import { CurrentRelaysProvider } from '@/providers/CurrentRelaysProvider';
+import { FavoriteRelaysProvider } from '@/providers/FavoriteRelaysProvider';
 
 interface TestAppProps {
   children: React.ReactNode;
@@ -47,13 +50,19 @@ export function TestApp({ children }: TestAppProps) {
             <ZapProvider>
               <BrowserRouter>
                 <NostrProvider>
-                  <WalletProvider>
-                    <VideoPlaybackProvider>
-                      <CurrentVideoProvider>
-                        {children}
-                      </CurrentVideoProvider>
-                    </VideoPlaybackProvider>
-                  </WalletProvider>
+                  <FavoriteRelaysProvider>
+                    <CurrentRelaysProvider>
+                      <FeedProvider>
+                        <WalletProvider>
+                          <VideoPlaybackProvider>
+                            <CurrentVideoProvider>
+                              {children}
+                            </CurrentVideoProvider>
+                          </VideoPlaybackProvider>
+                        </WalletProvider>
+                      </FeedProvider>
+                    </CurrentRelaysProvider>
+                  </FavoriteRelaysProvider>
                 </NostrProvider>
               </BrowserRouter>
             </ZapProvider>

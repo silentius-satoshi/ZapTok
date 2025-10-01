@@ -8,6 +8,8 @@ import { AuthFilter } from '@/components/auth/AuthFilter';
 import { ZapProvider } from '@/contexts/ZapProvider';
 import { CurrentVideoProvider } from '@/contexts/CurrentVideoContext';
 import { FeedRefreshProvider } from '@/contexts/FeedRefreshContext';
+import { CurrentRelaysProvider } from '@/providers/CurrentRelaysProvider';
+import { FavoriteRelaysProvider } from '@/providers/FavoriteRelaysProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { DEFAULT_BLOSSOM_SERVERS } from '@/lib/blossomUtils';
@@ -86,15 +88,19 @@ export function App() {
       <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
-            <ZapProvider>
-              <CurrentVideoProvider>
-                <FeedRefreshProvider>
-                  <AuthFilter>
-                    <AppContent />
-                  </AuthFilter>
-                </FeedRefreshProvider>
-              </CurrentVideoProvider>
-            </ZapProvider>
+            <CurrentRelaysProvider>
+              <FavoriteRelaysProvider>
+                <ZapProvider>
+                  <CurrentVideoProvider>
+                    <FeedRefreshProvider>
+                      <AuthFilter>
+                        <AppContent />
+                      </AuthFilter>
+                    </FeedRefreshProvider>
+                  </CurrentVideoProvider>
+                </ZapProvider>
+              </FavoriteRelaysProvider>
+            </CurrentRelaysProvider>
           </NostrLoginProvider>
         </QueryClientProvider>
       </AppProvider>
