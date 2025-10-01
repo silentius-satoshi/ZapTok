@@ -56,10 +56,12 @@ export interface RelayInfoWithMetrics extends TRelayInfo {
  */
 class RelayInfoService {
   private cache = new Map<string, RelayInfoWithMetrics>();
-  private cacheExpiry = new Map<string, number>();
   private failureCache = new Map<string, { count: number; lastFailure: number }>();
-  private readonly CACHE_TTL = 30 * 60 * 1000; // 30 minutes
-  private readonly FAILURE_BACKOFF = 5 * 60 * 1000; // 5 minutes
+  private connectionStates = new Map<string, {
+    isConnected: boolean;
+    lastSuccessful: number;
+    consecutiveFailures: number;
+  }>();
   private readonly MAX_CONCURRENT = 5;
 
   // DataLoader for batched relay info fetching
@@ -72,6 +74,67 @@ class RelayInfoService {
       batchScheduleFn: callback => setTimeout(callback, 50) // Small delay for batching
     }
   );
+
+  /**
+   * Categorize errors for appropriate retry handling
+   */
+  private categorizeError(error: Error): 'network' | 'auth' | 'server' | 'permanent' {
+    const message = error.message.toLowerCase();
+
+    if (message.includes('network') || message.includes('timeout')) {
+      return 'network';
+    }
+    if (message.includes('401') || message.includes('403')) {
+      return 'auth';
+    }
+    if (message.includes('500') || message.includes('502') || message.includes('503')) {
+      return 'server';
+    }
+    return 'permanent';
+  }
+
+  /**
+   * Determine if error should trigger retry
+   */
+  private shouldRetry(error: Error, attemptCount: number): boolean {
+    const category = this.categorizeError(error);
+    const maxRetries = category === 'network' ? 5 : category === 'server' ? 3 : 0;
+    return attemptCount < maxRetries;
+  }
+
+  /**
+   * Update connection state tracking
+   */
+  private updateConnectionState(url: string, success: boolean): void {
+    const state = this.connectionStates.get(url) || {
+      isConnected: false,
+      lastSuccessful: 0,
+      consecutiveFailures: 0
+    };
+
+    if (success) {
+      state.isConnected = true;
+      state.lastSuccessful = Date.now();
+      state.consecutiveFailures = 0;
+    } else {
+      state.isConnected = false;
+      state.consecutiveFailures++;
+    }
+
+    this.connectionStates.set(url, state);
+  }
+
+  /**
+   * Calculate exponential backoff delay with jitter
+   */
+  private calculateBackoffDelay(failureCount: number): number {
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 5min
+    const baseDelay = 1000;
+    const maxDelay = 5 * 60 * 1000;
+    const delay = Math.min(baseDelay * Math.pow(2, failureCount), maxDelay);
+    // Add jitter to prevent thundering herd
+    return delay + (Math.random() * 1000);
+  }
 
   /**
    * Fetch relay information for multiple URLs using DataLoader batching
@@ -108,7 +171,8 @@ class RelayInfoService {
         } else {
           // Check if URL recently failed
           const failure = this.failureCache.get(url);
-          if (!failure || (Date.now() - failure.lastFailure) > this.FAILURE_BACKOFF) {
+          const backoffDelay = this.calculateBackoffDelay(failure?.count || 0);
+          if (!failure || (Date.now() - failure.lastFailure) > backoffDelay) {
             uncachedUrls.push(url);
           } else {
             // Return error for URLs in failure backoff
@@ -191,6 +255,9 @@ class RelayInfoService {
       const qualityScore = this.calculateQualityScore(info, responseTime);
       const reliabilityScore = this.calculateReliabilityScore(url, true);
 
+      // Update connection state tracking
+      this.updateConnectionState(normalizedUrl, true);
+
       return {
         ...info,
         url: normalizedUrl,
@@ -203,6 +270,8 @@ class RelayInfoService {
         reliabilityScore
       };
     } catch (error) {
+      // Update connection state tracking
+      this.updateConnectionState(this.normalizeRelayUrl(url), false);
       console.warn(`Failed to fetch relay info for ${url}:`, error);
       return null;
     }
@@ -295,19 +364,33 @@ class RelayInfoService {
   }
 
   /**
-   * Check if cache entry is valid
+   * Check if cache entry is valid (event-driven, no TTL)
    */
   private isCacheValid(url: string): boolean {
-    const expiry = this.cacheExpiry.get(url);
-    return expiry ? Date.now() < expiry : false;
+    // Cache is valid until explicitly invalidated
+    return this.cache.has(url);
   }
 
   /**
-   * Update memory cache
+   * Warm cache on service initialization
+   */
+  private async warmCache(): Promise<void> {
+    try {
+      // Load all stored relay info into memory cache on startup
+      const storedInfos = await indexedDBService.getAllRelayInfos();
+      storedInfos.forEach(info => {
+        this.cache.set(info.url, info);
+      });
+    } catch (error) {
+      console.warn('Failed to warm relay info cache:', error);
+    }
+  }
+
+  /**
+   * Update memory cache (no expiry, event-driven invalidation)
    */
   private updateCache(url: string, info: RelayInfoWithMetrics): void {
     this.cache.set(url, info);
-    this.cacheExpiry.set(url, Date.now() + this.CACHE_TTL);
   }
 
   /**
@@ -399,17 +482,26 @@ class RelayInfoService {
   clearCache(url?: string): void {
     if (url) {
       this.cache.delete(url);
-      this.cacheExpiry.delete(url);
       this.relayInfoDataLoader.clear(url);
       // Clear from IndexedDB as well
       indexedDBService.deleteRelayInfo(url).catch(console.warn);
     } else {
       this.cache.clear();
-      this.cacheExpiry.clear();
       this.relayInfoDataLoader.clearAll();
       // Clear all relay info from IndexedDB
       indexedDBService.clearRelayInfos().catch(console.warn);
     }
+  }
+
+  /**
+   * Get healthy relays from a list based on connection state
+   */
+  getHealthyRelays(urls: string[]): string[] {
+    // Return relays that are currently connected/healthy
+    return urls.filter(url => {
+      const state = this.connectionStates.get(url);
+      return !state || (state.isConnected && state.consecutiveFailures < 3);
+    });
   }
 
   /**

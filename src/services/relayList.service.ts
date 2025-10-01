@@ -21,8 +21,14 @@ const DEFAULT_RELAY_URLS = [
  */
 class RelayListService {
   private cache = new Map<string, RelayListConfig>();
-  private cacheExpiry = new Map<string, number>();
-  private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+  // Default relays for reliable connectivity (production-grade fallback)
+  private readonly BIG_RELAY_URLS = [
+    'wss://relay.damus.io',
+    'wss://nos.lol',
+    'wss://relay.nostr.band',
+    'wss://nostr.mom'
+  ];
 
   // DataLoader for batched relay list fetching
   private relayListDataLoader = new DataLoader<string, RelayListConfig>(
@@ -152,8 +158,8 @@ class RelayListService {
     }
 
     return {
-      read: read.length > 0 ? read : DEFAULT_RELAY_URLS,
-      write: write.length > 0 ? write : DEFAULT_RELAY_URLS
+      read: read.length > 0 ? read : this.BIG_RELAY_URLS,
+      write: write.length > 0 ? write : this.BIG_RELAY_URLS
     };
   }
 
@@ -162,8 +168,8 @@ class RelayListService {
    */
   getDefaultRelayList(): RelayListConfig {
     return {
-      read: DEFAULT_RELAY_URLS,
-      write: DEFAULT_RELAY_URLS
+      read: this.BIG_RELAY_URLS,
+      write: this.BIG_RELAY_URLS
     };
   }
 
@@ -276,19 +282,76 @@ class RelayListService {
   }
 
   /**
-   * Update cache with expiry
+   * Warm relay list cache on service initialization
    */
-  private updateCache(pubkey: string, relayList: RelayListConfig): void {
-    this.cache.set(pubkey, relayList);
-    this.cacheExpiry.set(pubkey, Date.now() + this.CACHE_TTL);
+  private async warmRelayListCache(): Promise<void> {
+    try {
+      const storedEvents = await indexedDBService.getAllRelayListEvents();
+      storedEvents.forEach(({ pubkey, event }) => {
+        const relayList = this.parseRelayList(event);
+        this.cache.set(pubkey, relayList);
+      });
+    } catch (error) {
+      console.warn('Failed to warm relay list cache:', error);
+    }
   }
 
   /**
-   * Check if cached data is still valid
+   * Update cache (no expiry, event-driven invalidation)
+   */
+  private updateCache(pubkey: string, relayList: RelayListConfig): void {
+    this.cache.set(pubkey, relayList);
+  }
+
+  /**
+   * Update cache when newer NIP-65 event is received (event-driven pattern)
+   */
+  async updateRelayListFromEvent(event: NostrEvent): Promise<void> {
+    const existing = this.cache.get(event.pubkey);
+    const cachedEvent = await indexedDBService.getRelayListEvent(event.pubkey);
+
+    // Only update if this event is newer (production compareEvents logic)
+    if (!cachedEvent || event.created_at > cachedEvent.created_at) {
+      const relayList = this.parseRelayList(event);
+      this.updateCache(event.pubkey, relayList);
+      await indexedDBService.putRelayListEvent(event);
+      this.relayListDataLoader.prime(event.pubkey, relayList);
+    }
+  }
+
+  /**
+   * Subscribe to new relay list events for automatic cache updates
+   */
+  subscribeToRelayListUpdates(nostr: any): void {
+    // Listen for NIP-65 events and update cache automatically
+    nostr.subscribe([{ kinds: [10002] }], {
+      onevent: (event: NostrEvent) => {
+        this.updateRelayListFromEvent(event);
+      }
+    });
+  }
+
+  /**
+   * Add progressive fallback strategy for better error handling
+   */
+  private async fetchWithFallback(pubkeys: string[]): Promise<NostrEvent[]> {
+    try {
+      // Try user's write relays first
+      const userRelays = await this.getUserWriteRelays(pubkeys);
+      return await this.queryRelays(userRelays, { authors: pubkeys, kinds: [10002] });
+    } catch (error) {
+      console.warn('User relays failed, falling back to big relays');
+      // Fallback to big relays like production systems
+      return await this.queryRelays(this.BIG_RELAY_URLS, { authors: pubkeys, kinds: [10002] });
+    }
+  }
+
+  /**
+   * Check if cached data is still valid (event-driven, no TTL)
    */
   private isCacheValid(pubkey: string): boolean {
-    const expiry = this.cacheExpiry.get(pubkey);
-    return expiry ? Date.now() < expiry : false;
+    // Cache is valid until explicitly invalidated
+    return this.cache.has(pubkey);
   }
 
   /**
@@ -298,17 +361,43 @@ class RelayListService {
   clearCache(pubkey?: string): void {
     if (pubkey) {
       this.cache.delete(pubkey);
-      this.cacheExpiry.delete(pubkey);
       this.relayListDataLoader.clear(pubkey);
       // Clear from IndexedDB as well
       indexedDBService.deleteRelayListEvent(pubkey).catch(console.warn);
     } else {
       this.cache.clear();
-      this.cacheExpiry.clear();
       this.relayListDataLoader.clearAll();
       // Clear all relay lists from IndexedDB
       indexedDBService.clearRelayLists().catch(console.warn);
     }
+  }
+
+  /**
+   * Get write relays for users (helper for fallback strategy)
+   */
+  private async getUserWriteRelays(pubkeys: string[]): Promise<string[]> {
+    const relayLists = await this.getUserRelayLists(pubkeys);
+    const writeRelays = new Set<string>();
+
+    relayLists.forEach(config => {
+      config.write.forEach(url => writeRelays.add(url));
+    });
+
+    return Array.from(writeRelays);
+  }
+
+  /**
+   * Query relays with filter (helper for fallback strategy)
+   */
+  private async queryRelays(relayUrls: string[], filter: any): Promise<NostrEvent[]> {
+    const { useNostr } = await import('@/hooks/useNostr');
+    const nostr = (useNostr as any)()?.nostr;
+
+    if (!nostr) {
+      throw new Error('Nostr instance not available');
+    }
+
+    return await nostr.query([filter], { signal: AbortSignal.timeout(8000) });
   }
 
   /**

@@ -357,21 +357,23 @@ class IndexedDBService {
   }
 
   /**
-   * Delete a specific relay list event from IndexedDB
+   * Get all stored relay infos for cache warming
    */
-  async deleteRelayListEvent(pubkey: string): Promise<void> {
+  async getAllRelayInfos(): Promise<TRelayInfo[]> {
     await this.initPromise;
     return new Promise((resolve, reject) => {
       if (!this.db) {
         return reject('database not initialized');
       }
 
-      const transaction = this.db.transaction(StoreNames.RELAY_LIST_EVENTS, 'readwrite');
-      const store = transaction.objectStore(StoreNames.RELAY_LIST_EVENTS);
-      const request = store.delete(pubkey);
+      const transaction = this.db.transaction(StoreNames.RELAY_INFOS, 'readonly');
+      const store = transaction.objectStore(StoreNames.RELAY_INFOS);
+      const request = store.getAll();
 
       request.onsuccess = () => {
-        resolve();
+        const results = request.result as TValue<TRelayInfo>[];
+        const relayInfos = results.map(item => item.value).filter(Boolean) as TRelayInfo[];
+        resolve(relayInfos);
       };
 
       request.onerror = (event) => {
@@ -381,21 +383,25 @@ class IndexedDBService {
   }
 
   /**
-   * Clear all relay list events from IndexedDB
+   * Get all stored relay list events for cache warming
    */
-  async clearRelayLists(): Promise<void> {
+  async getAllRelayListEvents(): Promise<Array<{ pubkey: string; event: NostrEvent }>> {
     await this.initPromise;
     return new Promise((resolve, reject) => {
       if (!this.db) {
         return reject('database not initialized');
       }
 
-      const transaction = this.db.transaction(StoreNames.RELAY_LIST_EVENTS, 'readwrite');
+      const transaction = this.db.transaction(StoreNames.RELAY_LIST_EVENTS, 'readonly');
       const store = transaction.objectStore(StoreNames.RELAY_LIST_EVENTS);
-      const request = store.clear();
+      const request = store.getAll();
 
       request.onsuccess = () => {
-        resolve();
+        const results = request.result as TValue<NostrEvent>[];
+        const events = results
+          .map(item => ({ pubkey: item.key, event: item.value }))
+          .filter(item => item.event) as Array<{ pubkey: string; event: NostrEvent }>;
+        resolve(events);
       };
 
       request.onerror = (event) => {
@@ -405,7 +411,7 @@ class IndexedDBService {
   }
 
   /**
-   * Delete a specific relay info from IndexedDB
+   * Delete specific relay info
    */
   async deleteRelayInfo(url: string): Promise<void> {
     await this.initPromise;
@@ -429,7 +435,55 @@ class IndexedDBService {
   }
 
   /**
-   * Clear all relay infos from IndexedDB
+   * Delete relay list event for specific user
+   */
+  async deleteRelayListEvent(pubkey: string): Promise<void> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.RELAY_LIST_EVENTS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.RELAY_LIST_EVENTS);
+      const request = store.delete(pubkey);
+
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = (event) => {
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Clear all relay lists
+   */
+  async clearRelayLists(): Promise<void> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.RELAY_LIST_EVENTS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.RELAY_LIST_EVENTS);
+      const request = store.clear();
+
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = (event) => {
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Clear all relay infos
    */
   async clearRelayInfos(): Promise<void> {
     await this.initPromise;
