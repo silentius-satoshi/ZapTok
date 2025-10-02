@@ -194,6 +194,14 @@ This roadmap evolves based on:
 
 **Want to contribute?** Check our [Contributing Guidelines](CONTRIBUTING.md) or [open an issue](https://github.com/silentius-satoshi/ZapTok/issues) to suggest features!
 
+## Development Documentation
+
+For developers working on ZapTok, we provide comprehensive documentation to ensure consistent implementation:
+
+- **[UI Layout Guidelines](./public/docs/UI_LAYOUT_GUIDELINES.md)** - Essential guidelines for implementing LoginArea dropdowns, component positioning, and responsive layouts
+- **[Contributing Guidelines](./CONTRIBUTING.md)** - Development workflow, code standards, and contribution process
+- **[Design Reference](./DESIGN_REFERENCE.md)** - Design system and visual guidelines
+- **[Protocol Documentation](./public/docs/)** - Nostr NIPs and Cashu NUTs specifications
 
 ## License
 

@@ -113,40 +113,94 @@ The app will be available at `http://localhost:5173`
 2. Configure any necessary environment variables
 3. For local development, the app should work without additional setup
 
+### Git Configuration
+Set up the commit message template to enforce conventional commits:
+```bash
+git config commit.template .gitmessage
+```
+
+This will open your default editor with a helpful template whenever you run `git commit`.
+
 ## Development Guidelines
 
 ### Branch Naming
+
+**Format**: `type/descriptive-name`
+
+**Branch Types:**
 - `feature/feature-name` - New features
-- `fix/bug-description` - Bug fixes
+- `fix/bug-description` - Bug fixes  
 - `docs/documentation-update` - Documentation changes
 - `refactor/component-name` - Code refactoring
 - `test/test-description` - Test additions
+- `chore/maintenance-task` - Dependency updates, tooling changes
+- `system/architecture-change` - Major architectural changes or system overhauls
+
+**Examples:**
+```
+feature/cashu-wallet-integration
+fix/video-player-mobile-safari
+docs/nip-implementation-guide
+refactor/timeline-service-architecture
+test/auth-flow-coverage
+chore/update-dependencies
+system/timeline-service-system
+```
+
+**Current Branch**: We're on `timeline-service-system` which represents a major architectural overhaul of the timeline service.
 
 ### Commit Messages
-Use conventional commit format:
+
+**REQUIRED**: All commits must use conventional commit format:
+
 ```
-type(scope): description
+type(scope): brief description (50 chars max)
 
-body (optional)
+Detailed explanation of changes (optional, wrap at 72 chars)
+- Use bullet points for multiple changes
+- Focus on what and why, not how
+- Reference issues: Fixes #123, Closes #456
 
-footer (optional)
+Breaking changes or additional notes (optional)
 ```
 
-Types:
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation
-- `style`: Code style changes
-- `refactor`: Code refactoring
-- `test`: Test additions
-- `chore`: Maintenance tasks
+**Required Types:**
+- `feat(scope)`: New feature
+- `fix(scope)`: Bug fix
+- `docs(scope)`: Documentation changes
+- `style(scope)`: Code style/formatting (no logic changes)
+- `refactor(scope)`: Code refactoring (no feature changes)
+- `test(scope)`: Test additions or updates
+- `chore(scope)`: Maintenance tasks, dependencies, tooling
 
-Examples:
+**Scope Guidelines:**
+- `ui`: User interface components and layouts
+- `video`: Video player, uploading, processing
+- `zaps`: Lightning payments and tipping
+- `auth`: Authentication and user management
+- `nostr`: Nostr protocol integration
+- `cashu`: Cashu wallet and eCash functionality
+- `timeline`: Feed and content discovery
+- `comments`: Comment system and threads
+- `profile`: User profiles and metadata
+- `build`: Build system, dependencies, CI/CD
+
+**Examples:**
 ```
 feat(zaps): implement NIP-57 lightning zaps
 fix(video): resolve playback issue on mobile Safari
 docs(contributing): add development setup instructions
+refactor(ui): standardize button component variants
+style(timeline): fix ESLint warnings in feed components
+test(auth): add unit tests for login flow
+chore(deps): update React to v18.3.0
 ```
+
+**Format Requirements:**
+- **Subject line**: Maximum 50 characters, no period
+- **Body**: Wrap at 72 characters, use bullet points for lists
+- **Type and scope**: Always lowercase
+- **Description**: Start with lowercase verb (add, fix, update, etc.)
 
 ## Nostr Protocol Integration
 

@@ -15,7 +15,7 @@ This project is a Nostr client application built with React 18.x, TailwindCSS 3.
 
 ## Core Principles
 
-This project is a fully-featured short-form video sharing platform built with Nostr integration, vibed by MkStack.
+This project is a fully-featured short-form video sharing platform built with Nostr integration.
 
 ## Official Library Usage Guidelines
 
@@ -38,6 +38,8 @@ This project is a fully-featured short-form video sharing platform built with No
   - **Follow official protocol specifications**: https://github.com/cashubtc/nuts
 - **@nostrify/nostrify**: Official Nostr protocol framework
   - **Follow official protocol specifications**: https://github.com/nostr-protocol/nips
+- **@nbd-wtf/nostr-tools**: Nostr utility functions (used internally by Nostrify)
+  - Use for utility functions like `getEventHash`, `signEvent`, `validateEvent`, etc.
 - **@tanstack/react-query**: Data fetching and state management
 - **React Router**: Client-side routing
 
@@ -96,54 +98,6 @@ When encountering custom implementations that have official library equivalents:
 3. Balance interoperability vs perfect schema fit
 4. Document any custom extensions in project NIP.md
 
-## Implementation Matching Guidelines
-
-**CRITICAL: When requested to match implementations of other official repositories**
-
-### Exact Implementation Matching Requirements
-
-When the user requests to match or align with another official repository's implementation:
-
-1. **NO ENHANCEMENTS ALLOWED**: 
-   - Do not add any features, optimizations, or improvements beyond the reference implementation
-   - Do not implement "better" patterns or more advanced solutions
-   - Stick strictly to the reference codebase's approach
-
-2. **NO EXCEEDING REFERENCE IMPLEMENTATION**:
-   - Do not add extra methods, properties, or functionality
-   - Do not implement additional error handling beyond what exists in reference
-   - Do not add performance optimizations not present in reference
-   - Do not add enhanced logging, debugging, or monitoring features
-
-3. **100% EXACTNESS REQUIREMENT**:
-   - Target implementation must achieve 100% compatibility with reference implementation
-   - Measure exactness across: architecture, patterns, interfaces, method signatures, data structures
-   - Document the exact percentage match achieved
-   - If 100% exactness is impossible due to framework/technical constraints, STOP and request permission
-
-4. **IMPLEMENTATION MATCHING PROCESS**:
-   - Study reference implementation thoroughly before starting
-   - Use identical interfaces, method names, and data structures
-   - Match coding patterns and architectural decisions exactly
-   - Remove any existing enhancements that exceed reference scope
-   - Verify compatibility through testing and comparison
-   - If 100% matching is impossible, document specific blockers and request permission
-
-5. **PERMISSION REQUEST FOR DEVIATIONS**:
-   - If perfect 100% matching cannot be achieved due to technical constraints
-   - Provide detailed summary of what prevents exact matching
-   - List specific changes that would be required outside implementation parameters
-   - Explain why these changes are necessary (framework differences, existing codebase conflicts, etc.)
-   - Request explicit permission to proceed with documented deviations
-   - Do NOT implement until permission is granted
-
-6. **DOCUMENTATION REQUIREMENTS**:
-   - Provide detailed percentage breakdown of implementation matching
-   - Document what was removed/simplified to achieve exact match
-   - Show before/after comparison with reference implementation
-   - Confirm final exactness percentage achieved (must be 100% or explain deviations)
-
-**Remember: The goal is exact replication, not improvement. If 100% exactness cannot be achieved, request permission before proceeding with any deviations.**
 
 ## Project Structure
 
@@ -234,9 +188,6 @@ The AI assistant's behavior and knowledge is defined by the CONTEXT.md file, whi
 1. Edit CONTEXT.md directly
 2. The changes take effect in the next session
 
-## "Vibed with MKStack"
-
-When building the site for the first time, include "Vibed with MKStack" somewhere in the UI, linked to this URL: https://soapbox.pub/mkstack
 
 ## Nostr Protocol Integration
 
