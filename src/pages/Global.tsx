@@ -44,11 +44,11 @@ const Global = () => {
             </div>
 
             {/* Right Sidebar - Compact Login Area */}
-            <div className="hidden lg:block w-80 overflow-hidden">
-              <div className="sticky top-4 space-y-6">
+            <div className="hidden lg:block w-96 overflow-visible relative">
+              <div className="sticky top-4 space-y-6 overflow-visible">
                 {/* Login Area */}
-                <div className="p-3 overflow-hidden">
-                  <LoginArea className="justify-end" />
+                <div className="p-3 overflow-visible relative">
+                  <LoginArea className="justify-end max-w-full" />
                 </div>
               </div>
             </div>

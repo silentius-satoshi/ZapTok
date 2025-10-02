@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { OptimizedVideoCard } from '@/components/OptimizedVideoCard';
+import { VideoCard } from '@/components/VideoCard';
 import { useOptimizedFollowingVideoFeed } from '@/hooks/useOptimizedVideoFeed';
 import { VideoActionButtons } from '@/components/VideoActionButtons';
 import { Card, CardContent } from '@/components/ui/card';
@@ -275,16 +275,13 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
               display: isMobile ? 'flex' : (index === currentVideoIndex ? 'flex' : 'none')
             }}
           >
-            {/* Optimized Video Card with lazy loading */}
+            {/* Original Video Card */}
             <div className="relative w-full max-w-md mx-auto h-full flex items-center">
-              <OptimizedVideoCard
+              <VideoCard
                 event={video}
                 isActive={index === currentVideoIndex}
                 onNext={() => setCurrentVideoIndex(Math.min(index + 1, allVideos.length - 1))}
                 onPrevious={() => setCurrentVideoIndex(Math.max(index - 1, 0))}
-                lazy={Math.abs(index - currentVideoIndex) > 2} // Lazy load videos far from current
-                preloadDistance={isMobile ? 100 : 200}
-                enableEngagementData={index === currentVideoIndex} // Only load engagement for active video
               />
 
               {/* Video Action Buttons - Only for active video */}

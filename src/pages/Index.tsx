@@ -10,7 +10,6 @@ import { useFeedRefresh } from '@/contexts/FeedRefreshContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Button } from '@/components/ui/button';
 import { VideoInteractionPrompt } from '@/components/auth/LoginPrompt';
-import { VideoCacheDebug } from '@/components/VideoCacheDebug';
 import { useState } from 'react';
 
 const Index = () => {
@@ -39,16 +38,22 @@ const Index = () => {
 
               {/* Navigation */}
               <div className="flex-1">
-                <Navigation />
+                <Navigation 
+                  useTimelineFeed={useTimelineFeed}
+                  setUseTimelineFeed={setUseTimelineFeed}
+                />
               </div>
             </div>
 
             {/* Following Video Feed */}
-            <div className={`flex-1 flex items-center justify-center overflow-hidden ${isMobile ? '' : 'pr-8'} relative`}>
-              <div className={`w-full h-full flex items-center justify-center ${isMobile ? '' : 'max-w-3xl'}`}>
+            <div className="flex-1 overflow-hidden relative">
+              <div className="w-full h-full">
                 {isAuthenticated ? (
                   useTimelineFeed ? (
-                    <TimelineFollowingVideoFeed ref={followingFeedRef} />
+                    <TimelineFollowingVideoFeed 
+                      ref={followingFeedRef} 
+                      // disableAutoRefresh={true} // Uncomment to disable all auto-refresh and only refresh on manual pull-to-refresh
+                    />
                   ) : (
                     <FollowingVideoFeed ref={followingFeedRef} />
                   )
@@ -64,32 +69,14 @@ const Index = () => {
                   </div>
                 )}
               </div>
-
-              {/* Debug Controls - Bottom Right */}
-              {!isMobile && (
-                <div className="absolute bottom-4 right-4 z-50 flex flex-col space-y-2">
-                  {/* Feed Toggle */}
-                  <Button
-                    onClick={() => setUseTimelineFeed(!useTimelineFeed)}
-                    variant="outline"
-                    size="sm"
-                    className="bg-black/80 text-white border-gray-600 hover:bg-gray-800"
-                  >
-                    {useTimelineFeed ? 'Timeline Feed (NEW)' : 'React Query Feed (OLD)'}
-                  </Button>
-                  
-                  {/* Cache Debug */}
-                  <VideoCacheDebug />
-                </div>
-              )}
             </div>
 
             {/* Desktop Right Sidebar - Compact Login Area */}
-            <div className="hidden lg:block w-80 overflow-hidden">
-              <div className="sticky top-4 space-y-6">
+            <div className="hidden lg:block w-96 overflow-visible relative">
+              <div className="sticky top-4 space-y-6 overflow-visible">
                 {/* Login Area */}
-                <div className="p-3 overflow-hidden">
-                  <LoginArea className="justify-end" />
+                <div className="p-3 overflow-visible relative">
+                  <LoginArea className="justify-end max-w-full" />
                 </div>
               </div>
             </div>

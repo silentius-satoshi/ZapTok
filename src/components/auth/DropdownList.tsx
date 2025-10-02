@@ -60,7 +60,7 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
-          className='flex items-center gap-3 p-3 rounded-2xl bg-gray-800/30 hover:bg-gray-700/40 transition-all w-full text-foreground'
+          className='flex items-center gap-3 p-3 rounded-2xl bg-gray-800/30 hover:bg-gray-700/40 transition-all min-w-0 flex-shrink-0 text-foreground'
           style={{
             border: 'none',
             outline: 'none',
@@ -71,13 +71,22 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
             <AvatarImage src={currentUserMetadata?.picture} alt={getCurrentUserDisplayName()} />
             <AvatarFallback>{getCurrentUserDisplayName().charAt(0)}</AvatarFallback>
           </Avatar>
-          <div className='flex-1 text-left hidden md:block truncate'>
+          <div className='flex-1 text-left hidden md:block truncate min-w-0'>
             <p className='font-medium text-sm truncate'>{getCurrentUserDisplayName()}</p>
           </div>
-          <ChevronDown className='w-4 h-4 text-muted-foreground' />
+          <ChevronDown className='w-4 h-4 text-muted-foreground flex-shrink-0' />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className='w-56 p-2 animate-scale-in'>
+      <DropdownMenuContent 
+        className='w-56 p-2 animate-scale-in' 
+        align="end" 
+        side="bottom" 
+        sideOffset={8}
+        avoidCollisions={true}
+        collisionPadding={16}
+        collisionBoundary={document.documentElement}
+        sticky="always"
+      >
         {/* Upload Video */}
         <DropdownMenuItem
           onClick={handleUploadClick}

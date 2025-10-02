@@ -368,9 +368,9 @@ const Discover = () => {
             </div>
 
             {/* Right Sidebar - Compact Login Area */}
-            <div className="hidden lg:block w-80 p-3">
-              <div className="sticky top-4">
-                <LoginArea className="justify-end" />
+            <div className="hidden lg:block w-96 p-3 overflow-visible relative">
+              <div className="sticky top-4 overflow-visible">
+                <LoginArea className="justify-end max-w-full" />
               </div>
             </div>
           </div>

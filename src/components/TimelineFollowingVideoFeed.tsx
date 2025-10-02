@@ -1,22 +1,27 @@
 import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { useTimelineFollowingVideoFeed } from '@/hooks/useTimelineVideoFeed';
-import { OptimizedVideoCard } from '@/components/OptimizedVideoCard';
+import { VideoCard } from '@/components/VideoCard';
 import { VideoActionButtons } from '@/components/VideoActionButtons';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Settings, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
 import { useLoginAutoRefresh } from '@/hooks/useLoginAutoRefresh';
+import { useFollowing } from '@/hooks/useFollowing';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { bundleLog } from '@/lib/logBundler';
+import { ZapTokLogo } from '@/components/ZapTokLogo';
 
 export interface FollowingVideoFeedRef {
   refresh: () => void;
 }
 
-export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref) => {
+interface TimelineFollowingVideoFeedProps {
+  disableAutoRefresh?: boolean; // Option to disable all auto-refresh behavior
+}
+
+export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, TimelineFollowingVideoFeedProps>(({ disableAutoRefresh = false }, ref) => {
   const { user } = useCurrentUser();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -26,6 +31,10 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((pro
 
   // Auto-refresh after login
   const { justLoggedIn } = useLoginAutoRefresh();
+  
+  // Get following data to wait for contact list to load
+  const followingQuery = useFollowing(user?.pubkey || '');
+  const following = followingQuery.data?.pubkeys || [];
 
   // Lock body scroll on mobile to prevent dual scrolling
   useEffect(() => {
@@ -53,7 +62,8 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((pro
   } = useTimelineFollowingVideoFeed({
     limit: 15, // Reasonable page size
     enableNewEvents: true,
-    autoRefresh: true,
+    autoRefresh: !disableAutoRefresh, // Respect the disable flag
+    waitForFollowingList: true, // Wait for contact list to be loaded
   });
 
   // Expose refresh function to parent
@@ -70,13 +80,17 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((pro
     }
   }), [refreshTimeline]);
 
-  // Auto-refresh following feed after login
+  // Auto-refresh following feed after login - but wait for contact list to load
   useEffect(() => {
-    if (justLoggedIn && user?.pubkey) {
-      bundleLog('loginAutoRefresh', '🔄 Auto-refreshing timeline following feed after login');
+    if (disableAutoRefresh) return; // Skip auto-refresh if disabled
+    
+    if (justLoggedIn && user?.pubkey && followingQuery.data && following.length > 0) {
+      bundleLog('loginAutoRefresh', `🔄 Auto-refreshing timeline following feed after login - contact list loaded with ${following.length} pubkeys`);
       refreshTimeline();
+    } else if (justLoggedIn && user?.pubkey && (!followingQuery.data || following.length === 0)) {
+      bundleLog('loginAutoRefresh', '⏳ Waiting for contact list to load before auto-refreshing feed...');
     }
-  }, [justLoggedIn, user?.pubkey, refreshTimeline]);
+  }, [justLoggedIn, user?.pubkey, followingQuery.data, following.length, refreshTimeline, disableAutoRefresh]);
 
   // Set current video in context
   useEffect(() => {
@@ -93,7 +107,7 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((pro
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            const index = parseInt(entry.target.getAttribute('data-index') || '0');
+            const index = parseInt(entry.target.getAttribute('data-video-index') || '0');
             setCurrentVideoIndex(index);
 
             // Preload more when near the end
@@ -110,11 +124,24 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((pro
       }
     );
 
-    const videoElements = containerRef.current.querySelectorAll('.video-card');
+    const videoElements = containerRef.current.querySelectorAll('[data-video-index]');
     videoElements.forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
   }, [videos.length, hasMore, loading, loadMore]);
+
+  // Scroll to video function
+  const scrollToVideo = (index: number) => {
+    if (containerRef.current) {
+      const videoHeight = window.innerHeight;
+      const targetTop = index * videoHeight;
+
+      containerRef.current.scrollTo({
+        top: targetTop,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   // Handle errors
   if (error) {
@@ -132,6 +159,28 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((pro
           <RefreshCw className="w-4 h-4" />
           Try Again
         </Button>
+      </div>
+    );
+  }
+
+  // Show loading state while fetching contact list or initial videos
+  if (user && (followingQuery.isLoading || (loading && videos.length === 0))) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full space-y-6 p-8">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-pulse">
+            <ZapTokLogo size={80} className="opacity-80" />
+          </div>
+          <div className="text-center space-y-2">
+            <h3 className="text-lg font-medium text-white">Loading your feed...</h3>
+            <p className="text-gray-400 text-sm">
+              {followingQuery.isLoading 
+                ? "Fetching your contact list..." 
+                : "Finding videos from people you follow..."}
+            </p>
+          </div>
+        </div>
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
       </div>
     );
   }
@@ -203,65 +252,55 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((pro
       {/* Video Feed */}
       <div
         ref={containerRef}
-        className={`h-full ${
-          isMobile ? 'snap-y snap-mandatory overflow-y-scroll' : 'overflow-y-auto'
-        }`}
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        className={
+          isMobile
+            ? "mobile-feed-scroller video-container"
+            : "h-screen overflow-y-auto scrollbar-hide bg-black snap-y snap-mandatory relative video-container"
+        }
+        style={{ scrollBehavior: 'smooth' }}
       >
-        {/* Hide scrollbar for webkit */}
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            div::-webkit-scrollbar {
-              display: none;
-            }
-          `
-        }} />
 
         {videos.map((video, index) => (
           <div
-            key={video.id}
-            data-index={index}
-            className={`video-card relative ${
-              isMobile 
-                ? 'h-screen w-full snap-start snap-always' 
-                : 'h-screen w-full'
-            } flex items-center justify-center`}
-          >
-            <Card className="w-full h-full bg-black border-0 rounded-none overflow-hidden">
-              <CardContent className="p-0 h-full relative">
-                {/* Video Component */}
-                <div className="h-full w-full flex items-center justify-center bg-black">
-                  <OptimizedVideoCard 
+            key={`${video.id}-${index}`}
+            data-video-index={index}
+            className={
+              isMobile
+                ? "mobile-video-item"
+                : "h-screen flex items-center justify-center snap-start"
+            }
+            >
+              <div className={`flex w-full items-end h-full ${isMobile ? 'flex-col relative' : 'gap-6 max-w-2xl'}`}>
+                <div className={`overflow-hidden bg-black shadow-2xl hover:shadow-3xl transition-all duration-300 ${
+                  isMobile
+                    ? 'w-full h-full border-none'
+                    : 'flex-1 h-full rounded-3xl border-2 border-gray-800'
+                }`}>
+                  <VideoCard
                     event={video}
                     isActive={index === currentVideoIndex}
-                    onNext={() => setCurrentVideoIndex(Math.min(index + 1, videos.length - 1))}
-                    onPrevious={() => setCurrentVideoIndex(Math.max(index - 1, 0))}
+                    showVerificationBadge={!isMobile}
+                    onNext={() => {
+                      const newIndex = Math.min(index + 1, videos.length - 1);
+                      setCurrentVideoIndex(newIndex);
+                      scrollToVideo(newIndex);
+                    }}
+                    onPrevious={() => {
+                      const newIndex = Math.max(index - 1, 0);
+                      setCurrentVideoIndex(newIndex);
+                      scrollToVideo(newIndex);
+                    }}
                   />
                 </div>
 
-                {/* Video Action Buttons */}
-                <div className="absolute right-4 bottom-20 flex flex-col space-y-4 z-10">
-                  <VideoActionButtons 
-                    event={video}
-                  />
+                <div className={isMobile
+                  ? 'absolute right-1 bottom-4 z-10'
+                  : 'flex items-end'
+                }>
+                  <VideoActionButtons event={video} />
                 </div>
-
-                {/* Settings button for desktop */}
-                {!isMobile && (
-                  <div className="absolute top-4 right-4 z-10">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate('/settings')}
-                      className="text-white hover:bg-white/20"
-                    >
-                      <Settings className="w-5 h-5" />
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </div>
         ))}
 
         {/* Loading indicator at bottom */}

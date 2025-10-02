@@ -48,7 +48,7 @@ export function VideoCacheDebug() {
         variant="outline"
         size="sm"
         onClick={() => setIsVisible(true)}
-        className="fixed bottom-4 right-4 z-50 bg-background/80 backdrop-blur-sm"
+        className="bg-background/80 backdrop-blur-sm"
       >
         <Eye className="h-4 w-4 mr-2" />
         Cache Debug
@@ -57,7 +57,7 @@ export function VideoCacheDebug() {
   }
 
   return (
-    <Card className="fixed bottom-4 right-4 z-50 w-80 bg-background/95 backdrop-blur-sm border-border/50">
+    <Card className="w-80 bg-background/95 backdrop-blur-sm border-border/50">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium">Video Cache Debug</CardTitle>

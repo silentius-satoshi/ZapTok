@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { timelineService } from '@/services/timelineService';
 import { relayDistributionService } from '@/services/relayDistributionService';
+import { timelineFilterService } from '@/services/timelineFilterService';
+import { videoRealTimeService } from '@/services/realTimeEventService';
+import { timelineAnalyticsService } from '@/services/timelineAnalyticsService';
 import { validateVideoEvent, type VideoEvent } from '@/lib/validateVideoEvent';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useFollowing } from '@/hooks/useFollowing';
@@ -15,12 +18,17 @@ interface TimelineVideoFeedState {
   error: string | null;
   until?: number;
   timelineKey?: string;
+  // Phase 3 enhancements
+  filteredCount: number;
+  realTimeBuffer: number;
+  feedHealth: 'healthy' | 'degraded' | 'poor';
 }
 
 interface TimelineVideoFeedOptions {
   limit?: number;
   enableNewEvents?: boolean;
   autoRefresh?: boolean;
+  waitForFollowingList?: boolean; // New option to wait for following list before refreshing
 }
 
 /**
@@ -35,11 +43,12 @@ export function useTimelineVideoFeed(
     limit = 20,
     enableNewEvents = true,
     autoRefresh = true,
+    waitForFollowingList = true, // Default to waiting for following list
   } = options;
 
   const { user } = useCurrentUser();
   const followingQuery = useFollowing(user?.pubkey || '');
-  const following = followingQuery.data?.pubkeys || [];
+  const following = useMemo(() => followingQuery.data?.pubkeys || [], [followingQuery.data?.pubkeys]);
 
   // Feed state following Jumble's pattern
   const [state, setState] = useState<TimelineVideoFeedState>({
@@ -48,6 +57,10 @@ export function useTimelineVideoFeed(
     loading: true,
     hasMore: true,
     error: null,
+    // Phase 3 enhancements
+    filteredCount: 0,
+    realTimeBuffer: 0,
+    feedHealth: 'healthy',
   });
 
   // Refs for managing subscriptions
@@ -98,6 +111,17 @@ export function useTimelineVideoFeed(
     if (!enableNewEvents || !validateVideoEvent(event)) return;
 
     const videoEvent = event as VideoEvent;
+    const feedId = `${feedType}_${user?.pubkey || 'anon'}`;
+
+    // Phase 3: Apply content filtering to new events
+    const filteredEvents = timelineFilterService.filterEvents([videoEvent]);
+    if (filteredEvents.length === 0) {
+      bundleLog('timelineNewVideo', `📹 New video event filtered out: ${videoEvent.id.slice(0, 8)}`);
+      return;
+    }
+
+    // Phase 3: Process through real-time service
+    videoRealTimeService.processEvents(filteredEvents);
 
     setState(prev => {
       // Check if event already exists
@@ -112,10 +136,11 @@ export function useTimelineVideoFeed(
         ...prev,
         newVideos: [videoEvent, ...prev.newVideos]
           .sort((a, b) => b.created_at - a.created_at)
-          .slice(0, 50) // Limit new events buffer
+          .slice(0, 50), // Limit new events buffer
+        realTimeBuffer: videoRealTimeService.getBufferSize(),
       };
     });
-  }, []);
+  }, [enableNewEvents, feedType, user?.pubkey]);
 
   // Handle batch events (following Jumble's onEvents pattern)
   const handleEvents = useCallback((events: NostrEvent[], eosed: boolean) => {
@@ -124,24 +149,43 @@ export function useTimelineVideoFeed(
       .map(e => e as VideoEvent)
       .sort((a, b) => b.created_at - a.created_at);
 
-    bundleLog('timelineVideoBatch', `📹 Received ${validVideos.length} video events, EOSED: ${eosed}`);
+    // Phase 3: Record events for analytics
+    const feedId = `${feedType}_${user?.pubkey || 'anon'}`;
+    timelineAnalyticsService.recordEvents(feedId, validVideos);
+
+    // Phase 3: Apply content filtering
+    const filteredVideos = timelineFilterService.filterEvents(validVideos);
+    const filteredCount = validVideos.length - filteredVideos.length;
+
+    // Phase 3: Process through real-time service
+    videoRealTimeService.processEvents(filteredVideos);
+
+    bundleLog('timelineVideoBatch',
+      `📹 Received ${validVideos.length} video events, filtered to ${filteredVideos.length}, EOSED: ${eosed}`);
 
     setState(prev => {
       // Deduplicate with existing videos
       const existingIds = new Set(prev.videos.map(v => v.id));
-      const newVideos = validVideos.filter(v => !existingIds.has(v.id));
+      const newVideos = filteredVideos.filter(v => !existingIds.has(v.id));
+
+      // Get feed health status
+      const feedHealth = timelineAnalyticsService.getFeedHealth(feedId);
 
       return {
         ...prev,
         videos: [...prev.videos, ...newVideos],
         loading: eosed ? false : prev.loading,
-        hasMore: validVideos.length > 0,
-        until: validVideos.length > 0 ?
-          validVideos[validVideos.length - 1].created_at - 1 :
+        hasMore: filteredVideos.length > 0,
+        until: filteredVideos.length > 0 ?
+          filteredVideos[filteredVideos.length - 1].created_at - 1 :
           prev.until,
+        // Phase 3 updates
+        filteredCount: prev.filteredCount + filteredCount,
+        realTimeBuffer: videoRealTimeService.getBufferSize(),
+        feedHealth: feedHealth.overall,
       };
     });
-  }, []);
+  }, [feedType, user?.pubkey]);
 
   // Initialize timeline subscription (following Jumble's init pattern)
   const initializeTimeline = useCallback(async () => {
@@ -149,6 +193,10 @@ export function useTimelineVideoFeed(
 
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
+
+      // Phase 3: Initialize analytics service for this feed
+      const feedId = `${feedType}_${user?.pubkey || 'anon'}`;
+      timelineAnalyticsService.initializeFeed(feedId);
 
       const requests = await generateSubRequests();
       if (requests.length === 0) {
@@ -164,6 +212,9 @@ export function useTimelineVideoFeed(
       }
 
       bundleLog('timelineInit', `📹 Initializing ${feedType} video timeline with ${requests.length} requests`);
+
+      // Phase 3: Record load time start
+      const loadStartTime = Date.now();
 
       // Subscribe to timeline using Jumble's pattern
       const { closer, timelineKey } = await timelineService.subscribeTimeline(
@@ -184,6 +235,10 @@ export function useTimelineVideoFeed(
         }
       );
 
+      // Phase 3: Record load time
+      const loadTime = Date.now() - loadStartTime;
+      timelineAnalyticsService.recordLoadTime(feedId, loadTime);
+
       closerRef.current = closer;
       setState(prev => ({ ...prev, timelineKey }));
       isInitializedRef.current = true;
@@ -196,7 +251,7 @@ export function useTimelineVideoFeed(
         error: error instanceof Error ? error.message : 'Timeline initialization failed'
       }));
     }
-  }, [generateSubRequests, feedType, limit, handleEvents, handleNewEvent, enableNewEvents]);
+  }, [generateSubRequests, feedType, user?.pubkey, limit, handleEvents, handleNewEvent]);
 
   // Load more videos (following Jumble's loadMore pattern)
   const loadMore = useCallback(async () => {
@@ -293,15 +348,19 @@ export function useTimelineVideoFeed(
       loading: true,
       hasMore: true,
       error: null,
+      // Phase 3 enhancements
+      filteredCount: 0,
+      realTimeBuffer: 0,
+      feedHealth: 'healthy',
     });
 
     isInitializedRef.current = false;
 
     // Reinitialize
     await initializeTimeline();
-  }, [feedType, initializeTimeline]);
+  }, [feedType, user?.pubkey]);
 
-  // Initialize on mount and when dependencies change
+  // Initialize on mount and when core dependencies change
   useEffect(() => {
     initializeTimeline();
 
@@ -312,14 +371,40 @@ export function useTimelineVideoFeed(
       }
       isInitializedRef.current = false;
     };
-  }, [initializeTimeline]);
+  }, [feedType, user?.pubkey]);
 
   // Auto-refresh when user changes (following feed) - but avoid infinite loops
+  // Only refresh after contact list is loaded to prevent spam (if waitForFollowingList is enabled)
   useEffect(() => {
     if (feedType === 'following' && autoRefresh && user?.pubkey) {
-      refresh();
+      if (waitForFollowingList && (!followingQuery.data || following.length === 0)) {
+        console.log('📊 [useTimelineVideoFeed] Waiting for contact list to load before auto-refreshing...');
+        return;
+      }
+      
+      console.log('📊 [useTimelineVideoFeed] Auto-refreshing following feed - contact list loaded with', following.length, 'pubkeys');
+      
+      // Reset and reinitialize directly to avoid dependency on refresh function
+      if (closerRef.current) {
+        closerRef.current();
+        closerRef.current = null;
+      }
+
+      setState({
+        videos: [],
+        newVideos: [],
+        loading: true,
+        hasMore: true,
+        error: null,
+        filteredCount: 0,
+        realTimeBuffer: 0,
+        feedHealth: 'healthy',
+      });
+
+      isInitializedRef.current = false;
+      initializeTimeline();
     }
-  }, [user?.pubkey, feedType]); // Removed autoRefresh, refresh, and following.length to prevent loops
+  }, [user?.pubkey, feedType, followingQuery.data, following.length, waitForFollowingList, autoRefresh]); // Wait for contact list to load if enabled
 
   return {
     // Feed data
@@ -343,6 +428,21 @@ export function useTimelineVideoFeed(
     // Following info
     hasFollowing: following.length > 0,
     followingCount: following.length,
+
+    // Phase 3 enhanced features
+    filteredCount: state.filteredCount,
+    realTimeBuffer: state.realTimeBuffer,
+    feedHealth: state.feedHealth,
+
+    // Phase 3 analytics access
+    getAnalytics: () => {
+      const feedId = `${feedType}_${user?.pubkey || 'anon'}`;
+      return timelineAnalyticsService.getFeedAnalytics(feedId);
+    },
+    getFeedHealth: () => {
+      const feedId = `${feedType}_${user?.pubkey || 'anon'}`;
+      return timelineAnalyticsService.getFeedHealth(feedId);
+    },
   };
 }
 

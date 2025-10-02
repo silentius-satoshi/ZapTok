@@ -166,17 +166,17 @@ export function LoginArea({
   );
 
   return (
-    <div className={cn("inline-flex items-center justify-start min-w-0", className)}>
+    <div className={cn("inline-flex items-center justify-start min-w-0 max-w-full", className)}>
       {/* Feed Selection Button - Always visible */}
       <FeedButton />
       
       {currentUser ? (
-        <div className="flex items-center gap-2 ml-2">
+        <div className="flex items-center gap-2 ml-2 min-w-0">
           {/* Currency Toggle Button - show based on computed logic */}
           {shouldShowCurrencyToggle && <CurrencyToggleButton />}
 
           {/* Account Switcher */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 min-w-0">
             <DropdownList onAddAccountClick={() => {
               // Account switching temporarily disabled due to wallet isolation bug
               console.log('Add account disabled due to wallet isolation bug');

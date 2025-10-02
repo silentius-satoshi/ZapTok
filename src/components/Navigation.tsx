@@ -23,8 +23,14 @@ import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { VideoCacheDebug } from '@/components/VideoCacheDebug';
 
-export function Navigation() {
+interface NavigationProps {
+  useTimelineFeed?: boolean;
+  setUseTimelineFeed?: (value: boolean) => void;
+}
+
+export function Navigation({ useTimelineFeed, setUseTimelineFeed }: NavigationProps = {}) {
   const { user, isAuthenticated, checkLogin } = useCurrentUser();
   const { withLoginCheck } = useLoginPrompt();
   const { logins } = useNostrLogin();
@@ -408,8 +414,30 @@ export function Navigation() {
           </Button>
         </div>
 
+        {/* Video Cache Debug - Below Upload button */}
+        {setUseTimelineFeed && (
+          <div className="px-4 py-2">
+            <VideoCacheDebug />
+          </div>
+        )}
+
                 {/* Bottom Section with Balance, Supporter and Profile */}
         <div className="mt-auto pt-4 space-y-3">
+          {/* Debug Controls - Above Wallet Balance */}
+          {setUseTimelineFeed && (
+            <div className="space-y-2 pb-2 border-b border-gray-700/50">
+              {/* Feed Toggle */}
+              <Button
+                onClick={() => setUseTimelineFeed(!useTimelineFeed)}
+                variant="outline"
+                size="sm"
+                className="w-full bg-black/80 text-white border-gray-600 hover:bg-gray-800 text-xs"
+              >
+                {useTimelineFeed ? 'Timeline Feed (NEW)' : 'React Query Feed (OLD)'}
+              </Button>
+            </div>
+          )}
+
           {/* Wallet displays - always visible, but with different behavior based on auth status */}
           {user ? (
             <>

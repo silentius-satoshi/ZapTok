@@ -235,13 +235,13 @@ export function VideoActionButtons({
 
   return (
     <>
-      <div className={`flex items-center ${isMobile ? 'flex-col gap-3 w-16' : 'flex-col gap-4 w-28'}`}>
+      <div className={`flex items-center ${isMobile ? 'flex-col gap-3 w-16' : 'flex-col gap-3 w-16'}`}>
         {/* 1. Profile Picture with Follow Button (no click functionality on profile picture) */}
         <div className={`relative ${isMobile ? 'mb-2' : ''}`}>
           <div className={`rounded-full p-0 overflow-hidden bg-transparent ${
-            isMobile ? 'h-12 w-12' : 'h-20 w-20'
+            isMobile ? 'h-12 w-12' : 'h-12 w-12'
           }`}>
-            <Avatar className={isMobile ? 'h-12 w-12' : 'h-20 w-20'}>
+            <Avatar className={isMobile ? 'h-12 w-12' : 'h-12 w-12'}>
               <AvatarImage src={authorProfilePicture} alt={authorDisplayName} />
               <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
                 {authorDisplayName.slice(0, 2).toUpperCase()}
@@ -279,10 +279,10 @@ export function VideoActionButtons({
             recipientPubkey={event.pubkey}
             eventId={event.id}
             iconStyle={{
-              width: isMobile ? '28px' : '30px',
-              height: isMobile ? '28px' : '30px'
+              width: '28px',
+              height: '28px'
             }}
-            className={isMobile ? 'h-12 w-12' : 'h-20 w-20'}
+            className={isMobile ? 'h-12 w-12' : 'h-12 w-12'}
           />
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
             {reactions.data ? formatCount(reactions.data.zaps) : '0'}
@@ -307,15 +307,15 @@ export function VideoActionButtons({
             variant="ghost"
             size="sm"
             className={`group rounded-full bg-transparent hover:bg-white/10 text-white transition-all duration-200 ${
-              isMobile ? 'h-12 w-12' : 'h-20 w-20'
+              isMobile ? 'h-12 w-12' : 'h-12 w-12'
             }`}
             onClick={handleComment}
           >
             <MessageCircle
               className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200`}
               style={{
-                width: isMobile ? '28px' : '30px',
-                height: isMobile ? '28px' : '30px'
+                width: '28px',
+                height: '28px'
               }}
             />
           </Button>
@@ -330,7 +330,7 @@ export function VideoActionButtons({
             variant="ghost"
             size="sm"
             className={`group rounded-full bg-transparent hover:bg-white/10 text-white disabled:opacity-50 transition-all duration-200 ${
-              isMobile ? 'h-12 w-12' : 'h-20 w-20'
+              isMobile ? 'h-12 w-12' : 'h-12 w-12'
             }`}
             onClick={handleRepost}
             disabled={isRepostPending || !user}
@@ -338,8 +338,8 @@ export function VideoActionButtons({
             <Repeat2
               className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-green-300 group-hover:scale-110 transition-all duration-200`}
               style={{
-                width: isMobile ? '28px' : '30px',
-                height: isMobile ? '28px' : '30px'
+                width: '28px',
+                height: '28px'
               }}
             />
           </Button>
@@ -354,7 +354,7 @@ export function VideoActionButtons({
             variant="ghost"
             size="sm"
             className={`group rounded-full bg-transparent hover:bg-white/10 text-white disabled:opacity-50 transition-all duration-200 ${
-              isMobile ? 'h-12 w-12' : 'h-20 w-20'
+              isMobile ? 'h-12 w-12' : 'h-12 w-12'
             }`}
             onClick={handleBookmark}
             disabled={isBookmarkPending}
@@ -366,8 +366,8 @@ export function VideoActionButtons({
                   : 'text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-yellow-300 group-hover:scale-110'
               }`}
               style={{
-                width: isMobile ? '28px' : '30px',
-                height: isMobile ? '28px' : '30px'
+                width: '28px',
+                height: '28px'
               }}
             />
           </Button>
@@ -382,15 +382,15 @@ export function VideoActionButtons({
             variant="ghost"
             size="sm"
             className={`group rounded-full bg-transparent hover:bg-white/10 text-white transition-all duration-200 ${
-              isMobile ? 'h-12 w-12' : 'h-20 w-20'
+              isMobile ? 'h-12 w-12' : 'h-12 w-12'
             }`}
             onClick={handleShare}
           >
             <ArrowUpRight
               className="text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200"
               style={{
-                width: isMobile ? '28px' : '30px',
-                height: isMobile ? '28px' : '30px'
+                width: '28px',
+                height: '28px'
               }}
             />
           </Button>
@@ -405,15 +405,15 @@ export function VideoActionButtons({
             variant="ghost"
             size="sm"
             className={`group rounded-full bg-transparent hover:bg-white/10 text-white transition-all duration-200 ${
-              isMobile ? 'h-12 w-12' : 'h-20 w-20'
+              isMobile ? 'h-12 w-12' : 'h-12 w-12'
             }`}
             onClick={() => setShowQRModal(true)}
           >
             <QrCode
               className="text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-green-300 group-hover:scale-110 transition-all duration-200"
               style={{
-                width: isMobile ? '28px' : '30px',
-                height: isMobile ? '28px' : '30px'
+                width: '28px',
+                height: '28px'
               }}
             />
           </Button>

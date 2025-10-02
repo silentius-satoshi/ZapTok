@@ -14,7 +14,6 @@ import { DEFAULT_BLOSSOM_SERVERS } from '@/lib/blossomUtils';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { useBunkerLoginRestoration } from '@/hooks/useBunkerLoginRestoration';
 import { videoCache } from '@/lib/unifiedVideoCache';
-import { VideoCacheDebug } from '@/components/VideoCacheDebug';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -81,9 +80,6 @@ function AppContent() {
     }>
       {/* Main App Router */}
       <AppRouter />
-      
-      {/* Video Cache Debug (development) */}
-      <VideoCacheDebug />
     </Suspense>
   );
 }
