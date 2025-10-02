@@ -14,21 +14,24 @@ export function useVideoReactions(videoId: string) {
 
   return useQuery({
     queryKey: ['reactions', videoId],
-    queryFn: async (): Promise<VideoReactions> => {
+    queryFn: async ({ signal }): Promise<VideoReactions> => {
       if (!videoId) {
         return { likes: 0, zaps: 0, userReactions: new Map(), totalSats: 0 };
       }
 
-      const signal = AbortSignal.timeout(3000);
+      // Improved signal handling with longer timeout for better reliability
+      const timeoutSignal = AbortSignal.timeout(5000);
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
       
+      // Optimized filter - could potentially include reposts here too
       const filter = {
-        kinds: [7, 9735], // Reactions and zaps
+        kinds: [7, 9735], // Reactions and zaps  
         '#e': [videoId],
         limit: 500,
       };
       
       // Query for reactions and zaps
-      const events = await nostr.query([filter], { signal });
+      const events = await nostr.query([filter], { signal: combinedSignal });
 
       // Deduplicate by user (keep latest reaction per user)
       const userReactions = new Map<string, NostrEvent>();
@@ -82,9 +85,12 @@ export function useVideoReactions(videoId: string) {
         totalSats 
       };
     },
-    staleTime: 30 * 1000, // 30 seconds for reactions
-    // Enable background updates for live reaction counts
-    refetchInterval: 60 * 1000, // 1 minute
     enabled: !!videoId,
+    // Optimized cache configuration for video reactions
+    staleTime: 2 * 60 * 1000,     // 2 minutes - reactions don't change super frequently
+    gcTime: 10 * 60 * 1000,      // 10 minutes garbage collection
+    refetchOnWindowFocus: false,  // Prevent unnecessary refetches on focus
+    refetchOnReconnect: true,     // But do refetch when connection restored
+    // Remove refetchInterval to reduce relay load - use manual invalidation instead
   });
 }

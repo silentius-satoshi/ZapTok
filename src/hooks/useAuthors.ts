@@ -7,19 +7,21 @@ export function useAuthors(pubkeys: string[]) {
 
   return useQuery({
     queryKey: ['authors', pubkeys.sort()],
-    queryFn: async (c) => {
+    queryFn: async ({ signal }) => {
       if (!pubkeys.length) return [];
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      // Improved signal handling with longer timeout for batch queries
+      const timeoutSignal = AbortSignal.timeout(8000); // Longer timeout for batch queries
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
       
-      // Query for metadata events (kind 0) for all pubkeys
+      // Optimized batch query for metadata events (kind 0)
       const events = await nostr.query([
         {
           kinds: [0],
           authors: pubkeys,
-          limit: pubkeys.length,
+          limit: pubkeys.length * 2, // Allow for multiple metadata events per author
         }
-      ], { signal });
+      ], { signal: combinedSignal });
 
       // Create a map of pubkey -> latest metadata event
       const metadataMap = new Map<string, NostrEvent>();
@@ -52,6 +54,10 @@ export function useAuthors(pubkeys: string[]) {
       });
     },
     enabled: pubkeys.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    // Optimized cache configuration for author metadata
+    staleTime: 10 * 60 * 1000,    // 10 minutes - metadata changes infrequently
+    gcTime: 60 * 60 * 1000,      // 1 hour - keep author data longer
+    refetchOnWindowFocus: false,  // Don't refetch metadata on focus
+    refetchOnReconnect: false,    // Don't refetch metadata on reconnect (it's stable)
   });
 }

@@ -12,11 +12,15 @@ export function useAuthor(pubkey: string | undefined) {
         return {};
       }
 
+      // Improved signal handling
+      const timeoutSignal = AbortSignal.timeout(3000);
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+
       const filter = { kinds: [0], authors: [pubkey!], limit: 1 };
 
       const [event] = await nostr.query(
         [filter],
-        { signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]) },
+        { signal: combinedSignal },
       );
 
       if (!event) {
@@ -31,6 +35,12 @@ export function useAuthor(pubkey: string | undefined) {
         return { event };
       }
     },
+    enabled: !!pubkey,
     retry: 3,
+    // Optimized cache configuration for single author metadata
+    staleTime: 10 * 60 * 1000,    // 10 minutes - metadata is stable
+    gcTime: 60 * 60 * 1000,      // 1 hour - keep author profiles longer  
+    refetchOnWindowFocus: false,  // Don't refetch on focus
+    refetchOnReconnect: false,    // Don't refetch on reconnect
   });
 }

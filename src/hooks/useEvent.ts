@@ -13,14 +13,22 @@ export function useEvent(eventId?: string) {
     queryFn: async ({ signal }) => {
       if (!eventId) return null;
       
+      // Improved signal handling
+      const timeoutSignal = AbortSignal.timeout(5000);
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+      
       const events = await nostr.query(
         [{ ids: [eventId] }],
-        { signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]) }
+        { signal: combinedSignal }
       );
       
       return events[0] || null;
     },
     enabled: !!eventId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    // Snort-inspired cache configuration for events
+    staleTime: 30 * 60 * 1000,    // 30 minutes - events are immutable
+    gcTime: 2 * 60 * 60 * 1000,  // 2 hours - keep events longer
+    refetchOnWindowFocus: false,  // Events never change, no need to refetch
+    refetchOnReconnect: false,    // Events are immutable
   });
 }

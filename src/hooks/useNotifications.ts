@@ -51,16 +51,26 @@ export function useNotifications() {
       const notifications: Notification[] = [];
       const readNotifications = JSON.parse(localStorage.getItem(`notifications:${user.pubkey}`) || '{}');
 
+      // Optimized single query for all notification types
       const kinds = [
         KINDS.GROUP_COMMENT,
         KINDS.GROUP_POST_APPROVAL,
         KINDS.GROUP_POST_REMOVAL,
-        KINDS.GROUP
+        KINDS.GROUP,
+        7, 9735, 6, 16, // Add reactions, zaps, reposts for comprehensive notifications
       ];
 
+      // Improved signal handling with longer timeout for notification queries
+      const timeoutSignal = AbortSignal.timeout(8000);
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+
       const events = await nostr.query(
-        [{ kinds, '#p': [user.pubkey], limit: 20 }],
-        { signal },
+        [{ 
+          kinds, 
+          '#p': [user.pubkey], 
+          limit: 100, // Increased limit to catch more notifications
+        }],
+        { signal: combinedSignal },
       );
 
       for (const event of events) {
@@ -296,8 +306,12 @@ export function useNotifications() {
       return notifications.sort((a, b) => b.createdAt - a.createdAt);
     },
     enabled: !!user,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 15000, // Consider data stale after 15 seconds
+    // Snort-inspired optimized cache configuration for notifications
+    staleTime: 2 * 60 * 1000,     // 2 minutes - notifications should be fairly fresh
+    gcTime: 15 * 60 * 1000,      // 15 minutes - keep notification data
+    refetchOnWindowFocus: true,   // DO refetch notifications on focus (important for UX)
+    refetchOnReconnect: true,     // DO refetch on reconnect
+    // Remove automatic polling - use manual invalidation instead for better performance
   });
 }
 
