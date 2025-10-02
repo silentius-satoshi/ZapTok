@@ -1,6 +1,7 @@
 import { type NostrEvent, type NostrMetadata, NSchema as n } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
+import { relayRateLimiter } from '@/lib/relayRateLimiter';
 
 export function useAuthor(pubkey: string | undefined) {
   const { nostr } = useNostr();
@@ -18,9 +19,13 @@ export function useAuthor(pubkey: string | undefined) {
 
       const filter = { kinds: [0], authors: [pubkey!], limit: 1 };
 
-      const [event] = await nostr.query(
-        [filter],
-        { signal: combinedSignal },
+      const [event] = await relayRateLimiter.queueQuery(
+        'author-profiles',
+        () => nostr.query(
+          [filter],
+          { signal: combinedSignal },
+        ),
+        'high' // High priority for profile data
       );
 
       if (!event) {

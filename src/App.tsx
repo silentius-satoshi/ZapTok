@@ -13,6 +13,8 @@ import { defaultZap, defaultZapOptions } from '@/types/zap';
 import { DEFAULT_BLOSSOM_SERVERS } from '@/lib/blossomUtils';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { useBunkerLoginRestoration } from '@/hooks/useBunkerLoginRestoration';
+import { videoCache } from '@/lib/unifiedVideoCache';
+import { VideoCacheDebug } from '@/components/VideoCacheDebug';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -31,6 +33,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Initialize video cache with QueryClient
+videoCache.setQueryClient(queryClient);
 
 const defaultConfig: AppConfig = {
   theme: "dark", // Changed to dark theme for ZapTok
@@ -76,6 +81,9 @@ function AppContent() {
     }>
       {/* Main App Router */}
       <AppRouter />
+      
+      {/* Video Cache Debug (development) */}
+      <VideoCacheDebug />
     </Suspense>
   );
 }

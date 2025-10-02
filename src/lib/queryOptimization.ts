@@ -1,9 +1,12 @@
 /**
  * Query optimization utilities for improved Nostr performance
- * These utilities help reduce relay load and improve performance
+ * Enhanced with connection-aware optimizations and smart relay selection
  */
 
 import type { NostrEvent } from '@nostrify/nostrify';
+import { queryStrategyManager, type QueryType, type QueryOptions } from '@/services/queryStrategyManager';
+import { relayHealthMonitor } from '@/services/relayHealthMonitor';
+import { connectionPoolManager } from '@/services/connectionPoolManager';
 
 export interface OptimizedFilter {
   kinds?: number[];
@@ -209,6 +212,147 @@ export const CACHE_CONFIGS = {
     refetchOnReconnect: true,
   },
 } as const;
+
+/**
+ * Connection-aware query optimization
+ */
+export interface ConnectionAwareQueryOptions {
+  /** Available relay URLs */
+  availableRelays: string[];
+  /** Query type for strategy selection */
+  queryType: QueryType;
+  /** Base timeout in milliseconds */
+  baseTimeout: number;
+  /** Strategy options */
+  strategyOptions?: QueryOptions;
+}
+
+/**
+ * Get optimal relays for a query with health awareness
+ */
+export function getOptimalRelays(
+  options: ConnectionAwareQueryOptions
+): string[] {
+  const { availableRelays, queryType, strategyOptions = {} } = options;
+  
+  if (availableRelays.length === 0) {
+    console.warn('No available relays provided for query optimization');
+    return [];
+  }
+
+  // Use query strategy manager to select optimal relays
+  return queryStrategyManager.selectRelays(
+    availableRelays,
+    queryType,
+    strategyOptions
+  );
+}
+
+/**
+ * Create connection-aware signal with adaptive timeout
+ */
+export function createConnectionAwareSignal(
+  options: ConnectionAwareQueryOptions,
+  parentSignal?: AbortSignal
+): AbortSignal {
+  const { availableRelays, baseTimeout } = options;
+  
+  // Get optimal relays first
+  const optimalRelays = getOptimalRelays(options);
+  
+  if (optimalRelays.length === 0) {
+    // No healthy relays - use base timeout
+    const fallbackSignal = parentSignal || AbortSignal.timeout(baseTimeout);
+    return createOptimizedSignal(fallbackSignal, baseTimeout);
+  }
+
+  // Calculate adaptive timeout based on relay health
+  let adaptiveTimeout = baseTimeout;
+  
+  // Get average latency from healthy relays
+  const healthyLatencies = optimalRelays
+    .map(url => relayHealthMonitor.getMetrics(url)?.latency)
+    .filter((latency): latency is number => typeof latency === 'number' && latency > 0);
+
+  if (healthyLatencies.length > 0) {
+    const avgLatency = healthyLatencies.reduce((sum, lat) => sum + lat, 0) / healthyLatencies.length;
+    
+    // Adaptive timeout: base + (average latency * 2) + buffer
+    adaptiveTimeout = Math.min(
+      baseTimeout * 2, // Cap at 2x base timeout
+      Math.max(
+        baseTimeout * 0.5, // Minimum 50% of base timeout
+        avgLatency * 2 + 1000 // 2x latency + 1s buffer
+      )
+    );
+  }
+
+  const adaptiveSignal = parentSignal || AbortSignal.timeout(adaptiveTimeout);
+  return createOptimizedSignal(adaptiveSignal, adaptiveTimeout);
+}
+
+/**
+ * Execute query with connection pool optimization
+ */
+export async function executeOptimizedQuery<T>(
+  queryFn: (relayUrl: string) => Promise<T>,
+  options: ConnectionAwareQueryOptions
+): Promise<T> {
+  const optimalRelays = getOptimalRelays(options);
+  
+  if (optimalRelays.length === 0) {
+    throw new Error('No healthy relays available for query');
+  }
+
+  const errors: Error[] = [];
+
+  // Try relays in order of preference
+  for (const relayUrl of optimalRelays) {
+    try {
+      // Track query start
+      const startTime = Date.now();
+      
+      // Execute query
+      const result = await queryFn(relayUrl);
+      
+      // Track success
+      const latency = Date.now() - startTime;
+      relayHealthMonitor.onSuccess(relayUrl, latency);
+      
+      return result;
+    } catch (error) {
+      // Track failure
+      relayHealthMonitor.onFailure(
+        relayUrl, 
+        error instanceof Error ? error.message : 'Query failed'
+      );
+      
+      errors.push(error instanceof Error ? error : new Error('Unknown error'));
+      
+      // Continue to next relay
+      continue;
+    }
+  }
+
+  // All relays failed
+  throw new Error(
+    `Query failed on all available relays: ${errors.map(e => e.message).join(', ')}`
+  );
+}
+
+/**
+ * Get connection pool statistics for debugging
+ */
+export function getConnectionStats() {
+  return {
+    pool: connectionPoolManager.getStats(),
+    health: {
+      healthy: relayHealthMonitor.getHealthyRelays().length,
+      unhealthy: relayHealthMonitor.getUnhealthyRelays().length,
+      total: relayHealthMonitor.getAllMetrics().size,
+    },
+  };
+}
 
 /**
  * Query key utilities for consistent caching

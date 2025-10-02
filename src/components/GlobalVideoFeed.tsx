@@ -1,19 +1,15 @@
 import { useRef, useEffect, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { VideoCard } from '@/components/VideoCard';
 import { VideoActionButtons } from '@/components/VideoActionButtons';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useFollowing } from '@/hooks/useFollowing';
 import { useProfileCache } from '@/hooks/useProfileCache';
 import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
-import { useVideoCache } from '@/hooks/useVideoCache';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
-import { validateVideoEvent, hasVideoContent, normalizeVideoUrl, type VideoEvent } from '@/lib/validateVideoEvent';
-import type { NostrEvent } from '@nostrify/nostrify';
+import { useOptimizedGlobalVideoFeed } from '@/hooks/useOptimizedGlobalVideoFeed';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { devLog } from '@/lib/devConsole';
@@ -24,9 +20,7 @@ export interface GlobalVideoFeedRef {
 }
 
 export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
-  const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const following = useFollowing(user?.pubkey || '');
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { setCurrentVideo } = useCurrentVideo();
@@ -58,8 +52,8 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   // Enhanced caching hooks
   const { batchLoadProfiles } = useProfileCache();
   const { preloadThumbnails } = useVideoPrefetch();
-  const { cacheVideoMetadata } = useVideoCache();
 
+  // Use optimized global video feed hook instead of direct queries
   const {
     data,
     fetchNextPage,
@@ -67,88 +61,8 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
     isFetchingNextPage,
     isLoading,
     error,
-  } = useInfiniteQuery({
-    queryKey: ['global-video-feed'],
-    queryFn: async ({ pageParam, signal }) => {
-      bundleLog('globalVideoFetch', '🌍 Fetching global video content');
-
-      // Get global video content from all users
-      const events = await nostr.query([
-        {
-          kinds: [21, 22], // NIP-71 normal videos, NIP-71 short videos
-          limit: 20,
-          until: pageParam,
-        }
-      ], { signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]) });
-
-      bundleLog('globalVideoProcessing', `🌍 Found ${events.length} global video events`);
-
-      // Filter out videos from users we're already following to avoid duplicates
-      const followedPubkeys = new Set(following.data?.pubkeys || []);
-      const unfollowedEvents = events.filter(event => !followedPubkeys.has(event.pubkey));
-
-      bundleLog('globalVideoFiltering', `🌍 Filtered to ${unfollowedEvents.length} videos from unfollowed users (${events.length} → ${unfollowedEvents.length})`);
-
-      // Filter and validate video events
-      const uniqueEvents = new Map<string, NostrEvent>();
-      const seenVideoUrls = new Set<string>();
-
-      unfollowedEvents.forEach(event => {
-        if (!hasVideoContent(event)) return;
-
-        // Log what types of video events we're finding
-        if (event.kind === 21) {
-          bundleLog('nipVideoEvents', `🌍📹 Found NIP-71 normal video event: ${event.content.substring(0, 50)}`);
-        } else if (event.kind === 22) {
-          bundleLog('nipVideoEvents', `🌍📱 Found NIP-71 short video event: ${event.content.substring(0, 50)}`);
-        }
-
-        // Only keep the latest version of each event ID
-        const existing = uniqueEvents.get(event.id);
-        if (existing && event.created_at <= existing.created_at) return;
-
-        uniqueEvents.set(event.id, event);
-      });
-
-      // Validate events and deduplicate by video URL
-      const validatedEvents: VideoEvent[] = [];
-
-      for (const event of uniqueEvents.values()) {
-        const videoEvent = validateVideoEvent(event);
-        if (!videoEvent || !videoEvent.videoUrl) continue;
-
-        bundleLog('validVideoEvents', `🌍✅ Valid global video event [kind ${event.kind}]: ${videoEvent.title || 'No title'}`);
-
-        // Normalize URL for comparison
-        const normalizedUrl = normalizeVideoUrl(videoEvent.videoUrl);
-        if (seenVideoUrls.has(normalizedUrl)) continue;
-
-        seenVideoUrls.add(normalizedUrl);
-        validatedEvents.push(videoEvent);
-      }
-
-      // Sort by creation time (most recent first)
-      const videoEvents = validatedEvents.sort((a, b) => b.created_at - a.created_at);
-
-      if (videoEvents.length > 0) {
-        cacheVideoMetadata(videoEvents);
-      }
-
-      bundleLog('globalVideoBatch', `⚡ Processed ${videoEvents.length} global videos in current batch`);
-      return videoEvents;
-    },
-    getNextPageParam: (lastPage) => {
-      if (lastPage.length === 0) return undefined;
-      const oldestEvent = lastPage[lastPage.length - 1];
-      return oldestEvent.created_at;
-    },
-    initialPageParam: undefined as number | undefined,
-    enabled: true,
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 2,
-    gcTime: 1000 * 60 * 5,
-    refetchOnMount: false,
-  });
+    refetch,
+  } = useOptimizedGlobalVideoFeed();
 
   // Expose refresh function to parent
   useImperativeHandle(ref, () => ({

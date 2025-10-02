@@ -10,6 +10,9 @@ import { logRelay } from '@/lib/devLogger';
 import { useNostrLogin } from '@nostrify/react/login';
 import relayListService, { type RelayListConfig } from '@/services/relayList.service';
 import smartRelaySelectionService from '@/services/smartRelaySelection.service';
+import { relayHealthMonitor } from '@/services/relayHealthMonitor';
+import { connectionPoolManager } from '@/services/connectionPoolManager';
+import { queryStrategyManager, type QueryType } from '@/services/queryStrategyManager';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -29,6 +32,10 @@ interface NostrConnectionContextValue {
   relayContext: RelayContext;
   userRelayList: RelayListConfig | null;
   refreshUserRelayList: (forceRefresh?: boolean) => Promise<void>;
+  // Phase 2: Connection optimization
+  getOptimalRelaysForQuery: (queryType: QueryType, limit?: number) => string[];
+  getRelayHealth: (relayUrl: string) => { score: number; status: 'healthy' | 'degraded' | 'unhealthy' } | null;
+  getConnectionStats: () => { pool: any; health: any };
 }
 
 const NostrConnectionContext = createContext<NostrConnectionContextValue>({
@@ -40,7 +47,10 @@ const NostrConnectionContext = createContext<NostrConnectionContextValue>({
   activeRelays: [],
   relayContext: 'all',
   userRelayList: null,
-  refreshUserRelayList: async () => {}
+  refreshUserRelayList: async () => {},
+  getOptimalRelaysForQuery: () => [],
+  getRelayHealth: () => null,
+  getConnectionStats: () => ({ pool: {}, health: {} }),
 });
 
 const NostrProvider: React.FC<NostrProviderProps> = (props) => {
@@ -137,6 +147,36 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
   // Use refs so the pool always has the latest data
   const relayUrls = useRef<string[]>(activeRelays);
+
+  // Phase 2: Initialize health monitoring and connection pooling
+  useEffect(() => {
+    // Set the active relays provider so health monitoring only checks currently active relays
+    relayHealthMonitor.setActiveRelaysProvider(() => getActiveRelays());
+
+    // Services start automatically, just initialize metrics for active relays
+    activeRelays.forEach(url => {
+      if (!relayHealthMonitor.getMetrics(url)) {
+        // Initialize metrics for new relays
+        relayHealthMonitor.onSuccess(url, 0); // Initialize with neutral latency
+      }
+    });
+
+    return () => {
+      // Cleanup when component unmounts
+      relayHealthMonitor.destroy();
+      connectionPoolManager.destroy();
+    };
+  }, [getActiveRelays]);
+
+  // Phase 2: Update health monitoring when active relays change
+  useEffect(() => {
+    // Track health for new relays
+    activeRelays.forEach(url => {
+      if (!relayHealthMonitor.getMetrics(url)) {
+        relayHealthMonitor.onSuccess(url, 0);
+      }
+    });
+  }, [activeRelays]);
 
   // Calculate connection stats - only count relays that are currently active
   const connectedRelayCount = activeRelays.filter(url => connectionState[url] === 'connected').length;
@@ -364,6 +404,38 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     };
   }, []);
 
+  // Phase 2: Connection optimization methods
+  const getOptimalRelaysForQuery = useCallback((queryType: QueryType, limit?: number) => {
+    const options = limit ? { relayCount: limit } : {};
+    return queryStrategyManager.selectRelays(activeRelays, queryType, options);
+  }, [activeRelays]);
+
+  const getRelayHealth = useCallback((relayUrl: string) => {
+    const metrics = relayHealthMonitor.getMetrics(relayUrl);
+    if (!metrics) return null;
+
+    // Use existing healthScore from metrics or calculate basic score
+    const score = metrics.healthScore;
+    
+    let status: 'healthy' | 'degraded' | 'unhealthy';
+    if (score >= 0.7) status = 'healthy';
+    else if (score >= 0.4) status = 'degraded';
+    else status = 'unhealthy';
+
+    return { score, status };
+  }, []);
+
+  const getConnectionStats = useCallback(() => {
+    return {
+      pool: connectionPoolManager.getStats(),
+      health: {
+        healthy: relayHealthMonitor.getHealthyRelays().length,
+        unhealthy: relayHealthMonitor.getUnhealthyRelays().length,
+        total: relayHealthMonitor.getAllMetrics().size,
+      },
+    };
+  }, []);
+
   return (
     <NostrConnectionContext.Provider value={{
       connectionState,
@@ -375,6 +447,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       relayContext,
       userRelayList,
       refreshUserRelayList,
+      getOptimalRelaysForQuery,
+      getRelayHealth,
+      getConnectionStats,
     }}>
       <NostrContext.Provider value={{ nostr: pool.current }}>
         {children}

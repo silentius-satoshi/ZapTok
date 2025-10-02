@@ -31,19 +31,17 @@ vi.mock('@/hooks/useFollowing', () => ({
   }),
 }));
 
-vi.mock('@tanstack/react-query', async (importOriginal) => {
-  const actual = await importOriginal() as typeof import('@tanstack/react-query');
-  return {
-    ...actual,
-    useInfiniteQuery: vi.fn().mockReturnValue({
-      data: {
-        pages: [
-          [
+vi.mock('@/hooks/useOptimizedVideoFeed', () => ({
+  useOptimizedFollowingVideoFeed: vi.fn().mockReturnValue({
+    data: {
+      pages: [
+        {
+          videos: [
             {
               id: 'video1',
               pubkey: 'pubkey1',
               created_at: 1234567890,
-              kind: 1,
+              kind: 21,
               tags: [['t', 'video']],
               content: 'Test video 1',
               sig: 'sig1',
@@ -54,7 +52,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
               id: 'video2',
               pubkey: 'pubkey2',
               created_at: 1234567891,
-              kind: 1,
+              kind: 21,
               tags: [['t', 'video']],
               content: 'Test video 2',
               sig: 'sig2',
@@ -62,12 +60,74 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
               thumbnail: 'https://example.com/thumb2.jpg',
             },
           ],
-        ],
-      },
-      isLoading: false,
-      hasNextPage: true,
-      isFetchingNextPage: false,
-      fetchNextPage: vi.fn(),
+          hasMore: true,
+          metadata: {
+            queryTime: 100,
+            totalResults: 2,
+            relaysUsed: 1,
+          },
+        },
+      ],
+    },
+    isLoading: false,
+    hasNextPage: true,
+    isFetchingNextPage: false,
+    fetchNextPage: vi.fn(),
+    error: null,
+  }),
+  useVideoEngagementLazy: vi.fn().mockReturnValue({
+    data: null,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+  useVideoIntersection: vi.fn().mockReturnValue({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/useLoginAutoRefresh', () => ({
+  useLoginAutoRefresh: () => ({
+    justLoggedIn: false,
+  }),
+}));
+
+vi.mock('@/contexts/CurrentVideoContext', () => ({
+  CurrentVideoProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="current-video-provider">{children}</div>
+  ),
+  useCurrentVideo: () => ({
+    setCurrentVideo: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/useIsMobile', () => ({
+  useIsMobile: () => false,
+}));
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return {
+    ...actual,
+    useNavigate: () => vi.fn(),
+    useLocation: () => ({ pathname: '/following' }),
+    useParams: () => ({ id: undefined }),
+    BrowserRouter: ({ children }: { children: React.ReactNode }) => <div data-testid="browser-router">{children}</div>,
+  };
+});
+
+vi.mock('@/lib/logBundler', () => ({
+  bundleLog: vi.fn(),
+}));
+
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  const actual = await importOriginal() as typeof import('@tanstack/react-query');
+  return {
+    ...actual,
+    useQueryClient: () => ({
+      resetQueries: vi.fn(),
     }),
   };
 });
@@ -109,8 +169,8 @@ describe('FollowingVideoFeed Scroll Snapping Logic', () => {
       </TestApp>
     );
 
-    // Find the container with scroll snap styles
-    const container = document.querySelector('.h-screen.overflow-y-auto');
+    // Find the container with scroll snap styles - using h-full class instead of h-screen
+    const container = document.querySelector('.h-full.snap-y') || document.querySelector('.h-full.overflow-hidden');
     expect(container).toBeInTheDocument();
 
     // Check for scroll snap CSS properties in style attribute
@@ -126,7 +186,7 @@ describe('FollowingVideoFeed Scroll Snapping Logic', () => {
       </TestApp>
     );
 
-    const container = document.querySelector('.h-screen.overflow-y-auto') as HTMLElement;
+    const container = (document.querySelector('.h-full.snap-y') || document.querySelector('.h-full.overflow-hidden')) as HTMLElement;
     expect(container).toBeInTheDocument();
 
     if (container) {
@@ -150,8 +210,21 @@ describe('FollowingVideoFeed Scroll Snapping Logic', () => {
     }
   });
 
-  it('should calculate correct video index from scroll position and snap to correct video', async () => {
+  it('should programmatically scroll to correct position when video index changes', async () => {
     vi.useFakeTimers();
+
+    // Create a mock intersection observer that we can control
+    const mockObserver = {
+      observe: vi.fn(),
+      unobserve: vi.fn(),
+      disconnect: vi.fn(),
+    };
+    let observerCallback: any = null;
+
+    global.IntersectionObserver = vi.fn().mockImplementation((callback) => {
+      observerCallback = callback;
+      return mockObserver;
+    });
 
     render(
       <TestApp>
@@ -159,29 +232,24 @@ describe('FollowingVideoFeed Scroll Snapping Logic', () => {
       </TestApp>
     );
 
-    const container = document.querySelector('.h-screen.overflow-y-auto') as HTMLElement;
+    const container = (document.querySelector('.h-full.snap-y') || document.querySelector('.h-full.overflow-hidden')) as HTMLElement;
     expect(container).toBeInTheDocument();
 
-    if (container) {
-      // Mock scroll to position between videos (not perfectly aligned)
-      // This should trigger snapping to the nearest video
-      // New full-screen layout: index * window.innerHeight
-      // Video 1 position = 1 * 800 = 800
-      Object.defineProperty(container, 'scrollTop', {
-        writable: true,
-        configurable: true,
-        value: 820, // Slightly past second video (800), should snap to 800
-      });
-      Object.defineProperty(container, 'clientHeight', {
-        writable: true,
-        configurable: true,
-        value: 800,
+    if (container && observerCallback) {
+      // Simulate intersection observer detecting video at index 1 is in view
+      const mockEntry = {
+        isIntersecting: true,
+        target: {
+          getAttribute: () => '1', // data-video-index="1"
+        },
+      };
+
+      // Trigger the intersection observer callback
+      act(() => {
+        observerCallback([mockEntry]);
       });
 
-      // Simulate scroll event
-      fireEvent.scroll(container);
-
-      // Fast-forward through the scroll timer (150ms)
+      // Fast-forward through any timing
       act(() => {
         vi.advanceTimersByTime(150);
       });
@@ -236,7 +304,7 @@ describe('FollowingVideoFeed Scroll Snapping Logic', () => {
       </TestApp>
     );
 
-    const container = document.querySelector('.h-screen.overflow-y-auto') as HTMLElement;
+    const container = (document.querySelector('.h-full.snap-y') || document.querySelector('.h-full.overflow-hidden')) as HTMLElement;
     expect(container).toBeInTheDocument();
 
     if (container) {
@@ -279,7 +347,7 @@ describe('FollowingVideoFeed Scroll Snapping Logic', () => {
       </TestApp>
     );
 
-    const container = document.querySelector('.h-screen.overflow-y-auto') as HTMLElement;
+    const container = (document.querySelector('.h-full.snap-y') || document.querySelector('.h-full.overflow-hidden')) as HTMLElement;
     expect(container).toBeInTheDocument();
 
     if (container) {

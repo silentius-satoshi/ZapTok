@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { useNostrConnectionState } from '@/components/NostrProvider';
+import { createConnectionAwareSignal } from '@/lib/queryOptimization';
+import { relayRateLimiter, QueryDeduplicator } from '@/lib/relayRateLimiter';
 
 interface VideoReactions {
   likes: number;
@@ -11,6 +14,7 @@ interface VideoReactions {
 
 export function useVideoReactions(videoId: string) {
   const { nostr } = useNostr();
+  const { getOptimalRelaysForQuery, activeRelays } = useNostrConnectionState();
 
   return useQuery({
     queryKey: ['reactions', videoId],
@@ -19,19 +23,30 @@ export function useVideoReactions(videoId: string) {
         return { likes: 0, zaps: 0, userReactions: new Map(), totalSats: 0 };
       }
 
-      // Improved signal handling with longer timeout for better reliability
-      const timeoutSignal = AbortSignal.timeout(5000);
-      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+      // Phase 2: Use connection-aware signal with rate limiting
+      const connectionAwareSignal = createConnectionAwareSignal({
+        availableRelays: getOptimalRelaysForQuery('reactions', 5),
+        queryType: 'reactions',
+        baseTimeout: 5000,
+      }, signal);
       
-      // Optimized filter - could potentially include reposts here too
-      const filter = {
-        kinds: [7, 9735], // Reactions and zaps  
-        '#e': [videoId],
-        limit: 500,
-      };
-      
-      // Query for reactions and zaps
-      const events = await nostr.query([filter], { signal: combinedSignal });
+      // Rate-limited query with deduplication
+      const queryKey = `reactions-${videoId}`;
+      const events = await QueryDeduplicator.dedupe(queryKey, async () => {
+        return await relayRateLimiter.queueQuery(
+          'video-reactions',
+          async () => {
+            const filter = {
+              kinds: [7, 9735], // Reactions and zaps  
+              '#e': [videoId],
+              limit: 500,
+            };
+            
+            return await nostr.query([filter], { signal: connectionAwareSignal });
+          },
+          'medium' // Medium priority for reactions
+        );
+      });
 
       // Deduplicate by user (keep latest reaction per user)
       const userReactions = new Map<string, NostrEvent>();

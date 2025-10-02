@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUserGroups } from '@/hooks/useUserGroups';
 import { NostrEvent } from '@nostrify/nostrify';
 import { KINDS } from '@/lib/nostr-kinds';
+import { relayRateLimiter } from '@/lib/relayRateLimiter';
 
 export interface Notification {
   id: string;
@@ -64,13 +65,17 @@ export function useNotifications() {
       const timeoutSignal = AbortSignal.timeout(8000);
       const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
 
-      const events = await nostr.query(
-        [{ 
-          kinds, 
-          '#p': [user.pubkey], 
-          limit: 100, // Increased limit to catch more notifications
-        }],
-        { signal: combinedSignal },
+      const events = await relayRateLimiter.queueQuery(
+        'notifications',
+        () => nostr.query(
+          [{ 
+            kinds, 
+            '#p': [user.pubkey], 
+            limit: 100, // Increased limit to catch more notifications
+          }],
+          { signal: combinedSignal },
+        ),
+        'high' // High priority for notifications
       );
 
       for (const event of events) {
@@ -170,40 +175,56 @@ export function useNotifications() {
         const groupIds = moderatedGroups.map(group => getCommunityId(group));
         
         // Fetch all relevant moderation events for these groups
-        const reportEvents = await nostr.query(
-          [{ 
-            kinds: [KINDS.REPORT], // Report events
-            '#a': groupIds,
-            limit: 20 
-          }],
-          { signal },
+        const reportEvents = await relayRateLimiter.queueQuery(
+          'moderation-reports',
+          () => nostr.query(
+            [{ 
+              kinds: [KINDS.REPORT], // Report events
+              '#a': groupIds,
+              limit: 20 
+            }],
+            { signal },
+          ),
+          'medium'
         );
 
-        const reportActionEvents = await nostr.query(
-          [{ 
-            kinds: [KINDS.GROUP_CLOSE_REPORT], // Report action events
-            '#a': groupIds,
-            limit: 20 
-          }],
-          { signal },
+        const reportActionEvents = await relayRateLimiter.queueQuery(
+          'moderation-actions',
+          () => nostr.query(
+            [{ 
+              kinds: [KINDS.GROUP_CLOSE_REPORT], // Report action events
+              '#a': groupIds,
+              limit: 20 
+            }],
+            { signal },
+          ),
+          'medium'
         );
 
-        const joinRequestEvents = await nostr.query(
-          [{ 
-            kinds: [KINDS.GROUP_JOIN_REQUEST], // Join request events
-            '#a': groupIds,
-            limit: 20 
-          }],
-          { signal },
+        const joinRequestEvents = await relayRateLimiter.queueQuery(
+          'group-join-requests',
+          () => nostr.query(
+            [{ 
+              kinds: [KINDS.GROUP_JOIN_REQUEST], // Join request events
+              '#a': groupIds,
+              limit: 20 
+            }],
+            { signal },
+          ),
+          'medium'
         );
 
-        const leaveRequestEvents = await nostr.query(
-          [{ 
-            kinds: [KINDS.GROUP_LEAVE_REQUEST], // Leave request events
-            '#a': groupIds,
-            limit: 20 
-          }],
-          { signal },
+        const leaveRequestEvents = await relayRateLimiter.queueQuery(
+          'group-leave-requests',
+          () => nostr.query(
+            [{ 
+              kinds: [KINDS.GROUP_LEAVE_REQUEST], // Leave request events
+              '#a': groupIds,
+              limit: 20 
+            }],
+            { signal },
+          ),
+          'medium'
         );
 
         // Process report events

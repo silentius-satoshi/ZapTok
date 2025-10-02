@@ -29,6 +29,7 @@ import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
 import { useAppContext } from '@/hooks/useAppContext';
+import { relayRateLimiter } from '@/lib/relayRateLimiter';
 
 interface VideoActionButtonsProps {
   event: NostrEvent;
@@ -82,11 +83,15 @@ export function VideoActionButtons({
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
-      const events = await nostr.query([{
-        kinds: [CASHU_EVENT_KINDS.ZAP],
-        "#e": [event.id],
-        limit: 50,
-      }], { signal });
+      const events = await relayRateLimiter.queueQuery(
+        'nutzap-queries',
+        () => nostr.query([{
+          kinds: [CASHU_EVENT_KINDS.ZAP],
+          "#e": [event.id],
+          limit: 50,
+        }], { signal }),
+        'low' // Low priority for nutzap queries
+      );
 
       const totalAmount = events.reduce((sum, zapEvent) => {
         try {

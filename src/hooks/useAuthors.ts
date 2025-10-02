@@ -1,18 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { useNostrConnectionState } from '@/components/NostrProvider';
+import { createConnectionAwareSignal } from '@/lib/queryOptimization';
 
 export function useAuthors(pubkeys: string[]) {
   const { nostr } = useNostr();
+  const { getOptimalRelaysForQuery } = useNostrConnectionState();
 
   return useQuery({
     queryKey: ['authors', pubkeys.sort()],
     queryFn: async ({ signal }) => {
       if (!pubkeys.length) return [];
 
-      // Improved signal handling with longer timeout for batch queries
-      const timeoutSignal = AbortSignal.timeout(8000); // Longer timeout for batch queries
-      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+      // Phase 2: Use connection-aware signal with optimal relays for metadata
+      const connectionAwareSignal = createConnectionAwareSignal({
+        availableRelays: getOptimalRelaysForQuery('profile', 5),
+        queryType: 'profile',
+        baseTimeout: 8000,
+      }, signal);
       
       // Optimized batch query for metadata events (kind 0)
       const events = await nostr.query([
@@ -21,7 +27,7 @@ export function useAuthors(pubkeys: string[]) {
           authors: pubkeys,
           limit: pubkeys.length * 2, // Allow for multiple metadata events per author
         }
-      ], { signal: combinedSignal });
+      ], { signal: connectionAwareSignal });
 
       // Create a map of pubkey -> latest metadata event
       const metadataMap = new Map<string, NostrEvent>();

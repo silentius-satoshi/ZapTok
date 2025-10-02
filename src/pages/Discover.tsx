@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { VideoGrid } from '@/components/VideoGrid';
 import { Search, TrendingUp, Hash, X, Users, Globe } from 'lucide-react';
+import { useOptimizedGlobalVideoFeed } from '@/hooks/useOptimizedVideoFeed';
 import { useSearchVideos, useSearchVideosInFollowing } from '@/hooks/useSearchVideos';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useFollowing } from '@/hooks/useFollowing';
@@ -26,15 +27,37 @@ const Discover = () => {
   const [searchScope, setSearchScope] = useState<'all' | 'following'>('all');
   const isMobile = useIsMobile();
 
+  // Use optimized global feed when not searching
+  const { 
+    data: globalFeedData, 
+    fetchNextPage: fetchMoreGlobal, 
+    hasNextPage: hasMoreGlobal, 
+    isFetchingNextPage: isFetchingMoreGlobal,
+    isLoading: isGlobalFeedLoading 
+  } = useOptimizedGlobalVideoFeed({
+    pageSize: 12, // Smaller pages for discover
+    enableIntersectionLoading: true,
+    cacheDuration: 10 * 60 * 1000, // 10 minutes cache for discover
+  });
+
   const { data: globalSearchResults, isLoading: isGlobalLoading, error: globalError } = useSearchVideos(searchScope === 'all' ? searchFilter : '');
   const { data: followingSearchResults, isLoading: isFollowingLoading, error: followingError } = useSearchVideosInFollowing(
     searchScope === 'following' ? searchFilter : '',
     following.data?.pubkeys || []
   );
 
+  // Use search results when searching, otherwise use global feed
+  const isSearching = searchFilter.trim().length > 0;
   const searchResults = searchScope === 'all' ? globalSearchResults : followingSearchResults;
-  const isLoading = searchScope === 'all' ? isGlobalLoading : isFollowingLoading;
-  const error = searchScope === 'all' ? globalError : followingError;
+  const globalVideos = globalFeedData?.pages.flatMap(page => page.videos) || [];
+  
+  const displayVideos = isSearching ? searchResults : globalVideos;
+  const isLoading = isSearching 
+    ? (searchScope === 'all' ? isGlobalLoading : isFollowingLoading)
+    : isGlobalFeedLoading;
+  const error = isSearching 
+    ? (searchScope === 'all' ? globalError : followingError)
+    : null;
 
   useSeoMeta({
     title: 'Discover - ZapTok',
@@ -240,17 +263,40 @@ const Discover = () => {
                       )}
 
                       <VideoGrid
-                        videos={searchResults || []}
+                        videos={displayVideos || []}
                         isLoading={isLoading}
                         emptyMessage={
-                          searchFilter
+                          isSearching && searchFilter
                             ? searchScope === 'following'
                               ? "No videos found in your following list for this search. Try searching 'All Users' or follow more creators."
                               : "No videos found for your search. Try different keywords or filters."
-                            : "Enter a search query to find videos"
+                            : !isSearching
+                              ? "Discovering global video content..."
+                              : "Enter a search query to find videos"
                         }
                         allowRemove={false}
                       />
+
+                      {/* Load More Button for Global Feed */}
+                      {!isSearching && hasMoreGlobal && !isFetchingMoreGlobal && (
+                        <div className="mt-6 text-center">
+                          <Button
+                            onClick={() => fetchMoreGlobal()}
+                            variant="outline"
+                            className="min-w-[120px]"
+                          >
+                            Load More Videos
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Loading indicator for pagination */}
+                      {!isSearching && isFetchingMoreGlobal && (
+                        <div className="mt-6 text-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                          <p className="text-sm text-muted-foreground mt-2">Loading more videos...</p>
+                        </div>
+                      )}
                   </div>
                 )}
 
