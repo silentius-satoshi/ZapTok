@@ -108,9 +108,10 @@ export function useTimelineVideoFeed(
   // Handle new events (following Jumble's onNew pattern)
   const handleNewEvent = useCallback((event: NostrEvent) => {
     // Only process new events if enabled
-    if (!enableNewEvents || !validateVideoEvent(event)) return;
+    if (!enableNewEvents) return;
 
-    const videoEvent = event as VideoEvent;
+    const videoEvent = validateVideoEvent(event);
+    if (!videoEvent) return;
     const feedId = `${feedType}_${user?.pubkey || 'anon'}`;
 
     // Phase 3: Apply content filtering to new events
@@ -145,8 +146,8 @@ export function useTimelineVideoFeed(
   // Handle batch events (following Jumble's onEvents pattern)
   const handleEvents = useCallback((events: NostrEvent[], eosed: boolean) => {
     const validVideos = events
-      .filter(validateVideoEvent)
-      .map(e => e as VideoEvent)
+      .map(validateVideoEvent)
+      .filter((e): e is VideoEvent => e !== null)
       .sort((a, b) => b.created_at - a.created_at);
 
     // Phase 3: Record events for analytics
@@ -271,8 +272,8 @@ export function useTimelineVideoFeed(
       );
 
       const validVideos = moreEvents
-        .filter(validateVideoEvent)
-        .map(e => e as VideoEvent);
+        .map(validateVideoEvent)
+        .filter((e): e is VideoEvent => e !== null);
 
       setState(prev => {
         // Deduplicate with existing videos

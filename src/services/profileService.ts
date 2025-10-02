@@ -3,6 +3,7 @@ import { AbstractRelay } from 'nostr-tools/abstract-relay'
 import { sha256 } from '@noble/hashes/sha2'
 import DataLoader from 'dataloader'
 import { LRUCache } from 'lru-cache'
+import { BIG_RELAY_URLS, isLocalNetworkUrl, normalizeRelayUrl } from '@/constants/relays'
 
 type ProfileData = {
   event?: NostrEvent
@@ -23,8 +24,9 @@ class ProfileService extends EventTarget {
   private pool: SimplePool
   private profileCache = new LRUCache<string, ProfileData>({ max: 1000, ttl: 1000 * 60 * 10 }) // 10 min cache
   private profileDataLoader: DataLoader<string, ProfileData>
-  
-  // Track which relays we've seen events on (Jumble pattern)
+  private profileFromBigRelaysDataloader: DataLoader<string, NostrEvent | null>
+
+  // Track which relays we've seen events on
   private eventSeenOn = new Map<string, Set<AbstractRelay>>()
 
   constructor() {
@@ -32,14 +34,24 @@ class ProfileService extends EventTarget {
     this.pool = new SimplePool()
     this.pool.trackRelays = true
 
-    // DataLoader for batch profile fetching (Jumble pattern)
+    // DataLoader for batch profile fetching
     this.profileDataLoader = new DataLoader<string, ProfileData>(
       async (pubkeys: readonly string[]) => {
         return Promise.all(pubkeys.map(pubkey => this._fetchProfile(pubkey)))
       },
-      { 
+      {
         cache: false, // We handle our own caching
         batchScheduleFn: (callback) => setTimeout(callback, 50) // Batch requests
+      }
+    )
+
+    // Big relay DataLoader for profile optimization (proven pattern)
+    this.profileFromBigRelaysDataloader = new DataLoader<string, NostrEvent | null>(
+      this.fetchProfilesFromBigRelays.bind(this),
+      {
+        batchScheduleFn: (callback) => setTimeout(callback, 50),
+        maxBatchSize: 500,
+        cacheKeyFn: (pubkey) => pubkey
       }
     )
   }
@@ -57,12 +69,12 @@ class ProfileService extends EventTarget {
 
     try {
       const profile = await this.profileDataLoader.load(pubkey)
-      
+
       // Cache the result
       if (profile) {
         this.profileCache.set(pubkey, profile)
       }
-      
+
       return profile
     } catch (error) {
       console.error('Profile fetch error:', error)
@@ -93,14 +105,14 @@ class ProfileService extends EventTarget {
 
       // Query with timeout (Jumble pattern)
       const events = await this.queryWithTimeout(relayUrls, filter, 3000)
-      
+
       if (!events.length) {
         return defaultProfile
       }
 
       // Get the most recent profile event
       const profileEvent = events.sort((a, b) => b.created_at - a.created_at)[0]
-      
+
       // Parse metadata
       let metadata = {}
       try {
@@ -125,8 +137,8 @@ class ProfileService extends EventTarget {
    * Query with timeout wrapper (Jumble pattern)
    */
   private async queryWithTimeout(
-    urls: string[], 
-    filter: Filter, 
+    urls: string[],
+    filter: Filter,
     timeoutMs: number = 3000
   ): Promise<NostrEvent[]> {
     return new Promise<NostrEvent[]>((resolve, reject) => {
@@ -211,6 +223,125 @@ class ProfileService extends EventTarget {
   clearCache() {
     this.profileCache.clear()
     this.profileDataLoader.clearAll()
+  }
+
+  /**
+   * Fetch profiles from big relays (DataLoader optimization)
+   */
+  private async fetchProfilesFromBigRelays(pubkeys: readonly string[]): Promise<(NostrEvent | null)[]> {
+    const events = await this.query([...BIG_RELAY_URLS], {
+      authors: Array.from(new Set(pubkeys)),
+      kinds: [0] // Profile metadata events
+    })
+
+    const eventsMap = new Map<string, NostrEvent>()
+    for (const event of events) {
+      const existing = eventsMap.get(event.pubkey)
+      if (!existing || existing.created_at < event.created_at) {
+        eventsMap.set(event.pubkey, event)
+      }
+    }
+
+    return pubkeys.map((pubkey) => eventsMap.get(pubkey) || null)
+  }
+
+  /**
+   * Query events from relays
+   */
+  private async query(urls: string[], filter: Filter | Filter[], onevent?: (evt: NostrEvent) => void): Promise<NostrEvent[]> {
+    return await new Promise<NostrEvent[]>((resolve) => {
+      const events: NostrEvent[] = []
+      const sub = this.subscribe(urls, filter, {
+        onevent(evt) {
+          onevent?.(evt)
+          events.push(evt)
+        },
+        oneose: (eosed) => {
+          if (eosed) {
+            sub.close()
+            resolve(events)
+          }
+        },
+        onclose: () => {
+          resolve(events)
+        }
+      })
+    })
+  }
+
+  /**
+   * Subscribe to relay events with AUTH handling
+   */
+  private subscribe(
+    urls: string[],
+    filter: Filter | Filter[],
+    callbacks: {
+      onevent?: (evt: NostrEvent) => void
+      oneose?: (eosed: boolean) => void
+      onclose?: (url: string, reason: string) => void
+    }
+  ) {
+    const relays = Array.from(new Set(urls.map(normalizeRelayUrl)))
+    const filters = Array.isArray(filter) ? filter : [filter]
+
+    const _knownIds = new Set<string>()
+    let startedCount = 0
+    let eosedCount = 0
+    let eosed = false
+
+    const subPromises: Promise<{ close: () => void }>[] = []
+
+    relays.forEach((url) => {
+      subPromises.push(startSub())
+
+      async function startSub() {
+        startedCount++
+        const relay = await profileService.pool.ensureRelay(url, { connectionTimeout: 5000 }).catch(() => {
+          return undefined
+        })
+
+        if (!relay) {
+          if (!eosed) {
+            eosedCount++
+            eosed = eosedCount >= startedCount
+            callbacks.oneose?.(eosed)
+          }
+          return { close: () => {} }
+        }
+
+        return relay.subscribe(filters, {
+          receivedEvent: (relay, id) => {
+            profileService.trackEventSeenOn(id, relay)
+          },
+          alreadyHaveEvent: (id: string) => {
+            const have = _knownIds.has(id)
+            if (have) return true
+            _knownIds.add(id)
+            return false
+          },
+          onevent: (evt: NostrEvent) => {
+            callbacks.onevent?.(evt)
+          },
+          oneose: () => {
+            if (eosed) return
+            eosedCount++
+            eosed = eosedCount >= startedCount
+            callbacks.oneose?.(eosed)
+          },
+          onclose: (reason: string) => {
+            callbacks.onclose?.(url, reason)
+          }
+        })
+      }
+    })
+
+    return {
+      close: () => {
+        subPromises.forEach((subPromise) => {
+          subPromise.then((sub) => sub.close()).catch(() => {})
+        })
+      }
+    }
   }
 
   /**

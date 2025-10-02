@@ -3,6 +3,7 @@ import { AbstractRelay } from 'nostr-tools/abstract-relay'
 import { sha256 } from '@noble/hashes/sha2'
 import DataLoader from 'dataloader'
 import { getReplaceableCoordinate, isReplaceableEvent } from '@/lib/event'
+import { BIG_RELAY_URLS, isLocalNetworkUrl, normalizeRelayUrl } from '@/constants/relays'
 
 type TimelineRef = [string, number] // [eventId, created_at]
 type SubRequestFilter = Omit<Filter, 'since' | 'until'> & { limit: number }
@@ -33,7 +34,7 @@ class TimelineService extends EventTarget {
   private pool: SimplePool
   private timelines: Record<string, TimelineData | string[] | undefined> = {}
   
-  // Event caching system similar to Jumble
+  // Event caching system similar to proven patterns
   private eventCacheMap = new Map<string, Promise<NostrEvent | undefined>>()
   private replaceableEventCacheMap = new Map<string, NostrEvent>()
   
@@ -41,6 +42,12 @@ class TimelineService extends EventTarget {
   private eventDataLoader = new DataLoader<string, NostrEvent | undefined>(
     (ids) => Promise.all(ids.map((id) => this._fetchEvent(id))),
     { cacheMap: this.eventCacheMap }
+  )
+
+  // DataLoader for big relay optimization
+  private fetchEventFromBigRelaysDataloader = new DataLoader<string, NostrEvent | undefined>(
+    this.fetchEventsFromBigRelays.bind(this),
+    { cache: false, batchScheduleFn: (callback) => setTimeout(callback, 50) }
   )
 
   constructor() {
@@ -337,7 +344,7 @@ class TimelineService extends EventTarget {
   }
 
   /**
-   * Track which relay an event was seen on (from Jumble)
+   * Track which relay an event was seen on
    */
   private trackEventSeenOn(eventId: string, relay: AbstractRelay) {
     let set = this.pool.seenOn.get(eventId)
@@ -346,6 +353,30 @@ class TimelineService extends EventTarget {
       this.pool.seenOn.set(eventId, set)
     }
     set.add(relay)
+  }
+
+  /**
+   * Query events from relays (core method)
+   */
+  private async query(urls: string[], filter: Filter | Filter[], onevent?: (evt: NostrEvent) => void): Promise<NostrEvent[]> {
+    return await new Promise<NostrEvent[]>((resolve) => {
+      const events: NostrEvent[] = []
+      const sub = this.subscribe(urls, filter, {
+        onevent(evt) {
+          onevent?.(evt)
+          events.push(evt)
+        },
+        oneose: (eosed) => {
+          if (eosed) {
+            sub.close()
+            resolve(events)
+          }
+        },
+        onclose: () => {
+          resolve(events)
+        }
+      })
+    })
   }
 
   /**
@@ -429,6 +460,51 @@ class TimelineService extends EventTarget {
   getSeenEventRelayUrls(eventId: string): string[] {
     const relays = Array.from(this.pool.seenOn.get(eventId)?.values() || [])
     return relays.map((relay) => relay.url)
+  }
+
+  /**
+   * Get event hints (excluding local network URLs)
+   */
+  getEventHints(eventId: string): string[] {
+    return this.getSeenEventRelayUrls(eventId).filter((url) => !isLocalNetworkUrl(url))
+  }
+
+  /**
+   * Fetch events from big relays (DataLoader optimization)
+   */
+  private async fetchEventsFromBigRelays(ids: readonly string[]): Promise<(NostrEvent | undefined)[]> {
+    const events = await this.query([...BIG_RELAY_URLS], {
+      ids: Array.from(new Set(ids)),
+      limit: ids.length
+    })
+    
+    const eventsMap = new Map<string, NostrEvent>()
+    for (const event of events) {
+      eventsMap.set(event.id, event)
+    }
+
+    return ids.map((id) => eventsMap.get(id))
+  }
+
+  /**
+   * Determine target relays with big relay fallback
+   */
+  async determineTargetRelays(event: NostrEvent, options: {
+    specifiedRelayUrls?: string[]
+    additionalRelayUrls?: string[]
+  } = {}): Promise<string[]> {
+    const { specifiedRelayUrls, additionalRelayUrls = [] } = options
+
+    let relays: string[]
+    if (specifiedRelayUrls?.length) {
+      relays = specifiedRelayUrls
+    } else {
+      // Default to big relays if no specific relays provided
+      relays = [...BIG_RELAY_URLS, ...additionalRelayUrls]
+    }
+
+    // Normalize relay URLs
+    return Array.from(new Set(relays.map(normalizeRelayUrl)))
   }
 }
 
