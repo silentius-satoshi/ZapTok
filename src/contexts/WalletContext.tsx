@@ -205,7 +205,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             // Load initial wallet data
             try {
               const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
-              const userLightningBalance = getUserLightningBalance(user.pubkey) || balance.balance || 0;
+              // Use fresh balance from provider, fallback to stored balance if provider fails
+              const userLightningBalance = balance.balance || getUserLightningBalance(user.pubkey) || 0;
               
               // For extension signers, also include Cashu balance in total
               const cashuBalance = 0; // Note: Cashu balance integration removed due to hook ordering issues
@@ -281,6 +282,53 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [user?.pubkey, isExtensionSigner, isConnected]);
   */
+
+  // Periodically refresh Lightning balance from provider to keep sidebar in sync
+  useEffect(() => {
+    if (!provider || !isConnected || !user?.pubkey) {
+      return;
+    }
+
+    const refreshBalance = async () => {
+      try {
+        if (provider.getBalance) {
+          // Enable provider if not already enabled
+          if (!provider.isEnabled) {
+            await provider.enable();
+          }
+
+          const response = await provider.getBalance();
+          const lightningBalance = response.balance;
+
+          // Store the Lightning balance for this user
+          setUserLightningBalance(user.pubkey, lightningBalance);
+
+          // Update walletInfo with fresh balance
+          setWalletInfo(prev => prev ? {
+            ...prev,
+            balance: lightningBalance
+          } : {
+            alias: 'WebLN Wallet',
+            balance: lightningBalance,
+            implementation: 'WebLN',
+          });
+
+          bundleLog('walletBalanceChanges', `Balance refreshed from provider: ${lightningBalance} sats`);
+        }
+      } catch (error) {
+        // Silently handle balance refresh errors
+        devError('Error refreshing balance:', error);
+      }
+    };
+
+    // Refresh immediately
+    refreshBalance();
+
+    // Refresh every 5 seconds to keep in sync
+    const interval = setInterval(refreshBalance, 5000);
+
+    return () => clearInterval(interval);
+  }, [provider, isConnected, user?.pubkey]);
 
   const connect = async () => {
     if (!user?.pubkey) {
