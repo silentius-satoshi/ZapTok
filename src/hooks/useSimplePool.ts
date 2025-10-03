@@ -1,35 +1,35 @@
-import { useNostrConnection } from '@/components/NostrProvider';
+import { useNostr } from '@/hooks/useNostr';
+import { simplePool, getSimplePoolRelays, fetchEvents } from '@/lib/simplePool';
 
 /**
- * Hook to access SimplePool instance and relays for timeline/feed operations
+ * Hook to access SimplePool instance and relay configuration
  * 
- * SimplePool is used for all non-Cashu Nostr operations and excludes the Cashu relay
- * to prevent connection overlap with NPool.
+ * Provides access to the SimplePool singleton and filtered relay list
+ * that excludes the Cashu relay, ensuring zero connection overlap.
  * 
- * @returns {Object} SimplePool instance and filtered relay list
- * @returns {SimplePool} simplePool - SimplePool singleton instance
- * @returns {string[]} simplePoolRelays - Relay URLs excluding Cashu relay
+ * @returns Object containing simplePool instance, relay list, and fetchEvents helper
  * 
  * @example
  * ```tsx
- * import { useSimplePool } from '@/hooks/useSimplePool';
- * 
  * function MyComponent() {
- *   const { simplePool, simplePoolRelays } = useSimplePool();
+ *   const { simplePool, simplePoolRelays, fetchEvents } = useSimplePool();
  *   
- *   // Query events using SimplePool
- *   const events = await simplePool.querySync(simplePoolRelays, {
- *     kinds: [1],
- *     limit: 20
- *   });
+ *   // Use fetchEvents (recommended - Jumble pattern)
+ *   const events = await fetchEvents(simplePoolRelays, { kinds: [1], limit: 20 });
+ *   
+ *   // Or use simplePool directly for subscriptions
+ *   const sub = simplePool.subscribeMany(simplePoolRelays, [filter], { ... });
  * }
  * ```
  */
 export function useSimplePool() {
-  const { simplePool, simplePoolRelays } = useNostrConnection();
-  
+  const { nostr } = useNostr();
+  const relayUrls = Array.from(nostr?.relays?.keys() || []);
+  const simplePoolRelays = getSimplePoolRelays(relayUrls);
+
   return {
     simplePool,
     simplePoolRelays,
+    fetchEvents, // Expose fetchEvents helper (Jumble pattern)
   };
 }

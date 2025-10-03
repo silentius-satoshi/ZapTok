@@ -3,7 +3,7 @@ import { useSimplePool } from '@/hooks/useSimplePool';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 export function useFollowing(pubkey: string) {
-  const { simplePool, simplePoolRelays } = useSimplePool();
+  const { fetchEvents, simplePoolRelays } = useSimplePool();
 
   return useQuery({
     queryKey: ['following', pubkey],
@@ -21,7 +21,7 @@ export function useFollowing(pubkey: string) {
       };
 
       // Try first with the configured relays
-      let events = simplePool.querySync(simplePoolRelays, filter);
+      let events = await fetchEvents(simplePoolRelays, filter, { signal }) as NostrEvent[];
 
       console.log('📊 [useFollowing] Found contact list events from main pool:', events.length);
 
@@ -45,7 +45,7 @@ export function useFollowing(pubkey: string) {
         // Deduplicate relay URLs
         const uniqueRelays = Array.from(new Set(broadRelays));
 
-        events = simplePool.querySync(uniqueRelays, filter);
+        events = await fetchEvents(uniqueRelays, filter, { signal }) as NostrEvent[];
 
         console.log('📊 [useFollowing] Found contact list events from broad search:', events.length);
       }

@@ -97,19 +97,42 @@ function publishEvent(event: NostrEvent): Promise<void> {
 - `/src/lib/simplePool.ts` - SimplePool singleton with smart relay exclusion
 - `/src/lib/publishingRouter.ts` - Event routing logic by kind (Cashu vs social)
 
-### Phase 2: Hook Migration
+### Phase 2: Hook Migration ✅
 **Goal**: Migrate timeline/feed hooks to SimplePool
 
-- [ ] Update `useOptimizedVideoFeed` to use SimplePool
-- [ ] Migrate `useAuthor` to SimplePool
-- [ ] Migrate `useFollowing` to SimplePool
+- [x] Update `useOptimizedVideoFeed` to use SimplePool
+- [x] Migrate `useAuthor` to SimplePool
+- [x] Migrate `useAuthors` to SimplePool
+- [x] Migrate `useFollowing` to SimplePool
+- [x] Migrate `useEvent` to SimplePool
+- [x] Migrate `useOptimizedVideoData` to SimplePool
+- [x] Create `fetchEvents()` wrapper for promise-based queries
+- [x] Fix querySync() API bug
 - [ ] Update `useComments` to use SimplePool
 - [ ] Migrate reaction/repost hooks
 
+**Critical Bug Fix**:
+- **Issue**: Phase 2 migrations incorrectly used `simplePool.querySync()` which doesn't exist in nostr-tools
+- **Symptom**: Following feed showed "Found contact list events: undefined" console error
+- **Solution**: Created `fetchEvents()` wrapper in simplePool.ts that converts `subscribeMany()` to promise-based pattern
+- **Pattern**: `await fetchEvents(relays, filter, { signal })` instead of `querySync()`
+- **Result**: All hooks now use correct Jumble-compatible API
+
 **Success Criteria**:
-- All feed queries use SimplePool
-- All Cashu queries still use NPool
-- No performance regression
+- ✅ All feed queries use SimplePool with fetchEvents wrapper
+- ✅ All Cashu queries still use NPool (unchanged)
+- ✅ No performance regression
+- ✅ Following feed works correctly
+
+**Completed Files**:
+- `/src/lib/simplePool.ts` - Added fetchEvents() wrapper converting subscribeMany() to promises
+- `/src/hooks/useSimplePool.ts` - Fixed imports, relay extraction, exposed fetchEvents
+- `/src/hooks/useAuthor.ts` - Profile queries migrated
+- `/src/hooks/useAuthors.ts` - Batch profile queries migrated with fetchEvents
+- `/src/hooks/useEvent.ts` - Single event queries migrated
+- `/src/hooks/useFollowing.ts` - Contact list queries migrated (fixed "undefined" bug)
+- `/src/hooks/useOptimizedVideoData.ts` - Video engagement migrated with Promise.all + fetchEvents
+- `/src/hooks/useOptimizedVideoFeed.ts` - Feed queries migrated
 
 ### Phase 4: Performance & Polish
 **Goal**: Achieve 95% Jumble alignment
@@ -168,12 +191,24 @@ function publishEvent(event: NostrEvent): Promise<void> {
 - [ ] `useSearchProfiles` - kind 0
 
 **Completed Phase 2 Migrations**:
-- `/src/hooks/useAuthor.ts` - Profile queries migrated
-- `/src/hooks/useAuthors.ts` - Batch profile queries migrated
-- `/src/hooks/useEvent.ts` - Single event queries migrated
-- `/src/hooks/useFollowing.ts` - Contact list queries migrated
-- `/src/hooks/useOptimizedVideoData.ts` - Video engagement migrated
-- `/src/hooks/useOptimizedVideoFeed.ts` - Feed queries migrated
+- `/src/lib/simplePool.ts` - Added fetchEvents() wrapper converting subscribeMany() to promises with EOSE resolution
+- `/src/hooks/useSimplePool.ts` - Fixed imports (useNostr instead of useNostrContext), relay Map→Array extraction, exposed fetchEvents
+- `/src/hooks/useAuthor.ts` - Profile queries migrated to fetchEvents
+- `/src/hooks/useAuthors.ts` - Batch profile queries migrated to fetchEvents with signal support
+- `/src/hooks/useEvent.ts` - Single event queries migrated to fetchEvents
+- `/src/hooks/useFollowing.ts` - Contact list queries migrated to fetchEvents (fixed "undefined" console bug)
+- `/src/hooks/useOptimizedVideoData.ts` - Video engagement migrated to Promise.all + fetchEvents pattern
+- `/src/hooks/useOptimizedVideoFeed.ts` - Feed queries migrated to fetchEvents
+
+**fetchEvents() API Pattern**:
+```typescript
+// Replaces non-existent querySync() with proper Jumble pattern
+const events = await fetchEvents(
+  relayUrls,           // string[] - relay URLs
+  filter,              // Filter | Filter[] - Nostr filters
+  { signal }           // { onevent?, signal? } - options
+) as NostrEvent[];     // Type cast for @nostrify compatibility
+```
 
 ### Needs Routing Logic (Hybrid)
 - [ ] `useNostrPublish` - Route by event kind
@@ -207,6 +242,47 @@ describe('Dual Pool Routing', () => {
 2. **Feed Performance Test**: Measure SimplePool query efficiency vs old NPool
 3. **Publishing Test**: Verify events publish to correct relay pools
 4. **Connection Test**: Confirm zero duplicate relay connections
+
+## Troubleshooting
+
+### Common Issues
+
+#### Issue: "Found contact list events: undefined"
+**Cause**: Using non-existent `simplePool.querySync()` method  
+**Solution**: Use `fetchEvents()` wrapper instead:
+```typescript
+// ❌ Wrong - querySync doesn't exist
+const events = simplePool.querySync(relays, filter);
+
+// ✅ Correct - use fetchEvents wrapper
+const events = await fetchEvents(relays, filter, { signal });
+```
+
+#### Issue: "Cannot read properties of undefined (reading 'keys')"
+**Cause**: Incorrect relay extraction from Nostr context  
+**Solution**: Relays are a Map, use Array.from():
+```typescript
+// ❌ Wrong - relays is not an array
+const relayUrls = nostr.relays;
+
+// ✅ Correct - convert Map keys to array
+const relayUrls = Array.from(nostr?.relays?.keys() || []);
+```
+
+#### Issue: Events not showing in following feed
+**Checklist**:
+1. Verify `fetchEvents()` is being used (not `querySync()`)
+2. Check console for "undefined" errors in query results
+3. Confirm relays are properly extracted from Map
+4. Ensure signal is passed for abort handling
+5. Validate filter structure matches Nostr spec
+
+#### Issue: Type errors with Event vs NostrEvent
+**Cause**: nostr-tools returns `Event`, @nostrify expects `NostrEvent`  
+**Solution**: Add type cast:
+```typescript
+const events = await fetchEvents(relays, filter, { signal }) as NostrEvent[];
+```
 
 ## Performance Expectations
 

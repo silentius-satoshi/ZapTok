@@ -1,6 +1,6 @@
 # Timeline Service Optimization Roadmap
 
-> **Status**: Phase 2 Implementation Guide  
+> **Status**: Phase 2 Complete ✅ (Phase 3 Ready)  
 > **Based On**: Jumble Timeline Architecture Analysis (75% → 95% Alignment Target)  
 > **Reference**: https://github.com/CodyTseng/jumble
 
@@ -1795,17 +1795,28 @@ export function useOfflineStorage() {
 - [x] Migrate useEvent to SimplePool (single event)
 - [x] Migrate useFollowing to SimplePool (contact lists)
 - [x] Migrate useOptimizedVideoData to SimplePool (video engagement)
+- [x] Create fetchEvents() wrapper for promise-based queries
+- [x] Fix querySync() API bug (doesn't exist in SimplePool)
+- [x] Test and validate performance improvements
 - [ ] Implement followingFavoriteRelaysService with SimplePool
 - [ ] Add LRU cache for relay aggregation
-- [x] Test and validate performance improvements
 
 **Completed Phase 2 Migrations**:
+- `/src/lib/simplePool.ts` - Added fetchEvents() wrapper converting subscribeMany() to promises
+- `/src/hooks/useSimplePool.ts` - Fixed imports, relay extraction, exposed fetchEvents
 - `/src/hooks/useAuthor.ts` - Profile queries (kind 0) migrated to SimplePool
-- `/src/hooks/useAuthors.ts` - Batch profile queries (kind 0) migrated to SimplePool
+- `/src/hooks/useAuthors.ts` - Batch profile queries (kind 0) migrated to SimplePool with fetchEvents
 - `/src/hooks/useEvent.ts` - Single event queries (any kind) migrated to SimplePool
-- `/src/hooks/useFollowing.ts` - Contact list queries (kind 3) migrated to SimplePool
-- `/src/hooks/useOptimizedVideoData.ts` - Video engagement data (kinds 1,7,6,16,9735,1111) migrated to SimplePool
+- `/src/hooks/useFollowing.ts` - Contact list queries (kind 3) migrated to fetchEvents (fixed "undefined" bug)
+- `/src/hooks/useOptimizedVideoData.ts` - Video engagement data migrated to Promise.all + fetchEvents pattern
 - `/src/hooks/useOptimizedVideoFeed.ts` - Global & following video feeds (kinds 21,22) migrated to SimplePool
+
+**Critical Bug Fix**:
+- Issue: Phase 2 migrations used `simplePool.querySync()` which doesn't exist in nostr-tools
+- Symptom: Following feed showed "Found contact list events: undefined" console error
+- Solution: Created `fetchEvents()` wrapper that converts `subscribeMany()` to promise-based pattern (Jumble-compatible)
+- Pattern: `await fetchEvents(relays, filter, { signal })` instead of `querySync()`
+- Result: All hooks now use correct API, following feed works properly
 
 ### Phase 3: NIP-42 AUTH
 - [ ] Create nip42AuthService for SimplePool

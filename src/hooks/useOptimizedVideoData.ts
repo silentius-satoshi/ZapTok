@@ -19,7 +19,7 @@ interface OptimizedVideoData {
  * Combining related queries to reduce relay load and improve performance
  */
 export function useOptimizedVideoData(eventId: string) {
-  const { simplePool, simplePoolRelays } = useSimplePool();
+  const { fetchEvents, simplePoolRelays } = useSimplePool();
 
   return useQuery({
     queryKey: ['optimized-video-data', eventId],
@@ -42,18 +42,20 @@ export function useOptimizedVideoData(eventId: string) {
 
       // Single optimized query for all video-related data
       // Combines what used to be 3-4 separate queries
-      const events = [
-        ...simplePool.querySync(simplePoolRelays, {
+      const [relatedEvents, originalEventArray] = await Promise.all([
+        fetchEvents(simplePoolRelays, {
           kinds: [1, 7, 6, 16, 9735, 1111], // Notes, reactions, reposts (both types), zaps, comments
           '#e': [eventId],
           limit: 750, // Increased limit for combined query
-        }),
+        }, { signal: combinedSignal }),
         // Also get the original event if we don't have it
-        ...simplePool.querySync(simplePoolRelays, {
+        fetchEvents(simplePoolRelays, {
           ids: [eventId],
           limit: 1,
-        })
-      ];
+        }, { signal: combinedSignal })
+      ]);
+
+      const events = [...relatedEvents, ...originalEventArray] as NostrEvent[];
 
       // Separate events by type (faster than multiple queries)
       const originalEvent = events.find(e => e.id === eventId) || null;

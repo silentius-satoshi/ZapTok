@@ -1,4 +1,5 @@
 import { SimplePool } from '@nostr/tools/pool';
+import type { Filter, Event as NostrToolsEvent } from 'nostr-tools';
 
 /**
  * Singleton SimplePool instance for timeline/feed operations
@@ -33,6 +34,70 @@ export function getSimplePoolRelays(allRelays: string[]): string[] {
  */
 export function getNPoolRelays(): string[] {
   return [CASHU_RELAY];
+}
+
+/**
+ * Fetch events from SimplePool (Jumble pattern)
+ * 
+ * Wraps SimplePool's subscribe() method into a promise-based API
+ * following Jumble's implementation pattern.
+ * 
+ * @param relays - Array of relay URLs to query
+ * @param filter - Nostr filter object(s)
+ * @param options - Optional configuration
+ * @returns Promise resolving to array of events
+ * 
+ * @example
+ * ```ts
+ * const events = await fetchEvents(
+ *   ['wss://relay.damus.io', 'wss://relay.nostr.band'],
+ *   { kinds: [1], limit: 20 }
+ * );
+ * ```
+ */
+export async function fetchEvents(
+  relays: string[],
+  filter: Filter | Filter[],
+  options: {
+    onevent?: (evt: NostrToolsEvent) => void;
+    signal?: AbortSignal;
+  } = {}
+): Promise<NostrToolsEvent[]> {
+  const { onevent, signal } = options;
+  
+  return new Promise<NostrToolsEvent[]>((resolve, reject) => {
+    const events: NostrToolsEvent[] = [];
+    const uniqueRelays = Array.from(new Set(relays));
+    
+    // Handle abort signal
+    if (signal?.aborted) {
+      reject(new DOMException('Query aborted', 'AbortError'));
+      return;
+    }
+    
+    const sub = simplePool.subscribeMany(
+      uniqueRelays,
+      Array.isArray(filter) ? filter : [filter],
+      {
+        onevent: (evt: NostrToolsEvent) => {
+          onevent?.(evt);
+          events.push(evt);
+        },
+        oneose: () => {
+          sub.close();
+          resolve(events);
+        },
+      }
+    );
+    
+    // Handle abort during subscription
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        sub.close();
+        reject(new DOMException('Query aborted', 'AbortError'));
+      });
+    }
+  });
 }
 
 /**

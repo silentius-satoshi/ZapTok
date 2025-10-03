@@ -5,7 +5,7 @@ import { useNostrConnectionState } from '@/components/NostrProvider';
 import { createConnectionAwareSignal } from '@/lib/queryOptimization';
 
 export function useAuthors(pubkeys: string[]) {
-  const { simplePool, simplePoolRelays } = useSimplePool();
+  const { fetchEvents, simplePoolRelays } = useSimplePool();
   const { getOptimalRelaysForQuery } = useNostrConnectionState();
 
   return useQuery({
@@ -21,14 +21,15 @@ export function useAuthors(pubkeys: string[]) {
       }, signal);
       
       // Optimized batch query for metadata events (kind 0)
-      const events = simplePool.querySync(
+      const events = await fetchEvents(
         simplePoolRelays,
         {
           kinds: [0],
           authors: pubkeys,
           limit: pubkeys.length * 2, // Allow for multiple metadata events per author
-        }
-      );
+        },
+        { signal: connectionAwareSignal }
+      ) as NostrEvent[];
 
       // Create a map of pubkey -> latest metadata event
       const metadataMap = new Map<string, NostrEvent>();
