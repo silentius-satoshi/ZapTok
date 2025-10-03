@@ -1064,6 +1064,47 @@ The router includes automatic scroll-to-top functionality and a 404 NotFound pag
 - Comprehensive provider setup with NostrLoginProvider, QueryClientProvider, and custom AppProvider
 - **Never use the `any` type**: Always use proper TypeScript types for type safety
 
+### Documentation Maintenance
+
+**CRITICAL**: When implementing features from roadmaps or architecture guides, always update the documentation to reflect progress.
+
+**Update Documentation When**:
+- ✅ Completing a phase or checkpoint in a roadmap
+- ✅ Implementing features from architecture guides
+- ✅ Creating new files mentioned in documentation
+- ✅ Finishing a significant implementation milestone
+
+**Documents to Update**:
+1. **Roadmap Files** (implementation plans, feature roadmaps):
+   - Mark tasks as complete with `[x]`
+   - Add ✅ emoji to completed phase headers
+   - Add "Completed Files" section listing implemented files
+   
+2. **Architecture Guides** (system design documents):
+   - Update phase status (⏳ → ✅)
+   - Add completion notes with file paths
+   - Update success criteria checkboxes
+
+**Example Update Pattern**:
+```markdown
+### Phase 1: Core Infrastructure ✅
+- [x] Create core singleton instance
+- [x] Implement business logic
+- [ ] Add integration with provider
+
+**Completed Files**:
+- `/src/lib/coreService.ts` - Core service implementation
+- `/src/lib/helperUtils.ts` - Helper utilities
+```
+
+**Workflow**:
+1. Implement feature/phase
+2. Update documentation to reflect completion
+3. Stage both code AND documentation changes
+4. Commit together with descriptive message
+
+This ensures documentation stays synchronized with implementation and provides accurate project state tracking.
+
 ### Commit Message Guidelines
 
 This project follows the `.gitmessage` format for all commits. **Always follow this structure**:
