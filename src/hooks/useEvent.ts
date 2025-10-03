@@ -4,23 +4,19 @@ import type { NostrEvent } from '@nostrify/nostrify';
 
 /**
  * Hook to fetch a specific event by its ID
+ * 
+ * Uses SimplePool for social events (not Cashu operations).
+ * Part of dual-pool architecture where SimplePool handles all social features.
  */
 export function useEvent(eventId?: string) {
   const { simplePool, simplePoolRelays } = useSimplePool();
 
   return useQuery({
     queryKey: ['event', eventId],
-    queryFn: async ({ signal }) => {
+    queryFn: async () => {
       if (!eventId) return null;
       
-      // Improved signal handling
-      const timeoutSignal = AbortSignal.timeout(5000);
-      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
-      
-      const events = simplePool.querySync(
-        simplePoolRelays,
-        { ids: [eventId] }
-      );
+      const events = simplePool.querySync(simplePoolRelays, { ids: [eventId] });
       
       return events[0] || null;
     },

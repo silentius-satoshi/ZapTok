@@ -1,4 +1,4 @@
-import { useNostr } from '@/hooks/useNostr';
+import { useSimplePool } from '@/hooks/useSimplePool';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUserGroups } from '@/hooks/useUserGroups';
@@ -40,7 +40,7 @@ const getCommunityId = (community: NostrEvent) => {
 };
 
 export function useNotifications() {
-  const { nostr } = useNostr();
+  const { simplePool, simplePoolRelays } = useSimplePool();
   const { user } = useCurrentUser();
   const { data: userGroupsData } = useUserGroups();
 
@@ -61,20 +61,14 @@ export function useNotifications() {
         7, 9735, 6, 16, // Add reactions, zaps, reposts for comprehensive notifications
       ];
 
-      // Improved signal handling with longer timeout for notification queries
-      const timeoutSignal = AbortSignal.timeout(8000);
-      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
-
+      // Query SimplePool for social events (notifications are social, not transactional)
       const events = await relayRateLimiter.queueQuery(
         'notifications',
-        () => nostr.query(
-          [{ 
-            kinds, 
-            '#p': [user.pubkey], 
-            limit: 100, // Increased limit to catch more notifications
-          }],
-          { signal: combinedSignal },
-        ),
+        () => simplePool.querySync(simplePoolRelays, { 
+          kinds, 
+          '#p': [user.pubkey], 
+          limit: 100, // Increased limit to catch more notifications
+        }),
         'high' // High priority for notifications
       );
 
@@ -177,53 +171,41 @@ export function useNotifications() {
         // Fetch all relevant moderation events for these groups
         const reportEvents = await relayRateLimiter.queueQuery(
           'moderation-reports',
-          () => nostr.query(
-            [{ 
-              kinds: [KINDS.REPORT], // Report events
-              '#a': groupIds,
-              limit: 20 
-            }],
-            { signal },
-          ),
+          () => simplePool.querySync(simplePoolRelays, { 
+            kinds: [KINDS.REPORT], // Report events
+            '#a': groupIds,
+            limit: 20 
+          }),
           'medium'
         );
 
         const reportActionEvents = await relayRateLimiter.queueQuery(
           'moderation-actions',
-          () => nostr.query(
-            [{ 
-              kinds: [KINDS.GROUP_CLOSE_REPORT], // Report action events
-              '#a': groupIds,
-              limit: 20 
-            }],
-            { signal },
-          ),
+          () => simplePool.querySync(simplePoolRelays, { 
+            kinds: [KINDS.GROUP_CLOSE_REPORT], // Report action events
+            '#a': groupIds,
+            limit: 20 
+          }),
           'medium'
         );
 
         const joinRequestEvents = await relayRateLimiter.queueQuery(
           'group-join-requests',
-          () => nostr.query(
-            [{ 
-              kinds: [KINDS.GROUP_JOIN_REQUEST], // Join request events
-              '#a': groupIds,
-              limit: 20 
-            }],
-            { signal },
-          ),
+          () => simplePool.querySync(simplePoolRelays, { 
+            kinds: [KINDS.GROUP_JOIN_REQUEST], // Join request events
+            '#a': groupIds,
+            limit: 20 
+          }),
           'medium'
         );
 
         const leaveRequestEvents = await relayRateLimiter.queueQuery(
           'group-leave-requests',
-          () => nostr.query(
-            [{ 
-              kinds: [KINDS.GROUP_LEAVE_REQUEST], // Leave request events
-              '#a': groupIds,
-              limit: 20 
-            }],
-            { signal },
-          ),
+          () => simplePool.querySync(simplePoolRelays, { 
+            kinds: [KINDS.GROUP_LEAVE_REQUEST], // Leave request events
+            '#a': groupIds,
+            limit: 20 
+          }),
           'medium'
         );
 
