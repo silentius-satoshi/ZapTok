@@ -33,6 +33,10 @@ export interface NotificationUser {
 
 export type NotificationGroup = 'all' | 'zaps' | 'likes' | 'reposts' | 'mentions' | 'follows' | 'replies';
 
+// Performance: Limit relay count to prevent slow queries (Jumble best practice)
+// Using first 5 relays provides good coverage while maintaining fast response times
+const MAX_NOTIFICATION_RELAYS = 5;
+
 // Helper function to get community ID
 const getCommunityId = (community: NostrEvent) => {
   const dTag = community.tags.find(tag => tag[0] === "d");
@@ -52,6 +56,9 @@ export function useNotifications() {
       const notifications: Notification[] = [];
       const readNotifications = JSON.parse(localStorage.getItem(`notifications:${user.pubkey}`) || '{}');
 
+      // Limit to first N relays for performance (prevents slow queries with many relays)
+      const limitedRelays = simplePoolRelays.slice(0, MAX_NOTIFICATION_RELAYS);
+
       // Optimized single query for all notification types
       const kinds = [
         KINDS.GROUP_COMMENT,
@@ -64,7 +71,7 @@ export function useNotifications() {
       // Query SimplePool for social events (notifications are social, not transactional)
       const events = await relayRateLimiter.queueQuery(
         'notifications',
-        () => simplePool.querySync(simplePoolRelays, { 
+        () => simplePool.querySync(limitedRelays, { 
           kinds, 
           '#p': [user.pubkey], 
           limit: 100, // Increased limit to catch more notifications
@@ -171,7 +178,7 @@ export function useNotifications() {
         // Fetch all relevant moderation events for these groups
         const reportEvents = await relayRateLimiter.queueQuery(
           'moderation-reports',
-          () => simplePool.querySync(simplePoolRelays, { 
+          () => simplePool.querySync(limitedRelays, { 
             kinds: [KINDS.REPORT], // Report events
             '#a': groupIds,
             limit: 20 
@@ -181,7 +188,7 @@ export function useNotifications() {
 
         const reportActionEvents = await relayRateLimiter.queueQuery(
           'moderation-actions',
-          () => simplePool.querySync(simplePoolRelays, { 
+          () => simplePool.querySync(limitedRelays, { 
             kinds: [KINDS.GROUP_CLOSE_REPORT], // Report action events
             '#a': groupIds,
             limit: 20 
@@ -191,7 +198,7 @@ export function useNotifications() {
 
         const joinRequestEvents = await relayRateLimiter.queueQuery(
           'group-join-requests',
-          () => simplePool.querySync(simplePoolRelays, { 
+          () => simplePool.querySync(limitedRelays, { 
             kinds: [KINDS.GROUP_JOIN_REQUEST], // Join request events
             '#a': groupIds,
             limit: 20 
@@ -201,7 +208,7 @@ export function useNotifications() {
 
         const leaveRequestEvents = await relayRateLimiter.queueQuery(
           'group-leave-requests',
-          () => simplePool.querySync(simplePoolRelays, { 
+          () => simplePool.querySync(limitedRelays, { 
             kinds: [KINDS.GROUP_LEAVE_REQUEST], // Leave request events
             '#a': groupIds,
             limit: 20 
