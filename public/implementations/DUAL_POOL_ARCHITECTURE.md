@@ -80,18 +80,22 @@ function publishEvent(event: NostrEvent): Promise<void> {
 
 ## Implementation Phases
 
-### Phase 1: Core Infrastructure
+### Phase 1: Core Infrastructure ✅
 **Goal**: Establish dual-pool foundation
 
-- [ ] Create SimplePool singleton instance (`/src/lib/simplePool.ts`)
-- [ ] Implement smart relay exclusion logic
-- [ ] Create publishing router utility
+- [x] Create SimplePool singleton instance (`/src/lib/simplePool.ts`)
+- [x] Implement smart relay exclusion logic
+- [x] Create publishing router utility
 - [ ] Add SimplePool to NostrProvider context
 
 **Success Criteria**:
-- SimplePool connects only to non-Cashu relays
-- NPool continues to work unchanged for Cashu
-- Publishing router correctly routes by event kind
+- ✅ SimplePool singleton created with relay filtering
+- ✅ Publishing router routes events by kind
+- ⏳ Integration with NostrProvider pending
+
+**Completed**:
+- `/src/lib/simplePool.ts` - SimplePool singleton with smart relay exclusion
+- `/src/lib/publishingRouter.ts` - Event routing logic by kind (Cashu vs social)
 
 ### Phase 2: Hook Migration
 **Goal**: Migrate timeline/feed hooks to SimplePool

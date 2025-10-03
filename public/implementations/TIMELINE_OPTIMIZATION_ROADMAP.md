@@ -1778,11 +1778,15 @@ export function useOfflineStorage() {
 
 ## Implementation Roadmap
 
-### Phase 1: SimplePool Infrastructure
+### Phase 1: SimplePool Infrastructure ✅
 - [x] Create DUAL_POOL_ARCHITECTURE.md documentation
-- [ ] Create SimplePool instance and relay exclusion logic
-- [ ] Implement publishing router (Cashu vs general events)
+- [x] Create SimplePool instance and relay exclusion logic
+- [x] Implement publishing router (Cashu vs general events)
 - [ ] Add SimplePool to NostrProvider
+
+**Completed Files**:
+- `/src/lib/simplePool.ts` - SimplePool singleton, relay filtering helpers
+- `/src/lib/publishingRouter.ts` - Event routing by kind
 
 ### Phase 2: Following Feed Optimization
 - [ ] Implement followingFavoriteRelaysService with SimplePool

@@ -13,6 +13,7 @@ import smartRelaySelectionService from '@/services/smartRelaySelection.service';
 import { relayHealthMonitor } from '@/services/relayHealthMonitor';
 import { connectionPoolManager } from '@/services/connectionPoolManager';
 import { queryStrategyManager, type QueryType } from '@/services/queryStrategyManager';
+import { simplePool, getSimplePoolRelays, CASHU_RELAY } from '@/lib/simplePool';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -36,6 +37,9 @@ interface NostrConnectionContextValue {
   getOptimalRelaysForQuery: (queryType: QueryType, limit?: number) => string[];
   getRelayHealth: (relayUrl: string) => { score: number; status: 'healthy' | 'degraded' | 'unhealthy' } | null;
   getConnectionStats: () => { pool: any; health: any };
+  // Phase 1: Dual-pool architecture
+  simplePool: any; // SimplePool type mismatch between nostr-tools versions
+  simplePoolRelays: string[];
 }
 
 const NostrConnectionContext = createContext<NostrConnectionContextValue>({
@@ -51,6 +55,8 @@ const NostrConnectionContext = createContext<NostrConnectionContextValue>({
   getOptimalRelaysForQuery: () => [],
   getRelayHealth: () => null,
   getConnectionStats: () => ({ pool: {}, health: {} }),
+  simplePool,
+  simplePoolRelays: [],
 });
 
 const NostrProvider: React.FC<NostrProviderProps> = (props) => {
@@ -450,6 +456,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       getOptimalRelaysForQuery,
       getRelayHealth,
       getConnectionStats,
+      simplePool,
+      simplePoolRelays: getSimplePoolRelays(activeRelays),
     }}>
       <NostrContext.Provider value={{ nostr: pool.current }}>
         {children}
