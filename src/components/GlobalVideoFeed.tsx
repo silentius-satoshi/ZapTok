@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { devLog } from '@/lib/devConsole';
 import { bundleLog } from '@/lib/logBundler';
+import { ZapTokLogo } from '@/components/ZapTokLogo';
 
 export interface GlobalVideoFeedRef {
   refresh: () => void;
@@ -352,10 +353,17 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-black">
-        <div className="text-center">
-          <div className="w-12 h-12 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading global video feed...</p>
+      <div className="flex flex-col items-center justify-center h-full space-y-6 p-8">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-pulse">
+            <ZapTokLogo size={80} className="opacity-80" />
+          </div>
+          <div className="text-center space-y-2">
+            <h3 className="text-lg font-medium text-white">Loading global feed...</h3>
+            <p className="text-gray-400 text-sm">
+              Discovering the latest videos from across the network...
+            </p>
+          </div>
         </div>
       </div>
     );

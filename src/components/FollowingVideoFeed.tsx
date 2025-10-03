@@ -14,6 +14,7 @@ import { type VideoEvent } from '@/lib/validateVideoEvent';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { bundleLog } from '@/lib/logBundler';
+import { ZapTokLogo } from '@/components/ZapTokLogo';
 
 export interface FollowingVideoFeedRef {
   refresh: () => void;
@@ -175,9 +176,18 @@ export const FollowingVideoFeed = forwardRef<FollowingVideoFeedRef>((props, ref)
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full space-y-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        <p className="text-muted-foreground">Loading your feed...</p>
+      <div className="flex flex-col items-center justify-center h-full space-y-6 p-8">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-pulse">
+            <ZapTokLogo size={80} className="opacity-80" />
+          </div>
+          <div className="text-center space-y-2">
+            <h3 className="text-lg font-medium text-white">Loading your feed...</h3>
+            <p className="text-gray-400 text-sm">
+              Finding videos from people you follow...
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
