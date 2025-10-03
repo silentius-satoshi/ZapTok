@@ -1066,38 +1066,60 @@ The router includes automatic scroll-to-top functionality and a 404 NotFound pag
 
 ### Commit Message Guidelines
 
-**Format**: Use clear, descriptive commit messages without emojis or special characters
+This project follows the `.gitmessage` format for all commits. **Always follow this structure**:
 
-**Structure**:
+**Format**:
 ```
-Brief summary line (50 chars max)
+type(scope): brief description (50 chars max)
 
-Detailed description organized by categories:
-- Core Changes: Main functionality modifications
-- New Components: Added components and their purpose
-- Improvements: Enhancements and optimizations
-- Bug Fixes: Issues resolved and their impact
+Detailed explanation of what and why vs. how (wrap at 72 characters).
+Use bullet points with "-" for multiple changes.
 ```
 
-**Examples**:
+**Commit Types**:
+- `feat` - New feature
+- `fix` - Bug fix
+- `docs` - Documentation changes
+- `style` - Formatting, missing semicolons, etc (no code change)
+- `refactor` - Refactoring production code
+- `test` - Adding tests (no production code change)
+- `chore` - Build tasks, package configs, etc (no production code change)
+
+**Scopes**:
+- `ui`, `video`, `zaps`, `auth`, `nostr`, `cashu`, `timeline`, `comments`, `profile`, `build`
+
+**Requirements**:
+- Use **lowercase** for type and scope
+- Use **imperative mood** ("add" not "added" or "adds")
+- **No period** at end of subject line
+- **Blank line** between subject and body
+- Body explains **what and why** vs. how
+- Use **"-"** for multiple changes in body
+
+**Example**:
 ```
-Enhanced QR code system with ZapTok branding
+docs(timeline): add dual-pool architecture guide
 
-Core Changes:
-- Implemented styled QR components with brand integration
-- Updated Lightning invoice display with new QR system
+Add comprehensive implementation documentation for dual-pool
+architecture system that optimizes timeline performance while
+preserving Cashu isolation.
 
-New Components:
-- QrCode: Branded QR component with icon overlay
-- LightningInvoiceQrCode: Modal QR display for invoices
+Core Documentation:
+- DUAL_POOL_ARCHITECTURE.md - Complete implementation guide
+- TIMELINE_OPTIMIZATION_ROADMAP.md - Phased roadmap
+
+Architecture Strategy:
+- Dual-pool preserves 100% Cashu backward compatibility
+- SimplePool handles timeline/feed via general relays
+- NPool handles Cashu operations via dedicated relay
 ```
 
-**Guidelines**:
-- **No emojis or special symbols** in commit messages
-- **Start with verb**: "Enhanced", "Added", "Fixed", "Updated"
-- **Be specific**: Mention component names and key changes
-- **Group related changes**: Use bullet points for organization
-- **Include impact**: Mention user-facing improvements when relevant
+**Common Mistakes to Avoid**:
+- ❌ Emojis or special symbols
+- ❌ Capitalized type/scope: `Docs(Timeline)` → `docs(timeline)`
+- ❌ Period at end: `fix(auth): resolve login.` → `fix(auth): resolve login`
+- ❌ Past tense: `fixed bug` → `fix bug`
+- ❌ No scope when applicable: `docs: add guide` → `docs(timeline): add guide`
 
 ## Loading States
 
