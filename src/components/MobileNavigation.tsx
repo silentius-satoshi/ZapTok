@@ -73,6 +73,45 @@ export function MobileNavigation() {
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
+  // Swipe gesture state for closing hamburger menu
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
+
+  // Minimum swipe distance (in px) for gesture to be recognized
+  const minSwipeDistance = 50;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY,
+    });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY,
+    });
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distanceX = touchStart.x - touchEnd.x;
+    const distanceY = touchStart.y - touchEnd.y;
+    
+    // Check for swipe right (to close menu from right side)
+    const isRightSwipe = distanceX < -minSwipeDistance && Math.abs(distanceY) < Math.abs(distanceX);
+    
+    // Check for swipe up
+    const isUpSwipe = distanceY > minSwipeDistance && Math.abs(distanceX) < Math.abs(distanceY);
+
+    if (isRightSwipe || isUpSwipe) {
+      setIsOpen(false);
+    }
+  };
+
   // Format balance for currency toggle button (similar to desktop LoginArea)
   const formatToggleBalance = () => {
     if (!user) return '';
@@ -364,16 +403,22 @@ export function MobileNavigation() {
                   <Menu className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
                 </button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-80 bg-black border-gray-800 p-0">
+              <SheetContent 
+                side="right" 
+                className="w-80 bg-black border-gray-800 p-0"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
                 <div className="flex flex-col h-full">
                   <SheetHeader className="p-6 border-b border-gray-800">
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center justify-between gap-6">
                       <SheetTitle className="text-white flex items-center space-x-2">
                         <ZapTokLogo size={24} />
                         <span>ZapTok</span>
                       </SheetTitle>
-                      {/* Feed/Relay Switcher */}
-                      <div className="flex-shrink-0">
+                      {/* Feed/Relay Switcher - positioned with left margin to avoid close button */}
+                      <div className="flex-shrink-0 mr-2">
                         <FeedButton className="bg-gray-800/30 hover:bg-gray-700/40 transition-all" />
                       </div>
                     </div>
