@@ -13,7 +13,7 @@ export function About() {
   const navigate = useNavigate();
 
   useSeoMeta({
-    title: 'About ZapTok - Nostr Video Platform',
+    title: 'About ZapTok',
     description: 'Learn about ZapTok, the decentralized video platform built on the Nostr protocol. Discover how we\'re revolutionizing social media with censorship-resistant, peer-to-peer video sharing.',
   });
 

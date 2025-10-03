@@ -37,7 +37,7 @@ export default defineConfig(() => ({
       },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'ZapTok - Nostr Video Platform',
+        name: 'ZapTok',
         short_name: 'ZapTok',
         description: 'Discover and share videos on the decentralized Nostr network',
         theme_color: '#000000',

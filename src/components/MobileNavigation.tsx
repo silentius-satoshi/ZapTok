@@ -218,7 +218,7 @@ export function MobileNavigation() {
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="mx-auto flex w-full max-w-screen-sm items-center justify-between px-4 py-3">
-          {/* Left side - Currency Toggle Button + Feed Button */}
+          {/* Left side - Currency Toggle Button */}
           <div className="flex gap-2 font-semibold text-lg tracking-wide pointer-events-auto">
             <button
               className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
@@ -256,9 +256,6 @@ export function MobileNavigation() {
                 </>
               )}
             </button>
-            
-            {/* Feed Selection Button */}
-            <FeedButton />
           </div>
 
           {/* Right side - Action icons */}
@@ -370,11 +367,15 @@ export function MobileNavigation() {
               <SheetContent side="right" className="w-80 bg-black border-gray-800 p-0">
                 <div className="flex flex-col h-full">
                   <SheetHeader className="p-6 border-b border-gray-800">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <SheetTitle className="text-white flex items-center space-x-2">
                         <ZapTokLogo size={24} />
                         <span>ZapTok</span>
                       </SheetTitle>
+                      {/* Feed/Relay Switcher */}
+                      <div className="flex-shrink-0">
+                        <FeedButton className="bg-gray-800/30 hover:bg-gray-700/40 transition-all" />
+                      </div>
                     </div>
                   </SheetHeader>
 
