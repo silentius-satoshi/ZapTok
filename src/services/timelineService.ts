@@ -315,6 +315,12 @@ class TimelineService extends EventTarget {
         })
       } catch (error) {
         console.error(`Failed to connect to relay ${url}:`, error)
+        // Count failed connection as EOSE to prevent infinite loading
+        if (!eosed) {
+          eosedCount++
+          eosed = eosedCount >= startedCount
+          oneose?.(eosed)
+        }
         return { close: () => {} }
       }
     })
