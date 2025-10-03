@@ -77,8 +77,10 @@ export function MobileNavigation() {
   const formatToggleBalance = () => {
     if (!user) return '';
 
-    // Get balances from both sources
-    const lightningBalance = userHasLightningAccess ? (walletInfo?.balance || 0) : 0;
+    // Get fresh Lightning balance from localStorage (updated by periodic refresh)
+    const lightningBalance = userHasLightningAccess 
+      ? (parseInt(localStorage.getItem(`lightning_balance_${user.pubkey}`) || '0', 10) || 0)
+      : 0;
     const totalBalance = lightningBalance + cashuBalance;
 
     if (showSats) {
@@ -231,7 +233,15 @@ export function MobileNavigation() {
             >
               {showSats ? (
                 <>
-                  <Bitcoin className="w-4 h-4 text-orange-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                  <div className="flex items-center gap-0.5">
+                    <Bitcoin className="w-4 h-4 text-orange-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                    <img 
+                      src="/images/cashu-icon.png" 
+                      alt="Cashu" 
+                      className="w-3 h-3" 
+                      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
+                    />
+                  </div>
                   <span className="text-orange-200 font-medium text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
                     {user ? formatToggleBalance() : '0'} sats
                   </span>

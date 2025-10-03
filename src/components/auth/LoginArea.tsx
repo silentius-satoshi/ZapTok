@@ -148,7 +148,14 @@ export function LoginArea({
     >
       {showSats ? (
         <>
-          <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
+          <div className="flex items-center gap-0.5">
+            <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
+            <img 
+              src="/images/cashu-icon.png" 
+              alt="Cashu" 
+              className="w-3 h-3"
+            />
+          </div>
           <span className='text-orange-200 font-medium text-xs group-hover:text-orange-100 transition-colors duration-200'>
             {formatBalance().replace(' sats', '')} sats
           </span>
