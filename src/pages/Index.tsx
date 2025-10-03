@@ -1,5 +1,4 @@
 import { useSeoMeta } from '@unhead/react';
-import { FollowingVideoFeed } from '@/components/FollowingVideoFeed';
 import { TimelineFollowingVideoFeed } from '@/components/TimelineFollowingVideoFeed';
 import { Navigation } from '@/components/Navigation';
 import { LoginArea } from '@/components/auth/LoginArea';
@@ -8,15 +7,12 @@ import { MobileNavigation } from '@/components/MobileNavigation';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useFeedRefresh } from '@/contexts/FeedRefreshContext';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { Button } from '@/components/ui/button';
 import { VideoInteractionPrompt } from '@/components/auth/LoginPrompt';
-import { useState } from 'react';
 
 const Index = () => {
   const isMobile = useIsMobile();
   const { followingFeedRef } = useFeedRefresh();
   const { user, isAuthenticated } = useCurrentUser();
-  const [useTimelineFeed, setUseTimelineFeed] = useState(true); // Default to timeline feed
 
   useSeoMeta({
     title: 'ZapTok - Homepage',
@@ -38,10 +34,7 @@ const Index = () => {
 
               {/* Navigation */}
               <div className="flex-1">
-                <Navigation 
-                  useTimelineFeed={useTimelineFeed}
-                  setUseTimelineFeed={setUseTimelineFeed}
-                />
+                <Navigation />
               </div>
             </div>
 
@@ -49,14 +42,10 @@ const Index = () => {
             <div className="flex-1 overflow-hidden relative">
               <div className="w-full h-full">
                 {isAuthenticated ? (
-                  useTimelineFeed ? (
-                    <TimelineFollowingVideoFeed 
-                      ref={followingFeedRef} 
-                      // disableAutoRefresh={true} // Uncomment to disable all auto-refresh and only refresh on manual pull-to-refresh
-                    />
-                  ) : (
-                    <FollowingVideoFeed ref={followingFeedRef} />
-                  )
+                  <TimelineFollowingVideoFeed 
+                    ref={followingFeedRef} 
+                    // disableAutoRefresh={true} // Uncomment to disable all auto-refresh and only refresh on manual pull-to-refresh
+                  />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full space-y-6 p-8">
                     <div className="text-center space-y-4">
