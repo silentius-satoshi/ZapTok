@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
+import { useSimplePool } from '@/hooks/useSimplePool';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface OptimizedVideoData {
@@ -19,7 +19,7 @@ interface OptimizedVideoData {
  * Combining related queries to reduce relay load and improve performance
  */
 export function useOptimizedVideoData(eventId: string) {
-  const { nostr } = useNostr();
+  const { simplePool, simplePoolRelays } = useSimplePool();
 
   return useQuery({
     queryKey: ['optimized-video-data', eventId],
@@ -42,18 +42,18 @@ export function useOptimizedVideoData(eventId: string) {
 
       // Single optimized query for all video-related data
       // Combines what used to be 3-4 separate queries
-      const events = await nostr.query([
-        {
+      const events = [
+        ...simplePool.querySync(simplePoolRelays, {
           kinds: [1, 7, 6, 16, 9735, 1111], // Notes, reactions, reposts (both types), zaps, comments
           '#e': [eventId],
           limit: 750, // Increased limit for combined query
-        },
+        }),
         // Also get the original event if we don't have it
-        {
+        ...simplePool.querySync(simplePoolRelays, {
           ids: [eventId],
           limit: 1,
-        }
-      ], { signal: combinedSignal });
+        })
+      ];
 
       // Separate events by type (faster than multiple queries)
       const originalEvent = events.find(e => e.id === eventId) || null;

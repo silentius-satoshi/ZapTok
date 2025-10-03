@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
+import { useSimplePool } from '@/hooks/useSimplePool';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNostrConnectionState } from '@/components/NostrProvider';
 import { createConnectionAwareSignal } from '@/lib/queryOptimization';
 
 export function useAuthors(pubkeys: string[]) {
-  const { nostr } = useNostr();
+  const { simplePool, simplePoolRelays } = useSimplePool();
   const { getOptimalRelaysForQuery } = useNostrConnectionState();
 
   return useQuery({
@@ -21,13 +21,14 @@ export function useAuthors(pubkeys: string[]) {
       }, signal);
       
       // Optimized batch query for metadata events (kind 0)
-      const events = await nostr.query([
+      const events = simplePool.querySync(
+        simplePoolRelays,
         {
           kinds: [0],
           authors: pubkeys,
           limit: pubkeys.length * 2, // Allow for multiple metadata events per author
         }
-      ], { signal: connectionAwareSignal });
+      );
 
       // Create a map of pubkey -> latest metadata event
       const metadataMap = new Map<string, NostrEvent>();

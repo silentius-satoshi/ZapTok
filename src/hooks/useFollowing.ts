@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
-import { NPool, NRelay1 } from '@nostrify/nostrify';
+import { useSimplePool } from '@/hooks/useSimplePool';
+import type { NostrEvent } from '@nostrify/nostrify';
 
 export function useFollowing(pubkey: string) {
-  const { nostr } = useNostr();
+  const { simplePool, simplePoolRelays } = useSimplePool();
 
   return useQuery({
     queryKey: ['following', pubkey],
@@ -14,14 +14,14 @@ export function useFollowing(pubkey: string) {
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
 
-      // Try first with the main nostr instance
-      let events = await nostr.query([
-        {
-          kinds: [3],
-          authors: [pubkey],
-          limit: 1,
-        }
-      ], { signal });
+      const filter = {
+        kinds: [3],
+        authors: [pubkey],
+        limit: 1,
+      };
+
+      // Try first with the configured relays
+      let events = simplePool.querySync(simplePoolRelays, filter);
 
       console.log('📊 [useFollowing] Found contact list events from main pool:', events.length);
 
@@ -29,49 +29,25 @@ export function useFollowing(pubkey: string) {
       if (events.length === 0) {
         console.log('📊 [useFollowing] No events from main pool, trying with broader relay set...');
 
-        // Create a temporary pool with more relays specifically for contact list lookup
-        const tempPool = new NPool({
-          open(url: string) {
-            return new NRelay1(url);
-          },
-          reqRouter(filters) {
-            const relayMap = new Map();
-            // Use all these relays for contact list lookup
-            const broadRelays = [
-              'wss://relay.primal.net',
-              'wss://relay.nostr.band',
-              'wss://relay.damus.io',
-              'wss://nos.lol',
-              'wss://pyramid.fiatjaf.com',
-              'wss://relay.snort.social',
-              'wss://offchain.pub',
-              'wss://relay.current.fyi'
-            ];
+        // Use a broader set of relays specifically for contact list lookup
+        const broadRelays = [
+          ...simplePoolRelays, // Include configured relays
+          'wss://relay.primal.net',
+          'wss://relay.nostr.band',
+          'wss://relay.damus.io',
+          'wss://nos.lol',
+          'wss://pyramid.fiatjaf.com',
+          'wss://relay.snort.social',
+          'wss://offchain.pub',
+          'wss://relay.current.fyi'
+        ];
 
-            for (const relay of broadRelays) {
-              relayMap.set(relay, filters);
-            }
-            return relayMap;
-          },
-          eventRouter() {
-            return [];
-          },
-        });
+        // Deduplicate relay URLs
+        const uniqueRelays = Array.from(new Set(broadRelays));
 
-        try {
-          events = await tempPool.query([
-            {
-              kinds: [3],
-              authors: [pubkey],
-              limit: 1,
-            }
-          ], { signal });
+        events = simplePool.querySync(uniqueRelays, filter);
 
-          console.log('📊 [useFollowing] Found contact list events from broad search:', events.length);
-        } finally {
-          // Clean up the temporary pool
-          tempPool.close();
-        }
+        console.log('📊 [useFollowing] Found contact list events from broad search:', events.length);
       }
 
       if (events.length === 0) {

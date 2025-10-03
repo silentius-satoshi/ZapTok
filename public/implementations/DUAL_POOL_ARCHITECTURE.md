@@ -153,16 +153,27 @@ function publishEvent(event: NostrEvent): Promise<void> {
 - [ ] `useCashuReceiveToken` - Token reception
 - [ ] `useCashuBalance` - Balance queries
 
-### Can Move to SimplePool (Feed/Social)
-- [ ] `useOptimizedVideoFeed` - kinds 21, 22
-- [ ] `useAuthor` - kind 0 (profiles)
-- [ ] `useFollowing` - kind 3 (contact lists)
+### Can Move to SimplePool (Feed/Social) ✅
+- [x] `useOptimizedVideoFeed` - kinds 21, 22
+- [x] `useAuthor` - kind 0 (profiles)
+- [x] `useAuthors` - kind 0 (batch profiles)
+- [x] `useFollowing` - kind 3 (contact lists)
+- [x] `useEvent` - any kind (single event)
+- [x] `useOptimizedVideoData` - kinds 1,7,6,16,9735,1111
 - [ ] `useComments` - kind 1111
 - [ ] `useReactions` - kind 7
 - [ ] `useReposts` - kinds 6, 16
 - [ ] `useRelayList` - kind 10002
 - [ ] `useRecommendedProfiles` - kind 0
 - [ ] `useSearchProfiles` - kind 0
+
+**Completed Phase 2 Migrations**:
+- `/src/hooks/useAuthor.ts` - Profile queries migrated
+- `/src/hooks/useAuthors.ts` - Batch profile queries migrated
+- `/src/hooks/useEvent.ts` - Single event queries migrated
+- `/src/hooks/useFollowing.ts` - Contact list queries migrated
+- `/src/hooks/useOptimizedVideoData.ts` - Video engagement migrated
+- `/src/hooks/useOptimizedVideoFeed.ts` - Feed queries migrated
 
 ### Needs Routing Logic (Hybrid)
 - [ ] `useNostrPublish` - Route by event kind

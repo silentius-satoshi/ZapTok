@@ -1788,11 +1788,24 @@ export function useOfflineStorage() {
 - `/src/lib/simplePool.ts` - SimplePool singleton, relay filtering helpers
 - `/src/lib/publishingRouter.ts` - Event routing by kind
 
-### Phase 2: Following Feed Optimization
+### Phase 2: Following Feed Optimization ✅
+- [x] Migrate useOptimizedVideoFeed to SimplePool
+- [x] Migrate useAuthor to SimplePool (profile queries)
+- [x] Migrate useAuthors to SimplePool (batch profiles)
+- [x] Migrate useEvent to SimplePool (single event)
+- [x] Migrate useFollowing to SimplePool (contact lists)
+- [x] Migrate useOptimizedVideoData to SimplePool (video engagement)
 - [ ] Implement followingFavoriteRelaysService with SimplePool
-- [ ] Migrate useOptimizedVideoFeed to SimplePool
 - [ ] Add LRU cache for relay aggregation
-- [ ] Test and validate performance improvements
+- [x] Test and validate performance improvements
+
+**Completed Phase 2 Migrations**:
+- `/src/hooks/useAuthor.ts` - Profile queries (kind 0) migrated to SimplePool
+- `/src/hooks/useAuthors.ts` - Batch profile queries (kind 0) migrated to SimplePool
+- `/src/hooks/useEvent.ts` - Single event queries (any kind) migrated to SimplePool
+- `/src/hooks/useFollowing.ts` - Contact list queries (kind 3) migrated to SimplePool
+- `/src/hooks/useOptimizedVideoData.ts` - Video engagement data (kinds 1,7,6,16,9735,1111) migrated to SimplePool
+- `/src/hooks/useOptimizedVideoFeed.ts` - Global & following video feeds (kinds 21,22) migrated to SimplePool
 
 ### Phase 3: NIP-42 AUTH
 - [ ] Create nip42AuthService for SimplePool

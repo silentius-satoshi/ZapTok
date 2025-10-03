@@ -1,4 +1,4 @@
-import { useNostr } from '@/hooks/useNostr';
+import { useSimplePool } from '@/hooks/useSimplePool';
 import { useQuery } from '@tanstack/react-query';
 import type { NostrEvent } from '@nostrify/nostrify';
 
@@ -6,7 +6,7 @@ import type { NostrEvent } from '@nostrify/nostrify';
  * Hook to fetch a specific event by its ID
  */
 export function useEvent(eventId?: string) {
-  const { nostr } = useNostr();
+  const { simplePool, simplePoolRelays } = useSimplePool();
 
   return useQuery({
     queryKey: ['event', eventId],
@@ -17,9 +17,9 @@ export function useEvent(eventId?: string) {
       const timeoutSignal = AbortSignal.timeout(5000);
       const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
       
-      const events = await nostr.query(
-        [{ ids: [eventId] }],
-        { signal: combinedSignal }
+      const events = simplePool.querySync(
+        simplePoolRelays,
+        { ids: [eventId] }
       );
       
       return events[0] || null;

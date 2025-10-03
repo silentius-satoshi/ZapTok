@@ -1,10 +1,10 @@
 import { type NostrEvent, type NostrMetadata, NSchema as n } from '@nostrify/nostrify';
-import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
 import { relayRateLimiter } from '@/lib/relayRateLimiter';
+import { useSimplePool } from '@/hooks/useSimplePool';
 
 export function useAuthor(pubkey: string | undefined) {
-  const { nostr } = useNostr();
+  const { simplePool, simplePoolRelays } = useSimplePool();
 
   return useQuery<{ event?: NostrEvent; metadata?: NostrMetadata }>({
     queryKey: ['author', pubkey ?? ''],
@@ -19,14 +19,13 @@ export function useAuthor(pubkey: string | undefined) {
 
       const filter = { kinds: [0], authors: [pubkey!], limit: 1 };
 
-      const [event] = await relayRateLimiter.queueQuery(
+      const events = await relayRateLimiter.queueQuery(
         'author-profiles',
-        () => nostr.query(
-          [filter],
-          { signal: combinedSignal },
-        ),
+        () => simplePool.querySync(simplePoolRelays, filter),
         'high' // High priority for profile data
-      );
+      ) as NostrEvent[];
+
+      const event = events[0];
 
       if (!event) {
         throw new Error('No event found');

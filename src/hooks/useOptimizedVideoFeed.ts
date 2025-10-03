@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
+import { useSimplePool } from '@/hooks/useSimplePool';
 import { validateVideoEvent, type VideoEvent } from '@/lib/validateVideoEvent';
 import { relayRateLimiter, QueryDeduplicator } from '@/lib/relayRateLimiter';
 import { useBatchedVideoQuery } from '@/hooks/useBatchedVideoQuery';
@@ -31,7 +31,7 @@ export function useOptimizedGlobalVideoFeed(options: {
   maxPages?: number;
   cacheDuration?: number;
 } = {}) {
-  const { nostr } = useNostr();
+  const { simplePool, simplePoolRelays } = useSimplePool();
   const { getOptimalRelaysForQuery } = useNostrConnectionState();
   const queryClient = useQueryClient();
 
@@ -68,14 +68,14 @@ export function useOptimizedGlobalVideoFeed(options: {
               ...(pageParam && { until: pageParam }),
             };
 
-            const events = await nostr.query([filter], { signal: connectionSignal });
+            const events = simplePool.querySync(simplePoolRelays, filter);
             
             bundleLog('globalVideoFetch', '🌍 Fetching global video content');
             return events;
           },
           'high' // High priority for visible content
         );
-      });
+      }) as NostrEvent[];
 
       // Filter and validate events
       const validEvents = events.filter(validateVideoEvent) as VideoEvent[];
@@ -129,7 +129,7 @@ export function useOptimizedFollowingVideoFeed(options: {
 } = {}) {
   const { user } = useCurrentUser();
   const following = useFollowing(user?.pubkey || '');
-  const { nostr } = useNostr();
+  const { simplePool, simplePoolRelays } = useSimplePool();
   const { getOptimalRelaysForQuery } = useNostrConnectionState();
 
   const {
@@ -173,11 +173,11 @@ export function useOptimizedFollowingVideoFeed(options: {
               ...(pageParam && { until: pageParam }),
             };
 
-            return await nostr.query([filter], { signal: connectionSignal });
+            return simplePool.querySync(simplePoolRelays, filter);
           },
           'high'
         );
-      });
+      }) as NostrEvent[];
 
       // Validate and deduplicate videos
       const validEvents = events.filter(validateVideoEvent) as VideoEvent[];
