@@ -199,7 +199,7 @@ class RelayListService {
       // Use DataLoader for efficient batched fetching
       if (forceRefresh) {
         // Clear cache and DataLoader cache for this pubkey
-        this.clearCache(pubkey);
+        await this.clearCache(pubkey);
         const dataLoader = this.getDataLoader(nostr);
         dataLoader.clear(pubkey);
       }
@@ -225,10 +225,10 @@ class RelayListService {
     if (forceRefresh) {
       // Clear caches for all requested pubkeys
       const dataLoader = this.getDataLoader(nostr);
-      pubkeys.forEach(pubkey => {
-        this.clearCache(pubkey);
+      for (const pubkey of pubkeys) {
+        await this.clearCache(pubkey);
         dataLoader.clear(pubkey);
-      });
+      }
     }
 
     try {
@@ -374,23 +374,23 @@ class RelayListService {
    * Clear cache for specific user or all users
    * Enhanced to also clear DataLoader cache
    */
-  clearCache(pubkey?: string): void {
+  async clearCache(pubkey?: string): Promise<void> {
     if (pubkey) {
       this.cache.delete(pubkey);
       // Clear from all DataLoaders
       this.relayListDataLoaders.forEach(dataLoader => {
         dataLoader.clear(pubkey);
       });
-      // Clear from IndexedDB as well
-      indexedDBService.deleteRelayListEvent(pubkey).catch(console.warn);
+      // Clear from IndexedDB as well - await to ensure deletion completes
+      await indexedDBService.deleteRelayListEvent(pubkey).catch(console.warn);
     } else {
       this.cache.clear();
       // Clear all DataLoaders
       this.relayListDataLoaders.forEach(dataLoader => {
         dataLoader.clearAll();
       });
-      // Clear all relay lists from IndexedDB
-      indexedDBService.clearRelayLists().catch(console.warn);
+      // Clear all relay lists from IndexedDB - await to ensure deletion completes
+      await indexedDBService.clearRelayLists().catch(console.warn);
     }
   }
 

@@ -148,8 +148,8 @@ export function AdvancedRelaySettings() {
       await user.signer.signEvent(eventTemplate).then(signedEvent => nostr.event(signedEvent));
       setHasChanges(false);
       
-      // Clear the service cache to ensure fresh data
-      relayListService.clearCache(user.pubkey);
+      // Clear the service cache to ensure fresh data - await to ensure deletion completes
+      await relayListService.clearCache(user.pubkey);
       
       // Wait a moment for relay propagation
       await new Promise(resolve => setTimeout(resolve, 1000));
