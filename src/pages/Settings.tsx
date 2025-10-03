@@ -7,6 +7,7 @@ import { useSettingsLogic } from '@/hooks/useSettingsLogic';
 import { useWallet } from '@/hooks/useWallet';
 import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
+import { useNostrConnection } from '@/components/NostrProvider';
 import {
   settingsSections,
   getSettingSectionById,
@@ -19,6 +20,7 @@ import {
 export function Settings() {
   const { config } = useAppContext();
   const { isBunkerSigner } = useWallet();
+  const { activeRelays, connectionState, userRelayList } = useNostrConnection();
   const navigate = useNavigate();
 
   useSeoMeta({
@@ -42,21 +44,38 @@ export function Settings() {
     handleTestConnection
   } = useSettingsLogic();
 
-  // Mock additional relays for display if less than 2 active
+  // Display user's configured relays from NIP-65 relay list
   const getDisplayRelays = () => {
-    const activeRelays = config.relayUrls;
-    const placeholderCount = Math.max(0, Math.max(2, config.relayUrls.length) - activeRelays.length);
+    let displayRelays: string[] = [];
+    
+    // Use user's NIP-65 relay list if available
+    if (userRelayList && (userRelayList.read.length > 0 || userRelayList.write.length > 0)) {
+      // Combine read and write relays, removing duplicates
+      const allUserRelays = new Set([...userRelayList.read, ...userRelayList.write]);
+      displayRelays = Array.from(allUserRelays);
+    } else if (activeRelays.length > 0) {
+      // Fallback to active relays if no user relay list
+      displayRelays = activeRelays;
+    }
+    
+    const placeholderCount = Math.max(0, Math.max(2, displayRelays.length) - displayRelays.length);
     const placeholders = Array.from({ length: placeholderCount }, (_, i) => ({
       name: `relay${i + 1}.example.com`,
       url: `wss://relay${i + 1}.example.com/`,
       status: 'placeholder' as const
     }));
 
-    return [...activeRelays.map(url => ({
-      name: url.replace(/^wss?:\/\//, ''),
-      url,
-      status: 'active' as const
-    })), ...placeholders];
+    return [...displayRelays.map(url => {
+      const isConnected = connectionState[url] === 'connected';
+      const isConnecting = connectionState[url] === 'connecting';
+      
+      return {
+        name: url.replace(/^wss?:\/\//, ''),
+        url,
+        // Show as 'active' if we have connection state showing connected, otherwise 'inactive'
+        status: (isConnected ? 'active' : isConnecting ? 'connecting' : 'inactive') as 'active' | 'connecting' | 'inactive' | 'placeholder'
+      };
+    }), ...placeholders];
   };
 
   const renderSettingsContent = () => {
@@ -208,6 +227,7 @@ export function Settings() {
                 <div key={index} className="flex items-center gap-4 text-lg">
                   <div className={`w-3 h-3 rounded-full ${
                     relay.status === 'active' ? 'bg-green-500' :
+                    relay.status === 'connecting' ? 'bg-yellow-500 animate-pulse' :
                     relay.status === 'placeholder' ? 'bg-gray-500' : 'bg-red-500'
                   }`} />
                   <span className={`truncate ${

@@ -142,12 +142,26 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
       }
       return [cashuRelay];
     }
-    const optimalRelays = getOptimalRelays(relayContext, config.relayUrls);
+    
+    // If user is logged in and has a NIP-65 relay list, use it instead of config.relayUrls
+    let relaysToUse = config.relayUrls;
+    if (isLoggedIn && userRelayList) {
+      // Combine read and write relays from NIP-65, remove duplicates
+      const userRelays = new Set([...userRelayList.read, ...userRelayList.write]);
+      if (userRelays.size > 0) {
+        relaysToUse = Array.from(userRelays);
+        if (import.meta.env.DEV) {
+          logRelay('debug', `Using user's NIP-65 relay list: ${relaysToUse.length} relays (${userRelayList.read.length} read, ${userRelayList.write.length} write)`);
+        }
+      }
+    }
+    
+    const optimalRelays = getOptimalRelays(relayContext, relaysToUse);
     if (import.meta.env.DEV) {
       logRelay('debug', `Using optimal relays for ${relayContext} context: ${optimalRelays.length} relays`);
     }
     return optimalRelays;
-  }, [relayContext, config.relayUrls, cashuRelayStore.activeRelay, location.pathname, logins.length]);
+  }, [relayContext, config.relayUrls, cashuRelayStore.activeRelay, location.pathname, logins.length, userRelayList]);
 
   const activeRelays = getActiveRelays();
 
