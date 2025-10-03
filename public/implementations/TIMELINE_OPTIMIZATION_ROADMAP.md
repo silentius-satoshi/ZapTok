@@ -1798,8 +1798,8 @@ export function useOfflineStorage() {
 - [x] Create fetchEvents() wrapper for promise-based queries
 - [x] Fix querySync() API bug (doesn't exist in SimplePool)
 - [x] Test and validate performance improvements
-- [ ] Implement followingFavoriteRelaysService with SimplePool
-- [ ] Add LRU cache for relay aggregation
+- [x] Implement followingFavoriteRelaysService with SimplePool
+- [x] Add LRU cache for relay aggregation
 
 **Completed Phase 2 Migrations**:
 - `/src/lib/simplePool.ts` - Added fetchEvents() wrapper converting subscribeMany() to promises
@@ -1810,6 +1810,8 @@ export function useOfflineStorage() {
 - `/src/hooks/useFollowing.ts` - Contact list queries (kind 3) migrated to fetchEvents (fixed "undefined" bug)
 - `/src/hooks/useOptimizedVideoData.ts` - Video engagement data migrated to Promise.all + fetchEvents pattern
 - `/src/hooks/useOptimizedVideoFeed.ts` - Global & following video feeds (kinds 21,22) migrated to SimplePool
+- `/src/services/followingFavoriteRelays.service.ts` - Singleton service with LRU cache (10 items, 10 min TTL) for aggregating NIP-65 relay lists from following users, returns `[relayUrl, [pubkeys]][]` sorted by popularity
+- `/src/hooks/useFollowingFavoriteRelays.ts` - React Query hook with 10min staleTime matching LRU cache, fetches and aggregates favorite relays from users you follow
 
 **Critical Bug Fix**:
 - Issue: Phase 2 migrations used `simplePool.querySync()` which doesn't exist in nostr-tools
