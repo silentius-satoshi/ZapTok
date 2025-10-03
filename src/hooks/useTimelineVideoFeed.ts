@@ -85,11 +85,16 @@ export function useTimelineVideoFeed(
       // Reset the no-following flag when we have follows
       hasLoggedNoFollowingRef.current = false;
 
+      bundleLog('timelineFollowing', `👥 Generating sub-requests for ${following.length + 1} users (user + ${following.length} following)`);
+
       // Following feed: distribute authors across preferred relays (Jumble pattern)
-      return await relayDistributionService.generateSubRequestsForPubkeys(
+      const subRequests = await relayDistributionService.generateSubRequestsForPubkeys(
         [user.pubkey, ...following],
         user.pubkey
       );
+
+      bundleLog('timelineFollowing', `📡 Generated ${subRequests.length} sub-requests for following feed`);
+      return subRequests;
     }
 
     if (feedType === 'following' && user?.pubkey && following.length === 0) {

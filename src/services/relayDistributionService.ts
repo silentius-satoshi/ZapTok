@@ -45,11 +45,13 @@ export class RelayDistributionService {
         }
       }
       
+      console.log(`📊 [RelayDistribution] Safari optimization: Using single request for ${pubkeys.length} users across ${urls.length} relays`)
       return [{ urls, filter: { authors: pubkeys } }]
     }
 
     // If no relay fetcher provided, use big relays for all authors
     if (!relayFetcher) {
+      console.log(`📊 [RelayDistribution] No relay fetcher provided, using big relays for ${pubkeys.length} users`)
       return [{ urls: BIG_RELAY_URLS, filter: { authors: pubkeys } }]
     }
 
@@ -84,12 +86,14 @@ export class RelayDistributionService {
 
       // If no relay preferences found, use big relays
       if (Object.keys(relayToPubkeys).length === 0) {
+        console.log(`📊 [RelayDistribution] No relay preferences found for any users, using big relays for ${pubkeys.length} users`)
         return [{ urls: BIG_RELAY_URLS, filter: { authors: pubkeys } }]
       }
 
       // Optimize relay distribution (Jumble's optimization logic)
       const coveredCount = new Map<string, number>()
       const relayCount = Object.keys(relayToPubkeys).length
+      let removedRelays = 0
 
       // Remove redundant relays if users are already well-covered
       Object.entries(relayToPubkeys)
@@ -102,6 +106,7 @@ export class RelayDistributionService {
           ) {
             // Remove this relay as users are already covered by other relays
             delete relayToPubkeys[url]
+            removedRelays++
           } else {
             // Track coverage for each pubkey
             pubkeySet.forEach((pubkey) => {
@@ -110,14 +115,24 @@ export class RelayDistributionService {
           }
         })
 
+      // Log optimization results
+      if (removedRelays > 0) {
+        console.log(`📊 [RelayDistribution] Optimization: Removed ${removedRelays} redundant relays, kept ${Object.keys(relayToPubkeys).length}`)
+      }
+
       // Convert to sub-requests
       const subRequests = Object.entries(relayToPubkeys).map(([url, authors]) => ({
         urls: [url],
         filter: { authors: Array.from(authors) }
       }))
 
+      // Log distribution results for debugging
+      const totalAuthors = subRequests.reduce((sum, req) => sum + req.filter.authors.length, 0)
+      console.log(`📊 [RelayDistribution] Distributed ${pubkeys.length} users across ${subRequests.length} relays (${totalAuthors} total subscriptions)`)
+      
       // Ensure we have at least one sub-request
       if (subRequests.length === 0) {
+        console.log('📊 [RelayDistribution] No relay preferences found, using big relays for all users')
         return [{ urls: BIG_RELAY_URLS, filter: { authors: pubkeys } }]
       }
 
@@ -125,6 +140,7 @@ export class RelayDistributionService {
       
     } catch (error) {
       console.error('Error generating sub-requests for pubkeys:', error)
+      console.log(`📊 [RelayDistribution] Error fallback: Using big relays for ${pubkeys.length} users`)
       // Fallback to big relays if optimization fails
       return [{ urls: BIG_RELAY_URLS, filter: { authors: pubkeys } }]
     }

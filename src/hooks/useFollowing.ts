@@ -96,7 +96,7 @@ export function useFollowing(pubkey: string) {
 
       console.log('📊 [useFollowing] Extracted following pubkeys count:', followingPubkeys.length);
       if (followingPubkeys.length > 0) {
-        console.log('📊 [useFollowing] First 5 following pubkeys:', followingPubkeys.slice(0, 5));
+        console.log(`📊 [useFollowing] Processing ${followingPubkeys.length} following users (showing first 5):`, followingPubkeys.slice(0, 5));
       }
 
       return {
