@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { timelineService } from '@/services/timelineService';
-import { relayDistributionService } from '@/services/relayDistributionService';
+import { relayDistributionService, BIG_RELAY_URLS } from '@/services/relayDistributionService';
 import { timelineFilterService } from '@/services/timelineFilterService';
 import { videoRealTimeService } from '@/services/realTimeEventService';
 import { timelineAnalyticsService } from '@/services/timelineAnalyticsService';
 import { validateVideoEvent, type VideoEvent } from '@/lib/validateVideoEvent';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useFollowing } from '@/hooks/useFollowing';
+import { useFollowingFavoriteRelays } from '@/hooks/useFollowingFavoriteRelays';
 import { bundleLog } from '@/lib/logBundler';
 import type { NostrEvent } from '@nostrify/nostrify';
 
@@ -50,6 +51,28 @@ export function useTimelineVideoFeed(
   const followingQuery = useFollowing(user?.pubkey || '');
   const following = useMemo(() => followingQuery.data?.pubkeys || [], [followingQuery.data?.pubkeys]);
 
+  // ✅ Category 1 Optimization: Fetch favorite relays from users we follow
+  const { data: favoriteRelays } = useFollowingFavoriteRelays(
+    user?.pubkey,
+    following
+  );
+
+  // ✅ Use optimized relays (top 5 by popularity) or fallback to default
+  const optimizedRelays = useMemo(() => {
+    if (feedType !== 'following' || !favoriteRelays || favoriteRelays.length === 0) {
+      return null; // Use default behavior
+    }
+    
+    // Extract relay URLs and take top 5 by popularity (already sorted by service)
+    const relays = favoriteRelays.map(([url]) => url).slice(0, 5);
+    
+    bundleLog('relayOptimization', 
+      `🎯 Using ${relays.length} optimized relays for following feed (from ${favoriteRelays.length} favorite relays)`
+    );
+    
+    return relays;
+  }, [feedType, favoriteRelays]);
+
   // Feed state following Jumble's pattern
   const [state, setState] = useState<TimelineVideoFeedState>({
     videos: [],
@@ -87,13 +110,28 @@ export function useTimelineVideoFeed(
 
       bundleLog('timelineFollowing', `👥 Generating sub-requests for ${following.length + 1} users (user + ${following.length} following)`);
 
-      // Following feed: distribute authors across preferred relays (Jumble pattern)
+      // ✅ Category 1 Optimization: Use optimized relays if available
+      if (optimizedRelays && optimizedRelays.length > 0) {
+        bundleLog('timelineFollowing', `🎯 Using optimized relays: ${optimizedRelays.join(', ')}`);
+        
+        // Use optimized relays for following feed
+        return [{
+          urls: optimizedRelays,
+          filter: {
+            kinds: [21, 22],
+            authors: [user.pubkey, ...following],
+            limit,
+          }
+        }];
+      }
+
+      // Fallback: Use relay distribution service with default behavior
       const subRequests = await relayDistributionService.generateSubRequestsForPubkeys(
         [user.pubkey, ...following],
         user.pubkey
       );
 
-      bundleLog('timelineFollowing', `📡 Generated ${subRequests.length} sub-requests for following feed`);
+      bundleLog('timelineFollowing', `📡 Generated ${subRequests.length} sub-requests for following feed (using fallback)`);
       return subRequests;
     }
 
@@ -108,7 +146,7 @@ export function useTimelineVideoFeed(
     }
 
     return [];
-  }, [feedType, user?.pubkey, following, limit]);
+  }, [feedType, user?.pubkey, following, limit, optimizedRelays]);
 
   // Handle new events (following Jumble's onNew pattern)
   const handleNewEvent = useCallback((event: NostrEvent) => {

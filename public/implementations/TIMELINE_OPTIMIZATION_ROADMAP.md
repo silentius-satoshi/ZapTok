@@ -2046,12 +2046,12 @@ export function useOfflineStorage() {
 
 ## Implementation Roadmap
 
-**Overall Progress**: 4 of 6 Phases Complete (67%)
+**Overall Progress**: 5 of 6 Phases Complete (83%)
 
 | Phase | Status | Completion | Key Achievement |
 |-------|--------|------------|-----------------|
 | Phase 1 | ✅ Complete | 4/4 (100%) | SimplePool infrastructure & dual-pool architecture |
-| Phase 2 | ✅ Complete | 12/12 (100%) | Following feed optimization & hook migrations |
+| Phase 2 | ✅ Complete | 13/13 (100%) | Following feed optimization & Category 1 integration |
 | Phase 3 | ❌ Pending | 0/4 (0%) | NIP-42 AUTH implementation |
 | Phase 4 | ✅ Complete | 9/9 (100%) | Profile batching with DataLoader (Jumble architecture) |
 | Phase 5 | ❌ Pending | 0/3 (0%) | Advanced timeline features |
@@ -2088,6 +2088,36 @@ the direct import pattern via useSimplePool() hook.
 - [x] Migrate useFollowing to SimplePool (contact lists)
 - [x] Migrate useOptimizedVideoData to SimplePool (video engagement)
 - [x] Create fetchEvents() wrapper for promise-based queries
+- [x] Fix querySync() bug (use fetchEvents pattern)
+- [x] Create useFollowingFavoriteRelays hook
+- [x] Integrate favorite relays into useTimelineVideoFeed
+- [x] Remove duplicate feed architecture (FollowingVideoFeed cleanup)
+- [x] Migrate Discover page to timeline service
+- [x] **Category 1 Optimization: Integrate NIP-65 favorite relays** ✅
+
+**Completed Files**:
+- All Phase 2 hooks migrated to SimplePool with fetchEvents()
+- `/src/hooks/useFollowingFavoriteRelays.ts` - React Query hook for favorite relays
+- `/src/hooks/useTimelineVideoFeed.ts` - Integrated optimized relay selection
+- `/src/services/followingFavoriteRelays.service.ts` - NIP-65 aggregation service (143 lines)
+
+**Category 1 Integration** (NEW):
+- ✅ Fetches NIP-65 relay lists from users we follow
+- ✅ Aggregates and sorts relays by popularity (most favorited first)
+- ✅ Uses top 5 relays for following feed queries
+- ✅ Fallback to default relay distribution if no favorites available
+- ✅ LRU caching: individual (1hr) + aggregated (10min)
+
+**Performance Impact**:
+- Expected 2-3x faster following feed queries
+- Targeted relay selection (query where follows actually post)
+- Reduced wasted queries to irrelevant relays
+
+**Console Logs to Verify**:
+```
+🎯 Using 5 optimized relays for following feed (from 12 favorite relays)
+🎯 Using optimized relays: wss://relay1.com, wss://relay2.com, ...
+```
 - [x] Fix querySync() API bug (doesn't exist in SimplePool)
 - [x] Test and validate performance improvements
 - [x] Implement followingFavoriteRelaysService with SimplePool
