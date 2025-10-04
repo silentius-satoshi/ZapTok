@@ -3,10 +3,34 @@ import path from "node:path";
 import react from "@vitejs/plugin-react-swc";
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from "vitest/config";
+import { execSync } from 'child_process';
+import packageJson from './package.json';
+
+const getGitHash = () => {
+  try {
+    return JSON.stringify(execSync('git rev-parse --short HEAD').toString().trim());
+  } catch (error) {
+    console.warn('Failed to retrieve commit hash:', error);
+    return '"unknown"';
+  }
+};
+
+const getAppVersion = () => {
+  try {
+    return JSON.stringify(packageJson.version);
+  } catch (error) {
+    console.warn('Failed to retrieve app version:', error);
+    return '"unknown"';
+  }
+};
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
   base: process.env.NODE_ENV === 'production' && !process.env.VERCEL ? '/ZapTok/' : '/',
+  define: {
+    __GIT_COMMIT__: getGitHash(),
+    __APP_VERSION__: getAppVersion(),
+  },
   server: {
     host: "::",
     port: 5173,

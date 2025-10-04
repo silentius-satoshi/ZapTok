@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import React from 'react';
-import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Menu, Wallet, User, LogOut } from 'lucide-react';
+import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Menu, Wallet, User, LogOut, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -226,8 +226,7 @@ export function MobileNavigation() {
   const navItems: NavItem[] = [
     { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
-    { id: 'following', icon: Users, label: 'Following', path: '/following' },
-    { id: 'global', icon: Globe, label: 'Global', path: '/' },
+    { id: 'about', icon: Info, label: 'About ZapTok', path: '/about' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
     { id: 'live-stream', icon: Radio, label: 'Live Stream', action: 'liveStream' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
@@ -504,6 +503,19 @@ export function MobileNavigation() {
                         );
                       }
                     })}
+                  </div>
+
+                  {/* Version/Commit Info */}
+                  <div className="px-4 py-2 flex justify-end">
+                    <a
+                      href="https://github.com/silentius-satoshi/ZapTok/tree/main"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      v{__APP_VERSION__} ({__GIT_COMMIT__})
+                    </a>
                   </div>
 
                   {/* Balance Displays Section */}

@@ -22,4 +22,7 @@ declare global {
     webln?: WebLNProvider;
     nostr?: NostrExtension;
   }
+
+  const __GIT_COMMIT__: string;
+  const __APP_VERSION__: string;
 }
