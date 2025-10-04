@@ -8,6 +8,7 @@ import { useLoginPrompt } from '@/hooks/useLoginPrompt';
 import { useVideoReactions } from '@/hooks/useVideoReactions';
 import { useVideoComments } from '@/hooks/useVideoComments';
 import { useVideoReposts } from '@/hooks/useVideoReposts';
+import { useVideoNutzaps } from '@/hooks/useVideoNutzaps';
 import { useRepost } from '@/hooks/useRepost';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
@@ -23,13 +24,9 @@ import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useNostrLogin } from '@nostrify/react/login';
-import { useQuery } from '@tanstack/react-query';
-import { useNostr } from '@/hooks/useNostr';
-import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
 import { useAppContext } from '@/hooks/useAppContext';
-import { relayRateLimiter } from '@/lib/relayRateLimiter';
 
 interface VideoActionButtonsProps {
   event: NostrEvent;
@@ -62,8 +59,9 @@ export function VideoActionButtons({
   const isMobile = useIsMobile();
   const [showQRModal, setShowQRModal] = useState(false);
   const reactions = useVideoReactions(event.id);
-  const { data: commentsData } = useVideoComments(event.id);
-  const { data: repostsData } = useVideoReposts(event.id);
+  const commentsData = useVideoComments(event.id);
+  const repostsData = useVideoReposts(event.id);
+  const nutzapData = useVideoNutzaps(event.id);
   const { mutate: createRepost, isPending: isRepostPending } = useRepost();
   const author = useAuthor(event.pubkey);
   const following = useFollowing(user?.pubkey || '');
@@ -72,43 +70,9 @@ export function VideoActionButtons({
   const { mutate: bookmarkVideo, isPending: isBookmarkPending } = useBookmarkVideo();
   const navigate = useNavigate();
 
-  // Nutzap data for displaying total
-  const { nostr } = useNostr();
+  // Currency display settings
   const { showSats } = useCurrencyDisplayStore();
   const { data: btcPrice } = useBitcoinPrice();
-
-  // Query to get nutzap total for this post
-  const { data: nutzapData } = useQuery({
-    queryKey: ["nutzap-total", event.id],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-
-      const events = await relayRateLimiter.queueQuery(
-        'nutzap-queries',
-        () => nostr.query([{
-          kinds: [CASHU_EVENT_KINDS.ZAP],
-          "#e": [event.id],
-          limit: 50,
-        }], { signal }),
-        'low' // Low priority for nutzap queries
-      );
-
-      const totalAmount = events.reduce((sum, zapEvent) => {
-        try {
-          const amountTag = zapEvent.tags.find(tag => tag[0] === 'amount');
-          if (amountTag && amountTag[1]) {
-            const amount = parseInt(amountTag[1], 10);
-            return sum + (isNaN(amount) ? 0 : amount);
-          }
-        } catch (error) {
-          console.error("Error parsing nutzap amount:", error);
-        }
-        return sum;
-      }, 0);
-
-      return { totalAmount, count: events.length };
-    },
-  });
 
   // Format nutzap amount
   const formatNutzapAmount = (amount: number): string => {
@@ -285,7 +249,7 @@ export function VideoActionButtons({
             className={isMobile ? 'h-12 w-12' : 'h-12 w-12'}
           />
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
-            {reactions.data ? formatCount(reactions.data.zaps) : '0'}
+            {reactions.zaps > 0 ? formatCount(reactions.zaps) : '0'}
           </span>
         </div>
 

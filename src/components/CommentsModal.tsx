@@ -32,7 +32,7 @@ interface CommentsModalProps {
 export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProps) {
   const { user, canSign, isReadOnly } = useCurrentUser();
   const { withLoginCheck } = useLoginPrompt();
-  const { data: commentsData, isLoading: isLoadingComments } = useVideoComments(videoEvent.id);
+  const commentsData = useVideoComments(videoEvent.id);
   const { mutate: publishComment, isPending: isPublishing } = usePublishComment();
 
   const [commentText, setCommentText] = useState('');
@@ -86,13 +86,11 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
 
         {/* Comments List */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {isLoadingComments ? (
-            <CommentsLoadingSkeleton />
-          ) : commentsData?.comments.length === 0 ? (
+          {commentsData.comments.length === 0 ? (
             <EmptyCommentsState />
           ) : (
             <div className="space-y-4">
-              {commentsData?.comments.map((comment) => (
+              {commentsData.comments.map((comment) => (
                 <CommentItem
                   key={comment.id}
                   comment={comment}
