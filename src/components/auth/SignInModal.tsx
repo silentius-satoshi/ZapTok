@@ -117,9 +117,10 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" style={{ zIndex: 99999, backgroundColor: 'black' }}>
       <div className="absolute inset-0" style={{ backgroundColor: 'black', zIndex: -1 }} />
 
-      <div className="w-full max-w-md my-8 relative z-10">
-        <Card className="bg-transparent backdrop-blur-sm border-none relative">
-          <CardHeader className="text-center">
+      <div className="w-full max-w-md my-auto relative z-10">
+        <Card className="bg-transparent backdrop-blur-sm border-none">
+          {/* Header - Scrolls with content */}
+          <CardHeader className="text-center pb-4 pt-6">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <img
                 src={zapTokLogo}
@@ -148,9 +149,10 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-6">
+          {/* Content - Everything scrolls together */}
+          <CardContent className="space-y-6 pt-6">
             <Tabs defaultValue={('nostr' in window) ? 'extension' : 'key'} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-3 mb-4">
                 <TabsTrigger value="extension">Extension</TabsTrigger>
                 <TabsTrigger value="key">Private Key</TabsTrigger>
                 <TabsTrigger value="bunker">Bunker</TabsTrigger>
@@ -174,7 +176,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
               </TabsContent>
             </Tabs>
 
-            <div className="text-center">
+            <div className="text-center pb-4">
               <Button
                 variant="link"
                 onClick={onClose}
