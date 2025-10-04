@@ -114,9 +114,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" style={{ zIndex: 99999, backgroundColor: 'black' }}>
-      <div className="absolute inset-0" style={{ backgroundColor: 'black', zIndex: -1 }} />
-
+    <div className="fixed inset-0 bg-black flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" style={{ zIndex: 99999 }}>
       <div className="w-full max-w-md my-auto relative z-10">
         <Card className="bg-transparent backdrop-blur-sm border-none">
           {/* Header - Scrolls with content */}
