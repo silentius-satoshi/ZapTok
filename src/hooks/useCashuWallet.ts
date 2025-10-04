@@ -465,7 +465,7 @@ export function useCashuWallet() {
     wallet: walletQuery.data?.wallet,
     walletId: walletQuery.data?.id,
     tokens: getNip60TokensQuery.data || [],
-    isLoading: walletQuery.isFetching || getNip60TokensQuery.isFetching,
+    isLoading: walletQuery.isPending || getNip60TokensQuery.isPending,
     createWallet: createWalletMutation.mutate,
     createWalletAsync: createWalletMutation.mutateAsync,
     updateProofs: updateProofsMutation.mutateAsync,
@@ -488,8 +488,8 @@ export function useCashuWallet() {
     },
 
     // Additional legacy properties for lightning components
-    isWalletLoading: walletQuery.isFetching,
-    isTokensLoading: getNip60TokensQuery.isFetching,
+    isWalletLoading: walletQuery.isPending,
+    isTokensLoading: getNip60TokensQuery.isPending,
     walletError: walletQuery.error,
     tokensError: getNip60TokensQuery.error,
   };

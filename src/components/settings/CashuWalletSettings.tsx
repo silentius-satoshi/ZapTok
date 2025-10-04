@@ -24,7 +24,7 @@ export function CashuWalletSettings() {
         {/* Cashu Wallet - Use centralized compatibility check from WalletContext */}
         {isCashuCompatible && (
           <div>
-            <h3 className="text-sm font-medium mb-2">Cashu eCash Wallet</h3>
+            <h3 className="text-sm font-medium mb-2">Cashu Wallet</h3>
             <CashuWalletInfo />
             <div className="mt-3">
               <CashuRelaySettings alwaysExpanded={true} />

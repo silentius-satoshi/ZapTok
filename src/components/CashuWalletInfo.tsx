@@ -5,12 +5,15 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 export function CashuWalletInfo() {
   const { user } = useCurrentUser();
   const { wallet, isLoading, totalBalance } = useCashuWallet();
   const { data: btcPrice } = useBitcoinPrice();
   const { showSats } = useCurrencyDisplayStore();
+  const navigate = useNavigate();
 
   // Use reactive balance value directly
 
@@ -18,7 +21,7 @@ export function CashuWalletInfo() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Cashu eCash Wallet</CardTitle>
+          <CardTitle className="text-sm">Cashu Wallet</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-sm text-muted-foreground">Loading...</div>
@@ -31,10 +34,22 @@ export function CashuWalletInfo() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Cashu eCash Wallet</CardTitle>
+          <CardTitle className="text-sm">Cashu Wallet</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-sm text-muted-foreground">No Cashu wallet configured</div>
+          <div className="space-y-3">
+            <div className="text-sm text-muted-foreground">
+              No Cashu wallet configured
+            </div>
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => navigate('/cashu-wallet')}
+              className="w-full"
+            >
+              Go to Cashu Wallet
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -44,7 +59,7 @@ export function CashuWalletInfo() {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm flex items-center justify-between">
-          Cashu eCash Wallet
+          Cashu Wallet
           <Badge variant="secondary" className="text-xs">
             Connected
           </Badge>

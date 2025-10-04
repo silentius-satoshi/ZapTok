@@ -26,7 +26,7 @@ import { useNavigate } from 'react-router-dom';
 export function CashuWallet() {
   useSeoMeta({
     title: 'Cashu Wallet - ZapTok',
-    description: 'Manage your Cashu ecash wallet, send private payments, and view transaction history.',
+    description: 'Manage your Cashu wallet, send private payments, and view transaction history.',
   });
 
   const navigate = useNavigate();
@@ -90,7 +90,7 @@ export function CashuWallet() {
                       <div>
                         <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-white`}>Cashu Wallet</h1>
                         <p className={`text-gray-400 mt-2 ${isMobile ? 'text-sm' : ''}`}>
-                          Manage your private Cashu ecash wallet
+                          Manage your private Cashu wallet
                         </p>
                       </div>
                     </div>
