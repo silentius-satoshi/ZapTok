@@ -396,7 +396,7 @@ export async function restoreNostrifyBunkerLogin(userPubkey: string): Promise<an
 
     // Create new bunker signer with connection management like Jumble
     const pool = new SimplePool();
-    const bunkerSigner = new BunkerSigner(localSecretKey, bunkerPointer, { 
+    const bunkerSigner = BunkerSigner.fromBunker(localSecretKey, bunkerPointer, { 
       pool,
       onauth: (url: string) => {
         debugLog.bunker('🔗 Bunker auth URL received during restoration:', url);
