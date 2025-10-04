@@ -4,7 +4,7 @@
  * Singleton service using DataLoader pattern to batch NIP-22 comment queries.
  * Optimizes relay queries by combining multiple video comment requests into a single batched query.
  * 
- * **Uses main NPool (multiple general relays) via nostr.query**
+ * **Uses relay group (multiple general relays) via nostr.group(BIG_RELAY_URLS)**
  * 
  * Architecture:
  * - Singleton pattern for global state management
@@ -15,6 +15,7 @@
 
 import DataLoader from 'dataloader';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { isValidCommentForVideo } from '@/lib/videoAnalyticsValidators';
 
 export interface VideoComments {
   comments: NostrEvent[];
@@ -66,6 +67,33 @@ class VideoCommentsService {
    */
   setNostrQueryFn(queryFn: NostrQueryFn): void {
     this.nostrQueryFn = queryFn;
+    // Recreate DataLoader with new query function
+    this.dataLoader = new DataLoader(
+      (videoIds) => this.batchLoadComments(videoIds),
+      {
+        batchScheduleFn: (callback) => setTimeout(callback, 50),
+        maxBatchSize: 100,
+        cache: false,
+      }
+    );
+  }
+
+  /**
+   * Reset service state (for testing only)
+   */
+  resetForTesting(): void {
+    this.nostrQueryFn = null;
+    this.cache.clear();
+    this.subscribers.clear();
+    // Recreate DataLoader in clean state
+    this.dataLoader = new DataLoader(
+      (videoIds) => this.batchLoadComments(videoIds),
+      {
+        batchScheduleFn: (callback) => setTimeout(callback, 50),
+        maxBatchSize: 100,
+        cache: false,
+      }
+    );
   }
 
   /**
@@ -103,22 +131,31 @@ class VideoCommentsService {
       const signal = AbortSignal.timeout(5000);
       
       // Single batched query for all video IDs
+      // NIP-22: Query by uppercase 'E' tag (root scope) to get all comments rooted at these videos
       const filter = {
         kinds: [1111], // NIP-22 comments
-        '#e': Array.from(videoIds),
+        '#E': Array.from(videoIds), // Uppercase E = root video
         limit: 100 * videoIds.length, // Accommodate multiple videos
       };
 
       const events = await this.nostrQueryFn([filter], { signal });
 
-      // Group comments by video ID
+      console.log(`[VideoComments] 📊 Received ${events.length} comment events for ${videoIds.length} videos`);
+
+      // Group comments by video ID (using 'E' tag - root scope)
       const commentsByVideo = new Map<string, NostrEvent[]>();
       
       events.forEach((event) => {
-        // Find which video this comment references
-        const eTags = event.tags.filter(([name]) => name === 'e');
-        eTags.forEach(([_, eventId]) => {
+        // NIP-22: Comments use 'E' tag (uppercase) to point to root video
+        // Find which video this comment is rooted at
+        const rootETags = event.tags.filter(([name]) => name === 'E');
+        rootETags.forEach(([_, eventId]) => {
           if (videoIds.includes(eventId)) {
+            // Validate that this is a proper NIP-22 comment for this video
+            if (!isValidCommentForVideo(event, eventId)) {
+              return; // Skip invalid comments
+            }
+            
             if (!commentsByVideo.has(eventId)) {
               commentsByVideo.set(eventId, []);
             }
@@ -130,17 +167,9 @@ class VideoCommentsService {
       // Process comments for each video
       const results = Array.from(videoIds).map((videoId) => {
         const videoComments = commentsByVideo.get(videoId) || [];
-        
-        // Validate and filter comments according to NIP-22
-        const validComments = videoComments.filter((event) => {
-          const hasParentE = event.tags.some(([name]) => name === 'e');
-          const hasParentK = event.tags.some(([name]) => name === 'k');
-          const hasParentP = event.tags.some(([name]) => name === 'p');
-          return hasParentE && hasParentK && hasParentP;
-        });
 
         // Sort by creation time (newest first)
-        const sortedComments = validComments.sort((a, b) => b.created_at - a.created_at);
+        const sortedComments = videoComments.sort((a, b) => b.created_at - a.created_at);
 
         const result: VideoComments = {
           comments: sortedComments,

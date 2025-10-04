@@ -98,6 +98,11 @@ describe('Video Analytics DataLoader Batching', () => {
   });
 
   describe('videoCommentsService', () => {
+    beforeEach(() => {
+      // Reset service to clean state before each test
+      videoCommentsService.resetForTesting();
+    });
+
     it('should batch multiple video comment queries into a single request', async () => {
       const mockQuery = vi.fn().mockResolvedValue([
         {
@@ -142,9 +147,9 @@ describe('Video Analytics DataLoader Batching', () => {
       const filter = callArgs[0][0];
       
       expect(filter.kinds).toEqual([1111]);
-      expect(filter['#e']).toContain('video1');
-      expect(filter['#e']).toContain('video2');
-      expect(filter['#e']).toContain('video3');
+      expect(filter['#E']).toContain('video1'); // NIP-22: Uppercase E = root video
+      expect(filter['#E']).toContain('video2');
+      expect(filter['#E']).toContain('video3');
     });
 
     it('should validate NIP-22 comment structure', async () => {
@@ -156,9 +161,12 @@ describe('Video Analytics DataLoader Batching', () => {
           created_at: Date.now(),
           content: 'Valid comment',
           tags: [
-            ['e', 'video1', '', 'root'],
-            ['k', '34235'],
-            ['p', 'author1'],
+            ['E', 'video1', '', 'author1'], // Uppercase E for root event
+            ['K', '21'], // Uppercase K for root kind (video kind 21)
+            ['P', 'author1'], // Uppercase P for root author
+            ['e', 'video1', '', 'author1'], // lowercase e for parent (same as root for top-level comment)
+            ['k', '21'], // lowercase k for parent kind
+            ['p', 'author1'], // lowercase p for parent author
           ],
           sig: 'sig1',
         },
@@ -169,7 +177,7 @@ describe('Video Analytics DataLoader Batching', () => {
           created_at: Date.now(),
           content: 'Missing required tags',
           tags: [
-            ['e', 'video1'], // Missing k and p tags
+            ['e', 'video1'], // Only lowercase e, missing uppercase E, K, P tags
           ],
           sig: 'sig2',
         },

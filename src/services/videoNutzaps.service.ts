@@ -136,6 +136,8 @@ class VideoNutzapsService {
       // Query via dedicated Cashu pool (isolated from general relays)
       const events = await this.cashuPool.query([filter], { signal });
 
+      console.log(`[VideoNutzaps] 📊 Received ${events.length} nutzap events for ${videoIds.length} videos`);
+
       // Group nutzaps by video ID
       const nutzapsByVideo = new Map<string, NostrEvent[]>();
       

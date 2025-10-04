@@ -249,7 +249,7 @@ export function VideoActionButtons({
             className={isMobile ? 'h-12 w-12' : 'h-12 w-12'}
           />
           <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
-            {reactions.zaps > 0 ? formatCount(reactions.zaps) : '0'}
+            {reactions.totalSats > 0 ? formatCount(reactions.totalSats) : '0'}
           </span>
         </div>
 

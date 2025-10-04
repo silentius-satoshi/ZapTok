@@ -1,5 +1,6 @@
 import DataLoader from 'dataloader';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { isValidZapForVideo } from '@/lib/videoAnalyticsValidators';
 
 export interface VideoReactions {
   zaps: number;
@@ -81,11 +82,27 @@ class VideoReactionsService {
       const eventsByVideoId = new Map<string, NostrEvent[]>();
       videoIds.forEach((id) => eventsByVideoId.set(id, []));
 
+      console.log(`[VideoReactions] 📊 Received ${events.length} zap events for ${videoIds.length} videos`);
+
       events.forEach((event) => {
         // Find which video this event is for
         const eTag = event.tags.find((tag) => tag[0] === 'e');
         if (eTag && eTag[1]) {
           const videoId = eTag[1];
+          
+          // Validate that this zap actually relates to this video
+          const isValid = isValidZapForVideo(event, videoId);
+          
+          if (!isValid) {
+            console.log(`[VideoReactions] ❌ Invalid zap for video ${videoId.slice(0, 8)}:`, {
+              zapId: event.id.slice(0, 8) + '...',
+              hasBolt11: event.tags.some(([name]) => name === 'bolt11'),
+              hasETag: event.tags.some(([name]) => name === 'e'),
+              hasDescription: event.tags.some(([name]) => name === 'description'),
+            });
+            return; // Skip invalid zaps
+          }
+          
           const existing = eventsByVideoId.get(videoId);
           if (existing) {
             existing.push(event);

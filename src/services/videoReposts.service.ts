@@ -4,7 +4,7 @@
  * Singleton service using DataLoader pattern to batch repost queries (kinds 6, 16).
  * Optimizes relay queries by combining multiple video repost requests into a single batched query.
  * 
- * **Uses main NPool (multiple general relays) via nostr.query**
+ * **Uses relay group (multiple general relays) via nostr.group(BIG_RELAY_URLS)**
  * 
  * Architecture:
  * - Singleton pattern for global state management
@@ -15,6 +15,7 @@
 
 import DataLoader from 'dataloader';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { isValidRepostForVideo } from '@/lib/videoAnalyticsValidators';
 
 export interface VideoReposts {
   count: number;
@@ -111,6 +112,8 @@ class VideoRepostsService {
 
       const events = await this.nostrQueryFn([filter], { signal });
 
+      console.log(`[VideoReposts] 📊 Received ${events.length} repost events for ${videoIds.length} videos`);
+
       // Group reposts by video ID
       const repostsByVideo = new Map<string, NostrEvent[]>();
       
@@ -119,6 +122,19 @@ class VideoRepostsService {
         const eTags = event.tags.filter(([name]) => name === 'e');
         eTags.forEach(([_, eventId]) => {
           if (videoIds.includes(eventId)) {
+            // Validate that this is a proper repost of this video
+            const isValid = isValidRepostForVideo(event, eventId);
+            
+            if (!isValid) {
+              console.log(`[VideoReposts] ❌ Invalid repost for video ${eventId.slice(0, 8)}:`, {
+                repostId: event.id.slice(0, 8) + '...',
+                kind: event.kind,
+                hasETag: event.tags.some(([name]) => name === 'e'),
+                hasKTag: event.tags.some(([name]) => name === 'k'),
+              });
+              return; // Skip invalid reposts
+            }
+            
             if (!repostsByVideo.has(eventId)) {
               repostsByVideo.set(eventId, []);
             }
