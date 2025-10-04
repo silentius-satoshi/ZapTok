@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { SignInModal } from './SignInModal';
 import CreateAccountModal from './CreateAccountModal';
@@ -31,6 +32,21 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     }
   }, [user, onClose]);
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Store original overflow
+      const originalOverflow = document.body.style.overflow;
+      // Prevent scrolling
+      document.body.style.overflow = 'hidden';
+      
+      return () => {
+        // Restore original overflow
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
+
   // Check if we're in a PWA environment
   const isPWA = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
 
@@ -42,11 +58,28 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   if (!isOpen) return null;
 
+  // Prevent scroll propagation to underlying content
+  const handleWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation();
+  };
+
+  if (!isOpen) return null;
+
   // Use proper modal overlay instead of full-screen takeover
-  return (
+  // Render in a portal to escape any parent stacking contexts
+  const modalContent = (
     <>
-      {/* Modal Backdrop */}
-      <div className="fixed inset-0 z-50 bg-black flex items-center justify-center p-4">
+      {/* Modal Backdrop - prevents all interactions with underlying content */}
+      <div 
+        className="fixed inset-0 z-[9999] bg-black bg-opacity-100 flex items-center justify-center p-4"
+        onWheel={handleWheel}
+        onTouchMove={handleTouchMove}
+        style={{ margin: 0, padding: '1rem' }}
+      >
         {/* Close button */}
         <button
           onClick={onClose}
@@ -142,4 +175,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       />
     </>
   );
+
+  // Render modal in a portal at document root to escape stacking contexts
+  return createPortal(modalContent, document.body);
 }

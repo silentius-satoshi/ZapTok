@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Sparkles } from 'lucide-react';
@@ -15,7 +15,28 @@ interface CreateAccountModalProps {
 const CreateAccountModal = ({ id, open, onLogin, onAbort }: CreateAccountModalProps) => {
   const [showCreateAccount, setShowCreateAccount] = useState(false);
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (open) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [open]);
+
   if (!open) return null;
+
+  // Prevent scroll propagation to underlying content
+  const handleWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation();
+  };
 
   if (showCreateAccount) {
     return (
@@ -30,7 +51,12 @@ const CreateAccountModal = ({ id, open, onLogin, onAbort }: CreateAccountModalPr
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" style={{ zIndex: 99999, backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
+    <div 
+      className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" 
+      style={{ zIndex: 99999, backgroundColor: 'rgba(0, 0, 0, 0.8)' }}
+      onWheel={handleWheel}
+      onTouchMove={handleTouchMove}
+    >
       <div className="w-full max-w-md">
         <Card className="bg-gray-900 border-gray-700">
           <CardHeader className="text-center">

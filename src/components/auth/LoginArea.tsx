@@ -24,13 +24,15 @@ export interface LoginAreaProps {
   showBrowseWithoutLogin?: boolean;
   browseButtonText?: string;
   onBrowseClick?: () => void;
+  hideFeedButton?: boolean;
 }
 
 export function LoginArea({ 
   className, 
   showBrowseWithoutLogin = false,
   browseButtonText = "Browse Videos", 
-  onBrowseClick 
+  onBrowseClick,
+  hideFeedButton = false
 }: LoginAreaProps) {
   const { currentUser } = useLoggedInAccounts();
   const { walletInfo, isConnected, getBalance, provider, userHasLightningAccess } = useWallet();
@@ -174,9 +176,9 @@ export function LoginArea({
 
   return (
     <div className={cn("inline-flex items-center justify-start min-w-0 max-w-full", className)}>
-      {/* Feed Selection Button - Always visible */}
-      <FeedButton />
-      
+      {/* Feed Selection Button - Conditionally visible */}
+      {!hideFeedButton && <FeedButton />}
+
       {currentUser ? (
         <div className="flex items-center gap-2 ml-2 min-w-0">
           {/* Currency Toggle Button - show based on computed logic */}

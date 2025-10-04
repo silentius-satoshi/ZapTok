@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,6 +32,21 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       setTimeout(() => onClose(), 0);
     }
   }, [user, isOpen, onClose]);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Store original overflow
+      const originalOverflow = document.body.style.overflow;
+      // Prevent scrolling
+      document.body.style.overflow = 'hidden';
+      
+      return () => {
+        // Restore original overflow
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
 
   const handleExtensionLogin = async () => {
     setIsLocked(true);
@@ -113,10 +129,26 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" style={{ zIndex: 99999 }}>
+  // Prevent scroll propagation to underlying content
+  const handleWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation();
+  };
+
+  if (!isOpen) return null;
+
+  const modalContent = (
+    <div 
+      className="fixed inset-0 bg-black flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" 
+      style={{ zIndex: 99999 }}
+      onWheel={handleWheel}
+      onTouchMove={handleTouchMove}
+    >
       <div className="w-full max-w-md my-auto relative z-10">
-        <Card className="bg-transparent backdrop-blur-sm border-none">
+        <Card className="bg-gray-900 border-gray-800">
           {/* Header - Scrolls with content */}
           <CardHeader className="text-center pb-4 pt-6">
             <div className="flex items-center justify-center space-x-2 mb-4">
@@ -189,4 +221,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       </div>
     </div>
   );
+
+  // Render modal in a portal at document root to escape stacking contexts
+  return createPortal(modalContent, document.body);
 }

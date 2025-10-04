@@ -1,7 +1,7 @@
 // NOTE: This file is stable and usually should not be modified.
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
-import { ChevronDown, LogOut, UserIcon, UserPlus, Settings, Upload, Wallet, Info, Download, Heart } from 'lucide-react';
+import { ChevronDown, LogOut, UserIcon, UserPlus, Settings, Upload, Wallet, Info, Download, Heart, HelpCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -105,24 +105,6 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
           <span>View Profile</span>
         </DropdownMenuItem>
 
-        {/* Cashu Wallet */}
-        <DropdownMenuItem
-          onClick={() => navigate('/settings?section=cashu-wallet')}
-          className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
-        >
-          <Wallet className='w-4 h-4' />
-          <span>Cashu Wallet Settings</span>
-        </DropdownMenuItem>
-
-        {/* Notifications */}
-        <DropdownMenuItem
-          onClick={() => navigate('/settings?section=notifications')}
-          className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
-        >
-          <Heart className='w-4 h-4' />
-          <span>Notification Settings</span>
-        </DropdownMenuItem>
-
         {/* Settings */}
         <DropdownMenuItem
           onClick={() => navigate('/settings')}
@@ -141,6 +123,15 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
           <span>About ZapTok</span>
         </DropdownMenuItem>
 
+        {/* FAQ */}
+        <DropdownMenuItem
+          onClick={() => navigate('/faq')}
+          className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+        >
+          <HelpCircle className='w-4 h-4' />
+          <span>FAQ</span>
+        </DropdownMenuItem>
+
         {/* Install App */}
         <DropdownMenuItem
           onClick={() => setShowPWAInstallModal(true)}
@@ -151,38 +142,6 @@ export function DropdownList({ onAddAccountClick }: DropdownListProps) {
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
-
-        {/* Account switching section - DISABLED due to wallet isolation bug */}
-        <div className='font-medium text-sm px-2 py-1.5 text-muted-foreground/70'>Switch Account</div>
-        <div className='px-2 py-1 text-xs text-muted-foreground/60 mb-2'>
-          Account switching temporarily disabled due to wallet connection issues
-        </div>
-        {otherUsers.map((user) => (
-          <DropdownMenuItem
-            key={user.id}
-            disabled={true}
-            className='flex items-center gap-2 p-2 rounded-md opacity-40 cursor-not-allowed'
-          >
-            <Avatar className='w-8 h-8'>
-              <AvatarImage src={user.metadata.picture} alt={getDisplayName(user)} />
-              <AvatarFallback>{getDisplayName(user)?.charAt(0) || <UserIcon />}</AvatarFallback>
-            </Avatar>
-            <div className='flex-1 truncate'>
-              <p className='text-sm font-medium'>{getDisplayName(user)}</p>
-            </div>
-            {user.id === currentUser.id && <div className='w-2 h-2 rounded-full bg-primary'></div>}
-          </DropdownMenuItem>
-        ))}
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem
-          disabled={true}
-          className='flex items-center gap-2 p-2 rounded-md opacity-40 cursor-not-allowed'
-        >
-          <UserPlus className='w-4 h-4' />
-          <span>Add another account</span>
-        </DropdownMenuItem>
 
         {/* Log out - Red color to match screenshot */}
         <DropdownMenuItem

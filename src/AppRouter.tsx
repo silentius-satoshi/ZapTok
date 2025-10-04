@@ -27,6 +27,7 @@ import { BitcoinConnectWallet } from "./pages/BitcoinConnectWallet";
 import { Stream } from "./components/stream/Stream";
 import { NostrEntity } from "./pages/NostrEntity";
 import About from "./pages/About";
+import { FAQ } from "./pages/FAQ";
 import { ProModePage } from "./pages/ProModePage";
 import DonationPage from "./pages/DonationPage";
 import { ReadOnlyModeDemo } from "@/components/ReadOnlyModeDemo";
@@ -65,6 +66,7 @@ function RouteHandler() {
       <Route path="/settings" element={<Settings />} />
       <Route path="/donate" element={<DonationPage />} />
       <Route path="/about" element={<About />} />
+      <Route path="/faq" element={<FAQ />} />
       <Route path="/wallet" element={<LightningWallet />} />
       <Route path="/cashu-wallet" element={<CashuWallet />} />
       <Route path="/bitcoin-connect-wallet" element={<BitcoinConnectWallet />} />

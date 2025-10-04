@@ -12,6 +12,8 @@ export function AuthGate({ children, redirectTo = '/' }: AuthGateProps) {
   const { user } = useCurrentUser();
   const navigate = useNavigate();
 
+  // Don't render children at all when not authenticated
+  // This prevents the underlying content from being in the DOM and receiving events
   if (!user) {
     return <LoginModal isOpen={true} onClose={() => navigate(redirectTo)} />;
   }

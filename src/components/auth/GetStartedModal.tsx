@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -175,7 +176,9 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
     }
   };
 
-  return (
+  if (!open) return null;
+
+  const modalContent = (
     <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" style={{ zIndex: 99999, backgroundColor: 'black' }}>
       <div className="absolute inset-0" style={{ backgroundColor: 'black', zIndex: -1 }} />
 
@@ -305,6 +308,9 @@ const GetStartedModal = ({ onClose }: GetStartedModalProps) => {
       </div>
     </div>
   );
+
+  // Render modal in a portal at document root to escape stacking contexts
+  return createPortal(modalContent, document.body);
 };
 
 export default GetStartedModal;

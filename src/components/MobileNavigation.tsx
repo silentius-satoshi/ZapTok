@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import React from 'react';
-import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Menu, Wallet, User, LogOut, Info } from 'lucide-react';
+import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Menu, Wallet, User, LogOut, Info, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -29,7 +29,6 @@ import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
 import { DollarSign, Bitcoin } from 'lucide-react';
-import FeedButton from '@/components/FeedButton';
 
 export function MobileNavigation() {
   const { user, isAuthenticated } = useCurrentUser();
@@ -226,9 +225,10 @@ export function MobileNavigation() {
   const navItems: NavItem[] = [
     { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
-    { id: 'about', icon: Info, label: 'About ZapTok', path: '/about' },
     { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
     { id: 'live-stream', icon: Radio, label: 'Live Stream', action: 'liveStream' },
+    { id: 'about', icon: Info, label: 'About ZapTok', path: '/about' },
+    { id: 'faq', icon: HelpCircle, label: 'FAQ', path: '/faq' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
     { id: 'upload-video', icon: PlusSquare, label: 'Upload Video', action: 'uploadVideo' },
   ];
@@ -411,16 +411,10 @@ export function MobileNavigation() {
               >
                 <div className="flex flex-col h-full">
                   <SheetHeader className="p-6 border-b border-gray-800">
-                    <div className="flex items-center justify-between gap-6">
-                      <SheetTitle className="text-white flex items-center space-x-2">
-                        <ZapTokLogo size={24} />
-                        <span>ZapTok</span>
-                      </SheetTitle>
-                      {/* Feed/Relay Switcher - positioned with left margin to avoid close button */}
-                      <div className="flex-shrink-0 mr-2">
-                        <FeedButton className="bg-gray-800/30 hover:bg-gray-700/40 transition-all" />
-                      </div>
-                    </div>
+                    <SheetTitle className="text-white flex items-center space-x-2">
+                      <ZapTokLogo size={24} />
+                      <span>ZapTok</span>
+                    </SheetTitle>
                   </SheetHeader>
 
                   {/* Navigation Items */}
@@ -472,6 +466,11 @@ export function MobileNavigation() {
 
                         // Check if this item requires authentication
                         const requiresAuth = ['discover', 'following', 'notifications', 'lightning'].includes(item.id);
+                        
+                        // Hide Discover and Notifications for non-authenticated users
+                        if (!isAuthenticated && ['discover', 'notifications'].includes(item.id)) {
+                          return null;
+                        }
 
                         return (
                           <Button
@@ -566,7 +565,7 @@ export function MobileNavigation() {
                       </div>
                     ) : (
                       <div className="w-full">
-                        <LoginArea className="w-full justify-center" />
+                        <LoginArea className="w-full justify-center" hideFeedButton={true} />
                       </div>
                     )}
                   </div>
