@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useRef } from 'react';
 import type { GlobalVideoFeedRef } from '@/components/GlobalVideoFeed';
-import type { FollowingVideoFeedRef } from '@/components/FollowingVideoFeed';
+import type { FollowingVideoFeedRef } from '@/components/TimelineFollowingVideoFeed';
 
 interface FeedRefreshContextType {
   globalFeedRef: React.RefObject<GlobalVideoFeedRef>;
