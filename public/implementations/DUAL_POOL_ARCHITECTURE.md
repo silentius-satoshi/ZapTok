@@ -86,16 +86,33 @@ function publishEvent(event: NostrEvent): Promise<void> {
 - [x] Create SimplePool singleton instance (`/src/lib/simplePool.ts`)
 - [x] Implement smart relay exclusion logic
 - [x] Create publishing router utility
-- [ ] Add SimplePool to NostrProvider context
+- [x] Add SimplePool to NostrProvider context
 
 **Success Criteria**:
 - ✅ SimplePool singleton created with relay filtering
 - ✅ Publishing router routes events by kind
-- ⏳ Integration with NostrProvider pending
+- ✅ SimplePool exported via NostrProvider context
+- ✅ Direct import pattern established via useSimplePool()
 
 **Completed**:
 - `/src/lib/simplePool.ts` - SimplePool singleton with smart relay exclusion
 - `/src/lib/publishingRouter.ts` - Event routing logic by kind (Cashu vs social)
+- `/src/components/NostrProvider.tsx` - SimplePool exported in NostrConnectionContext
+- `/src/hooks/useSimplePool.ts` - Hook for direct SimplePool access (recommended pattern)
+
+**Architecture Decision**:
+SimplePool is available via two access patterns:
+1. **Direct import** (recommended): More efficient for singleton patterns
+   ```typescript
+   import { simplePool, getSimplePoolRelays, fetchEvents } from '@/lib/simplePool';
+   ```
+2. **Context access** (available if needed):
+   ```typescript
+   const { simplePool, simplePoolRelays } = useNostrConnection();
+   ```
+
+All Phase 2 migrations use the direct import pattern via `useSimplePool()` hook,
+which is preferred for singletons as it avoids unnecessary context re-renders.
 
 ### Phase 2: Hook Migration ✅
 **Goal**: Migrate timeline/feed hooks to SimplePool
@@ -329,9 +346,15 @@ const events = await fetchEvents(relays, filter, { signal }) as NostrEvent[];
 ## Next Steps
 
 1. ✅ Update TIMELINE_OPTIMIZATION_ROADMAP.md with correct architecture
-2. ⏳ Create SimplePool instance in NostrProvider
-3. ⏳ Implement smart relay exclusion
-4. ⏳ Begin Section 1 implementation with SimplePool
+2. ✅ Create SimplePool instance in NostrProvider
+3. ✅ Implement smart relay exclusion
+4. ✅ Phase 1 Complete - Begin Phase 2 implementations
+
+**Phase 1 Status**: 100% Complete ✅
+
+All infrastructure components are implemented and working. SimplePool is
+available via both direct import (recommended) and context access patterns.
+Phase 2 hook migrations successfully completed using the direct import pattern.
 
 ---
 

@@ -2046,15 +2046,39 @@ export function useOfflineStorage() {
 
 ## Implementation Roadmap
 
+**Overall Progress**: 4 of 6 Phases Complete (67%)
+
+| Phase | Status | Completion | Key Achievement |
+|-------|--------|------------|-----------------|
+| Phase 1 | ✅ Complete | 4/4 (100%) | SimplePool infrastructure & dual-pool architecture |
+| Phase 2 | ✅ Complete | 12/12 (100%) | Following feed optimization & hook migrations |
+| Phase 3 | ❌ Pending | 0/4 (0%) | NIP-42 AUTH implementation |
+| Phase 4 | ✅ Complete | 9/9 (100%) | Profile batching with DataLoader (Jumble architecture) |
+| Phase 5 | ❌ Pending | 0/3 (0%) | Advanced timeline features |
+| Phase 6 | ❌ Pending | 0/4 (0%) | Performance optimizations (IndexedDB, FlexSearch) |
+
+---
+
 ### Phase 1: SimplePool Infrastructure ✅
 - [x] Create DUAL_POOL_ARCHITECTURE.md documentation
 - [x] Create SimplePool instance and relay exclusion logic
 - [x] Implement publishing router (Cashu vs general events)
-- [ ] Add SimplePool to NostrProvider
+- [x] Add SimplePool to NostrProvider
 
 **Completed Files**:
 - `/src/lib/simplePool.ts` - SimplePool singleton, relay filtering helpers
 - `/src/lib/publishingRouter.ts` - Event routing by kind
+- `/src/components/NostrProvider.tsx` - SimplePool exported via context
+- `/src/hooks/useSimplePool.ts` - Hook for direct SimplePool access
+
+**Implementation Notes**:
+SimplePool is available via two patterns:
+1. **Direct import** (recommended): `import { simplePool } from '@/lib/simplePool'`
+2. **Context access**: `const { simplePool } = useNostrConnection()`
+
+Direct import is preferred for singleton patterns as it's more efficient
+and avoids unnecessary context re-renders. All Phase 2 migrations use
+the direct import pattern via useSimplePool() hook.
 
 ### Phase 2: Following Feed Optimization ✅
 - [x] Migrate useOptimizedVideoFeed to SimplePool
