@@ -46,7 +46,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   return (
     <>
       {/* Modal Backdrop */}
-      <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 bg-black flex items-center justify-center p-4">
         {/* Close button */}
         <button
           onClick={onClose}

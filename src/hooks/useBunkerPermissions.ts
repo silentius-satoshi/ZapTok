@@ -34,14 +34,9 @@ export function useBunkerPermissions() {
       23197: 'NWC notifications'
     };
     
-    const permissionList = requiredKinds
-      .map(kind => `• Kind ${kind}: ${kindDescriptions[kind as keyof typeof kindDescriptions] || 'Unknown'}`)
-      .join('\n');
-    
     toast({
-      title: "🎬 App Permissions Required",
-      description: `ZapTok will request permissions to publish:\n${permissionList}\n\nPlease approve these permissions in your bunker app when prompted.`,
-      duration: 8000,
+      description: "Please review and approve the permissions in your bunker app when prompted.",
+      duration: 5000,
     });
     
     // Note: The actual permission request happens during the bunker connection

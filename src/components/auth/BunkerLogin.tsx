@@ -85,25 +85,49 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
     if (!loginDetails.privKey || !loginDetails.connectionString) return;
     setNostrConnectionErrMsg(null);
     
+    let isActive = true;
+    let retryCount = 0;
+    const MAX_RETRIES = 10; // Poll for up to 10 attempts (30 seconds with 3s intervals)
+    
     const attemptLogin = async () => {
-      try {
-        devLog('🔧 Auto-attempting bunker login with generated connection string...');
-        await nostrToolsBunkerLogin(loginDetails.connectionString);
-        if (onLoginSuccess) {
-          onLoginSuccess({ connectionString: loginDetails.connectionString });
+      while (isActive && retryCount < MAX_RETRIES) {
+        try {
+          devLog(`🔧 Auto-attempting bunker login (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+          await nostrToolsBunkerLogin(loginDetails.connectionString);
+          if (onLoginSuccess && isActive) {
+            onLoginSuccess({ connectionString: loginDetails.connectionString });
+          }
+          devLog('✅ Bunker auto-login successful!');
+          break; // Success - exit loop
+        } catch (err) {
+          retryCount++;
+          
+          if (!isActive) break; // Component unmounted
+          
+          // If we've exhausted retries, show error
+          if (retryCount >= MAX_RETRIES) {
+            console.error('NostrConnectionLogin Error (max retries exceeded):', err);
+            setNostrConnectionErrMsg(
+              err instanceof Error && err.message 
+                ? `${err.message}. Please reload.` 
+                : 'Connection failed. Please reload.'
+            );
+            break;
+          }
+          
+          // Wait 3 seconds before retry (total: 30 seconds for all retries)
+          devLog(`⏳ Waiting 3s before retry...`);
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
-        devLog('✅ Bunker auto-login successful!');
-      } catch (err) {
-        console.error('NostrConnectionLogin Error:', err);
-        setNostrConnectionErrMsg(
-          err instanceof Error && err.message 
-            ? `${err.message}. Please reload.` 
-            : 'Connection failed. Please reload.'
-        );
       }
     };
 
     attemptLogin();
+    
+    // Cleanup function
+    return () => {
+      isActive = false;
+    };
   }, [loginDetails, nostrToolsBunkerLogin, onLoginSuccess]);
 
   // Cleanup on unmount
