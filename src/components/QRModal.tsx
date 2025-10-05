@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Copy, Check, ExternalLink, Settings } from 'lucide-react';
+import { Copy, Check, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { getLightningAddress } from '@/lib/lightning';
 import { nip19 } from 'nostr-tools';
@@ -309,9 +309,9 @@ export function QRModal({
             </div>
           )}
 
-          {/* Bottom - Three Clear Link Options */}
+          {/* Bottom - Link Options with Copy */}
           <div className="space-y-4">
-            {/* Share Link Section - Always show all 3 options */}
+            {/* Share Link Section */}
             {activeTab === 'share' && (
               <div className="space-y-3">
                 {(() => {
@@ -375,15 +375,6 @@ export function QRModal({
                                   <Copy className="h-3 w-3" />
                                 )}
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => window.open(enhancedURLs.primary, '_blank')}
-                                className="h-6 w-6 p-0"
-                                title="Open in new tab"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </Button>
                             </div>
                           </div>
                         )}
@@ -413,15 +404,6 @@ export function QRModal({
                               ) : (
                                 <Copy className="h-3 w-3" />
                               )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => window.open(basicURLs.fallback, '_blank')}
-                              className="h-6 w-6 p-0"
-                              title="Open in new tab"
-                            >
-                              <ExternalLink className="h-3 w-3" />
                             </Button>
                           </div>
                         </div>
