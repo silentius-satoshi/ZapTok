@@ -37,10 +37,16 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 
 ### 💬 **Social Features**
 - **Follow System**: Contact lists and relationship management (NIP-02)
-- **Threaded Comments**: Full discussion system with replies and mentions (NIP-22)
-- **Reactions**: Like and react to content (NIP-25)
 - **Content Sharing**: Reposts and quote sharing (NIP-18)
 - **Rich Profiles**: User metadata and customizable profiles
+- **Notification Center**: Real-time alerts for zaps, mentions, and reposts
+
+### 💼 **Advanced Features**
+- **Cashu Wallet Management**: Full wallet interface with transaction history
+- **Relay Management**: Advanced relay configuration and monitoring
+- **Video Analytics**: View tracking and engagement metrics
+- **QR Code Scanner**: Built-in scanner for lightning invoices and Cashu tokens
+- **Mint Discovery**: Automatic Cashu mint detection and management
 
 ### 📱 **Progressive Web App**
 - **Full PWA Support**: Installable on mobile and desktop
@@ -51,37 +57,15 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 
 ### 🌐 **Nostr Integration**
 - **Multi-Relay Support**: Connect to multiple relays for redundancy
-- **File Metadata**: Decentralized storage integration (NIP-94)
 - **Video Events**: Native video content format (NIP-71)
 - **Bech32 Addresses**: Full NIP-19 identifier support
 - **Content Discovery**: Hashtag following and search capabilities
 
 ### 🚀 **Coming Next**
+- **Threaded Comments UI**: Display and interact with NIP-22 comments (backend ready)
 - **Private Messages**: Encrypted DMs (NIP-17)
-- **Advanced Search**: Enhanced content discovery (NIP-50)
 - **Live Streaming**: Real-time broadcasting (NIP-53)
 - **Creator Tools**: Zap goals, badges, long-form content
-
-### 🔗 **Universal Bunker Support**
-
-ZapTok provides seamless integration with remote signers, enabling secure key management without exposing private keys:
-
-**Lightning Wallet Integration**
-- **Bitcoin Connect**: Universal lightning wallet connectivity supporting WebLN-enabled wallets
-- **One-Click Setup**: Connect Alby, Zeus, Phoenix, and other popular lightning wallets instantly
-- **Secure Payments**: Send and receive zaps without sharing sensitive wallet credentials
-- **Cross-Platform**: Works across desktop and mobile with consistent experience
-
-**Cashu Wallet Support**
-- **nsec.app Integration**: Full compatibility with nsec.app's secure key management
-- **eCash Transactions**: Seamless Cashu wallet operations through remote signer
-- **Privacy-First**: Enhanced privacy with eCash payments via bunker connection
-
-**Bunker Benefits**
-- **Enhanced Security**: Private keys never leave your trusted signer device
-- **Universal Access**: Use ZapTok from any device without key management concerns
-- **Simplified Onboarding**: New users can start immediately with remote signer setup
-- **Professional Workflow**: Ideal for creators managing multiple devices and platforms
 
 ## Philosophy
 
@@ -145,18 +129,17 @@ Bulletproof & Transparent
 - NIP-10: Conventions for `e` and `p` tags (replies/mentions)
 - NIP-18: Reposts and Share functionality
 - NIP-19: Bech32-encoded entities
-- NIP-22: Comments (threaded discussion system)
-- NIP-25: Reactions
+- NIP-22: Comments (backend infrastructure and publishing)
 - NIP-46: Nostr Connect
 - NIP-47: Wallet Connect
+- NIP-50: Search Capability
 - NIP-57: Lightning Zaps
 - NIP-60: Cashu Wallets
 - NIP-61: Nutzaps
 - NIP-71: Video Events
-- NIP-94: File Metadata
 
 **Partially Implemented**
-- NIP-50: Search Capability (basic filtering implemented, advanced search planned)
+- NIP-22: Comments UI (threaded display coming soon)
 
 **Planned for Implementation**
 - NIP-17: Private Direct Messages
@@ -164,10 +147,6 @@ Bulletproof & Transparent
 - NIP-75: Zap Goals
 
 **Research & Future Consideration**
-- NIP-03: OpenTimestamps Attestations
-- NIP-32: Content Labeling
-- NIP-92: Media Attachments
-- NIP-96: File Storage Integration
 - Bandwidth Optimization
 - CDN/Mirror Integration
 - Content Licensing & Rights Management
@@ -192,26 +171,34 @@ This roadmap evolves based on:
 - Bitcoin / Lightning Network improvements
 - Creator and user needs
 
-**Want to contribute?** Check our [Contributing Guidelines](CONTRIBUTING.md) or [open an issue](https://github.com/silentius-satoshi/ZapTok/issues) to suggest features!
 
-## Development Documentation
+## Want to Contribute?
 
-For developers working on ZapTok, we provide comprehensive documentation to ensure consistent implementation:
+For developers interested in contributing to ZapTok:
 
-- **[UI Layout Guidelines](./public/docs/UI_LAYOUT_GUIDELINES.md)** - Essential guidelines for implementing LoginArea dropdowns, component positioning, and responsive layouts
 - **[Contributing Guidelines](./CONTRIBUTING.md)** - Development workflow, code standards, and contribution process
-- **[Design Reference](./DESIGN_REFERENCE.md)** - Design system and visual guidelines
 - **[Protocol Documentation](./public/docs/)** - Nostr NIPs and Cashu NUTs specifications
+- **[Open an Issue](https://github.com/silentius-satoshi/ZapTok/issues)** - Report bugs, request features, or ask questions
 
 ## License
 
-ZapTok is licensed under the **MIT License**.
+ZapTok is licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0-or-later).
+
+This means:
+- ✅ You can use, study, modify, and share this software freely
+- ✅ If you run a modified version as a web service, you must share your source code
+- ✅ All modifications must also be licensed under AGPL-3.0
+- ✅ This protects the open source community from proprietary forks
 
 ### Copyright Notice
 
-Copyright (c) 2025 @silentius
+Copyright (c) 2025 silentius-satoshi
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
 For the complete license text, see the [LICENSE](./LICENSE) file.
+
+For third-party dependency attributions, see the [NOTICE](./NOTICE) file.
 
 
 ## Support ZapTok
@@ -220,16 +207,16 @@ Help us continue building and improving ZapTok. Your support enables us to maint
 
 <div align="center">
 
-<table>
+<table style="border: none; border-collapse: collapse;">
 <tr>
-<td align="center">
-<img src="./public/images/qr-npub.png" alt="Nostr Profile QR Code" width="192" height="192"/>
+<td align="center" style="border: none; padding: 0;">
+<img src="./public/images/qr-npub.png" alt="Nostr Profile QR Code" width="200" height="200" style="display: block;"/>
 <br/>
 <em>Follow us on</em> <strong><a href="https://njump.me/npub187ffdcqg4k56x2x3wmtlu6wkawuzm5k5wvzj980p0uvx3ek6tg7svrdkx8">nostr</a></strong>
 </td>
-<td width="40"></td>
-<td align="center">
-<img src="./public/images/qr-lightning.png" alt="Lightning Address QR Code" width="192" height="192"/>
+<td width="40" style="border: none;"></td>
+<td align="center" style="border: none; padding: 0;">
+<img src="./public/images/qr-lightning.png" alt="Lightning Address QR Code" width="200" height="200" style="display: block;"/>
 <br/>
 <em>Zap to show your support for ZapTok development:</em> <strong>zaptok@strike.me</strong>
 </td>
