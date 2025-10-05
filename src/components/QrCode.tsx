@@ -1,46 +1,69 @@
 import QRCodeStyling from 'qr-code-styling';
-import { useEffect, useRef } from 'react';
-import iconSvg from '/images/icon-512x512.png';
+import { useEffect, useRef, useState } from 'react';
+
+// Preload and cache the logo image
+const logoImage = new Image();
+logoImage.src = '/images/icon-512x512.png';
 
 export default function QrCode({ value, size = 180 }: { value: string; size?: number }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  // Ensure image is loaded before generating QR code
+  useEffect(() => {
+    if (logoImage.complete) {
+      setImageLoaded(true);
+    } else {
+      logoImage.onload = () => setImageLoaded(true);
+    }
+  }, []);
 
   useEffect(() => {
-    setTimeout(() => {
-      const pixelRatio = window.devicePixelRatio || 2;
+    if (!imageLoaded) return; // Wait for image to load
 
-      const qrCode = new QRCodeStyling({
-        qrOptions: {
-          errorCorrectionLevel: 'M'
-        },
-        image: iconSvg,
-        width: size * pixelRatio,
-        height: size * pixelRatio,
-        data: value,
-        dotsOptions: {
-          type: 'extra-rounded'
-        },
-        cornersDotOptions: {
-          type: 'extra-rounded'
-        },
-        cornersSquareOptions: {
-          type: 'extra-rounded'
-        }
-      });
+    const pixelRatio = window.devicePixelRatio || 2;
 
-      if (ref.current) {
-        ref.current.innerHTML = '';
-        qrCode.append(ref.current);
-        const canvas = ref.current.querySelector('canvas');
-        if (canvas) {
-          canvas.style.width = `${size}px`;
-          canvas.style.height = `${size}px`;
-          canvas.style.maxWidth = '100%';
-          canvas.style.height = 'auto';
-        }
+    const qrCode = new QRCodeStyling({
+      qrOptions: {
+        errorCorrectionLevel: 'M'
+      },
+      image: logoImage.src,
+      width: size * pixelRatio,
+      height: size * pixelRatio,
+      data: value,
+      dotsOptions: {
+        type: 'extra-rounded'
+      },
+      cornersDotOptions: {
+        type: 'extra-rounded'
+      },
+      cornersSquareOptions: {
+        type: 'extra-rounded'
+      },
+      imageOptions: {
+        crossOrigin: 'anonymous',
+        margin: 4,
+        imageSize: 0.3,
+        hideBackgroundDots: true
       }
-    }, 0);
-  }, [value, size]);
+    });
+
+    if (ref.current) {
+      ref.current.innerHTML = '';
+      qrCode.append(ref.current);
+      const canvas = ref.current.querySelector('canvas');
+      if (canvas) {
+        canvas.style.width = `${size}px`;
+        canvas.style.height = `${size}px`;
+        canvas.style.maxWidth = '100%';
+        canvas.style.height = 'auto';
+      }
+    }
+
+    return () => {
+      if (ref.current) ref.current.innerHTML = '';
+    };
+  }, [value, size, imageLoaded]);
 
   return <div ref={ref} />;
 }
