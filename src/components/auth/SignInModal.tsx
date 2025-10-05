@@ -202,7 +202,14 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
               </TabsContent>
 
               <TabsContent value="bunker" className="space-y-4">
-                <BunkerLogin login={handleBunkerLogin} isLocked={isLocked} />
+                <BunkerLogin 
+                  login={handleBunkerLogin} 
+                  isLocked={isLocked}
+                  onLoginSuccess={() => {
+                    devLog('🎉 Bunker login succeeded, closing modal...');
+                    setTimeout(() => onClose(), 0);
+                  }}
+                />
               </TabsContent>
             </Tabs>
 

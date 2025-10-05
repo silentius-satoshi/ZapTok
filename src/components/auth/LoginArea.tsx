@@ -25,6 +25,8 @@ export interface LoginAreaProps {
   browseButtonText?: string;
   onBrowseClick?: () => void;
   hideFeedButton?: boolean;
+  onLoginClick?: () => void;
+  disableInternalModal?: boolean; // Don't open internal modal, only call onLoginClick
 }
 
 export function LoginArea({ 
@@ -32,7 +34,9 @@ export function LoginArea({
   showBrowseWithoutLogin = false,
   browseButtonText = "Browse Videos", 
   onBrowseClick,
-  hideFeedButton = false
+  hideFeedButton = false,
+  onLoginClick,
+  disableInternalModal = false
 }: LoginAreaProps) {
   const { currentUser } = useLoggedInAccounts();
   const { walletInfo, isConnected, getBalance, provider, userHasLightningAccess } = useWallet();
@@ -195,7 +199,22 @@ export function LoginArea({
       ) : (
         <div className="flex flex-col gap-2 w-full ml-2">
           <Button
-            onClick={() => setLoginModalOpen(true)}
+            onClick={() => {
+              if (disableInternalModal) {
+                // Only call parent callback, don't open internal modal
+                onLoginClick?.();
+              } else if (onLoginClick) {
+                // Call parent callback first
+                onLoginClick();
+                // Delay modal open to ensure parent closes first
+                setTimeout(() => {
+                  setLoginModalOpen(true);
+                }, 100);
+              } else {
+                // No parent callback, open immediately
+                setLoginModalOpen(true);
+              }
+            }}
             className='flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground w-full font-medium transition-all hover:bg-primary/90 animate-scale-in'
           >
             <User className='w-4 h-4' />

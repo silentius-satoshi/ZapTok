@@ -565,7 +565,19 @@ export function MobileNavigation() {
                       </div>
                     ) : (
                       <div className="w-full">
-                        <LoginArea className="w-full justify-center" hideFeedButton={true} />
+                        <LoginArea 
+                          className="w-full justify-center" 
+                          hideFeedButton={true}
+                          disableInternalModal={true}
+                          onLoginClick={() => {
+                            // Close Sheet first
+                            setIsOpen(false);
+                            // Then open LoginModal at parent level (outside Sheet portal)
+                            setTimeout(() => {
+                              setShowLoginModal(true);
+                            }, 150);
+                          }}
+                        />
                       </div>
                     )}
                   </div>

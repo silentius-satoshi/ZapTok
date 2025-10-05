@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Check, Copy, Loader, ScanQrCode, AlertTriangle } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNostrToolsBunkerLogin } from '@/hooks/useNostrToolsBunkerLogin';
+import { useWelshmanBunkerLogin } from '@/hooks/useWelshmanBunkerLogin';
 import { devLog } from '@/lib/devConsole';
 import QrCode from '@/components/QrCode';
 import QrScanner from 'qr-scanner';
@@ -35,24 +35,22 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
   const [qrCodeSize, setQrCodeSize] = useState(100);
   
   const { user } = useCurrentUser();
-  const { bunkerLogin: nostrToolsBunkerLogin } = useNostrToolsBunkerLogin();
+  const { bunkerLogin, isLoading: bunkerLoading, error: bunkerError, authUrl, generateQRUrl } = useWelshmanBunkerLogin();
 
-  // Generate connection details on mount (Jumble's approach)
-  const [loginDetails] = useState(() => {
-    const newPrivKey = generateSecretKey();
-    const newMeta: NostrConnectParams = {
-      clientPubkey: getPublicKey(newPrivKey),
-      relays: DEFAULT_NOSTRCONNECT_RELAY,
-      secret: Math.random().toString(36).substring(7),
-      name: document.location.host,
-      url: document.location.origin
+  // Generate QR URL on mount using Welshman broker
+  const [qrUrl, setQrUrl] = useState<string>('');
+  
+  useEffect(() => {
+    // Generate QR URL when component mounts
+    const initQR = async () => {
+      if (generateQRUrl) {
+        const url = await generateQRUrl();
+        setQrUrl(url);
+        devLog('📱 Generated QR URL for bunker login');
+      }
     };
-    const newConnectionString = createNostrConnectURI(newMeta);
-    return {
-      privKey: newPrivKey,
-      connectionString: newConnectionString
-    };
-  });
+    initQR();
+  }, [generateQRUrl]);
 
   // Calculate QR code size based on container
   useLayoutEffect(() => {
@@ -80,62 +78,40 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
     };
   }, []);
 
-  // Auto-login with generated connection string
+  // Initialize broker polling when QR URL is generated
   useEffect(() => {
-    if (!loginDetails.privKey || !loginDetails.connectionString) return;
-    setNostrConnectionErrMsg(null);
+    if (!qrUrl) return;
     
     let isActive = true;
-    let retryCount = 0;
-    const MAX_RETRIES = 10; // Poll for up to 10 attempts (30 seconds with 3s intervals)
     
-    const attemptLogin = async () => {
-      while (isActive && retryCount < MAX_RETRIES) {
-        try {
-          devLog(`🔧 Auto-attempting bunker login (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
-          await nostrToolsBunkerLogin(loginDetails.connectionString);
-          if (onLoginSuccess && isActive) {
-            onLoginSuccess({ connectionString: loginDetails.connectionString });
-          }
-          devLog('✅ Bunker auto-login successful!');
-          break; // Success - exit loop
-        } catch (err) {
-          retryCount++;
-          
-          if (!isActive) break; // Component unmounted
-          
-          // If we've exhausted retries, show error
-          if (retryCount >= MAX_RETRIES) {
-            console.error('NostrConnectionLogin Error (max retries exceeded):', err);
-            setNostrConnectionErrMsg(
-              err instanceof Error && err.message 
-                ? `${err.message}. Please reload.` 
-                : 'Connection failed. Please reload.'
-            );
-            break;
-          }
-          
-          // Wait 3 seconds before retry (total: 30 seconds for all retries)
-          devLog(`⏳ Waiting 3s before retry...`);
-          await new Promise(resolve => setTimeout(resolve, 3000));
+    const initializeBroker = async () => {
+      try {
+        devLog('🔧 Initializing bunker broker for QR code polling...');
+        await bunkerLogin(qrUrl);
+        
+        // If we reach here, user approved and login succeeded
+        devLog('✅ Bunker QR code login successful!');
+        
+        if (onLoginSuccess && isActive) {
+          onLoginSuccess({ connectionString: qrUrl });
+        }
+      } catch (err) {
+        if (isActive) {
+          devLog('⚠️ Bunker broker initialization failed:', err);
+          setNostrConnectionErrMsg(err instanceof Error ? err.message : 'Failed to initialize bunker connection');
         }
       }
     };
 
-    attemptLogin();
+    initializeBroker();
     
-    // Cleanup function
     return () => {
       isActive = false;
-    };
-  }, [loginDetails, nostrToolsBunkerLogin, onLoginSuccess]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
       stopQrScan();
     };
-  }, []);
+    // Only depend on qrUrl value, not the function
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrUrl]);
 
   // Auto-detect successful login
   useEffect(() => {
@@ -155,9 +131,13 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
     if (_bunker === '') return;
 
     setPending(true);
+    setErrMsg(null);
     try {
-      await login(_bunker);
+      await bunkerLogin(_bunker);
       devLog('✅ Manual bunker login successful!');
+      if (onLoginSuccess) {
+        onLoginSuccess({ connectionString: _bunker });
+      }
     } catch (err) {
       setErrMsg(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -166,10 +146,10 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
   };
 
   const copyConnectionString = async () => {
-    if (!loginDetails.connectionString) return;
+    if (!qrUrl) return;
 
     try {
-      await navigator.clipboard.writeText(loginDetails.connectionString);
+      await navigator.clipboard.writeText(qrUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -249,9 +229,15 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
     <div className="relative flex flex-col gap-3">
       {/* QR Code Section - Priority 1 ✅ */}
       <div ref={qrContainerRef} className="flex flex-col items-center w-full space-y-2">
-        <a href={loginDetails.connectionString} aria-label="Open with Nostr signer app">
-          <QrCode size={qrCodeSize} value={loginDetails.connectionString} />
-        </a>
+        <div>
+          {qrUrl ? (
+            <QrCode size={qrCodeSize} value={qrUrl} />
+          ) : (
+            <div className="flex items-center justify-center" style={{ width: qrCodeSize, height: qrCodeSize }}>
+              <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </div>
         {nostrConnectionErrMsg && (
           <div className="text-xs text-destructive text-center">{nostrConnectionErrMsg}</div>
         )}
@@ -269,7 +255,7 @@ const BunkerLogin = ({ login, isLocked, onLoginSuccess }: BunkerLoginProps) => {
           tabIndex={0}
         >
           <div className="flex-grow min-w-0 truncate select-none">
-            {loginDetails.connectionString}
+            {qrUrl || 'Generating...'}
           </div>
           <div className="flex-shrink-0">{copied ? <Check size={14} /> : <Copy size={14} />}</div>
         </div>
