@@ -49,6 +49,15 @@ export function useLoginActions() {
       if (login) {
         markManualLogout(); // Mark that this was a manual logout
         
+        // Clear Welshman bunker sessions from localStorage to prevent auto-restoration
+        try {
+          localStorage.removeItem('bunkerSessions');
+          localStorage.removeItem('lastBunkerPubkey');
+          devLog('🗑️ Cleared Welshman bunker sessions from localStorage');
+        } catch (error) {
+          devError('Failed to clear Welshman bunker sessions:', error);
+        }
+        
         // If this was a bunker login, track it as manually removed and clean up storage
         if (login.type === 'x-bunker-nostr-tools' || (login as any).method === 'bunker') {
           try {
