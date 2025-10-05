@@ -11,9 +11,11 @@ import { Navigation } from '@/components/Navigation';
 import { LogoHeader } from '@/components/LogoHeader';
 import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 export function FAQ() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useSeoMeta({
     title: 'Frequently Asked Questions - ZapTok',
@@ -28,13 +30,15 @@ export function FAQ() {
     <div className="min-h-screen bg-black text-white">
       <main className="h-screen">
         <div className="flex h-full">
-          {/* Left Sidebar - Logo and Navigation */}
-          <div className="flex flex-col bg-black">
-            <LogoHeader />
-            <div className="flex-1">
-              <Navigation />
+          {/* Left Sidebar - Logo and Navigation - Hidden on Mobile */}
+          {!isMobile && (
+            <div className="flex flex-col bg-black">
+              <LogoHeader />
+              <div className="flex-1">
+                <Navigation />
+              </div>
             </div>
-          </div>
+          )}
 
             {/* FAQ Content */}
             <div className="flex-1 overflow-y-auto scrollbar-hide">

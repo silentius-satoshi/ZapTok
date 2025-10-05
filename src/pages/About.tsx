@@ -12,9 +12,11 @@ import { LogoHeader } from '@/components/LogoHeader';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 export function About() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useSeoMeta({
     title: 'About ZapTok',
@@ -29,13 +31,15 @@ export function About() {
     <div className="min-h-screen bg-black text-white">
       <main className="h-screen">
         <div className="flex h-full">
-          {/* Left Sidebar - Logo and Navigation */}
-          <div className="flex flex-col bg-black">
-            <LogoHeader />
-            <div className="flex-1">
-              <Navigation />
+          {/* Left Sidebar - Logo and Navigation - Hidden on Mobile */}
+          {!isMobile && (
+            <div className="flex flex-col bg-black">
+              <LogoHeader />
+              <div className="flex-1">
+                <Navigation />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* About Content */}
           <div className="flex-1 overflow-y-auto scrollbar-hide">
