@@ -243,9 +243,13 @@ ZapTok stands on the shoulders of giants. We're deeply grateful to the open-sour
 - **[Plebs](https://github.com/Spl0itable/plebs-app)** **([plebs.app](https://plebs.app/))** - Plebs is a censorship-resistant, decentralized video platform powered by the Nostr social protocol
 - **[Primal](https://github.com/PrimalHQ)** **([primal.net](https://primal.net/))** - Primal's iOS/web app for Nostr; as experienced on primal.net
 - **[Snort](https://github.com/v0l/snort)** **([phoenix.social](https://phoenix.social/))** - Feature packed nostr web UI, Mirror of https://git.v0l.io/Kieran/snort 
+- **[Yakihonne](https://github.com/YakiHonne)** **([yakihonne.com](https://yakihonne.com/))** - A decentralized social payment client on Nostr to support people in owning their voice and assets
 - **[Zappix](https://github.com/derekross/zappix)** **([Zappix.app](https://zappix.app/home))** - A nostr image sharing application for browsing, sharing, and zapping visual content
 - **[Zap.stream](https://github.com/v0l/zap.stream)** **([Zap.stream](https://zap.stream/))** - Nostr live streaming
 
+### Nostr App Stores
+- **[nostr apps](https://nostrapps.com/)** - A curated list of Nostr apps and services
+- **[Zapstore](https://github.com/zapstore/zapstore)** **([zapstore.dev](https://zapstore.dev/))** - The social permissionless app store
 
 ### Technical Foundation
 - **React Team** - The UI framework powering our interface
