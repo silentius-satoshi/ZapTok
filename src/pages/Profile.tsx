@@ -23,6 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import { VideoGrid } from '@/components/VideoGrid';
 import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus } from 'lucide-react';
 import { FollowingListModal } from '@/components/FollowingListModal';
+import { FollowersListModal } from '@/components/FollowersListModal';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { QRModal } from '@/components/QRModal';
 import { ZapButton } from '@/components/ZapButton';
@@ -32,6 +33,7 @@ import { useToast } from '@/hooks/useToast';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useNostrLogin } from '@nostrify/react/login';
 import { nip19 } from 'nostr-tools';
+import { usePrimalFollowerCount } from '@/hooks/usePrimalFollowerCount';
 
 const Profile = () => {
   const { pubkey: paramPubkey } = useParams();
@@ -42,6 +44,7 @@ const Profile = () => {
   const { withLoginCheck } = useLoginPrompt();
   const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'bookmarks'>('posts');
   const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [isNutzapDialogOpen, setIsNutzapDialogOpen] = useState(false);
@@ -94,6 +97,9 @@ const Profile = () => {
   const userVideos = useUserVideos(targetPubkey);
   const repostedVideos = useRepostedVideos(targetPubkey);
   const metadata = author.data?.metadata;
+  
+  // Fetch accurate follower and following counts from Primal
+  const { followerCount, followingCount, isLoading: followerCountLoading } = usePrimalFollowerCount(targetPubkey);
 
   // Check if current user is following the target user
   const isFollowingTarget = Boolean(
@@ -268,20 +274,40 @@ const Profile = () => {
 
                       {/* Profile Action Buttons */}
                       <div className={`flex ${isMobile ? 'flex-wrap justify-center gap-2' : 'space-x-3'}`}>
-                        {/* 1. Following List Button */}
+                        {/* 1. Followers Button */}
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowFollowersModal(true)}
+                          className="flex items-center space-x-2"
+                        >
+                          <Users className="w-4 h-4" />
+                          <span>
+                            {followerCount !== null && followerCount !== undefined 
+                              ? `${followerCount.toLocaleString()} Followers`
+                              : 'Followers'
+                            }
+                          </span>
+                        </Button>
+
+                        {/* 2. Following List Button */}
                         <Button
                           variant="outline"
                           onClick={handleFollowingClick}
                           className="flex items-center space-x-2"
-                          disabled={following.isLoading || !following.data?.count}
+                          disabled={followerCountLoading || !following.data?.count}
                         >
                           <Users className="w-4 h-4" />
                           <span>
-                            {following.isLoading ? 'Loading...' : `${following.data?.count || 0} Following`}
+                            {followerCountLoading 
+                              ? 'Loading...' 
+                              : followingCount !== null && followingCount !== undefined
+                                ? `${followingCount.toLocaleString()} Following`
+                                : `${following.data?.count || 0} Following`
+                            }
                           </span>
                         </Button>
 
-                        {/* 2. QR Code Button */}
+                        {/* 3. QR Code Button */}
                         <Button
                           variant="outline"
                           onClick={() => setShowQRModal(true)}
@@ -292,7 +318,7 @@ const Profile = () => {
 
                         {!isOwnProfile && (
                           <>
-                            {/* 3. Zap Button */}
+                            {/* 4. Zap Button */}
                             <ZapButton
                               recipientPubkey={targetPubkey}
                               variant="outline"
@@ -300,7 +326,7 @@ const Profile = () => {
                               className="w-10 h-10"
                             />
 
-                            {/* 3b. Nutzap Button - Now available for all signer types */}
+                            {/* 5. Nutzap Button - Now available for all signer types */}
                             <Button
                               variant="outline"
                               size="icon"
@@ -310,7 +336,7 @@ const Profile = () => {
                               <img src="/images/cashu-icon.png" alt="Cashu" className="h-4 w-4" />
                             </Button>
 
-                            {/* 4. Direct Message Button */}
+                            {/* 6. Direct Message Button */}
                             <Button
                               variant="outline"
                               onClick={handleDirectMessage}
@@ -319,7 +345,7 @@ const Profile = () => {
                               <MessageCircle className="w-4 h-4" />
                             </Button>
 
-                            {/* 5. Follow/Unfollow Button */}
+                            {/* 7. Follow/Unfollow Button */}
                             <Button
                               variant={isFollowingTarget ? "secondary" : "default"}
                               onClick={handleFollowToggle}
@@ -459,6 +485,15 @@ const Profile = () => {
         isOpen={showFollowingModal}
         onClose={() => setShowFollowingModal(false)}
         pubkeys={following.data?.pubkeys || []}
+        followingCount={followingCount}
+      />
+
+      {/* Followers Modal */}
+      <FollowersListModal
+        pubkey={targetPubkey}
+        open={showFollowersModal}
+        onOpenChange={setShowFollowersModal}
+        followerCount={followerCount}
       />
 
       {/* QR Modal */}

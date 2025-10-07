@@ -11,15 +11,16 @@ interface FollowingListModalProps {
   isOpen: boolean;
   onClose: () => void;
   pubkeys: string[];
+  followingCount?: number | null;
 }
 
-export function FollowingListModal({ isOpen, onClose, pubkeys }: FollowingListModalProps) {
+export function FollowingListModal({ isOpen, onClose, pubkeys, followingCount }: FollowingListModalProps) {
   const authors = useAuthors(pubkeys);
   const navigate = useNavigate();
 
   const handleProfileClick = (pubkey: string) => {
     navigate(`/profile/${pubkey}`);
-    onClose(); // Close the modal after navigation
+    onClose();
   };
 
   return (
@@ -28,7 +29,7 @@ export function FollowingListModal({ isOpen, onClose, pubkeys }: FollowingListMo
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <Users className="w-5 h-5" />
-            <span>Following ({pubkeys.length})</span>
+            <span>Following ({followingCount?.toLocaleString() || pubkeys.length})</span>
           </DialogTitle>
         </DialogHeader>
         
@@ -45,6 +46,11 @@ export function FollowingListModal({ isOpen, onClose, pubkeys }: FollowingListMo
                   </div>
                 </div>
               ))
+            ) : pubkeys.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Not following anyone yet</p>
+              </div>
             ) : (
               authors.data?.map((author) => {
                 const displayName = author.metadata?.display_name || author.metadata?.name || genUserName(author.pubkey);
@@ -61,7 +67,7 @@ export function FollowingListModal({ isOpen, onClose, pubkeys }: FollowingListMo
                     <Avatar className="w-10 h-10">
                       <AvatarImage src={profileImage} alt={displayName} />
                       <AvatarFallback className="text-sm">
-                        {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     
@@ -80,6 +86,18 @@ export function FollowingListModal({ isOpen, onClose, pubkeys }: FollowingListMo
             )}
           </div>
         </ScrollArea>
+
+        {/* Footer showing accurate count from Primal */}
+        {!authors.isLoading && pubkeys.length > 0 && (
+          <div className="pt-2 border-t text-center">
+            <p className="text-xs text-muted-foreground">
+              {followingCount && pubkeys.length !== followingCount
+                ? `Showing ${pubkeys.length} of ${followingCount.toLocaleString()} following · Count from Primal`
+                : `All ${pubkeys.length} following`
+              }
+            </p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
