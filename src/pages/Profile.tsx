@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { VideoGrid } from '@/components/VideoGrid';
-import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus } from 'lucide-react';
+import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus, Send } from 'lucide-react';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { QRModal } from '@/components/QRModal';
@@ -32,6 +32,7 @@ import { useToast } from '@/hooks/useToast';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useNostrLogin } from '@nostrify/react/login';
 import { nip19 } from 'nostr-tools';
+import { getLightningAddress } from '@/lib/lightning';
 
 const Profile = () => {
   const { pubkey: paramPubkey } = useParams();
@@ -108,6 +109,7 @@ const Profile = () => {
   const profileImage = metadata?.picture;
   const website = metadata?.website;
   const nip05 = metadata?.nip05;
+  const lightningAddress = getLightningAddress(metadata);
 
   // Generate NIP-19 identifiers for meta tags
   const npub = targetPubkey ? nip19.npubEncode(targetPubkey) : '';
@@ -256,17 +258,45 @@ const Profile = () => {
 
                       <div className="text-center space-y-3">
                         <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold`}>{displayName}</h1>
-                        {userName !== displayName && (
-                          <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-gray-400`}>@{userName}</p>
-                        )}
-                        {nip05 && (
-                          <Badge variant="secondary" className="text-sm">
-                            ✓ {nip05}
+                        <div className="flex items-center justify-center gap-2 flex-wrap">
+                          {userName !== displayName && (
+                            <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-gray-400`}>@{userName}</p>
+                          )}
+                          {nip05 && (
+                            <Badge 
+                              variant="secondary" 
+                              className="text-sm bg-transparent hover:bg-gray-800 cursor-pointer transition-colors"
+                              onClick={() => {
+                                navigator.clipboard.writeText(nip05);
+                                toast({
+                                  title: "Copied!",
+                                  description: "NIP-05 identifier copied to clipboard",
+                                });
+                              }}
+                            >
+                              ✓ {nip05}
+                            </Badge>
+                          )}
+                        </div>
+                        {lightningAddress && (
+                          <Badge
+                            variant="secondary"
+                            className="text-sm bg-transparent hover:bg-gray-800 cursor-pointer transition-colors inline-flex items-center gap-1.5"
+                            onClick={() => {
+                              navigator.clipboard.writeText(lightningAddress);
+                              toast({
+                                title: "Copied!",
+                                description: "Lightning address copied to clipboard",
+                              });
+                            }}
+                          >
+                            <span className="text-yellow-500">⚡</span>
+                            <span>{lightningAddress}</span>
                           </Badge>
                         )}
                       </div>
 
-                      {/* Profile Action Buttons */}
+                      {/* Profile Action Buttons - Only Following List and QR Code above bio */}
                       <div className={`flex ${isMobile ? 'flex-wrap justify-center gap-2' : 'space-x-3'}`}>
                         {/* 1. Following List Button */}
                         <Button
@@ -290,59 +320,6 @@ const Profile = () => {
                           <QrCode className="w-4 h-4" />
                         </Button>
 
-                        {!isOwnProfile && (
-                          <>
-                            {/* 3. Zap Button */}
-                            <ZapButton
-                              recipientPubkey={targetPubkey}
-                              variant="outline"
-                              size="icon"
-                              className="w-10 h-10"
-                            />
-
-                            {/* 3b. Nutzap Button - Now available for all signer types */}
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="w-10 h-10"
-                              onClick={() => setIsNutzapDialogOpen(true)}
-                            >
-                              <img src="/images/cashu-icon.png" alt="Cashu" className="h-4 w-4" />
-                            </Button>
-
-                            {/* 4. Direct Message Button */}
-                            <Button
-                              variant="outline"
-                              onClick={handleDirectMessage}
-                              className="flex items-center justify-center w-10 h-10 p-0"
-                            >
-                              <MessageCircle className="w-4 h-4" />
-                            </Button>
-
-                            {/* 5. Follow/Unfollow Button */}
-                            <Button
-                              variant={isFollowingTarget ? "secondary" : "default"}
-                              onClick={handleFollowToggle}
-                              disabled={followUser.isPending || !user}
-                              className="flex items-center space-x-2"
-                            >
-                              {isFollowingTarget ? (
-                                <UserMinus className="w-4 h-4" />
-                              ) : (
-                                <UserPlus className="w-4 h-4" />
-                              )}
-                              <span>
-                                {followUser.isPending
-                                  ? 'Loading...'
-                                  : isFollowingTarget
-                                    ? 'Unfollow'
-                                    : 'Follow'
-                                }
-                              </span>
-                            </Button>
-                          </>
-                        )}
-
                         {isOwnProfile && (
                           <Button
                             variant="outline"
@@ -357,13 +334,90 @@ const Profile = () => {
                         )}
                       </div>
 
-                      {/* Bio */}
+                      {/* Bio - No border */}
                       {bio && (
-                        <Card className="w-full max-w-2xl">
-                          <CardContent className="pt-6">
-                            <p className="text-center text-gray-300 whitespace-pre-wrap">{bio}</p>
-                          </CardContent>
-                        </Card>
+                        <div className="w-full max-w-2xl">
+                          <p className="text-center text-gray-300 whitespace-pre-wrap">{bio}</p>
+                        </div>
+                      )}
+
+                      {/* Action Buttons Below Bio - Only for other profiles */}
+                      {!isOwnProfile && (
+                        <div className={`flex ${isMobile ? 'flex-wrap justify-center gap-2' : 'space-x-3'}`}>
+                          {/* 1. Follow/Unfollow Button */}
+                          <Button
+                            variant={isFollowingTarget ? "secondary" : "default"}
+                            onClick={handleFollowToggle}
+                            disabled={followUser.isPending || !user}
+                            className="flex items-center space-x-2"
+                          >
+                            {isFollowingTarget ? (
+                              <UserMinus className="w-4 h-4" />
+                            ) : (
+                              <UserPlus className="w-4 h-4" />
+                            )}
+                            <span>
+                              {followUser.isPending
+                                ? 'Loading...'
+                                : isFollowingTarget
+                                  ? 'Unfollow'
+                                  : 'Follow'
+                              }
+                            </span>
+                          </Button>
+
+                          {/* 2. Zap Button */}
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="w-10 h-10 profile-zap-button"
+                            asChild
+                          >
+                            <div className="relative">
+                              <ZapButton
+                                recipientPubkey={targetPubkey}
+                                variant="outline"
+                                size="icon"
+                                className="w-10 h-10 !bg-transparent hover:!bg-accent hover:!text-accent-foreground"
+                              />
+                              <style>{`
+                                .profile-zap-button svg {
+                                  fill: url(#zapGradient) !important;
+                                  stroke: url(#zapGradient) !important;
+                                }
+                              `}</style>
+                              <svg width="0" height="0" className="absolute">
+                                <defs>
+                                  <linearGradient id="zapGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style={{ stopColor: 'rgb(251, 146, 60)' }} />
+                                    <stop offset="50%" style={{ stopColor: 'rgb(236, 72, 153)' }} />
+                                    <stop offset="100%" style={{ stopColor: 'rgb(147, 51, 234)' }} />
+                                  </linearGradient>
+                                </defs>
+                              </svg>
+                            </div>
+                          </Button>
+
+                          {/* 3. Nutzap Button */}
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="w-10 h-10"
+                            onClick={() => setIsNutzapDialogOpen(true)}
+                          >
+                            <img src="/images/cashu-icon.png" alt="Cashu" className="h-4 w-4" />
+                          </Button>
+
+                          {/* 4. Direct Message Button */}
+                          <Button
+                            variant="outline"
+                            onClick={handleDirectMessage}
+                            className="flex items-center space-x-2 px-4"
+                          >
+                            <Send className="w-4 h-4" />
+                            <span>Private DM</span>
+                          </Button>
+                        </div>
                       )}
 
                       {/* Website */}

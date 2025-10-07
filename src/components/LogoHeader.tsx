@@ -1,4 +1,5 @@
 import zapTokLogo from '/images/ZapTok-v3.png';
+import { Button } from '@/components/ui/button';
 
 export function LogoHeader() {
   return (
@@ -13,14 +14,20 @@ export function LogoHeader() {
           <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
             ZapTok
           </h1>
-          <a
-            href="https://github.com/silentius-satoshi/ZapTok/tree/main"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-purple-400 hover:text-purple-300 text-xs transition-colors"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto p-1 px-2 text-white hover:text-gray-300 text-xs bg-gray-800/30 hover:bg-gray-800/50 transition-colors w-fit"
+            asChild
           >
-            v{__APP_VERSION__} ({__GIT_COMMIT__})
-          </a>
+            <a
+              href="https://github.com/silentius-satoshi/ZapTok/tree/main"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              v{__APP_VERSION__} ({__GIT_COMMIT__})
+            </a>
+          </Button>
         </div>
       </div>
     </div>
