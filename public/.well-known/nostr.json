@@ -8,14 +8,12 @@
       "wss://relay.nostr.band",
       "wss://relay.damus.io",
       "wss://relay.primal.net",
-      "wss://pyramid.fiatjaf.com",
       "wss://nostr.wine/"
     ],
     "8b12bddc423189c660156eab1ea04e1d44cc6621c550c313686705f704dda895": [
       "wss://relay.nostr.band",
       "wss://relay.damus.io",
       "wss://relay.primal.net",
-      "wss://pyramid.fiatjaf.com",
       "wss://nostr.wine/"
     ]
   }

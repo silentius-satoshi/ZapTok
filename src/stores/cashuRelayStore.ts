@@ -19,7 +19,6 @@ interface CashuRelayState {
 const defaultRelays: CashuRelay[] = [
   { url: 'wss://relay.chorus.community', name: 'Chorus' },
   { url: 'wss://relay.nostr.band', name: 'Nostr Band' },
-  { url: 'wss://pyramid.fiatjaf.com', name: 'Pyramid' },
   { url: 'wss://relay.damus.io', name: 'Damus' },
   { url: 'wss://relay.primal.net', name: 'Primal' },
 ];

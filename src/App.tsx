@@ -42,7 +42,6 @@ const defaultConfig: AppConfig = {
     // Start with Chorus relay first for better Cashu transaction discovery
     "wss://relay.chorus.community",
     "wss://relay.nostr.band",
-    "wss://pyramid.fiatjaf.com",
     "wss://relay.damus.io",
     "wss://relay.primal.net"
   ],
@@ -55,7 +54,6 @@ const defaultConfig: AppConfig = {
 const presetRelays = [
   { url: 'wss://relay.chorus.community', name: 'Chorus' },
   { url: 'wss://relay.nostr.band', name: 'Nostr.Band' },
-  { url: 'wss://pyramid.fiatjaf.com', name: 'Pyramid' },
   { url: 'wss://relay.damus.io', name: 'Damus' },
   { url: 'wss://relay.primal.net', name: 'Primal' },
 ];

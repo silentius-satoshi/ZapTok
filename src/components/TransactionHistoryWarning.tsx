@@ -31,7 +31,6 @@ export function TransactionHistoryWarning({ className, trigger, compact = false 
     'wss://relay.nostr.band',
     'wss://relay.damus.io',
     'wss://relay.primal.net',
-    'wss://pyramid.fiatjaf.com',
   ];
 
   // Check which relays are currently configured

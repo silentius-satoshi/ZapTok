@@ -36,7 +36,6 @@ export function useFollowing(pubkey: string) {
           'wss://relay.nostr.band',
           'wss://relay.damus.io',
           'wss://nos.lol',
-          'wss://pyramid.fiatjaf.com',
           'wss://relay.snort.social',
           'wss://offchain.pub',
           'wss://relay.current.fyi'

@@ -56,12 +56,6 @@ export function RelayManagementDialog({
       description: 'Web client with caching features',
       reason: 'Good for finding cached events'
     },
-    { 
-      url: 'wss://pyramid.fiatjaf.com', 
-      name: 'Pyramid', 
-      description: 'Reliable relay by fiatjaf',
-      reason: 'Good coverage for social events'
-    },
   ];
 
   const currentRelays = config.relayUrls || [];

@@ -33,7 +33,6 @@ export function TestApp({ children }: TestAppProps) {
     relayUrls: [
       'wss://relay.chorus.community',
       'wss://relay.nostr.band',
-      'wss://pyramid.fiatjaf.com',
       'wss://relay.damus.io',
       'wss://relay.primal.net'
     ],
