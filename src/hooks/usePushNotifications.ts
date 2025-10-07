@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePWA } from '@/hooks/usePWA';
+import { useToast } from '@/hooks/useToast';
 
 // Helper function to convert base64 URL-safe string to Uint8Array
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -57,6 +58,7 @@ export function usePushNotifications(): PushNotificationState & PushNotification
 
   const { user } = useCurrentUser();
   const { serviceWorkerRegistration } = usePWA();
+  const { toast } = useToast();
 
   const isSupported = 'PushManager' in window && 'Notification' in window && 'serviceWorker' in navigator;
   const isSubscribed = subscription !== null;
@@ -311,14 +313,47 @@ async function removeSubscriptionFromServer(subscription: PushSubscription): Pro
 }
 
 // Utility function to show local notification (fallback when push isn't available)
-export function showLocalNotification(payload: NotificationPayload): void {
+// Uses native notifications in PWA mode, toast in browser mode
+export function showLocalNotification(payload: NotificationPayload, toast?: ReturnType<typeof useToast>['toast']): void {
+  // Check if running in PWA/standalone mode
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                      (window.navigator as any).standalone === true ||
+                      document.referrer.includes('android-app://');
+
+  // If not in PWA mode and toast is available, use toast instead
+  if (!isStandalone && toast) {
+    toast({
+      title: payload.title,
+      description: payload.body,
+      duration: 5000,
+    });
+    return;
+  }
+
+  // PWA mode: use native notifications
   if (!('Notification' in window)) {
     console.warn('[Notification] Notifications not supported');
+    // Fallback to toast if available
+    if (toast) {
+      toast({
+        title: payload.title,
+        description: payload.body,
+        duration: 5000,
+      });
+    }
     return;
   }
 
   if (Notification.permission !== 'granted') {
     console.warn('[Notification] Permission not granted');
+    // Fallback to toast if available
+    if (toast) {
+      toast({
+        title: payload.title,
+        description: payload.body,
+        duration: 5000,
+      });
+    }
     return;
   }
 
@@ -361,21 +396,22 @@ export function showLocalNotification(payload: NotificationPayload): void {
 export function useEventNotifications() {
   const { isSubscribed, subscribeToPush } = usePushNotifications();
   const { user } = useCurrentUser();
+  const { toast } = useToast();
 
   const notifyLightningPayment = useCallback((amount: number, from?: string) => {
     if (isSubscribed) {
       // Send push notification via server
       // Implementation would send to your notification API
     } else {
-      // Fallback to local notification
+      // Fallback to local notification (uses toast in browser mode, native in PWA)
       showLocalNotification({
         type: 'lightning-payment',
         title: '⚡ Lightning Payment',
         body: `Received ${amount} sats${from ? ` from ${from}` : ''}`,
         data: { amount, from, url: '/wallet' },
-      });
+      }, toast);
     }
-  }, [isSubscribed]);
+  }, [isSubscribed, toast]);
 
   const notifyCashuToken = useCallback((amount: number, from?: string) => {
     if (isSubscribed) {
@@ -386,9 +422,9 @@ export function useEventNotifications() {
         title: '🥜 Cashu Token',
         body: `New ${amount} sat token${from ? ` from ${from}` : ''}`,
         data: { amount, from, url: '/wallet' },
-      });
+      }, toast);
     }
-  }, [isSubscribed]);
+  }, [isSubscribed, toast]);
 
   const notifyZap = useCallback((amount: number, content?: string) => {
     if (isSubscribed) {
@@ -399,9 +435,9 @@ export function useEventNotifications() {
         title: '⚡ Zap Received',
         body: `${amount} sats zapped to your content!`,
         data: { amount, content, url: '/wallet' },
-      });
+      }, toast);
     }
-  }, [isSubscribed]);
+  }, [isSubscribed, toast]);
 
   const notifyComment = useCallback((from: string, preview: string, videoId?: string) => {
     if (isSubscribed) {
@@ -412,9 +448,9 @@ export function useEventNotifications() {
         title: '💬 New Comment',
         body: preview,
         data: { from, preview, videoId, url: videoId ? `/video/${videoId}` : '/' },
-      });
+      }, toast);
     }
-  }, [isSubscribed]);
+  }, [isSubscribed, toast]);
 
   // Auto-subscribe for logged-in users if not already subscribed
   useEffect(() => {
