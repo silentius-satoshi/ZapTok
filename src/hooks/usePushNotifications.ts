@@ -108,10 +108,11 @@ export function usePushNotifications(): PushNotificationState & PushNotification
 
       const registration = await navigator.serviceWorker.ready;
 
-      // Generate VAPID keys for your application
-      // You would typically get this from your server/environment
-      const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY ||
+      // Get VAPID public key from environment variable
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY ||
         'BEl62iUYgUivxIkv69yViEuiBIa40HI80NM9Ame50P1S1b-dQD1-1HEhNh8Ui4Eg7lGGAT4XFb9R8iqhW9SZ3uE';
+
+      console.log('[Push] Using VAPID key:', vapidPublicKey?.substring(0, 20) + '...');
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
