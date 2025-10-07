@@ -332,7 +332,9 @@ self.addEventListener('message', (event) => {
   console.log('[SW] Message received from client:', event.data);
 
   if (event.data && event.data.type === 'show-notification') {
+    console.log('[SW] Show notification request received');
     const { payload } = event.data;
+    console.log('[SW] Notification payload:', payload);
     
     const options = {
       body: payload.body,
@@ -349,15 +351,19 @@ self.addEventListener('message', (event) => {
       options.actions = payload.actions;
     }
 
+    console.log('[SW] About to show notification with options:', options);
+
     event.waitUntil(
       self.registration.showNotification(payload.title, options)
         .then(() => {
-          console.log('[SW] Notification shown:', payload.title);
+          console.log('[SW] ✅ Notification shown successfully:', payload.title);
         })
         .catch((error) => {
-          console.error('[SW] Failed to show notification:', error);
+          console.error('[SW] ❌ Failed to show notification:', error);
         })
     );
+  } else {
+    console.log('[SW] Message type not recognized:', event.data?.type);
   }
 });
 
