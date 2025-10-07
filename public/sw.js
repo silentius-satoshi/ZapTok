@@ -1,4 +1,9 @@
 // ZapTok Service Worker - Lightning & Nostr PWA
+import { precacheAndRoute } from 'workbox-precaching';
+
+// Precache files injected by Workbox during build
+precacheAndRoute(self.__WB_MANIFEST);
+
 const CACHE_VERSION = 'zaptok-v1.0.0';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
