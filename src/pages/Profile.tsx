@@ -18,10 +18,11 @@ import { genUserName } from '@/lib/genUserName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { VideoGrid } from '@/components/VideoGrid';
-import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus } from 'lucide-react';
+import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus, Send, Bell } from 'lucide-react';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { FollowersListModal } from '@/components/FollowersListModal';
 import { EditProfileForm } from '@/components/EditProfileForm';
@@ -29,11 +30,13 @@ import { QRModal } from '@/components/QRModal';
 import { ZapButton } from '@/components/ZapButton';
 import { NutzapButton } from '@/components/users/NutzapButton';
 import { UserNutzapDialog } from '@/components/users/UserNutzapDialog';
+import { NotificationSettings } from '@/components/NotificationSettings';
 import { useToast } from '@/hooks/useToast';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useNostrLogin } from '@nostrify/react/login';
 import { nip19 } from 'nostr-tools';
 import { usePrimalFollowerCount } from '@/hooks/usePrimalFollowerCount';
+import { getLightningAddress } from '@/lib/lightning';
 
 const Profile = () => {
   const { pubkey: paramPubkey } = useParams();
@@ -48,6 +51,7 @@ const Profile = () => {
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [isNutzapDialogOpen, setIsNutzapDialogOpen] = useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const isMobile = useIsMobile();
 
   // Detect signer type to hide Cashu features for bunker signers
@@ -114,6 +118,7 @@ const Profile = () => {
   const profileImage = metadata?.picture;
   const website = metadata?.website;
   const nip05 = metadata?.nip05;
+  const lightningAddress = getLightningAddress(metadata);
 
   // Generate NIP-19 identifiers for meta tags
   const npub = targetPubkey ? nip19.npubEncode(targetPubkey) : '';
@@ -253,26 +258,68 @@ const Profile = () => {
                   {/* Profile Header */}
                   <div className={`${isMobile ? 'mb-6' : 'mb-8'}`}>
                     <div className="flex flex-col items-center space-y-6">
-                      <Avatar className={`${isMobile ? 'w-24 h-24' : 'w-32 h-32'}`}>
-                        <AvatarImage src={profileImage} alt={displayName} />
-                        <AvatarFallback className={`${isMobile ? 'text-xl' : 'text-2xl'}`}>
-                          {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="relative">
+                        <Avatar className={`${isMobile ? 'w-24 h-24' : 'w-32 h-32'}`}>
+                          <AvatarImage src={profileImage} alt={displayName} />
+                          <AvatarFallback className={`${isMobile ? 'text-xl' : 'text-2xl'}`}>
+                            {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        
+                        {/* Notification Settings Button - Only for own profile */}
+                        {isOwnProfile && (
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            className="absolute -bottom-2 -right-2 h-10 w-10 rounded-full bg-gray-800 hover:bg-gray-700 border-2 border-black shadow-lg"
+                            onClick={() => setShowNotificationSettings(true)}
+                          >
+                            <Bell className="w-5 h-5" />
+                          </Button>
+                        )}
+                      </div>
 
                       <div className="text-center space-y-3">
                         <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold`}>{displayName}</h1>
-                        {userName !== displayName && (
-                          <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-gray-400`}>@{userName}</p>
-                        )}
-                        {nip05 && (
-                          <Badge variant="secondary" className="text-sm">
-                            ✓ {nip05}
+                        <div className="flex items-center justify-center gap-2 flex-wrap">
+                          {userName !== displayName && (
+                            <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-gray-400`}>@{userName}</p>
+                          )}
+                          {nip05 && (
+                            <Badge 
+                              variant="secondary" 
+                              className="text-sm bg-transparent hover:bg-gray-800 cursor-pointer transition-colors"
+                              onClick={() => {
+                                navigator.clipboard.writeText(nip05);
+                                toast({
+                                  title: "Copied!",
+                                  description: "NIP-05 identifier copied to clipboard",
+                                });
+                              }}
+                            >
+                              ✓ {nip05}
+                            </Badge>
+                          )}
+                        </div>
+                        {lightningAddress && (
+                          <Badge
+                            variant="secondary"
+                            className="text-sm bg-transparent hover:bg-gray-800 cursor-pointer transition-colors inline-flex items-center gap-1.5"
+                            onClick={() => {
+                              navigator.clipboard.writeText(lightningAddress);
+                              toast({
+                                title: "Copied!",
+                                description: "Lightning address copied to clipboard",
+                              });
+                            }}
+                          >
+                            <span className="text-yellow-500">⚡</span>
+                            <span>{lightningAddress}</span>
                           </Badge>
                         )}
                       </div>
 
-                      {/* Profile Action Buttons */}
+                      {/* Profile Action Buttons - Only Following List and QR Code above bio */}
                       <div className={`flex ${isMobile ? 'flex-wrap justify-center gap-2' : 'space-x-3'}`}>
                         {/* 1. Followers Button */}
                         <Button
@@ -316,59 +363,19 @@ const Profile = () => {
                           <QrCode className="w-4 h-4" />
                         </Button>
 
-                        {!isOwnProfile && (
-                          <>
-                            {/* 4. Zap Button */}
-                            <ZapButton
-                              recipientPubkey={targetPubkey}
-                              variant="outline"
-                              size="icon"
-                              className="w-10 h-10"
-                            />
-
-                            {/* 5. Nutzap Button - Now available for all signer types */}
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="w-10 h-10"
-                              onClick={() => setIsNutzapDialogOpen(true)}
-                            >
-                              <img src="/images/cashu-icon.png" alt="Cashu" className="h-4 w-4" />
-                            </Button>
-
-                            {/* 6. Direct Message Button */}
-                            <Button
-                              variant="outline"
-                              onClick={handleDirectMessage}
-                              className="flex items-center justify-center w-10 h-10 p-0"
-                            >
-                              <MessageCircle className="w-4 h-4" />
-                            </Button>
-
-                            {/* 7. Follow/Unfollow Button */}
-                            <Button
-                              variant={isFollowingTarget ? "secondary" : "default"}
-                              onClick={handleFollowToggle}
-                              disabled={followUser.isPending || !user}
-                              className="flex items-center space-x-2"
-                            >
-                              {isFollowingTarget ? (
-                                <UserMinus className="w-4 h-4" />
-                              ) : (
-                                <UserPlus className="w-4 h-4" />
-                              )}
-                              <span>
-                                {followUser.isPending
-                                  ? 'Loading...'
-                                  : isFollowingTarget
-                                    ? 'Unfollow'
-                                    : 'Follow'
-                                }
-                              </span>
-                            </Button>
-                          </>
+                        {/* 4. Notification Bell - Only for own profile */}
+                        {isOwnProfile && (
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowNotificationSettings(true)}
+                            className="flex items-center justify-center w-10 h-10 p-0"
+                            title="Notification Settings"
+                          >
+                            <Bell className="w-4 h-4" />
+                          </Button>
                         )}
 
+                        {/* 5. Edit Profile Button - Only for own profile */}
                         {isOwnProfile && (
                           <Button
                             variant="outline"
@@ -383,13 +390,90 @@ const Profile = () => {
                         )}
                       </div>
 
-                      {/* Bio */}
+                      {/* Bio - No border */}
                       {bio && (
-                        <Card className="w-full max-w-2xl">
-                          <CardContent className="pt-6">
-                            <p className="text-center text-gray-300 whitespace-pre-wrap">{bio}</p>
-                          </CardContent>
-                        </Card>
+                        <div className="w-full max-w-2xl">
+                          <p className="text-center text-gray-300 whitespace-pre-wrap">{bio}</p>
+                        </div>
+                      )}
+
+                      {/* Action Buttons Below Bio - Only for other profiles */}
+                      {!isOwnProfile && (
+                        <div className={`flex ${isMobile ? 'flex-wrap justify-center gap-2' : 'space-x-3'}`}>
+                          {/* 1. Follow/Unfollow Button */}
+                          <Button
+                            variant={isFollowingTarget ? "secondary" : "default"}
+                            onClick={handleFollowToggle}
+                            disabled={followUser.isPending || !user}
+                            className="flex items-center space-x-2"
+                          >
+                            {isFollowingTarget ? (
+                              <UserMinus className="w-4 h-4" />
+                            ) : (
+                              <UserPlus className="w-4 h-4" />
+                            )}
+                            <span>
+                              {followUser.isPending
+                                ? 'Loading...'
+                                : isFollowingTarget
+                                  ? 'Unfollow'
+                                  : 'Follow'
+                              }
+                            </span>
+                          </Button>
+
+                          {/* 2. Zap Button */}
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="w-10 h-10 profile-zap-button"
+                            asChild
+                          >
+                            <div className="relative">
+                              <ZapButton
+                                recipientPubkey={targetPubkey}
+                                variant="outline"
+                                size="icon"
+                                className="w-10 h-10 !bg-transparent hover:!bg-accent hover:!text-accent-foreground"
+                              />
+                              <style>{`
+                                .profile-zap-button svg {
+                                  fill: url(#zapGradient) !important;
+                                  stroke: url(#zapGradient) !important;
+                                }
+                              `}</style>
+                              <svg width="0" height="0" className="absolute">
+                                <defs>
+                                  <linearGradient id="zapGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style={{ stopColor: 'rgb(251, 146, 60)' }} />
+                                    <stop offset="50%" style={{ stopColor: 'rgb(236, 72, 153)' }} />
+                                    <stop offset="100%" style={{ stopColor: 'rgb(147, 51, 234)' }} />
+                                  </linearGradient>
+                                </defs>
+                              </svg>
+                            </div>
+                          </Button>
+
+                          {/* 3. Nutzap Button */}
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="w-10 h-10"
+                            onClick={() => setIsNutzapDialogOpen(true)}
+                          >
+                            <img src="/images/cashu-icon.png" alt="Cashu" className="h-4 w-4" />
+                          </Button>
+
+                          {/* 4. Direct Message Button */}
+                          <Button
+                            variant="outline"
+                            onClick={handleDirectMessage}
+                            className="flex items-center space-x-2 px-4"
+                          >
+                            <Send className="w-4 h-4" />
+                            <span>Private DM</span>
+                          </Button>
+                        </div>
                       )}
 
                       {/* Website */}
@@ -512,6 +596,19 @@ const Profile = () => {
         onOpenChange={setIsNutzapDialogOpen}
         pubkey={targetPubkey}
       />
+
+      {/* Notification Settings Dialog */}
+      <Dialog open={showNotificationSettings} onOpenChange={setShowNotificationSettings}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="w-5 h-5" />
+              Notification Settings
+            </DialogTitle>
+          </DialogHeader>
+          <NotificationSettings />
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

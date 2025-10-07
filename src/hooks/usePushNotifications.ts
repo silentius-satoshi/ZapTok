@@ -2,6 +2,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePWA } from '@/hooks/usePWA';
 
+// Helper function to convert base64 URL-safe string to Uint8Array
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export interface PushNotificationState {
   permission: NotificationPermission;
   subscription: PushSubscription | null;
@@ -107,15 +123,34 @@ export function usePushNotifications(): PushNotificationState & PushNotification
       setError(null);
 
       const registration = await navigator.serviceWorker.ready;
+      console.log('[Push] Service Worker ready:', registration);
 
-      // Generate VAPID keys for your application
-      // You would typically get this from your server/environment
-      const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY ||
+      // Check if push is supported
+      if (!registration.pushManager) {
+        throw new Error('Push notifications are not supported');
+      }
+
+      // Check for existing subscription and unsubscribe if exists
+      const existingSubscription = await registration.pushManager.getSubscription();
+      if (existingSubscription) {
+        console.log('[Push] Found existing subscription, unsubscribing first...');
+        await existingSubscription.unsubscribe();
+      }
+
+      // Get VAPID public key from environment variable
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY ||
         'BEl62iUYgUivxIkv69yViEuiBIa40HI80NM9Ame50P1S1b-dQD1-1HEhNh8Ui4Eg7lGGAT4XFb9R8iqhW9SZ3uE';
+
+      console.log('[Push] Using VAPID key:', vapidPublicKey?.substring(0, 20) + '...');
+      console.log('[Push] VAPID key length:', vapidPublicKey?.length);
+
+      // Convert VAPID key to Uint8Array
+      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+      console.log('[Push] Converted key length:', applicationServerKey.length, 'bytes');
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: vapidPublicKey,
+        applicationServerKey: applicationServerKey as BufferSource,
       });
 
       if (!subscription) {
@@ -131,6 +166,11 @@ export function usePushNotifications(): PushNotificationState & PushNotification
       return true;
     } catch (error) {
       console.error('[Push] Subscription failed:', error);
+      if (error instanceof Error) {
+        console.error('[Push] Error name:', error.name);
+        console.error('[Push] Error message:', error.message);
+        console.error('[Push] Error stack:', error.stack);
+      }
       setError('Failed to subscribe to push notifications');
       return false;
     } finally {

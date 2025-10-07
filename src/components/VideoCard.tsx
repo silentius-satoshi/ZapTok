@@ -63,6 +63,24 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const authorMetadata = author.data?.metadata;
   const displayName = authorMetadata?.name || authorMetadata?.display_name || genUserName(event.pubkey);
 
+  // Format timestamp relative to now
+  const formatTimeAgo = (timestamp: number) => {
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - timestamp;
+    
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    
+    // For anything older than 24 hours, show M-D format
+    const date = new Date(timestamp * 1000);
+    const month = date.getMonth() + 1; // getMonth() is 0-indexed
+    const day = date.getDate();
+    return `${month}-${day}`;
+  };
+
+  const timeAgo = formatTimeAgo(event.created_at);
+
   // PWA visibility change handling for mobile apps
   useEffect(() => {
     const isPWAMobile = isMobile && (isStandalone || isInstalled);
@@ -332,6 +350,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
                 ✓ {authorMetadata.nip05}
               </Badge>
             )}
+            <span className="text-xs text-gray-400 flex-shrink-0">
+              {timeAgo}
+            </span>
           </div>
 
           {/* Description */}

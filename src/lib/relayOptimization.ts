@@ -26,7 +26,6 @@ export const relayCategories: RelayCategory = {
   feed: [
     'wss://relay.damus.io',         // Great for social content
     'wss://relay.primal.net',       // Excellent media support
-    'wss://pyramid.fiatjaf.com',    // Good for video content
   ],
   general: [
     'wss://relay.nostr.band',       // Works well for both

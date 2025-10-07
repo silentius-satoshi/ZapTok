@@ -162,7 +162,7 @@ export function Navigation() {
   return (
     <>
       <div className="hidden md:flex flex-col w-64 p-4 h-full">{/* Main Navigation */}
-        <div className="space-y-2 flex-1">
+        <div className="space-y-1 flex-1 overflow-y-auto">
           {navItems.map((item) => {
             // Check if this item requires authentication
             const requiresAuth = ['following', 'notifications'].includes(item.id);
@@ -176,7 +176,7 @@ export function Navigation() {
                     key={item.id}
                     variant={activeTab === item.id ? 'default' : 'ghost'}
                     size={null}
-                    className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
+                    className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent px-0 py-0 ${
                       activeTab === item.id
                         ? 'text-gray-400 hover:text-white'
                         : 'text-gray-400 hover:text-white'
@@ -192,7 +192,7 @@ export function Navigation() {
                     onMouseEnter={() => setHoveredItem(item.id)}
                     onMouseLeave={() => setHoveredItem(null)}
                   >
-                    <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
+                    <div className={`w-6 h-6 mr-3 flex items-center justify-center ${
                       activeTab === item.id || hoveredItem === item.id
                         ? 'text-orange-500'
                         : 'text-gray-400'
@@ -203,12 +203,12 @@ export function Navigation() {
                       backgroundClip: 'text',
                     } : {}}>
                       {typeof item.icon === 'function' ? (
-                        React.createElement(item.icon, { size: 24 })
+                        React.createElement(item.icon, { size: 22 })
                       ) : (
-                        React.createElement(item.icon as any, { size: 24 })
+                        React.createElement(item.icon as any, { size: 22 })
                       )}
                     </div>
-                    <span className={`font-medium text-lg ${
+                    <span className={`font-medium text-base ${
                       activeTab === item.id || hoveredItem === item.id
                         ? 'text-orange-500'
                         : 'text-gray-400'
@@ -228,7 +228,7 @@ export function Navigation() {
                   <Button
                     variant={activeTab === item.id ? 'default' : 'ghost'}
                     size={null}
-                    className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
+                    className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent px-0 py-0 ${
                       activeTab === item.id
                         ? 'text-gray-400 hover:text-white'
                         : 'text-gray-400 hover:text-white'
@@ -237,7 +237,7 @@ export function Navigation() {
                     onMouseEnter={() => setHoveredItem(item.id)}
                     onMouseLeave={() => setHoveredItem(null)}
                   >
-                    <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
+                    <div className={`w-6 h-6 mr-3 flex items-center justify-center ${
                       activeTab === item.id || hoveredItem === item.id
                         ? 'text-orange-500'
                         : 'text-gray-400'
@@ -248,12 +248,12 @@ export function Navigation() {
                       backgroundClip: 'text',
                     } : {}}>
                       {typeof item.icon === 'function' ? (
-                        React.createElement(item.icon, { size: 24 })
+                        React.createElement(item.icon, { size: 22 })
                       ) : (
-                        React.createElement(item.icon as any, { size: 24 })
+                        React.createElement(item.icon as any, { size: 22 })
                       )}
                     </div>
-                    <span className={`font-medium text-lg ${
+                    <span className={`font-medium text-base ${
                       activeTab === item.id || hoveredItem === item.id
                         ? 'text-orange-500'
                         : 'text-gray-400'
@@ -274,7 +274,7 @@ export function Navigation() {
                 key={item.id}
                 variant={activeTab === item.id ? 'default' : 'ghost'}
                 size={null}
-                className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
+                className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent px-0 py-0 ${
                   activeTab === item.id
                     ? 'text-gray-400 hover:text-white'
                     : 'text-gray-400 hover:text-white'
@@ -293,7 +293,7 @@ export function Navigation() {
                 onMouseEnter={() => setHoveredItem(item.id)}
                 onMouseLeave={() => setHoveredItem(null)}
               >
-                <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
+                <div className={`w-6 h-6 mr-3 flex items-center justify-center ${
                   activeTab === item.id || hoveredItem === item.id
                     ? 'text-orange-500'
                     : 'text-gray-400'
@@ -304,12 +304,12 @@ export function Navigation() {
                   backgroundClip: 'text',
                 } : {}}>
                   {typeof item.icon === 'function' ? (
-                    React.createElement(item.icon, { size: 24 })
+                    React.createElement(item.icon, { size: 22 })
                   ) : (
-                    React.createElement(item.icon as any, { size: 24 })
+                    React.createElement(item.icon as any, { size: 22 })
                   )}
                 </div>
-                <span className={`font-medium text-lg ${
+                <span className={`font-medium text-base ${
                   activeTab === item.id || hoveredItem === item.id
                     ? 'text-orange-500'
                     : 'text-gray-400'
@@ -325,7 +325,7 @@ export function Navigation() {
 
           {/* Stream and Upload buttons - visible for all users */}
           <Button
-            className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
+            className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent px-0 py-0 ${
               activeTab === 'stream'
                 ? 'text-gray-400 hover:text-white'
                 : 'text-gray-400 hover:text-white'
@@ -343,7 +343,7 @@ export function Navigation() {
             onMouseEnter={() => setHoveredItem('stream')}
             onMouseLeave={() => setHoveredItem(null)}
           >
-            <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
+            <div className={`w-6 h-6 mr-3 flex items-center justify-center ${
               activeTab === 'stream' || hoveredItem === 'stream'
                 ? 'text-orange-500'
                 : 'text-gray-400'
@@ -353,9 +353,9 @@ export function Navigation() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
             } : {}}>
-              <Radio size={24} />
+              <Radio size={22} />
             </div>
-            <span className={`font-medium text-lg ${
+            <span className={`font-medium text-base ${
               activeTab === 'stream' || hoveredItem === 'stream'
                 ? 'text-orange-500'
                 : 'text-gray-400'
@@ -368,7 +368,7 @@ export function Navigation() {
           </Button>
 
           <Button
-            className={`w-full justify-start text-left h-14 bg-transparent hover:bg-transparent px-0 py-0 ${
+            className={`w-full justify-start text-left h-12 bg-transparent hover:bg-transparent px-0 py-0 ${
               activeTab === 'upload'
                 ? 'text-gray-400 hover:text-white'
                 : 'text-gray-400 hover:text-white'
@@ -384,7 +384,7 @@ export function Navigation() {
             onMouseEnter={() => setHoveredItem('upload')}
             onMouseLeave={() => setHoveredItem(null)}
           >
-            <div className={`w-6 h-6 mr-4 flex items-center justify-center ${
+            <div className={`w-6 h-6 mr-3 flex items-center justify-center ${
               activeTab === 'upload' || hoveredItem === 'upload'
                 ? 'text-orange-500'
                 : 'text-gray-400'
@@ -394,9 +394,9 @@ export function Navigation() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
             } : {}}>
-              <PlusSquare size={24} />
+              <PlusSquare size={22} />
             </div>
-            <span className={`font-medium text-lg ${
+            <span className={`font-medium text-base ${
               activeTab === 'upload' || hoveredItem === 'upload'
                 ? 'text-orange-500'
                 : 'text-gray-400'
@@ -409,8 +409,8 @@ export function Navigation() {
           </Button>
         </div>
 
-        {/* Bottom Section with Balance, Supporter and Profile */}
-        <div className="mt-auto pt-4 space-y-3">
+        {/* Bottom Section with Balance, Supporter and Profile - Fixed at bottom */}
+        <div className="mt-auto pt-4 space-y-3 flex-shrink-0">
           {/* Wallet displays - always visible, but with different behavior based on auth status */}
           {user ? (
             <>
