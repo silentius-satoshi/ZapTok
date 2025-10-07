@@ -225,8 +225,6 @@ export function MobileNavigation() {
   const navItems: NavItem[] = [
     { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
-    { id: 'notifications', icon: Heart, label: 'Notifications', path: '/notifications' },
-    { id: 'live-stream', icon: Radio, label: 'Live Stream', action: 'liveStream' },
     { id: 'about', icon: Info, label: 'About ZapTok', path: '/about' },
     { id: 'faq', icon: HelpCircle, label: 'FAQ', path: '/faq' },
     { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' },
@@ -410,15 +408,30 @@ export function MobileNavigation() {
                 onTouchEnd={handleTouchEnd}
               >
                 <div className="flex flex-col h-full">
-                  <SheetHeader className="p-6 border-b border-gray-800">
-                    <SheetTitle className="text-white flex items-center space-x-2">
-                      <ZapTokLogo size={24} />
-                      <span>ZapTok</span>
-                    </SheetTitle>
+                  <SheetHeader className="p-6 border-b border-gray-800 flex-shrink-0">
+                    <div className="flex items-start gap-3">
+                      <ZapTokLogo size={40} />
+                      <div className="flex flex-col items-start">
+                        <SheetTitle className="text-white text-lg text-left">
+                          ZapTok
+                        </SheetTitle>
+                        <a
+                          href="https://github.com/silentius-satoshi/ZapTok/tree/main"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-purple-400 hover:text-purple-300 text-sm transition-colors"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          v{__APP_VERSION__} ({__GIT_COMMIT__})
+                        </a>
+                      </div>
+                    </div>
                   </SheetHeader>
 
-                  {/* Navigation Items */}
-                  <div className="flex-1 p-4 space-y-2">
+                  {/* Scrollable Content Area */}
+                  <div className="flex-1 overflow-y-auto">
+                    {/* Navigation Items */}
+                    <div className="p-4 space-y-2">
                     {navItems.map((item) => {
                       // Handle action items vs navigation items
                       if (item.action) {
@@ -503,37 +516,25 @@ export function MobileNavigation() {
                       }
                     })}
                   </div>
-
-                  {/* Version/Commit Info */}
-                  <div className="px-4 py-2 flex justify-end">
-                    <a
-                      href="https://github.com/silentius-satoshi/ZapTok/tree/main"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      v{__APP_VERSION__} ({__GIT_COMMIT__})
-                    </a>
                   </div>
 
-                  {/* Balance Displays Section */}
+                  {/* Fixed Balance Displays Section */}
                   {user && (
-                    <div className="px-4 py-2 space-y-2">
+                    <div className="px-4 py-2 space-y-2 flex-shrink-0">
                       <BitcoinConnectBalanceDisplay variant="compact" />
                       <CashuBalanceDisplay variant="compact" />
                     </div>
                   )}
 
-                  {/* Supporter Section */}
+                  {/* Fixed Supporter Section */}
                   {user && (
-                    <div className="px-4 py-2">
+                    <div className="px-4 py-2 flex-shrink-0">
                       <MobileSupporterButton onClose={() => setIsOpen(false)} />
                     </div>
                   )}
 
-                  {/* Profile Section */}
-                  <div className="p-4 border-t border-gray-800">
+                  {/* Fixed Profile Section at Bottom */}
+                  <div className="p-4 border-t border-gray-800 flex-shrink-0">
                     {user ? (
                       <div className="flex items-center gap-3">
                         <button
