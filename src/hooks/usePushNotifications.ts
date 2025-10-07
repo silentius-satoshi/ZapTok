@@ -330,10 +330,28 @@ export function showLocalNotification(payload: NotificationPayload, toast?: Retu
     return;
   }
 
-  // PWA mode: use native notifications
+  // PWA mode: send message to service worker to show native notification
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'show-notification',
+      payload: {
+        title: payload.title,
+        body: payload.body,
+        icon: payload.icon || `${import.meta.env.BASE_URL}images/ZapTok-v3.png`,
+        badge: payload.badge || `${import.meta.env.BASE_URL}images/ZapTok-v3.png`,
+        data: payload.data,
+        tag: payload.type,
+        actions: payload.actions,
+      }
+    });
+    console.log('[Notification] Message sent to service worker:', payload.title);
+    return;
+  }
+
+  // Fallback: try Notification API directly (shouldn't reach here in PWA mode)
   if (!('Notification' in window)) {
     console.warn('[Notification] Notifications not supported');
-    // Fallback to toast if available
+    // Last resort: use toast if available
     if (toast) {
       toast({
         title: payload.title,
@@ -357,6 +375,7 @@ export function showLocalNotification(payload: NotificationPayload, toast?: Retu
     return;
   }
 
+  // Direct Notification API (non-PWA fallback)
   const options: NotificationOptions = {
     body: payload.body,
     icon: payload.icon || `${import.meta.env.BASE_URL}images/ZapTok-v3.png`,

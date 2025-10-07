@@ -327,6 +327,40 @@ async function syncLightningPayments() {
   }
 }
 
+// Message handler for client requests (e.g., showing notifications)
+self.addEventListener('message', (event) => {
+  console.log('[SW] Message received from client:', event.data);
+
+  if (event.data && event.data.type === 'show-notification') {
+    const { payload } = event.data;
+    
+    const options = {
+      body: payload.body,
+      icon: payload.icon,
+      badge: payload.badge,
+      data: payload.data,
+      tag: payload.tag,
+      requireInteraction: true,
+      vibrate: [200, 100, 200],
+    };
+
+    // Add actions if provided
+    if (payload.actions && payload.actions.length > 0) {
+      options.actions = payload.actions;
+    }
+
+    event.waitUntil(
+      self.registration.showNotification(payload.title, options)
+        .then(() => {
+          console.log('[SW] Notification shown:', payload.title);
+        })
+        .catch((error) => {
+          console.error('[SW] Failed to show notification:', error);
+        })
+    );
+  }
+});
+
 // Push notification handling for Lightning/Cashu events
 self.addEventListener('push', (event) => {
   console.log('[SW] Push notification received');
