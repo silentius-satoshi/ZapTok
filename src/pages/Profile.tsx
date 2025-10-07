@@ -18,16 +18,18 @@ import { genUserName } from '@/lib/genUserName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { VideoGrid } from '@/components/VideoGrid';
-import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus, Send } from 'lucide-react';
+import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus, Send, Bell } from 'lucide-react';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { QRModal } from '@/components/QRModal';
 import { ZapButton } from '@/components/ZapButton';
 import { NutzapButton } from '@/components/users/NutzapButton';
 import { UserNutzapDialog } from '@/components/users/UserNutzapDialog';
+import { NotificationSettings } from '@/components/NotificationSettings';
 import { useToast } from '@/hooks/useToast';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useNostrLogin } from '@nostrify/react/login';
@@ -46,6 +48,7 @@ const Profile = () => {
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [isNutzapDialogOpen, setIsNutzapDialogOpen] = useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const isMobile = useIsMobile();
 
   // Detect signer type to hide Cashu features for bunker signers
@@ -249,12 +252,26 @@ const Profile = () => {
                   {/* Profile Header */}
                   <div className={`${isMobile ? 'mb-6' : 'mb-8'}`}>
                     <div className="flex flex-col items-center space-y-6">
-                      <Avatar className={`${isMobile ? 'w-24 h-24' : 'w-32 h-32'}`}>
-                        <AvatarImage src={profileImage} alt={displayName} />
-                        <AvatarFallback className={`${isMobile ? 'text-xl' : 'text-2xl'}`}>
-                          {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="relative">
+                        <Avatar className={`${isMobile ? 'w-24 h-24' : 'w-32 h-32'}`}>
+                          <AvatarImage src={profileImage} alt={displayName} />
+                          <AvatarFallback className={`${isMobile ? 'text-xl' : 'text-2xl'}`}>
+                            {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        
+                        {/* Notification Settings Button - Only for own profile */}
+                        {isOwnProfile && (
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            className="absolute -bottom-2 -right-2 h-10 w-10 rounded-full bg-gray-800 hover:bg-gray-700 border-2 border-black shadow-lg"
+                            onClick={() => setShowNotificationSettings(true)}
+                          >
+                            <Bell className="w-5 h-5" />
+                          </Button>
+                        )}
+                      </div>
 
                       <div className="text-center space-y-3">
                         <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold`}>{displayName}</h1>
@@ -531,6 +548,19 @@ const Profile = () => {
         onOpenChange={setIsNutzapDialogOpen}
         pubkey={targetPubkey}
       />
+
+      {/* Notification Settings Dialog */}
+      <Dialog open={showNotificationSettings} onOpenChange={setShowNotificationSettings}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="w-5 h-5" />
+              Notification Settings
+            </DialogTitle>
+          </DialogHeader>
+          <NotificationSettings />
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
