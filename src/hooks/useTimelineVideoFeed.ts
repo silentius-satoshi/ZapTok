@@ -234,9 +234,24 @@ export function useTimelineVideoFeed(
     }
 
     setState(prev => {
-      // Deduplicate with existing videos
+      // Deduplicate by both event ID and video URL
       const existingIds = new Set(prev.videos.map(v => v.id));
-      const newVideos = filteredVideos.filter(v => !existingIds.has(v.id));
+      const existingUrls = new Set(
+        prev.videos
+          .map((v: VideoEvent) => v.videoUrl)
+          .filter((url): url is string => !!url)
+          .map(url => url.toLowerCase())
+      );
+      
+      const newVideos = filteredVideos.filter((v: VideoEvent) => {
+        // Skip if we've already seen this event ID
+        if (existingIds.has(v.id)) return false;
+        
+        // Skip if we've already seen this video URL (case-insensitive)
+        if (v.videoUrl && existingUrls.has(v.videoUrl.toLowerCase())) return false;
+        
+        return true;
+      });
 
       // Get feed health status
       const feedHealth = timelineAnalyticsService.getFeedHealth(feedId);
@@ -345,9 +360,24 @@ export function useTimelineVideoFeed(
         .filter((e): e is VideoEvent => e !== null);
 
       setState(prev => {
-        // Deduplicate with existing videos
+        // Deduplicate by both event ID and video URL
         const existingIds = new Set(prev.videos.map(v => v.id));
-        const newVideos = validVideos.filter(v => !existingIds.has(v.id));
+        const existingUrls = new Set(
+          prev.videos
+            .map((v: VideoEvent) => v.videoUrl)
+            .filter((url): url is string => !!url)
+            .map(url => url.toLowerCase())
+        );
+        
+        const newVideos = validVideos.filter((v: VideoEvent) => {
+          // Skip if we've already seen this event ID
+          if (existingIds.has(v.id)) return false;
+          
+          // Skip if we've already seen this video URL (case-insensitive)
+          if (v.videoUrl && existingUrls.has(v.videoUrl.toLowerCase())) return false;
+          
+          return true;
+        });
 
         return {
           ...prev,

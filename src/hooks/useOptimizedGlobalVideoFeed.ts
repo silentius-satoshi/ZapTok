@@ -32,7 +32,7 @@ export function useOptimizedGlobalVideoFeed() {
         () => nostr.query([
           {
             kinds: [21, 22], // NIP-71 normal videos, NIP-71 short videos
-            limit: 15, // Reduced batch size for better rate limiting
+            limit: 30, // Increased batch size for more content availability
             until: pageParam,
           }
         ], { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }),

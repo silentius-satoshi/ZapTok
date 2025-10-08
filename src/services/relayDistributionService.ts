@@ -1,12 +1,15 @@
 import { FeedSubRequest } from './timelineService'
 
 // Big relays list (similar to Jumble's BIG_RELAY_URLS)
+// Includes general-purpose relays + video-specific relays for better content discovery
 export const BIG_RELAY_URLS = [
   'wss://relay.primal.net',
   'wss://relay.nostr.band',
   'wss://nos.lol',
   'wss://relay.damus.io',
   'wss://nostr.wine',
+  'wss://relay.nostr.build', // Video-specific relay (nostr.build hosts video content)
+  'wss://relay.satellite.earth', // Satellite CDN relay with good media coverage
 ]
 
 export interface RelayList {

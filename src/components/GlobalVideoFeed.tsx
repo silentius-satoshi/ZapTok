@@ -8,7 +8,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useProfileCache } from '@/hooks/useProfileCache';
 import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
-import { useTimelineGlobalVideoFeed } from '@/hooks/useTimelineVideoFeed';
+import { useOptimizedGlobalVideoFeed } from '@/hooks/useOptimizedGlobalVideoFeed';
 import { useInitializeAnalyticsServices } from '@/hooks/useInitializeAnalyticsServices';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -57,23 +57,33 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   const { batchLoadProfiles } = useProfileCache();
   const { preloadThumbnails } = useVideoPrefetch();
 
-  // Use timeline service for global video feed
+  // Use optimized global video feed with rate limiting
   const {
-    videos,
-    loading: isLoading,
-    hasMore: hasNextPage,
-    error: errorObj,
-    loadMore,
-    refresh: refreshFeed,
-    newVideosCount,
-    mergeNewVideos,
-  } = useTimelineGlobalVideoFeed({
-    limit: 15,
-    enableNewEvents: true,
-  });
+    data,
+    isLoading,
+    error,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    refetch,
+  } = useOptimizedGlobalVideoFeed();
 
-  const error = errorObj ? new Error(errorObj) : null;
-  // Note: Timeline service loads more in background, no separate loading indicator needed
+  // Flatten pages into a single array of videos
+  const videos = useMemo(() => {
+    return data?.pages.flatMap(page => page) || [];
+  }, [data]);
+
+  // Manual load more function to match timeline API
+  const loadMore = async () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      await fetchNextPage();
+    }
+  };
+
+  // Note: Optimized feed doesn't support real-time new events
+  const newVideosCount = 0;
+  const mergeNewVideos = () => {};
+  const refreshFeed = () => refetch();
 
   // Expose refresh function to parent
   useImperativeHandle(ref, () => ({

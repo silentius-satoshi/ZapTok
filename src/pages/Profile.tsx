@@ -363,19 +363,7 @@ const Profile = () => {
                           <QrCode className="w-4 h-4" />
                         </Button>
 
-                        {/* 4. Notification Bell - Only for own profile */}
-                        {isOwnProfile && (
-                          <Button
-                            variant="outline"
-                            onClick={() => setShowNotificationSettings(true)}
-                            className="flex items-center justify-center w-10 h-10 p-0"
-                            title="Notification Settings"
-                          >
-                            <Bell className="w-4 h-4" />
-                          </Button>
-                        )}
-
-                        {/* 5. Edit Profile Button - Only for own profile */}
+                        {/* 4. Edit Profile Button - Only for own profile */}
                         {isOwnProfile && (
                           <Button
                             variant="outline"

@@ -136,9 +136,14 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
     }
 
     // Extract video URL (prefer primary url over fallback)
+    // Validate that it's a proper HTTP/HTTPS URL
     if (imetaProps.url && !videoData.videoUrl) {
-      videoData.videoUrl = imetaProps.url;
-      validationInfo.videoUrl = imetaProps.url;
+      const url = imetaProps.url.trim();
+      // Only accept valid HTTP/HTTPS URLs, reject malformed strings like "Instance of 'BlobUploadResult'"
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        videoData.videoUrl = url;
+        validationInfo.videoUrl = url;
+      }
     }
 
     // Extract thumbnail from image property
@@ -182,9 +187,13 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
       }
       // Additional fallback patterns
       case 'url': {
-        if (!videoData.videoUrl) {
-          videoData.videoUrl = tag[1];
-          validationInfo.videoUrl = tag[1];
+        if (!videoData.videoUrl && tag[1]) {
+          const url = tag[1].trim();
+          // Only accept valid HTTP/HTTPS URLs
+          if (url.startsWith('http://') || url.startsWith('https://')) {
+            videoData.videoUrl = url;
+            validationInfo.videoUrl = url;
+          }
         }
         break;
       }
