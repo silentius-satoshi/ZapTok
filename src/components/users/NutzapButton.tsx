@@ -132,7 +132,7 @@ export function NutzapButton({ postId, showText = true, onToggle, isOpen = false
       variant="ghost"
       size="sm"
       className={`group rounded-full bg-transparent hover:bg-white/10 text-white transition-all duration-200 ${
-        isMobile ? 'h-12 w-12' : 'h-20 w-20'
+        isMobile ? 'h-12 w-12' : 'h-12 w-12'
       }`}
       onClick={handleZapClick}
     >
@@ -142,8 +142,8 @@ export function NutzapButton({ postId, showText = true, onToggle, isOpen = false
         alt="Cashu" 
         className="drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:scale-110 transition-all duration-200"
         style={{
-          width: isMobile ? '28px' : '30px',
-          height: isMobile ? '28px' : '30px'
+          width: '28px',
+          height: '28px'
         }}
       />
       {showText && <span className="text-xs ml-0.5">{formatAmount(nutzapTotal)}</span>}

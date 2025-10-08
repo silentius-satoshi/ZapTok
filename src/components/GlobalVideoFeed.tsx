@@ -57,7 +57,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   const { batchLoadProfiles } = useProfileCache();
   const { preloadThumbnails } = useVideoPrefetch();
 
-  // Use optimized global video feed with rate limiting
+  // Use optimized global video feed with rate limiting and real-time updates
   const {
     data,
     isLoading,
@@ -66,6 +66,8 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
     fetchNextPage,
     isFetchingNextPage,
     refetch,
+    newVideosCount,
+    mergeNewVideos,
   } = useOptimizedGlobalVideoFeed();
 
   // Flatten pages into a single array of videos
@@ -79,10 +81,6 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
       await fetchNextPage();
     }
   };
-
-  // Note: Optimized feed doesn't support real-time new events
-  const newVideosCount = 0;
-  const mergeNewVideos = () => {};
   const refreshFeed = () => refetch();
 
   // Expose refresh function to parent

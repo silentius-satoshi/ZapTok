@@ -281,15 +281,15 @@ export function ZapButton({
       >
         {zapping ? (
           <Loader
-            className="animate-spin text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]"
+            className="animate-spin text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]"
             style={iconStyle}
           />
         ) : (
           <Zap
             className={`transition-all duration-200 ${
               hasZapped
-                ? 'fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]'
-                : 'text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-yellow-300 group-hover:scale-110'
+                ? 'fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] scale-110'
+                : 'fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:scale-110'
             }`}
             style={iconStyle}
           />
