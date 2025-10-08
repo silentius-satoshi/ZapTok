@@ -245,6 +245,29 @@ class VideoReactionsService {
     this.reactionsMap.clear();
     this.reactionsLoader.clearAll();
   }
+
+  /**
+   * Prefetch reactions for multiple videos (single batched query)
+   */
+  async prefetch(videoIds: string[]): Promise<void> {
+    await Promise.all(videoIds.map((id) => this.reactionsLoader.load(id)));
+  }
+
+  /**
+   * Prefetch reactions for multiple videos (alias for clarity)
+   * Use this in feed components to load all reactions in one batch
+   */
+  async prefetchReactions(videoIds: string[]): Promise<void> {
+    if (!this.nostrQueryFn) {
+      console.warn('[VideoReactionsService] Cannot prefetch - query function not set');
+      return;
+    }
+
+    if (videoIds.length === 0) return;
+
+    console.log(`[VideoReactions] 🚀 Prefetching reactions for ${videoIds.length} videos`);
+    await this.prefetch(videoIds);
+  }
 }
 
 // Singleton instance

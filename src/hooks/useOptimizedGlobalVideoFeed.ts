@@ -8,6 +8,12 @@ import { useFollowing } from '@/hooks/useFollowing';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type { NostrEvent } from '@nostrify/nostrify';
 
+// Import analytics services for feed-level prefetching
+import { videoCommentsService } from '@/services/videoComments.service';
+import { videoRepostsService } from '@/services/videoReposts.service';
+import { videoNutzapsService } from '@/services/videoNutzaps.service';
+import videoReactionsService from '@/services/videoReactions.service';
+
 export function useOptimizedGlobalVideoFeed() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
@@ -84,6 +90,20 @@ export function useOptimizedGlobalVideoFeed() {
 
       if (videoEvents.length > 0) {
         cacheVideoMetadata(videoEvents);
+        
+        // ✅ Feed-level prefetching: Load all analytics for videos in this batch
+        const videoIds = videoEvents.map(v => v.id);
+        console.log(`[GlobalFeed] 🚀 Triggering feed-level prefetch for ${videoIds.length} videos`);
+        
+        // Prefetch all analytics in parallel (fire-and-forget)
+        Promise.all([
+          videoCommentsService.prefetchComments(videoIds),
+          videoRepostsService.prefetchReposts(videoIds),
+          videoNutzapsService.prefetchNutzaps(videoIds),
+          videoReactionsService.prefetchReactions(videoIds),
+        ]).catch(error => {
+          console.error('[GlobalFeed] Failed to prefetch video analytics:', error);
+        });
       }
 
       bundleLog('globalVideoBatch', `⚡ Processed ${videoEvents.length} global videos in current batch`);

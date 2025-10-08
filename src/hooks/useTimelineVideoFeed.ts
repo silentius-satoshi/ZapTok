@@ -11,6 +11,12 @@ import { useFollowingFavoriteRelays } from '@/hooks/useFollowingFavoriteRelays';
 import { bundleLog } from '@/lib/logBundler';
 import type { NostrEvent } from '@nostrify/nostrify';
 
+// Import video analytics services for prefetching
+import { videoCommentsService } from '@/services/videoComments.service';
+import { videoRepostsService } from '@/services/videoReposts.service';
+import { videoNutzapsService } from '@/services/videoNutzaps.service';
+import videoReactionsService from '@/services/videoReactions.service';
+
 interface TimelineVideoFeedState {
   videos: VideoEvent[];
   newVideos: VideoEvent[];
@@ -206,6 +212,26 @@ export function useTimelineVideoFeed(
 
     bundleLog('timelineVideoBatch',
       `📹 Received ${validVideos.length} video events, filtered to ${filteredVideos.length}, EOSED: ${eosed}`);
+
+    // ✅ Feed-level prefetching: Trigger immediately after receiving videos
+    console.log(`[Timeline] DEBUG: About to check prefetch - filteredVideos.length: ${filteredVideos.length}`);
+    
+    if (filteredVideos.length > 0) {
+      const videoIds = filteredVideos.map(v => v.id);
+      console.log(`[Timeline] 🚀 Triggering feed-level prefetch for ${videoIds.length} videos`);
+
+      // Prefetch all analytics in parallel (fire-and-forget)
+      Promise.all([
+        videoCommentsService.prefetchComments(videoIds),
+        videoRepostsService.prefetchReposts(videoIds),
+        videoNutzapsService.prefetchNutzaps(videoIds),
+        videoReactionsService.prefetchReactions(videoIds),
+      ]).catch(error => {
+        console.error('[Timeline] Failed to prefetch video analytics:', error);
+      });
+    } else {
+      console.log(`[Timeline] DEBUG: Skipping prefetch - no filtered videos`);
+    }
 
     setState(prev => {
       // Deduplicate with existing videos
@@ -488,9 +514,43 @@ export function useTimelineVideoFeed(
       return timelineAnalyticsService.getFeedHealth(feedId);
     },
   };
-}
 
-/**
+  return {
+    videos: state.videos,
+    newVideos: state.newVideos,
+    loading: state.loading,
+    hasMore: state.hasMore,
+    error: state.error,
+
+    // Actions
+    loadMore,
+    refresh,
+    mergeNewVideos,
+
+    // Metadata
+    timelineKey: state.timelineKey,
+    newVideosCount: state.newVideos.length,
+
+    // Following info
+    hasFollowing: following.length > 0,
+    followingCount: following.length,
+
+    // Phase 3 enhanced features
+    filteredCount: state.filteredCount,
+    realTimeBuffer: state.realTimeBuffer,
+    feedHealth: state.feedHealth,
+
+    // Phase 3 analytics access
+    getAnalytics: () => {
+      const feedId = `${feedType}_${user?.pubkey || 'anon'}`;
+      return timelineAnalyticsService.getFeedAnalytics(feedId);
+    },
+    getFeedHealth: () => {
+      const feedId = `${feedType}_${user?.pubkey || 'anon'}`;
+      return timelineAnalyticsService.getFeedHealth(feedId);
+    },
+  };
+}/**
  * Global video feed using timeline service
  */
 export function useTimelineGlobalVideoFeed(options?: TimelineVideoFeedOptions) {

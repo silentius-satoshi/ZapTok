@@ -233,10 +233,27 @@ class VideoCommentsService {
   }
 
   /**
-   * Prefetch comments for multiple videos
+   * Prefetch comments for multiple videos (single batched query)
+   * This is more efficient than individual component queries
    */
   async prefetch(videoIds: string[]): Promise<void> {
     await Promise.all(videoIds.map((id) => this.dataLoader.load(id)));
+  }
+
+  /**
+   * Prefetch comments for multiple videos (alias for clarity)
+   * Use this in feed components to load all comments in one batch
+   */
+  async prefetchComments(videoIds: string[]): Promise<void> {
+    if (!this.nostrQueryFn) {
+      console.warn('[VideoCommentsService] Cannot prefetch - query function not set');
+      return;
+    }
+
+    if (videoIds.length === 0) return;
+
+    console.log(`[VideoComments] 🚀 Prefetching comments for ${videoIds.length} videos`);
+    await this.prefetch(videoIds);
   }
 }
 

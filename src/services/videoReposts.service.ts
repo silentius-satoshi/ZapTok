@@ -220,10 +220,26 @@ class VideoRepostsService {
   }
 
   /**
-   * Prefetch reposts for multiple videos
+   * Prefetch reposts for multiple videos (single batched query)
    */
   async prefetch(videoIds: string[]): Promise<void> {
     await Promise.all(videoIds.map((id) => this.dataLoader.load(id)));
+  }
+
+  /**
+   * Prefetch reposts for multiple videos (alias for clarity)
+   * Use this in feed components to load all reposts in one batch
+   */
+  async prefetchReposts(videoIds: string[]): Promise<void> {
+    if (!this.nostrQueryFn) {
+      console.warn('[VideoRepostsService] Cannot prefetch - query function not set');
+      return;
+    }
+
+    if (videoIds.length === 0) return;
+
+    console.log(`[VideoReposts] 🚀 Prefetching reposts for ${videoIds.length} videos`);
+    await this.prefetch(videoIds);
   }
 }
 

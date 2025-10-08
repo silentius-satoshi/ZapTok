@@ -7,8 +7,13 @@ import type { Filter, Event as NostrToolsEvent } from 'nostr-tools';
  * 
  * Operates independently from NPool (@nostrify/nostrify) which handles
  * Cashu wallet operations exclusively.
+ * 
+ * Built-in relay tracking enabled (Jumble pattern) for optimal relay selection
  */
 export const simplePool = new SimplePool();
+
+// Enable built-in relay tracking (replaces custom EventRelayTracker)
+simplePool.trackRelays = true;
 
 /**
  * Cashu relay URL - used exclusively by NPool
@@ -108,4 +113,37 @@ export function cleanupSimplePool(): void {
   // Close all relay connections
   const emptyRelayList: string[] = [];
   simplePool.close(emptyRelayList);
+}
+
+/**
+ * Get relay hints for an event (Jumble pattern)
+ * 
+ * Uses SimplePool's built-in relay tracking to find which relays
+ * have returned a specific event. Useful for optimizing re-fetches.
+ * 
+ * @param eventId - Event ID to get relay hints for
+ * @returns Array of relay URLs that have seen this event
+ * 
+ * @example
+ * ```ts
+ * const relays = getEventHints('event-id-here');
+ * // Use these relays first when re-fetching
+ * ```
+ */
+export function getEventHints(eventId: string): string[] {
+  const relaySet = simplePool.seenOn.get(eventId);
+  if (!relaySet) return [];
+  
+  return Array.from(relaySet).map(relay => relay.url);
+}
+
+/**
+ * Get the best relay hint for an event
+ * 
+ * @param eventId - Event ID to get relay hint for
+ * @returns Single relay URL or undefined
+ */
+export function getEventHint(eventId: string): string | undefined {
+  const relays = getEventHints(eventId);
+  return relays[0];
 }

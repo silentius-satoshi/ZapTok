@@ -235,10 +235,26 @@ class VideoNutzapsService {
   }
 
   /**
-   * Prefetch nutzaps for multiple videos
+   * Prefetch nutzaps for multiple videos (single batched query)
    */
   async prefetch(videoIds: string[]): Promise<void> {
     await Promise.all(videoIds.map((id) => this.dataLoader.load(id)));
+  }
+
+  /**
+   * Prefetch nutzaps for multiple videos (alias for clarity)
+   * Use this in feed components to load all nutzaps in one batch
+   */
+  async prefetchNutzaps(videoIds: string[]): Promise<void> {
+    if (!this.cashuPool) {
+      console.warn('[VideoNutzapsService] Cannot prefetch - Cashu pool not initialized');
+      return;
+    }
+
+    if (videoIds.length === 0) return;
+
+    console.log(`[VideoNutzaps] 🚀 Prefetching nutzaps for ${videoIds.length} videos`);
+    await this.prefetch(videoIds);
   }
 
   /**
