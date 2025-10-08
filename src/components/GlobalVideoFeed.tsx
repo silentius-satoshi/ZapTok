@@ -1,5 +1,4 @@
 import { useRef, useEffect, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { VideoCard } from '@/components/VideoCard';
 import { VideoActionButtons } from '@/components/VideoActionButtons';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,7 +8,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useProfileCache } from '@/hooks/useProfileCache';
 import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
-import { useOptimizedGlobalVideoFeed } from '@/hooks/useOptimizedGlobalVideoFeed';
+import { useTimelineGlobalVideoFeed } from '@/hooks/useTimelineVideoFeed';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { devLog } from '@/lib/devConsole';
@@ -26,7 +25,6 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   const isMobile = useIsMobile();
   const { setCurrentVideo } = useCurrentVideo();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
   const lastScrollTopRef = useRef(0);
@@ -54,16 +52,23 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   const { batchLoadProfiles } = useProfileCache();
   const { preloadThumbnails } = useVideoPrefetch();
 
-  // Use optimized global video feed hook instead of direct queries
+  // Use timeline service for global video feed
   const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    error,
-    refetch,
-  } = useOptimizedGlobalVideoFeed();
+    videos,
+    loading: isLoading,
+    hasMore: hasNextPage,
+    error: errorObj,
+    loadMore,
+    refresh: refreshFeed,
+    newVideosCount,
+    mergeNewVideos,
+  } = useTimelineGlobalVideoFeed({
+    limit: 15,
+    enableNewEvents: true,
+  });
+
+  const error = errorObj ? new Error(errorObj) : null;
+  // Note: Timeline service loads more in background, no separate loading indicator needed
 
   // Expose refresh function to parent
   useImperativeHandle(ref, () => ({
@@ -76,8 +81,8 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
       // Reset video index to start
       setCurrentVideoIndex(0);
       
-      // Reset the infinite query to start fresh and show latest videos
-      await queryClient.resetQueries({ queryKey: ['global-video-feed'] });
+      // Use timeline service refresh
+      refreshFeed();
       
       // Brief delay to show refresh feedback
       setTimeout(() => {
@@ -89,9 +94,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
         }));
       }, 500);
     }
-  }), [queryClient, setCurrentVideoIndex]);
-
-  const videos = useMemo(() => data?.pages.flat() || [], [data?.pages]);
+  }), [refreshFeed, setCurrentVideoIndex]);
 
   // Background prefetching
   useEffect(() => {
@@ -310,8 +313,8 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
         // Reset video index to start
         setCurrentVideoIndex(0);
         
-        // Reset query to get latest videos
-        await queryClient.resetQueries({ queryKey: ['global-video-feed'] });
+        // Use timeline service refresh
+        refreshFeed();
         
         // Brief delay to show refresh feedback
         setTimeout(() => {
@@ -340,15 +343,15 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isMobile, pullToRefreshState.pullDistance, queryClient, setCurrentVideoIndex]);
+  }, [isMobile, pullToRefreshState.pullDistance, refreshFeed, setCurrentVideoIndex]);
 
   // Auto-load more videos
   useEffect(() => {
-    if (videos.length >= 5 && currentVideoIndex >= videos.length - 3 && hasNextPage && !isFetchingNextPage) {
+    if (videos.length >= 5 && currentVideoIndex >= videos.length - 3 && hasNextPage && !isLoading) {
       devLog(`📖 Auto-loading more global videos... (current: ${currentVideoIndex}, total: ${videos.length})`);
-      fetchNextPage();
+      loadMore();
     }
-  }, [currentVideoIndex, videos.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [currentVideoIndex, videos.length, hasNextPage, isLoading, loadMore]);
 
   // Loading state
   if (isLoading) {
@@ -491,14 +494,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
             </div>
           ))}
 
-          {isFetchingNextPage && (
-            <div className={isMobile ? "mobile-video-item flex items-center justify-center" : "h-screen flex items-center justify-center"}>
-              <div className="text-center">
-                <div className="w-8 h-8 border-2 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-400">Loading more videos...</p>
-              </div>
-            </div>
-          )}
+          {/* Timeline service loads more in background - no loading indicator needed */}
       </div>
     </div>
   );
