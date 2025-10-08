@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { devLog, bundleLog } from '@/lib/devConsole';
+import { bundleLog } from '@/lib/devConsole';
+import { isYouTubeUrl } from '@/lib/youtubeEmbed';
 
 interface VideoUrlFallbackOptions {
   originalUrl?: string;
@@ -22,6 +23,16 @@ export function useVideoUrlFallback({ originalUrl, hash, title }: VideoUrlFallba
     processedRef.current = currentInputs;
 
     if (!originalUrl && !hash) return;
+
+    // YouTube URLs should not be tested - they're for iframe embedding
+    if (originalUrl && isYouTubeUrl(originalUrl)) {
+      if (import.meta.env.DEV) {
+        bundleLog('videoUrlTesting', `🎬 URL [${title?.slice(0, 20) || 'video'}]: YouTube embed URL - skipping URL tests`);
+      }
+      setWorkingUrl(originalUrl);
+      setTestedUrls(prev => new Set([...prev, originalUrl]));
+      return;
+    }
 
     // Special handling for URLs that are known to have CORS restrictions
     const isCorsRestrictedUrl = (url: string) => {

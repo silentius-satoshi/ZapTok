@@ -101,10 +101,11 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
           >
             <VideoCard
               event={video}
-              isActive={index === currentVideoIndex}
+              isActive={false} // Grid videos should never auto-play, only in modal/viewer
               onNext={() => setCurrentVideoIndex(Math.min(index + 1, videos.length - 1))}
               onPrevious={() => setCurrentVideoIndex(Math.max(index - 1, 0))}
               showVerificationBadge={showVerificationBadge}
+              gridMode={true} // Show zap analytics instead of username/description/date
             />
 
             {/* Enhanced remove bookmark button for mobile */}

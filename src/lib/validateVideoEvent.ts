@@ -1,6 +1,7 @@
 import type { NostrEvent } from '@nostrify/nostrify';
 
 import { bundleLog } from './logBundler';
+import { parseYouTubeUrl } from './youtubeEmbed';
 
 export interface VideoEvent extends NostrEvent {
   videoUrl?: string;
@@ -289,9 +290,6 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
                            event.content.includes('youtube.com') ||
                            event.content.includes('youtu.be') ||
                            event.content.includes('vimeo.com') ||
-                           event.content.includes('blossom') ||
-                           event.content.includes('satellite.earth') ||
-                           event.content.includes('m.primal.net') ||
                            /https?:\/\/[^\s]*\.(mp4|webm|mov|avi|mkv)/i.test(event.content);
   const hasVideoTag = tags.some(([tagName, tagValue]) =>
     tagName === 't' && tagValue?.toLowerCase().includes('video')
@@ -302,6 +300,14 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
 
   // Must meet at least one video criteria
   if (!hasHashTag && !hasUrlTag && !hasVideoInContent && !hasVideoTag && !hasImetaVideo) {
+    return null;
+  }
+
+  // Check if content contains image extensions - if so, it's not a video
+  const hasImageExtension = /\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?.*)?$/i.test(event.content) ||
+                           /https?:\/\/[^\s]*\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?[^\s]*)?/i.test(event.content);
+  
+  if (hasImageExtension) {
     return null;
   }
 
@@ -399,9 +405,9 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
     if (directVideoMatch) {
       videoData.videoUrl = directVideoMatch[0];
     }
-    // Pattern 2: Blossom server URLs (blossom.band, satellite.earth)
+    // Pattern 2: Blossom server URLs (blossom.band, satellite.earth) - only match video extensions
     else if (event.content.includes('blossom.band') || event.content.includes('satellite.earth')) {
-      const blossomMatch = event.content.match(/(https?:\/\/[^\s]*(?:blossom\.band|satellite\.earth)\/[A-Za-z0-9][^\s]*)/i);
+      const blossomMatch = event.content.match(/(https?:\/\/[^\s]*(?:blossom\.band|satellite\.earth)\/[A-Za-z0-9][^\s]*\.(mp4|webm|mov|avi|mkv)(\?[^\s]*)?)/i);
       if (blossomMatch) {
         videoData.videoUrl = blossomMatch[0];
       }
@@ -413,10 +419,19 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
         videoData.videoUrl = primalMatch[0];
       }
     }
-    // Pattern 4: Other video platforms
+    // Pattern 4: YouTube videos - extract embed URL and thumbnail
     else if (event.content.includes('youtube.com') || event.content.includes('youtu.be')) {
-      // For YouTube videos, use the content as-is for now
-      videoData.videoUrl = event.content.trim();
+      const youtubeInfo = parseYouTubeUrl(event.content);
+      if (youtubeInfo.isYouTube && youtubeInfo.embedUrl) {
+        videoData.videoUrl = youtubeInfo.embedUrl;
+        // Set thumbnail if not already set
+        if (!videoData.thumbnail && youtubeInfo.thumbnailUrl) {
+          videoData.thumbnail = youtubeInfo.thumbnailUrl;
+        }
+      } else {
+        // Fallback: use content as-is if parsing fails
+        videoData.videoUrl = event.content.trim();
+      }
     }
     // Pattern 5: If we have a hash but no URL, construct Blossom URL
     else if (videoData.hash) {

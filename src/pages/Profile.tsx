@@ -39,6 +39,7 @@ import { useNostrLogin } from '@nostrify/react/login';
 import { nip19 } from 'nostr-tools';
 import { usePrimalFollowerCount } from '@/hooks/usePrimalFollowerCount';
 import { getLightningAddress } from '@/lib/lightning';
+import { isYouTubeUrl } from '@/lib/youtubeEmbed';
 
 const Profile = () => {
   const { pubkey: paramPubkey } = useParams();
@@ -589,6 +590,7 @@ const Profile = () => {
                   <div className="mt-6">
                     {activeTab === 'posts' ? (
                       <VideoGrid
+                        key={`posts-${showVideoViewer ? 'viewer' : 'grid'}`}
                         videos={userVideos.data || []}
                         isLoading={userVideos.isLoading}
                         emptyMessage="No videos published yet. Start creating and sharing videos!"
@@ -598,6 +600,7 @@ const Profile = () => {
                       />
                     ) : activeTab === 'reposts' ? (
                       <VideoGrid
+                        key={`reposts-${showVideoViewer ? 'viewer' : 'grid'}`}
                         videos={repostedVideos.data || []}
                         isLoading={repostedVideos.isLoading}
                         emptyMessage="No reposts yet. Repost some videos to see them here!"
@@ -607,6 +610,7 @@ const Profile = () => {
                       />
                     ) : activeTab === 'bookmarks' && isOwnProfile ? (
                       <VideoGrid
+                        key={`bookmarks-${showVideoViewer ? 'viewer' : 'grid'}`}
                         videos={bookmarkedVideos.data || []}
                         isLoading={bookmarkedVideos.isLoading}
                         emptyMessage="No bookmarks yet. Start bookmarking videos you want to save!"
@@ -699,24 +703,34 @@ const Profile = () => {
           </button>
 
           {/* Render all videos for scrolling */}
-          {getCurrentVideos().map((video, index) => (
-            <div key={video.id} className="h-screen flex items-center justify-center snap-start">
-              <div className="flex w-full items-end h-full gap-6 max-w-2xl">
-                <div className="flex-1 h-full rounded-3xl border-2 border-gray-800 overflow-hidden bg-black shadow-2xl relative">
-                  <VideoCard 
-                    event={video}
-                    isActive={index === currentVideoIndex}
-                    onNext={handleNextVideo}
-                    onPrevious={handlePreviousVideo}
-                  />
-                  {/* Action Buttons - Positioned on the right side of the video */}
-                  <div className="absolute right-1 bottom-4 z-10">
-                    <VideoActionButtons event={video} />
+          {getCurrentVideos().map((video, index) => {
+            // Check if this is a YouTube video to adjust button positioning
+            const isYouTube = video.videoUrl ? isYouTubeUrl(video.videoUrl) : false;
+            
+            // Determine if this video should be preloaded for smooth scrolling
+            // Preload current, next, and previous videos
+            const shouldPreload = Math.abs(index - currentVideoIndex) <= 1;
+            
+            return (
+              <div key={video.id} className="h-screen flex items-center justify-center snap-start">
+                <div className="flex w-full items-end h-full gap-6 max-w-2xl">
+                  <div className="flex-1 h-full rounded-3xl border-2 border-gray-800 overflow-hidden bg-black shadow-2xl relative">
+                    <VideoCard 
+                      event={video}
+                      isActive={index === currentVideoIndex}
+                      onNext={handleNextVideo}
+                      onPrevious={handlePreviousVideo}
+                      shouldPreload={shouldPreload}
+                    />
+                    {/* Action Buttons - Positioned higher for YouTube to avoid player controls */}
+                    <div className={`absolute right-1 z-10 ${isYouTube ? 'bottom-20' : 'bottom-4'}`}>
+                      <VideoActionButtons event={video} />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </>

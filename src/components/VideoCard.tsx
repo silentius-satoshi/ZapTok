@@ -12,6 +12,9 @@ import { useNavigate } from 'react-router-dom';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { bundleLog } from '@/lib/logBundler';
 import { devError, devLog } from '@/lib/devConsole';
+import { isYouTubeUrl } from '@/lib/youtubeEmbed';
+import { YouTubeEmbed } from '@/components/YouTubeEmbed';
+import { VideoZapAnalytics } from '@/components/VideoZapAnalytics';
 
 interface VideoCardProps {
   event: NostrEvent & {
@@ -28,9 +31,11 @@ interface VideoCardProps {
   onPrevious: () => void;
   onVideoUnavailable?: () => void;
   showVerificationBadge?: boolean;
+  shouldPreload?: boolean; // Whether to preload this video for smooth scrolling
+  gridMode?: boolean; // If true, show zap analytics instead of username/description/date
 }
 
-export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious, onVideoUnavailable, showVerificationBadge = true }: VideoCardProps) {
+export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious, onVideoUnavailable, showVerificationBadge = true, shouldPreload = false, gridMode = false }: VideoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -46,6 +51,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     hash: event.hash,
     title: event.title,
   });
+
+  // Check if this is a YouTube embed
+  const isYouTube = workingUrl ? isYouTubeUrl(workingUrl) : false;
 
   // Auto-skip to next video when current video becomes unavailable
   useEffect(() => {
@@ -282,33 +290,45 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
 
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
-      {/* Video Element or Error State */}
+      {/* Video Element, YouTube Embed, or Error State */}
       {workingUrl ? (
-        <video
-          ref={videoRef}
-          src={workingUrl}
-          poster={event.thumbnail}
-          className={`w-full h-full ${objectFitClass} cursor-pointer`}
-          loop
-          playsInline
-          muted={!isActive} // Mute inactive videos, unmute active video
-          preload={isActive ? "auto" : "metadata"} // Aggressive preloading for active videos
-          webkit-playsinline="true" // iOS Safari compatibility
-          x5-video-player-type="h5" // WeChat browser optimization
-          x5-video-player-fullscreen="true" // WeChat fullscreen optimization
-          onClick={handlePlayPause}
-          onPlay={handleVideoPlay}
-          onPause={handleVideoPause}
-          onTouchStart={(e) => {
-            // PWA mobile touch optimization
-            const isPWAMobile = isMobile && (isStandalone || isInstalled);
-            if (isPWAMobile) {
-              // Prevent default to avoid mobile browser interference
-              e.preventDefault();
-              bundleLog('mobilePWAInteraction', '👆 Touch interaction on video in PWA');
-            }
-          }}
-        />
+        isYouTube ? (
+          // YouTube Embed
+          <YouTubeEmbed
+            embedUrl={workingUrl}
+            title={event.title || 'YouTube Video'}
+            thumbnail={event.thumbnail}
+            isActive={isActive}
+            className="w-full h-full"
+          />
+        ) : (
+          // Standard HTML5 Video
+          <video
+            ref={videoRef}
+            src={workingUrl}
+            poster={event.thumbnail}
+            className={`w-full h-full ${objectFitClass} cursor-pointer`}
+            loop
+            playsInline
+            muted={!isActive} // Mute inactive videos, unmute active video
+            preload={isActive || shouldPreload ? "auto" : "metadata"} // Preload active video and adjacent videos for smooth scrolling
+            webkit-playsinline="true" // iOS Safari compatibility
+            x5-video-player-type="h5" // WeChat browser optimization
+            x5-video-player-fullscreen="true" // WeChat fullscreen optimization
+            onClick={handlePlayPause}
+            onPlay={handleVideoPlay}
+            onPause={handleVideoPause}
+            onTouchStart={(e) => {
+              // PWA mobile touch optimization
+              const isPWAMobile = isMobile && (isStandalone || isInstalled);
+              if (isPWAMobile) {
+                // Prevent default to avoid mobile browser interference
+                e.preventDefault();
+                bundleLog('mobilePWAInteraction', '👆 Touch interaction on video in PWA');
+              }
+            }}
+          />
+        )
       ) : isTestingUrls ? (
         <div className="w-full h-full bg-gray-900 flex items-center justify-center">
           <div className="text-center text-gray-400">
@@ -342,71 +362,80 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         </div>
       )}
 
-      {/* Video Description - Bottom Left */}
-      <div className="absolute bottom-4 left-4 right-20 text-white z-10">
-        <div className="space-y-1">
-          {/* Username */}
-          <div className="flex items-center gap-2">
-            <button
-              className="font-bold text-white truncate hover:text-blue-300 transition-colors cursor-pointer"
-              onClick={() => navigate(`/profile/${event.pubkey}`)}
-            >
-              @{displayName}
-            </button>
-            {showVerificationBadge && authorMetadata?.nip05 && (
-              <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-300 border-blue-400/30 flex-shrink-0">
-                ✓ {authorMetadata.nip05}
-              </Badge>
-            )}
-            <span className="text-xs text-gray-400 flex-shrink-0">
-              {timeAgo}
-            </span>
-          </div>
+      {/* Video Description - Bottom Left (Higher for YouTube to avoid player controls) */}
+      {/* In grid mode, show zap analytics instead of username/description/date */}
+      {gridMode ? (
+        <div className="absolute bottom-4 left-4 text-white z-10">
+          <VideoZapAnalytics videoId={event.id} />
+        </div>
+      ) : (
+        <div className={`absolute left-4 right-20 text-white z-10 ${isYouTube ? 'bottom-20' : 'bottom-4'}`}>
+          <div className="space-y-1">
+            {/* Username - Always visible */}
+            <div className="flex items-center gap-2">
+              <button
+                className="font-bold text-white truncate hover:text-blue-300 transition-colors cursor-pointer"
+                onClick={() => navigate(`/profile/${event.pubkey}`)}
+              >
+                @{displayName}
+              </button>
+              {showVerificationBadge && authorMetadata?.nip05 && (
+                <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-300 border-blue-400/30 flex-shrink-0">
+                  ✓ {authorMetadata.nip05}
+                </Badge>
+              )}
+              <span className="text-xs text-gray-400 flex-shrink-0">
+                {timeAgo}
+              </span>
+            </div>
 
-          {/* Description */}
-          <div className="text-sm">
-            {isDescriptionExpanded ? (
-              <div className="space-y-2">
-                <p className="text-white leading-relaxed">
-                  {event.title || event.description || event.content}
-                </p>
-                <div className="flex items-center space-x-2">
-                  <div className="flex flex-wrap gap-1 flex-1">
-                    {event.tags
-                      .filter(([name]) => name === 't')
-                      .map(([, tag], index) => (
-                        <span
-                          key={index}
-                          className="text-xs bg-white/10 text-white px-2 py-1 rounded-full backdrop-blur-sm"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
+            {/* Description - Hidden for YouTube videos to avoid interfering with player controls */}
+            {!isYouTube && (
+            <div className="text-sm">
+              {isDescriptionExpanded ? (
+                <div className="space-y-2">
+                  <p className="text-white leading-relaxed">
+                    {event.title || event.description || event.content}
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap gap-1 flex-1">
+                      {event.tags
+                        .filter(([name]) => name === 't')
+                        .map(([, tag], index) => (
+                          <span
+                            key={index}
+                            className="text-xs bg-white/10 text-white px-2 py-1 rounded-full backdrop-blur-sm"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                    </div>
+                    <button
+                      onClick={() => setIsDescriptionExpanded(false)}
+                      className="text-xs text-gray-300 hover:text-white transition-colors whitespace-nowrap font-medium"
+                    >
+                      ...less
+                    </button>
                   </div>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <p className="truncate flex-1 text-white leading-relaxed">
+                    {event.title || event.description || event.content}
+                  </p>
                   <button
-                    onClick={() => setIsDescriptionExpanded(false)}
+                    onClick={() => setIsDescriptionExpanded(true)}
                     className="text-xs text-gray-300 hover:text-white transition-colors whitespace-nowrap font-medium"
                   >
-                    ...less
+                    ...more
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <p className="truncate flex-1 text-white leading-relaxed">
-                  {event.title || event.description || event.content}
-                </p>
-                <button
-                  onClick={() => setIsDescriptionExpanded(true)}
-                  className="text-xs text-gray-300 hover:text-white transition-colors whitespace-nowrap font-medium"
-                >
-                  ...more
-                </button>
-              </div>
+              )}
+            </div>
             )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
