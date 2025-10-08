@@ -80,5 +80,15 @@ export const devGroupCollapsed = (label: string, callback: () => void) => {
   }
 };
 
+/**
+ * Open the test post page for testing real-time subscriptions
+ */
+export const openTestPost = () => {
+  if (isDev) {
+    window.location.hash = '#/test-post';
+    console.log('🧪 Opening test post page...');
+  }
+};
+
 // Re-export bundled logging for convenience
 export { bundleLog, flushLogs } from './logBundler';

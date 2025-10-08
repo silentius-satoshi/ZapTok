@@ -110,6 +110,11 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
     disable: disableAllDebugging,
     config: DEBUG_CONFIG,
     log: debugLog,
+    testPost: () => {
+      window.location.hash = '#/test-post';
+      console.log('🧪 Opening test post page for real-time feed testing...');
+    },
   };
   devLog('🧪 ZapTok debug tools available at window.zapTokDebug');
+  devLog('💡 Try: window.zapTokDebug.testPost() - Open test post page');
 }

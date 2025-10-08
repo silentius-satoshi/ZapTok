@@ -31,6 +31,7 @@ import { FAQ } from "./pages/FAQ";
 import { ProModePage } from "./pages/ProModePage";
 import DonationPage from "./pages/DonationPage";
 import { ReadOnlyModeDemo } from "@/components/ReadOnlyModeDemo";
+import TestPost from "./pages/TestPost";
 import NotFound from "./pages/NotFound";
 
 function RouteHandler() {
@@ -73,6 +74,7 @@ function RouteHandler() {
       <Route path="/stream" element={<Stream />} />
       <Route path="/pro" element={<ProModePage />} />
       <Route path="/read-only-demo" element={<ReadOnlyModeDemo />} />
+      <Route path="/test-post" element={<TestPost />} />
       {/* Nostr entity handler - must be after specific routes */}
       <Route path="/:nip19Id" element={<NostrEntity />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

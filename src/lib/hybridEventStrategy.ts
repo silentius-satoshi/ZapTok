@@ -160,8 +160,22 @@ export function createHybridVideoEvent(
     tags.push(['alt', data.description]);
   }
 
+  // Determine kind based on video characteristics (NIP-71)
+  // Kind 21: Normal videos (horizontal/landscape, longer-form)
+  // Kind 22: Short videos (vertical/portrait, short-form like reels/stories)
+  let kind = 22; // Default to short video
+  
+  // Use kind 21 (normal video) if:
+  // 1. Video is landscape/horizontal (width > height)
+  // 2. Video is longer than 5 minutes (300 seconds)
+  if (data.width && data.height && data.width > data.height) {
+    kind = 21; // Landscape video = normal video
+  } else if (data.duration && data.duration > 300) {
+    kind = 21; // Long video = normal video
+  }
+
   return {
-    kind: 1, // Text note for maximum compatibility
+    kind,
     content,
     tags,
   };

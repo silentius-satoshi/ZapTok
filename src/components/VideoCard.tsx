@@ -20,6 +20,8 @@ interface VideoCardProps {
     title?: string;
     description?: string;
     hash?: string;
+    width?: number;
+    height?: number;
   };
   isActive: boolean;
   onNext: () => void;
@@ -272,6 +274,12 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     setIsPlaying(false);
   };
 
+  // Detect video orientation to choose appropriate object-fit
+  // Landscape videos (width > height) use object-contain to show full video
+  // Portrait/square videos use object-cover to fill the container
+  const isLandscape = event.width && event.height && event.width > event.height;
+  const objectFitClass = isLandscape ? 'object-contain' : 'object-cover';
+
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
       {/* Video Element or Error State */}
@@ -280,7 +288,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
           ref={videoRef}
           src={workingUrl}
           poster={event.thumbnail}
-          className="w-full h-full object-cover cursor-pointer"
+          className={`w-full h-full ${objectFitClass} cursor-pointer`}
           loop
           playsInline
           muted={!isActive} // Mute inactive videos, unmute active video

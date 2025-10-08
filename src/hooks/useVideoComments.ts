@@ -30,12 +30,12 @@ export function useVideoComments(videoId: string) {
 
   // Load comments on mount if not cached
   useEffect(() => {
-    if (!comments && videoId) {
+    if (videoId) {
       videoCommentsService.getComments(videoId).catch((error) => {
         console.error('Failed to load comments for video:', videoId, error);
       });
     }
-  }, [videoId, comments]);
+  }, [videoId]); // Don't depend on comments - service handles caching/deduplication
 
   // Return comments or default empty state
   return comments || {

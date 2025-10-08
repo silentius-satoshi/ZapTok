@@ -7,6 +7,7 @@ import { useVideoCache } from '@/hooks/useVideoCache';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 // Import analytics services for feed-level prefetching
 import { videoCommentsService } from '@/services/videoComments.service';
@@ -20,7 +21,10 @@ export function useOptimizedGlobalVideoFeed() {
   const following = useFollowing(user?.pubkey || '');
   const { cacheVideoMetadata } = useVideoCache();
 
-  return useInfiniteQuery({
+  // Real-time state management
+  const [newVideos, setNewVideos] = useState<VideoEvent[]>([]);
+
+  const query = useInfiniteQuery({
     queryKey: ['optimized-global-video-feed'],
     queryFn: async ({ pageParam, signal }) => {
       bundleLog('globalVideoFetch', '🌍 Fetching global video content with rate limiting');
@@ -41,17 +45,15 @@ export function useOptimizedGlobalVideoFeed() {
 
       bundleLog('globalVideoProcessing', `🌍 Found ${events.length} global video events`);
 
-      // Filter out videos from users we're already following to avoid duplicates
-      const followedPubkeys = new Set(following.data?.pubkeys || []);
-      const unfollowedEvents = events.filter(event => !followedPubkeys.has(event.pubkey));
-
-      bundleLog('globalVideoFiltering', `🌍 Filtered to ${unfollowedEvents.length} videos from unfollowed users (${events.length} → ${unfollowedEvents.length})`);
+      // Include ALL videos (both followed and unfollowed users)
+      // Global feed shows everything, Following feed shows filtered content
+      bundleLog('globalVideoFiltering', `🌍 Processing all ${events.length} video events (including followed users)`);
 
       // Filter and validate video events
       const uniqueEvents = new Map<string, NostrEvent>();
       const seenVideoUrls = new Set<string>();
 
-      unfollowedEvents.forEach(event => {
+      events.forEach(event => {
         if (!hasVideoContent(event)) return;
 
         // Log what types of video events we're finding
@@ -90,11 +92,11 @@ export function useOptimizedGlobalVideoFeed() {
 
       if (videoEvents.length > 0) {
         cacheVideoMetadata(videoEvents);
-        
+
         // ✅ Feed-level prefetching: Load all analytics for videos in this batch
         const videoIds = videoEvents.map(v => v.id);
         console.log(`[GlobalFeed] 🚀 Triggering feed-level prefetch for ${videoIds.length} videos`);
-        
+
         // Prefetch all analytics in parallel (fire-and-forget)
         Promise.all([
           videoCommentsService.prefetchComments(videoIds),
@@ -121,4 +123,105 @@ export function useOptimizedGlobalVideoFeed() {
     gcTime: 1000 * 60 * 10, // 10 minutes
     refetchOnMount: false,
   });
+
+  // Real-time subscription for new events using NPool
+  useEffect(() => {
+    const abortController = new AbortController();
+    let eosedAt: number | null = null;
+
+    const processEvents = async () => {
+      try {
+        const events = nostr.req([
+          {
+            kinds: [21, 22],
+            since: Math.floor(Date.now() / 1000), // Only future events
+          }
+        ], { signal: abortController.signal });
+
+        for await (const msg of events) {
+          if (msg[0] === 'EVENT') {
+            const event = msg[2] as NostrEvent;
+
+            if (!eosedAt) {
+              // Still collecting initial events, skip
+              continue;
+            }
+
+            // Only process events created after EOSE
+            if (event.created_at <= eosedAt) continue;
+
+            // Validate video event
+            const videoEvent = validateVideoEvent(event);
+            if (!videoEvent || !videoEvent.videoUrl) continue;
+
+            // Include ALL videos in global feed (both followed and unfollowed users)
+            bundleLog('globalVideoRealTime', `🌍⚡ New video event received: ${videoEvent.id.slice(0, 8)}`);
+
+            setNewVideos(prev => {
+              // Check if event already exists in buffer
+              const exists = prev.some(v => v.id === videoEvent.id);
+              if (exists) return prev;
+
+              // Note: We don't check query.data here to avoid dependency issues
+              // The deduplication will happen when merging new videos
+              
+              // Check for duplicate video URLs in the buffer
+              if (videoEvent.videoUrl) {
+                const normalizedUrl = normalizeVideoUrl(videoEvent.videoUrl);
+                const urlExistsInNew = prev.some(v =>
+                  v.videoUrl && normalizeVideoUrl(v.videoUrl) === normalizedUrl
+                );
+                
+                if (urlExistsInNew) return prev;
+              }
+
+              // Add to new videos buffer (limit to 50)
+              return [videoEvent, ...prev]
+                .sort((a, b) => b.created_at - a.created_at)
+                .slice(0, 50);
+            });
+          } else if (msg[0] === 'EOSE') {
+            // Mark EOSE timestamp
+            if (!eosedAt) {
+              eosedAt = Date.now() / 1000;
+              bundleLog('globalVideoRealTime', '🌍✅ Real-time subscription EOSE reached');
+            }
+          }
+        }
+      } catch (error) {
+        // Ignore abort errors (normal cleanup)
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
+        console.error('[globalVideoRealTime] Subscription error:', error);
+      }
+    };
+
+    processEvents();
+
+    // Cleanup on unmount
+    return () => {
+      abortController.abort();
+    };
+  }, [nostr, following.data?.pubkeys]); // Removed query.data dependency to prevent infinite loop
+
+  // Merge new videos into main feed
+  const mergeNewVideos = useCallback(() => {
+    if (newVideos.length === 0) return;
+
+    bundleLog('globalVideoMerge', `🌍🔄 Merging ${newVideos.length} new videos into feed`);
+
+    // Trigger refetch to get fresh data
+    query.refetch();
+
+    // Clear new videos buffer
+    setNewVideos([]);
+  }, [newVideos.length, query]);
+
+  return {
+    ...query,
+    newVideosCount: newVideos.length,
+    newVideos,
+    mergeNewVideos,
+  };
 }
