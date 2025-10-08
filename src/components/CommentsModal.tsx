@@ -11,13 +11,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
-import { Send, MessageCircle, Heart, Reply } from 'lucide-react';
+import { Send, MessageCircle, Zap, Reply } from 'lucide-react';
 import { NoteContent } from '@/components/NoteContent';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useVideoComments } from '@/hooks/useVideoComments';
 import { usePublishComment } from '@/hooks/usePublishComment';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useLoginPrompt } from '@/hooks/useLoginPrompt';
+import { useNostr } from '@/hooks/useNostr';
+import { useZap } from '@/contexts/ZapProvider';
+import { useToast } from '@/hooks/useToast';
+import { useWallet } from '@/hooks/useWallet';
+import { getLightningAddress } from '@/lib/lightning';
+import lightningService from '@/services/lightning.service';
 import { CommentPrompt } from '@/components/auth/LoginPrompt';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { genUserName } from '@/lib/genUserName';
@@ -169,13 +175,71 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
 
 function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () => void }) {
   const author = useAuthor(comment.pubkey);
-  const { canSign } = useCurrentUser();
+  const { user, canSign } = useCurrentUser();
+  const { nostr } = useNostr();
+  const { toast } = useToast();
+  const { defaultZapSats } = useZap();
+  const { getBalance } = useWallet();
+  const [isZapping, setIsZapping] = useState(false);
 
   const authorMetadata = author.data?.metadata;
   const displayName = authorMetadata?.display_name || authorMetadata?.name || genUserName(comment.pubkey);
   const profilePicture = authorMetadata?.picture;
 
   const timeAgo = formatDistanceToNow(new Date(comment.created_at * 1000), { addSuffix: true });
+
+  const handleZap = async () => {
+    if (!canSign || isZapping || !user) return;
+    
+    // Check if author has a Lightning address
+    const lightningAddress = authorMetadata ? getLightningAddress(authorMetadata) : null;
+    if (!lightningAddress) {
+      toast({
+        title: "⚠️ Cannot Zap",
+        description: "This user doesn't have a Lightning address set up.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setIsZapping(true);
+      
+      // Use 21 sats as default one-tap zap amount for comments
+      const zapAmount = 21;
+      
+      await lightningService.zap(
+        user.pubkey,
+        comment, // Pass the comment event
+        zapAmount,
+        '⚡', // Lightning emoji as comment
+        nostr,
+        user
+      );
+
+      // Refresh wallet balance after successful zap
+      try {
+        await getBalance();
+      } catch (balanceError) {
+        // Log but don't show error - zap was successful
+        console.warn('Failed to refresh balance after zap:', balanceError);
+      }
+
+      toast({
+        title: "⚡ Zap Sent!",
+        description: `Sent ${zapAmount} sats to ${displayName}`,
+      });
+    } catch (error) {
+      console.error('Failed to send zap:', error);
+      toast({
+        title: "❌ Zap Failed",
+        description: error instanceof Error ? error.message : "Failed to send zap",
+        variant: "destructive",
+      });
+    } finally {
+      setIsZapping(false);
+    }
+  };
 
   return (
     <div className="group space-y-2">
@@ -197,7 +261,7 @@ function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () =>
             <NoteContent event={comment} />
           </div>
 
-          <div className="flex items-center gap-4 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-4 mt-2">
             {canSign && (
               <>
                 <Button
@@ -213,17 +277,19 @@ function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () =>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 px-2 text-xs gap-1 hover:bg-red-500/10 hover:text-red-500"
+                  onClick={handleZap}
+                  disabled={isZapping}
+                  className="h-6 px-2 text-xs gap-1 hover:bg-yellow-500/10 hover:text-yellow-500"
                 >
-                  <Heart className="h-3 w-3" />
-                  Like
+                  <Zap className="h-3 w-3" />
+                  {isZapping ? 'Zapping...' : 'Zap 21'}
                 </Button>
               </>
             )}
             
             {!canSign && (
               <span className="text-xs text-muted-foreground">
-                Login to reply and like comments
+                Login to reply and zap comments
               </span>
             )}
           </div>

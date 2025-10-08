@@ -83,6 +83,25 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   };
   const refreshFeed = () => refetch();
 
+  // Handle merging new videos and scroll to top
+  const handleMergeNewVideos = () => {
+    bundleLog('globalVideoMerge', '🌍🔼 Merging new videos and scrolling to top');
+    
+    // Merge new videos
+    mergeNewVideos();
+    
+    // Reset to first video
+    setCurrentVideoIndex(0);
+    
+    // Scroll to top
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   // Expose refresh function to parent
   useImperativeHandle(ref, () => ({
     refresh: async () => {
@@ -452,6 +471,18 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
               }
             </span>
           </div>
+        </div>
+      )}
+
+      {/* New Videos Indicator */}
+      {newVideosCount > 0 && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
+          <Button
+            onClick={handleMergeNewVideos}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full shadow-lg animate-bounce"
+          >
+            {newVideosCount} new video{newVideosCount !== 1 ? 's' : ''}
+          </Button>
         </div>
       )}
       

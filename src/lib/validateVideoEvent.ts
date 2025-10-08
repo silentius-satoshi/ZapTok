@@ -265,9 +265,9 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
     validationInfo.videoUrl = videoData.videoUrl;
   }
 
-  // Only log validation failures in development
-  if (import.meta.env.DEV && !validationInfo.videoUrl) {
-    bundleLog('video-validation', `❌ NIP-71 [${validationInfo.id}]: ${validationInfo.title} - Missing video URL`);
+  // Log successful validation in development
+  if (import.meta.env.DEV && videoData.videoUrl) {
+    bundleLog('video-validation', `✅ NIP-71 [${validationInfo.id}]: ${videoData.title} - Video URL: ${videoData.videoUrl.substring(0, 50)}...`);
   }
 
   return videoData;

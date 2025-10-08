@@ -45,17 +45,15 @@ export function useOptimizedGlobalVideoFeed() {
 
       bundleLog('globalVideoProcessing', `🌍 Found ${events.length} global video events`);
 
-      // Filter out videos from users we're already following to avoid duplicates
-      const followedPubkeys = new Set(following.data?.pubkeys || []);
-      const unfollowedEvents = events.filter(event => !followedPubkeys.has(event.pubkey));
-
-      bundleLog('globalVideoFiltering', `🌍 Filtered to ${unfollowedEvents.length} videos from unfollowed users (${events.length} → ${unfollowedEvents.length})`);
+      // Include ALL videos (both followed and unfollowed users)
+      // Global feed shows everything, Following feed shows filtered content
+      bundleLog('globalVideoFiltering', `🌍 Processing all ${events.length} video events (including followed users)`);
 
       // Filter and validate video events
       const uniqueEvents = new Map<string, NostrEvent>();
       const seenVideoUrls = new Set<string>();
 
-      unfollowedEvents.forEach(event => {
+      events.forEach(event => {
         if (!hasVideoContent(event)) return;
 
         // Log what types of video events we're finding
@@ -156,10 +154,7 @@ export function useOptimizedGlobalVideoFeed() {
             const videoEvent = validateVideoEvent(event);
             if (!videoEvent || !videoEvent.videoUrl) continue;
 
-            // Filter out followed users
-            const followedPubkeys = new Set(following.data?.pubkeys || []);
-            if (followedPubkeys.has(event.pubkey)) continue;
-
+            // Include ALL videos in global feed (both followed and unfollowed users)
             bundleLog('globalVideoRealTime', `🌍⚡ New video event received: ${videoEvent.id.slice(0, 8)}`);
 
             setNewVideos(prev => {

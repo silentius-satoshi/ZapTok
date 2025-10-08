@@ -5,6 +5,7 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { useNostr } from '@/hooks/useNostr';
 import { useZap } from '@/contexts/ZapProvider';
 import { useNoteStatsById } from '@/hooks/useNoteStatsById';
+import { useWallet } from '@/hooks/useWallet';
 import { Button } from '@/components/ui/button';
 import { Zap, Loader } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
@@ -45,6 +46,7 @@ export function ZapButton({
   const { data: authorData } = useAuthor(recipientPubkey);
   const { toast } = useToast();
   const { defaultZapSats, defaultZapComment, quickZap } = useZap();
+  const { getBalance } = useWallet();
 
   // Use eventId if provided, otherwise fall back to event.id
   const noteId = eventId || event?.id;
@@ -99,6 +101,14 @@ export function ZapButton({
           user!
         );
 
+        // Refresh wallet balance after successful zap
+        try {
+          await getBalance();
+        } catch (balanceError) {
+          // Log but don't show error - zap was successful
+          console.warn('Failed to refresh balance after zap:', balanceError);
+        }
+
         // Update local stats immediately for instant feedback
         if (noteId) {
           noteStatsService.addZap(
@@ -147,6 +157,14 @@ export function ZapButton({
       const zapTarget = event || recipientPubkey;
 
       await lightningService.zap(user.pubkey, zapTarget, amount, comment || '', nostr, user);
+
+      // Refresh wallet balance after successful zap
+      try {
+        await getBalance();
+      } catch (balanceError) {
+        // Log but don't show error - zap was successful
+        console.warn('Failed to refresh balance after zap:', balanceError);
+      }
 
       // Update local stats immediately for instant feedback
       if (noteId) {
