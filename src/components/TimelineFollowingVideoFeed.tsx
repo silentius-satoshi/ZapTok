@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { useTimelineFollowingVideoFeed } from '@/hooks/useTimelineVideoFeed';
+import { useInitializeAnalyticsServices } from '@/hooks/useInitializeAnalyticsServices';
 import { VideoCard } from '@/components/VideoCard';
 import { VideoActionButtons } from '@/components/VideoActionButtons';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,10 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
   const { setCurrentVideo } = useCurrentVideo();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Initialize analytics services for feed-level prefetching
+  // This enables comments, reposts, and reactions to batch together
+  useInitializeAnalyticsServices();
 
   // Auto-refresh after login
   const { justLoggedIn } = useLoginAutoRefresh();

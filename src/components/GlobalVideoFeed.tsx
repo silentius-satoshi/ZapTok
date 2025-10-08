@@ -9,6 +9,7 @@ import { useProfileCache } from '@/hooks/useProfileCache';
 import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
 import { useCurrentVideo } from '@/contexts/CurrentVideoContext';
 import { useTimelineGlobalVideoFeed } from '@/hooks/useTimelineVideoFeed';
+import { useInitializeAnalyticsServices } from '@/hooks/useInitializeAnalyticsServices';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { devLog } from '@/lib/devConsole';
@@ -28,6 +29,10 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
   const lastScrollTopRef = useRef(0);
+
+  // Initialize analytics services for feed-level prefetching
+  // This enables comments, reposts, and reactions to batch together
+  useInitializeAnalyticsServices();
 
   // Lock body scroll on mobile to prevent dual scrolling
   useEffect(() => {
