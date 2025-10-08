@@ -178,9 +178,9 @@ const Profile = () => {
   if (showEditForm && isOwnProfile) {
     return (
       <AuthGate>
-        <div className={`h-screen bg-black text-white overflow-hidden ${isMobile ? 'overflow-x-hidden' : ''}`}>
+        <div className="h-screen bg-black text-white overflow-hidden">
           <main className="h-full flex">
-            <div className="flex">
+            <div className="flex w-full">
               {/* Left Sidebar - Logo and Navigation - Hidden on Mobile */}
               {!isMobile && (
                 <div className="flex flex-col bg-black">
@@ -192,7 +192,7 @@ const Profile = () => {
               )}
 
               {/* Edit Profile Content - Full Width on Mobile */}
-              <div className={`flex-1 h-full overflow-y-auto scrollbar-hide ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
+              <div className="flex-1 h-full overflow-y-auto overflow-x-hidden scrollbar-hide">
                 <div className={`max-w-2xl mx-auto ${isMobile ? 'p-4' : 'p-6'} min-h-full`}>
                   <div className="mb-6">
                     <Button
@@ -229,7 +229,7 @@ const Profile = () => {
 
   return (
     <>
-      <div className={`min-h-screen bg-black text-white ${isMobile ? 'overflow-x-hidden' : ''}`}>
+      <div className="min-h-screen bg-black text-white overflow-x-hidden">
         <main className="h-screen">
           <div className="flex h-full">
             {/* Left Sidebar - Logo and Navigation - Hidden on Mobile */}
@@ -243,7 +243,7 @@ const Profile = () => {
             )}
 
             {/* Profile Content - Full Width on Mobile */}
-            <div className={`flex-1 overflow-y-auto scrollbar-hide ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
+            <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
                 <div className={`max-w-4xl mx-auto ${isMobile ? 'p-4' : 'p-6'}`}>
                   {/* Back Button - Show for own profile on mobile */}
                   {isMobile && isOwnProfile && (
