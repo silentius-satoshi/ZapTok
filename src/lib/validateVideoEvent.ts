@@ -11,6 +11,8 @@ export interface VideoEvent extends NostrEvent {
   duration?: number;
   published_at?: number; // NIP-71 published timestamp
   alt?: string; // NIP-71 accessibility description
+  width?: number; // Video width in pixels
+  height?: number; // Video height in pixels
 }
 
 /**
@@ -156,6 +158,15 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
       videoData.hash = imetaProps.x;
       validationInfo.hash = imetaProps.x;
     }
+
+    // Extract dimensions from dim property (format: "1920x1080")
+    if (imetaProps.dim && !videoData.width && !videoData.height) {
+      const dimMatch = imetaProps.dim.match(/^(\d+)x(\d+)$/);
+      if (dimMatch) {
+        videoData.width = parseInt(dimMatch[1]);
+        videoData.height = parseInt(dimMatch[2]);
+      }
+    }
   }
 
   // Parse other NIP-71 tags
@@ -201,6 +212,17 @@ function validateNip71VideoEvent(event: NostrEvent, tags: string[][]): VideoEven
         if (!videoData.hash) {
           videoData.hash = tag[1];
           validationInfo.hash = tag[1];
+        }
+        break;
+      }
+      case 'dim': {
+        // Parse dimensions (format: "1920x1080")
+        if (!videoData.width && !videoData.height && tag[1]) {
+          const dimMatch = tag[1].match(/^(\d+)x(\d+)$/);
+          if (dimMatch) {
+            videoData.width = parseInt(dimMatch[1]);
+            videoData.height = parseInt(dimMatch[2]);
+          }
         }
         break;
       }
@@ -344,6 +366,25 @@ function validateLegacyVideoEvent(event: NostrEvent, tags: string[][]): VideoEve
         }
         if (imetaProps.thumb && !videoData.thumbnail) {
           videoData.thumbnail = imetaProps.thumb;
+        }
+        // Extract dimensions from dim property
+        if (imetaProps.dim && !videoData.width && !videoData.height) {
+          const dimMatch = imetaProps.dim.match(/^(\d+)x(\d+)$/);
+          if (dimMatch) {
+            videoData.width = parseInt(dimMatch[1]);
+            videoData.height = parseInt(dimMatch[2]);
+          }
+        }
+        break;
+      }
+      case 'dim': {
+        // Parse dimensions (format: "1920x1080")
+        if (!videoData.width && !videoData.height && tag[1]) {
+          const dimMatch = tag[1].match(/^(\d+)x(\d+)$/);
+          if (dimMatch) {
+            videoData.width = parseInt(dimMatch[1]);
+            videoData.height = parseInt(dimMatch[2]);
+          }
         }
         break;
       }
