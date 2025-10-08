@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { Navigation } from '@/components/Navigation';
@@ -22,7 +22,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { VideoGrid } from '@/components/VideoGrid';
-import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus, Send, Bell } from 'lucide-react';
+import { VideoCard } from '@/components/VideoCard';
+import { VideoActionButtons } from '@/components/VideoActionButtons';
+import { Users, Edit, ArrowLeft, QrCode, MessageCircle, UserPlus, UserMinus, Send, Bell, X } from 'lucide-react';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { FollowersListModal } from '@/components/FollowersListModal';
 import { EditProfileForm } from '@/components/EditProfileForm';
@@ -52,6 +54,9 @@ const Profile = () => {
   const [showQRModal, setShowQRModal] = useState(false);
   const [isNutzapDialogOpen, setIsNutzapDialogOpen] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [showVideoViewer, setShowVideoViewer] = useState(false);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const videoViewerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
   // Detect signer type to hide Cashu features for bunker signers
@@ -70,6 +75,12 @@ const Profile = () => {
       };
     }
   }, [showEditForm]);
+
+  // Reset video viewer when profile changes
+  useEffect(() => {
+    setShowVideoViewer(false);
+    setCurrentVideoIndex(0);
+  }, [paramPubkey]);
 
   // Handle both hex pubkeys and npub identifiers
   const targetPubkey = (() => {
@@ -174,6 +185,77 @@ const Profile = () => {
       loginMessage: 'Login required to send direct messages',
     });
   };
+
+  const handleVideoClick = (index: number) => {
+    setCurrentVideoIndex(index);
+    setShowVideoViewer(true);
+  };
+
+  const handleCloseVideoViewer = () => {
+    setShowVideoViewer(false);
+  };
+
+  const handleNextVideo = () => {
+    const videos = getCurrentVideos();
+    if (currentVideoIndex < videos.length - 1) {
+      setCurrentVideoIndex(currentVideoIndex + 1);
+    }
+  };
+
+  const handlePreviousVideo = () => {
+    if (currentVideoIndex > 0) {
+      setCurrentVideoIndex(currentVideoIndex - 1);
+    }
+  };
+
+  // Track scroll position to update current video index
+  useEffect(() => {
+    if (!showVideoViewer || !videoViewerRef.current) return;
+
+    const handleScroll = () => {
+      const container = videoViewerRef.current;
+      if (!container) return;
+
+      const scrollPosition = container.scrollTop;
+      const videoHeight = container.clientHeight;
+      const newIndex = Math.round(scrollPosition / videoHeight);
+      
+      if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < getCurrentVideos().length) {
+        setCurrentVideoIndex(newIndex);
+      }
+    };
+
+    const container = videoViewerRef.current;
+    container.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [showVideoViewer, currentVideoIndex]);
+
+  // Scroll to the clicked video when viewer opens
+  useEffect(() => {
+    if (showVideoViewer && videoViewerRef.current) {
+      const container = videoViewerRef.current;
+      const videoHeight = container.clientHeight;
+      const scrollPosition = currentVideoIndex * videoHeight;
+      
+      container.scrollTo({
+        top: scrollPosition,
+        behavior: 'instant'
+      });
+    }
+  }, [showVideoViewer]);
+
+  // Get the current video list based on active tab
+  const getCurrentVideos = () => {
+    if (activeTab === 'posts') return userVideos.data || [];
+    if (activeTab === 'reposts') return repostedVideos.data || [];
+    if (activeTab === 'bookmarks' && isOwnProfile) return bookmarkedVideos.data || [];
+    return [];
+  };
+
+  const currentVideos = getCurrentVideos();
 
   if (showEditForm && isOwnProfile) {
     return (
@@ -512,6 +594,7 @@ const Profile = () => {
                         emptyMessage="No videos published yet. Start creating and sharing videos!"
                         allowRemove={false}
                         showVerificationBadge={false}
+                        onVideoClick={handleVideoClick}
                       />
                     ) : activeTab === 'reposts' ? (
                       <VideoGrid
@@ -520,6 +603,7 @@ const Profile = () => {
                         emptyMessage="No reposts yet. Repost some videos to see them here!"
                         allowRemove={false}
                         showVerificationBadge={false}
+                        onVideoClick={handleVideoClick}
                       />
                     ) : activeTab === 'bookmarks' && isOwnProfile ? (
                       <VideoGrid
@@ -528,6 +612,7 @@ const Profile = () => {
                         emptyMessage="No bookmarks yet. Start bookmarking videos you want to save!"
                         allowRemove={true}
                         showVerificationBadge={false}
+                        onVideoClick={handleVideoClick}
                       />
                     ) : (
                       <div className="grid grid-cols-3 gap-4">
@@ -597,6 +682,43 @@ const Profile = () => {
           <NotificationSettings />
         </DialogContent>
       </Dialog>
+
+      {/* Feed-Style Video Viewer */}
+      {showVideoViewer && getCurrentVideos().length > 0 && (
+        <div 
+          ref={videoViewerRef}
+          className="fixed inset-0 z-50 bg-black overflow-y-auto snap-y snap-mandatory"
+        >
+          {/* Close Button */}
+          <button
+            onClick={handleCloseVideoViewer}
+            className="fixed top-4 right-4 z-50 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+            aria-label="Close video viewer"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+
+          {/* Render all videos for scrolling */}
+          {getCurrentVideos().map((video, index) => (
+            <div key={video.id} className="h-screen flex items-center justify-center snap-start">
+              <div className="flex w-full items-end h-full gap-6 max-w-2xl">
+                <div className="flex-1 h-full rounded-3xl border-2 border-gray-800 overflow-hidden bg-black shadow-2xl relative">
+                  <VideoCard 
+                    event={video}
+                    isActive={index === currentVideoIndex}
+                    onNext={handleNextVideo}
+                    onPrevious={handlePreviousVideo}
+                  />
+                  {/* Action Buttons - Positioned on the right side of the video */}
+                  <div className="absolute right-1 bottom-4 z-10">
+                    <VideoActionButtons event={video} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 };

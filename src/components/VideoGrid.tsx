@@ -15,9 +15,10 @@ interface VideoGridProps {
   emptyMessage?: string;
   allowRemove?: boolean; // New prop to enable bookmark removal
   showVerificationBadge?: boolean; // New prop to control NIP-05 badge display
+  onVideoClick?: (index: number) => void; // Optional custom click handler
 }
 
-export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false, showVerificationBadge = true }: VideoGridProps) {
+export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false, showVerificationBadge = true, onVideoClick }: VideoGridProps) {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { mutate: bookmarkVideo, isPending: isRemovingBookmark } = useBookmarkVideo();
@@ -32,8 +33,14 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
   };
 
   const handleVideoClick = (index: number) => {
-    setCurrentVideoIndex(index);
-    setIsModalOpen(true);
+    if (onVideoClick) {
+      // Use custom click handler if provided
+      onVideoClick(index);
+    } else {
+      // Otherwise use internal modal
+      setCurrentVideoIndex(index);
+      setIsModalOpen(true);
+    }
   };
 
   const handleModalClose = () => {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -11,19 +12,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
-import { Send, MessageCircle, Zap, Reply } from 'lucide-react';
+import { Send, MessageCircle, Reply } from 'lucide-react';
 import { NoteContent } from '@/components/NoteContent';
+import { ZapButton } from '@/components/ZapButton';
+import { NutzapButton } from '@/components/users/NutzapButton';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useVideoComments } from '@/hooks/useVideoComments';
 import { usePublishComment } from '@/hooks/usePublishComment';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useLoginPrompt } from '@/hooks/useLoginPrompt';
 import { useNostr } from '@/hooks/useNostr';
-import { useZap } from '@/contexts/ZapProvider';
 import { useToast } from '@/hooks/useToast';
-import { useWallet } from '@/hooks/useWallet';
-import { getLightningAddress } from '@/lib/lightning';
-import lightningService from '@/services/lightning.service';
+import { useVideoReactions } from '@/hooks/useVideoReactions';
+import { useVideoNutzaps } from '@/hooks/useVideoNutzaps';
 import { CommentPrompt } from '@/components/auth/LoginPrompt';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { genUserName } from '@/lib/genUserName';
@@ -175,12 +176,15 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
 
 function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () => void }) {
   const author = useAuthor(comment.pubkey);
-  const { user, canSign } = useCurrentUser();
-  const { nostr } = useNostr();
-  const { toast } = useToast();
-  const { defaultZapSats } = useZap();
-  const { getBalance } = useWallet();
-  const [isZapping, setIsZapping] = useState(false);
+  const { canSign } = useCurrentUser();
+  const navigate = useNavigate();
+
+  // Get zap analytics for this comment
+  const reactions = useVideoReactions(comment.id);
+  const nutzapData = useVideoNutzaps(comment.id);
+  
+  // Calculate total zaps (Lightning + Cashu)
+  const totalSats = reactions.totalSats + nutzapData.totalAmount;
 
   const authorMetadata = author.data?.metadata;
   const displayName = authorMetadata?.display_name || authorMetadata?.name || genUserName(comment.pubkey);
@@ -188,63 +192,17 @@ function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () =>
 
   const timeAgo = formatDistanceToNow(new Date(comment.created_at * 1000), { addSuffix: true });
 
-  const handleZap = async () => {
-    if (!canSign || isZapping || !user) return;
-    
-    // Check if author has a Lightning address
-    const lightningAddress = authorMetadata ? getLightningAddress(authorMetadata) : null;
-    if (!lightningAddress) {
-      toast({
-        title: "⚠️ Cannot Zap",
-        description: "This user doesn't have a Lightning address set up.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      setIsZapping(true);
-      
-      // Use 21 sats as default one-tap zap amount for comments
-      const zapAmount = 21;
-      
-      await lightningService.zap(
-        user.pubkey,
-        comment, // Pass the comment event
-        zapAmount,
-        '⚡', // Lightning emoji as comment
-        nostr,
-        user
-      );
-
-      // Refresh wallet balance after successful zap
-      try {
-        await getBalance();
-      } catch (balanceError) {
-        // Log but don't show error - zap was successful
-        console.warn('Failed to refresh balance after zap:', balanceError);
-      }
-
-      toast({
-        title: "⚡ Zap Sent!",
-        description: `Sent ${zapAmount} sats to ${displayName}`,
-      });
-    } catch (error) {
-      console.error('Failed to send zap:', error);
-      toast({
-        title: "❌ Zap Failed",
-        description: error instanceof Error ? error.message : "Failed to send zap",
-        variant: "destructive",
-      });
-    } finally {
-      setIsZapping(false);
-    }
+  const handleProfileClick = () => {
+    navigate(`/profile/${comment.pubkey}`);
   };
 
   return (
     <div className="group space-y-2">
       <div className="flex gap-3">
-        <Avatar className="h-8 w-8 flex-shrink-0">
+        <Avatar 
+          className="h-8 w-8 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={handleProfileClick}
+        >
           <AvatarImage src={profilePicture} alt={displayName} />
           <AvatarFallback className="text-xs">
             {displayName.slice(0, 2).toUpperCase()}
@@ -274,16 +232,31 @@ function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () =>
                   Reply
                 </Button>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleZap}
-                  disabled={isZapping}
-                  className="h-6 px-2 text-xs gap-1 hover:bg-yellow-500/10 hover:text-yellow-500"
-                >
-                  <Zap className="h-3 w-3" />
-                  {isZapping ? 'Zapping...' : 'Zap 21'}
-                </Button>
+                {/* Lightning Zap Button */}
+                <div className="flex items-center gap-1">
+                  <ZapButton
+                    recipientPubkey={comment.pubkey}
+                    eventId={comment.id}
+                    iconStyle={{ width: '12px', height: '12px' }}
+                    className="h-6 px-2"
+                    size="sm"
+                  />
+                  <span className="text-xs font-medium">
+                    {reactions.totalSats > 0 ? reactions.totalSats : '0'}
+                  </span>
+                </div>
+
+                {/* Cashu Nutzap Button */}
+                <div className="flex items-center gap-1">
+                  <NutzapButton
+                    postId={comment.id}
+                    authorPubkey={comment.pubkey}
+                    showText={false}
+                  />
+                  <span className="text-xs font-medium">
+                    {nutzapData.totalAmount > 0 ? nutzapData.totalAmount : '0'}
+                  </span>
+                </div>
               </>
             )}
             
