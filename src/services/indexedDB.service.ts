@@ -18,6 +18,7 @@ const StoreNames = {
   FAVORITE_RELAY_EVENTS: 'favoriteRelayEvents',
   RELAY_SET_EVENTS: 'relaySetEvents',
   PROFILE_EVENTS: 'profileEvents', // Phase 6.1: Profile caching (Jumble pattern)
+  FOLLOW_LIST_EVENTS: 'followListEvents', // Phase 6.2: Contact list caching (kind 3)
 } as const;
 
 export interface TRelayInfo {
@@ -51,7 +52,7 @@ class IndexedDBService {
   init(): Promise<void> {
     if (!this.initPromise) {
       this.initPromise = new Promise((resolve, reject) => {
-        const request = window.indexedDB.open('zaptok', 3); // Version 3: Added PROFILE_EVENTS
+        const request = window.indexedDB.open('zaptok', 4); // Version 4: Added FOLLOW_LIST_EVENTS
 
         request.onerror = (event) => {
           reject(event);
@@ -80,6 +81,9 @@ class IndexedDBService {
           }
           if (!db.objectStoreNames.contains(StoreNames.PROFILE_EVENTS)) {
             db.createObjectStore(StoreNames.PROFILE_EVENTS, { keyPath: 'key' });
+          }
+          if (!db.objectStoreNames.contains(StoreNames.FOLLOW_LIST_EVENTS)) {
+            db.createObjectStore(StoreNames.FOLLOW_LIST_EVENTS, { keyPath: 'key' });
           }
 
           this.db = db;
@@ -384,6 +388,101 @@ class IndexedDBService {
   }
 
   /**
+   * Count profile events - Phase 6.1: For FlexSearch metrics
+   */
+  async countProfileEvents(): Promise<number> {
+    await this.initPromise;
+    if (!this.db) {
+      return 0;
+    }
+
+    return new Promise<number>((resolve, reject) => {
+      const transaction = this.db!.transaction(StoreNames.PROFILE_EVENTS, 'readonly');
+      const store = transaction.objectStore(StoreNames.PROFILE_EVENTS);
+      const request = store.count();
+
+      request.onsuccess = () => {
+        transaction.commit();
+        resolve(request.result);
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Store follow list event (kind 3) - Phase 6.2: Contact list caching
+   */
+  async putFollowListEvent(event: NostrEvent): Promise<NostrEvent> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.FOLLOW_LIST_EVENTS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.FOLLOW_LIST_EVENTS);
+      const key = event.pubkey;
+
+      const getRequest = store.get(key);
+      getRequest.onsuccess = () => {
+        const oldValue = getRequest.result as TValue<NostrEvent> | undefined;
+
+        // Only store if newer (replaceable event logic for kind 3)
+        if (oldValue?.value && oldValue.value.created_at >= event.created_at) {
+          transaction.commit();
+          return resolve(oldValue.value);
+        }
+
+        const putRequest = store.put(this.formatValue(key, event));
+        putRequest.onsuccess = () => {
+          transaction.commit();
+          resolve(event);
+        };
+
+        putRequest.onerror = (event) => {
+          transaction.commit();
+          reject(event);
+        };
+      };
+
+      getRequest.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Get follow list event by pubkey - Phase 6.2: Offline-first contact lists
+   */
+  async getFollowListEvent(pubkey: string): Promise<NostrEvent | null> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.FOLLOW_LIST_EVENTS, 'readonly');
+      const store = transaction.objectStore(StoreNames.FOLLOW_LIST_EVENTS);
+      const request = store.get(pubkey);
+
+      request.onsuccess = () => {
+        transaction.commit();
+        resolve((request.result as TValue<NostrEvent>)?.value || null);
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
    * Format value with metadata for storage
    */
   private formatValue<T>(key: string, value: T): TValue<T> {
@@ -421,7 +520,11 @@ class IndexedDBService {
       },
       {
         name: StoreNames.PROFILE_EVENTS,
-        expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 // 1 day
+        expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 * 7 // 7 days
+      },
+      {
+        name: StoreNames.FOLLOW_LIST_EVENTS,
+        expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 * 7 // 7 days
       }
     ];
 

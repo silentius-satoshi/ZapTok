@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSimplePool } from '@/hooks/useSimplePool';
 import type { NostrEvent } from '@nostrify/nostrify';
+import indexedDBService from '@/services/indexedDB.service';
 
 export function useFollowing(pubkey: string) {
   const { fetchEvents, simplePoolRelays } = useSimplePool();
@@ -11,6 +12,31 @@ export function useFollowing(pubkey: string) {
       if (!pubkey) return { count: 0, pubkeys: [], event: null };
 
       console.log('📊 [useFollowing] Fetching following list for pubkey:', pubkey);
+
+      // Phase 6.2: Check IndexedDB cache first (offline-first pattern)
+      const startTime = performance.now();
+      const cachedEvent = await indexedDBService.getFollowListEvent(pubkey);
+      
+      if (cachedEvent) {
+        const duration = performance.now() - startTime;
+        console.log(`📊 [useFollowing] ✅ Cache HIT for follow list (${duration.toFixed(1)}ms)`);
+        
+        // Extract pubkeys from cached event
+        const followingPubkeys = cachedEvent.tags
+          .filter(([tagName]) => tagName === 'p')
+          .map(([, pubkey]) => pubkey)
+          .filter(Boolean);
+
+        console.log('📊 [useFollowing] Returning cached follow list with', followingPubkeys.length, 'users');
+        
+        return {
+          count: followingPubkeys.length,
+          pubkeys: followingPubkeys,
+          event: cachedEvent,
+        };
+      }
+
+      console.log('📊 [useFollowing] ❌ Cache MISS - fetching from network');
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
 
@@ -61,6 +87,11 @@ export function useFollowing(pubkey: string) {
         created_at: contactEvent.created_at,
         tags: contactEvent.tags.length,
         content: contactEvent.content?.slice(0, 100) + (contactEvent.content?.length > 100 ? '...' : ''),
+      });
+
+      // Phase 6.2: Cache the contact list event for offline-first
+      indexedDBService.putFollowListEvent(contactEvent).catch((error) => {
+        console.warn('📊 [useFollowing] Failed to cache follow list event:', error);
       });
 
       // Extract pubkeys from 'p' tags
