@@ -80,7 +80,8 @@ export const primalBlossom = 'https://blossom.primal.net/';
 export const BLOSSOM_SERVERS = [
   'https://blossom.band/',
   'https://nostr.download/',
-  'https://blossom.primal.net/'
+  'https://blossom.primal.net/',
+  'https://nostr.media/'
 ];
 
 // Export as DEFAULT_BLOSSOM_SERVERS for compatibility

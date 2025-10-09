@@ -22,6 +22,7 @@ export const DEFAULT_BLOSSOM_SERVERS = [
   // Tier 1: Known CORS-friendly servers
   'https://blossom.band/',
   'https://nostr.download/',
+  'https://nostr.media/',
   // Tier 2: Popular but potentially restrictive
   'https://blossom.primal.net/'
 ];
@@ -317,7 +318,7 @@ class BlossomUploadService {
   }
 
   /**
-   * Mirror uploaded blob to backup servers (non-blocking)
+   * Mirror uploaded blob to backup servers (non-blocking, with fallback retry)
    */
   private async mirrorToBackupServers(
     blobUrl: string,
@@ -334,18 +335,37 @@ class BlossomUploadService {
         message: 'Mirroring video file to backup servers'
       });
 
-      // Mirror to backup servers - don't wait for completion
+      // Mirror to backup servers - with individual retry logic
       Promise.allSettled(
         backupServers.map(async (server) => {
           try {
             // Normalize server URL (remove trailing slash)
             const normalizedServer = server.endsWith('/') ? server.slice(0, -1) : server;
             
-            // Skip mirroring for now - most Blossom servers don't support /mirror endpoint
-            // Instead, just attempt direct upload to backup servers
             console.log(`🔄 Attempting backup upload to ${normalizedServer}`);
-            await BlossomClient.uploadBlob(normalizedServer, file, { auth });
-            console.log(`✅ Successfully mirrored to ${normalizedServer}`);
+            
+            // Try SDK method first
+            try {
+              await BlossomClient.uploadBlob(normalizedServer, file, { auth });
+              console.log(`✅ Successfully mirrored to ${normalizedServer} (SDK)`);
+              return;
+            } catch (sdkError) {
+              console.log(`SDK mirror failed for ${normalizedServer}, trying XHR fallback`);
+              
+              // Try XHR fallback if SDK fails
+              if (this.shouldUseFallback(sdkError as Error)) {
+                try {
+                  await this.uploadWithXHR(normalizedServer, file, signer);
+                  console.log(`✅ Successfully mirrored to ${normalizedServer} (XHR fallback)`);
+                  return;
+                } catch (xhrError) {
+                  console.warn(`⚠️ XHR mirror also failed for ${normalizedServer}:`, xhrError);
+                  throw xhrError;
+                }
+              } else {
+                throw sdkError;
+              }
+            }
           } catch (error) {
             console.warn(`⚠️ Failed to mirror to ${server}:`, error);
             // Ignore individual mirror failures - this is non-critical

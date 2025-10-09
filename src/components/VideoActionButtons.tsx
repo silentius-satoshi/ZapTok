@@ -148,26 +148,50 @@ export function VideoActionButtons({
 
   const handleShare = onShare || (async () => {
     try {
-      const nevent = nip19.neventEncode({
-        id: event.id,
-        author: event.pubkey,
-        kind: event.kind,
-      });
-
-      const url = `${window.location.origin}/${nevent}`;
+      // Extract video URL from event tags (imeta or url tag)
+      let videoUrl: string | null = null;
+      
+      // First try to get URL from imeta tag
+      const imetaTag = event.tags.find(tag => tag[0] === 'imeta');
+      if (imetaTag && imetaTag.length > 1) {
+        // Parse imeta tag to get URL
+        const imetaStr = imetaTag[1];
+        const urlMatch = imetaStr.match(/url\s+(\S+)/);
+        if (urlMatch) {
+          videoUrl = urlMatch[1];
+        }
+      }
+      
+      // Fallback to url tag if no imeta found
+      if (!videoUrl) {
+        const urlTag = event.tags.find(tag => tag[0] === 'url');
+        if (urlTag && urlTag[1]) {
+          videoUrl = urlTag[1];
+        }
+      }
+      
+      // Use video URL if found, otherwise fallback to nevent
+      const shareUrl = videoUrl || (() => {
+        const nevent = nip19.neventEncode({
+          id: event.id,
+          author: event.pubkey,
+          kind: event.kind,
+        });
+        return `${window.location.origin}/${nevent}`;
+      })();
 
       if (navigator.share) {
         // Use native device share API when available
         await navigator.share({
           title: "ZapTok Video Post",
-          url: url,
+          url: shareUrl,
         });
       } else {
         // Fallback to copying URL to clipboard
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(shareUrl);
         toast({
           title: "Copied!",
-          description: "Post URL copied to clipboard",
+          description: "Video URL copied to clipboard",
         });
       }
     } catch (error) {

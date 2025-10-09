@@ -394,9 +394,24 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             <div className="text-sm">
               {isDescriptionExpanded ? (
                 <div className="space-y-2">
-                  <p className="text-white leading-relaxed">
-                    {event.title || event.description || event.content}
-                  </p>
+                  {/* Title */}
+                  {event.title && (
+                    <p className="text-white font-semibold leading-relaxed">
+                      {event.title}
+                    </p>
+                  )}
+                  {/* Description */}
+                  {event.description && (
+                    <p className="text-white leading-relaxed">
+                      {event.description}
+                    </p>
+                  )}
+                  {/* Fallback to content if no title or description */}
+                  {!event.title && !event.description && event.content && (
+                    <p className="text-white leading-relaxed">
+                      {event.content}
+                    </p>
+                  )}
                   <div className="flex items-center space-x-2">
                     <div className="flex flex-wrap gap-1 flex-1">
                       {event.tags
