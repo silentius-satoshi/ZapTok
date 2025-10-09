@@ -6,6 +6,7 @@ import { bundleLog } from '@/lib/logBundler';
 import { useVideoCache } from '@/hooks/useVideoCache';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import indexedDBService from '@/services/indexedDB.service';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { logInfo } from '@/lib/logger';
@@ -28,6 +29,52 @@ export function useOptimizedGlobalVideoFeed() {
   const query = useInfiniteQuery({
     queryKey: ['optimized-global-video-feed'],
     queryFn: async ({ pageParam, signal }) => {
+      const startTime = performance.now();
+      
+      // Phase 6.3: Try IndexedDB cache first (offline-first pattern)
+      if (!pageParam) {
+        const cachedVideos = await indexedDBService.getRecentVideoEvents(30);
+        if (cachedVideos.length > 0) {
+          const duration = performance.now() - startTime;
+          bundleLog('videoCache', `✅ Cache HIT: Loaded ${cachedVideos.length} videos from IndexedDB (${duration.toFixed(1)}ms)`);
+          
+          // Validate and convert to VideoEvent format
+          const validatedCached: VideoEvent[] = [];
+          const seenUrls = new Set<string>();
+          
+          for (const event of cachedVideos) {
+            const videoEvent = validateVideoEvent(event);
+            if (videoEvent && videoEvent.videoUrl) {
+              const normalizedUrl = normalizeVideoUrl(videoEvent.videoUrl);
+              if (!seenUrls.has(normalizedUrl)) {
+                seenUrls.add(normalizedUrl);
+                validatedCached.push(videoEvent);
+              }
+            }
+          }
+          
+          if (validatedCached.length > 0) {
+            bundleLog('videoCache', `✅ Returning ${validatedCached.length} cached videos (instant load)`);
+            
+            // Prefetch analytics for cached videos
+            const videoIds = validatedCached.map(v => v.id);
+            Promise.all([
+              videoCommentsService.prefetchComments(videoIds),
+              videoRepostsService.prefetchReposts(videoIds),
+              videoNutzapsService.prefetchNutzaps(videoIds),
+              videoReactionsService.prefetchReactions(videoIds),
+            ]).catch(error => {
+              logInfo('[GlobalFeed] Failed to prefetch analytics for cached videos:', error);
+            });
+            
+            // Return cached data immediately, background refresh will happen
+            return validatedCached;
+          }
+        }
+        
+        bundleLog('videoCache', '❌ Cache MISS - fetching from network');
+      }
+      
       bundleLog('globalVideoFetch', '🌍 Fetching global video content with rate limiting');
 
       // Use rate-limited query instead of direct nostr.query
@@ -93,6 +140,15 @@ export function useOptimizedGlobalVideoFeed() {
 
       if (videoEvents.length > 0) {
         cacheVideoMetadata(videoEvents);
+
+        // Phase 6.3: Cache video events in IndexedDB
+        Promise.all(videoEvents.map(v => indexedDBService.putVideoEvent(v)))
+          .then(() => {
+            bundleLog('videoCache', `💾 Cached ${videoEvents.length} videos in IndexedDB`);
+          })
+          .catch(error => {
+            logInfo('[GlobalFeed] Failed to cache videos in IndexedDB:', error);
+          });
 
         // ✅ Feed-level prefetching: Load all analytics for videos in this batch
         const videoIds = videoEvents.map(v => v.id);

@@ -9,6 +9,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useFollowingFavoriteRelays } from '@/hooks/useFollowingFavoriteRelays';
 import { bundleLog } from '@/lib/logBundler';
+import indexedDBService from '@/services/indexedDB.service';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 // Import video analytics services for prefetching
@@ -213,6 +214,17 @@ export function useTimelineVideoFeed(
     bundleLog('timelineVideoBatch',
       `📹 Received ${validVideos.length} video events, filtered to ${filteredVideos.length}, EOSED: ${eosed}`);
 
+    // Phase 6.3: Cache video events in IndexedDB
+    if (filteredVideos.length > 0) {
+      Promise.all(filteredVideos.map(v => indexedDBService.putVideoEvent(v)))
+        .then(() => {
+          bundleLog('videoCache', `💾 Cached ${filteredVideos.length} videos in IndexedDB`);
+        })
+        .catch(error => {
+          console.error('[Timeline] Failed to cache videos in IndexedDB:', error);
+        });
+    }
+
     // ✅ Feed-level prefetching: Trigger immediately after receiving videos
     console.log(`[Timeline] DEBUG: About to check prefetch - filteredVideos.length: ${filteredVideos.length}`);
     
@@ -278,6 +290,45 @@ export function useTimelineVideoFeed(
 
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
+
+      // Phase 6.3: Load from IndexedDB cache first (offline-first pattern)
+      const startTime = performance.now();
+      const cachedVideos = feedType === 'following' && user?.pubkey
+        ? await indexedDBService.getVideoEventsByAuthor(user.pubkey, 20)
+        : await indexedDBService.getRecentVideoEvents(30);
+
+      if (cachedVideos.length > 0) {
+        const duration = performance.now() - startTime;
+        bundleLog('videoCache', `✅ Cache HIT: Loaded ${cachedVideos.length} videos from IndexedDB (${duration.toFixed(1)}ms)`);
+        
+        // Validate and convert to VideoEvent format
+        const validatedCached = cachedVideos
+          .map(validateVideoEvent)
+          .filter((e): e is VideoEvent => e !== null);
+        
+        if (validatedCached.length > 0) {
+          bundleLog('videoCache', `✅ Returning ${validatedCached.length} cached videos (instant load)`);
+          
+          setState(prev => ({
+            ...prev,
+            videos: validatedCached,
+            loading: false, // Show cached data immediately
+          }));
+          
+          // Prefetch analytics for cached videos
+          const videoIds = validatedCached.map(v => v.id);
+          Promise.all([
+            videoCommentsService.prefetchComments(videoIds),
+            videoRepostsService.prefetchReposts(videoIds),
+            videoNutzapsService.prefetchNutzaps(videoIds),
+            videoReactionsService.prefetchReactions(videoIds),
+          ]).catch(error => {
+            console.error('[Timeline] Failed to prefetch analytics for cached videos:', error);
+          });
+        }
+      } else {
+        bundleLog('videoCache', '❌ Cache MISS - fetching from network');
+      }
 
       // Phase 3: Initialize analytics service for this feed
       const feedId = `${feedType}_${user?.pubkey || 'anon'}`;

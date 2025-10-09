@@ -19,6 +19,7 @@ const StoreNames = {
   RELAY_SET_EVENTS: 'relaySetEvents',
   PROFILE_EVENTS: 'profileEvents', // Phase 6.1: Profile caching (Jumble pattern)
   FOLLOW_LIST_EVENTS: 'followListEvents', // Phase 6.2: Contact list caching (kind 3)
+  VIDEO_EVENTS: 'videoEvents', // Phase 6.3: Video metadata caching (kinds 21, 22)
 } as const;
 
 export interface TRelayInfo {
@@ -52,7 +53,7 @@ class IndexedDBService {
   init(): Promise<void> {
     if (!this.initPromise) {
       this.initPromise = new Promise((resolve, reject) => {
-        const request = window.indexedDB.open('zaptok', 4); // Version 4: Added FOLLOW_LIST_EVENTS
+        const request = window.indexedDB.open('zaptok', 5); // Version 5: Added VIDEO_EVENTS
 
         request.onerror = (event) => {
           reject(event);
@@ -84,6 +85,9 @@ class IndexedDBService {
           }
           if (!db.objectStoreNames.contains(StoreNames.FOLLOW_LIST_EVENTS)) {
             db.createObjectStore(StoreNames.FOLLOW_LIST_EVENTS, { keyPath: 'key' });
+          }
+          if (!db.objectStoreNames.contains(StoreNames.VIDEO_EVENTS)) {
+            db.createObjectStore(StoreNames.VIDEO_EVENTS, { keyPath: 'key' });
           }
 
           this.db = db;
@@ -483,6 +487,181 @@ class IndexedDBService {
   }
 
   /**
+   * Store video event (kinds 21, 22) - Phase 6.3: Video metadata caching
+   * Uses event ID as key since videos are regular events (not replaceable)
+   */
+  async putVideoEvent(event: NostrEvent): Promise<NostrEvent> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.VIDEO_EVENTS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.VIDEO_EVENTS);
+      const key = event.id; // Use event ID as key (videos are regular events)
+
+      const putRequest = store.put(this.formatValue(key, event));
+      putRequest.onsuccess = () => {
+        transaction.commit();
+        resolve(event);
+      };
+
+      putRequest.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Get video event by event ID - Phase 6.3: Offline-first video metadata
+   */
+  async getVideoEvent(eventId: string): Promise<NostrEvent | null> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.VIDEO_EVENTS, 'readonly');
+      const store = transaction.objectStore(StoreNames.VIDEO_EVENTS);
+      const request = store.get(eventId);
+
+      request.onsuccess = () => {
+        transaction.commit();
+        const value = request.result as TValue<NostrEvent> | undefined;
+        
+        // Check TTL (7 days)
+        if (value?.value && value.addedAt > Date.now() - 1000 * 60 * 60 * 24 * 7) {
+          resolve(value.value);
+        } else {
+          resolve(null);
+        }
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Get video events by author pubkey - Phase 6.3: Offline profile video feeds
+   * Scans all cached videos and filters by author
+   */
+  async getVideoEventsByAuthor(pubkey: string, limit: number = 20): Promise<NostrEvent[]> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.VIDEO_EVENTS, 'readonly');
+      const store = transaction.objectStore(StoreNames.VIDEO_EVENTS);
+      const request = store.openCursor();
+      const results: NostrEvent[] = [];
+      const ttl = Date.now() - 1000 * 60 * 60 * 24 * 7; // 7 days
+
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest).result;
+        if (cursor && results.length < limit) {
+          const value = cursor.value as TValue<NostrEvent>;
+          
+          // Filter by author and check TTL
+          if (value.value && value.value.pubkey === pubkey && value.addedAt > ttl) {
+            results.push(value.value);
+          }
+          
+          cursor.continue();
+        } else {
+          transaction.commit();
+          
+          // Sort by created_at descending (newest first)
+          results.sort((a, b) => b.created_at - a.created_at);
+          resolve(results);
+        }
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Get recent video events - Phase 6.3: Offline feed population
+   * Returns most recently cached videos across all authors
+   */
+  async getRecentVideoEvents(limit: number = 30): Promise<NostrEvent[]> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.VIDEO_EVENTS, 'readonly');
+      const store = transaction.objectStore(StoreNames.VIDEO_EVENTS);
+      const request = store.openCursor();
+      const results: NostrEvent[] = [];
+      const ttl = Date.now() - 1000 * 60 * 60 * 24 * 7; // 7 days
+
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest).result;
+        if (cursor) {
+          const value = cursor.value as TValue<NostrEvent>;
+          
+          // Check TTL
+          if (value.value && value.addedAt > ttl) {
+            results.push(value.value);
+          }
+          
+          cursor.continue();
+        } else {
+          transaction.commit();
+          
+          // Sort by created_at descending (newest first) and limit
+          results.sort((a, b) => b.created_at - a.created_at);
+          resolve(results.slice(0, limit));
+        }
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Count cached video events - Phase 6.3: Metrics
+   */
+  async countVideoEvents(): Promise<number> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.VIDEO_EVENTS, 'readonly');
+      const store = transaction.objectStore(StoreNames.VIDEO_EVENTS);
+      const request = store.count();
+
+      request.onsuccess = () => {
+        transaction.commit();
+        resolve(request.result);
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
    * Format value with metadata for storage
    */
   private formatValue<T>(key: string, value: T): TValue<T> {
@@ -524,6 +703,10 @@ class IndexedDBService {
       },
       {
         name: StoreNames.FOLLOW_LIST_EVENTS,
+        expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 * 7 // 7 days
+      },
+      {
+        name: StoreNames.VIDEO_EVENTS,
         expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 * 7 // 7 days
       }
     ];
