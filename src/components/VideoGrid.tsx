@@ -92,21 +92,23 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
         {videos.map((video, index) => (
           <div
             key={video.id}
-            className={`relative w-full aspect-[9/16] cursor-pointer rounded-lg overflow-hidden transition-all duration-200 group ${
+            className={`relative w-full aspect-[9/16] cursor-pointer rounded-lg overflow-hidden transition-all duration-200 group flex-shrink-0 ${
               isMobile
                 ? 'hover:scale-102 active:scale-95' // Mobile: subtle touch feedback
                 : 'hover:scale-105' // Desktop: standard hover effect
             }`}
             onClick={() => handleVideoClick(index)}
           >
-            <VideoCard
-              event={video}
-              isActive={false} // Grid videos should never auto-play, only in modal/viewer
-              onNext={() => setCurrentVideoIndex(Math.min(index + 1, videos.length - 1))}
-              onPrevious={() => setCurrentVideoIndex(Math.max(index - 1, 0))}
-              showVerificationBadge={showVerificationBadge}
-              gridMode={true} // Show zap analytics instead of username/description/date
-            />
+            <div className="absolute inset-0">
+              <VideoCard
+                event={video}
+                isActive={false} // Grid videos should never auto-play, only in modal/viewer
+                onNext={() => setCurrentVideoIndex(Math.min(index + 1, videos.length - 1))}
+                onPrevious={() => setCurrentVideoIndex(Math.max(index - 1, 0))}
+                showVerificationBadge={showVerificationBadge}
+                gridMode={true} // Show zap analytics instead of username/description/date
+              />
+            </div>
 
             {/* Enhanced remove bookmark button for mobile */}
             {allowRemove && (
