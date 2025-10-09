@@ -16,7 +16,9 @@
     "test:cashu": "npm run test:nuts && npm run test:p2pk && npm run test:nut11 && npm run test:mint-compatibility",
     "test:nip05": "node scripts/test-nip05.js",
     "verify:nip05": "node scripts/verify-nip05.js",
-    "deploy": "npm run build && npx -y nostr-deploy-cli deploy --skip-setup"
+    "deploy": "npm run build && npx -y nostr-deploy-cli deploy --skip-setup",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css}\""
   },
   "dependencies": {
     "@cashu/cashu-ts": "^2.7.2",
@@ -128,6 +130,7 @@
     "globals": "^15.9.0",
     "jsdom": "^26.1.0",
     "postcss": "^8.4.47",
+    "prettier": "^3.6.2",
     "tailwindcss": "^3.4.11",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
