@@ -16,17 +16,25 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 
 ### 🎬 **Video Platform**
 - **Short-Form Video Sharing**: TikTok-style infinite scroll with snap-to-video behavior
-- **Mobile-Optimized Player**: Gesture controls, keyboard navigation (arrow keys)
+- **Video Upload**: Drag-and-drop upload with support for MP4, WebM, and MOV formats
+- **Decentralized Storage**: Blossom protocol integration for censorship-resistant hosting
 - **Advanced Performance**: Auto-loading, background prefetching, smooth playback caching
 - **Video Compression**: Client-side optimization for mobile data efficiency
 - **Native Sharing**: Web Share API with clipboard fallback across platforms
 
 ### ⚡ **Lightning & Payments**
 - **Instant Bitcoin Zaps**: Lightning Network integration for immediate tips (NIP-57)
-- **Cashu**: Wallet integration with peer-to-peer Nutzaps (NIP-60, NIP-61)
-- **Supporter Donations**: Multiple payment pathways for creator support
-- **Zero Platform Fees**: Creators keep 100% of earnings
-- **Wallet Connect**: Lightning wallet integration (NIP-47)
+- **Cashu Nutzaps**: Private peer-to-peer eCash tips with enhanced anonymity (NIP-60, NIP-61)
+- **Zero Platform Fees**: Creators keep 100% of earnings, payments direct to your wallet
+- **Wallet Connect**: Lightning wallet integration via Nostr Wallet Connect (NIP-47)
+- **Bitcoin Conversion**: Withdraw to on-chain via Boltz, Strike, or Bitcoin Well
+
+### 🔒 **Privacy & Security**
+- **No Data Harvesting**: Private viewing with no tracking or behavior profiling
+- **Non-Custodial Wallets**: You control your keys and funds, never ZapTok
+- **End-to-End Encryption**: Secure login via browser extensions or remote signers
+- **Open Source**: Fully auditable code under AGPL-3.0 license
+- **No Chargebacks**: Final Lightning payments protect creators from fraud
 
 ### 🔐 **Decentralized Identity**
 - **Private Login**: Nostr browser extension support (NIP-07)
@@ -37,16 +45,18 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 
 ### 💬 **Social Features**
 - **Follow System**: Contact lists and relationship management (NIP-02)
-- **Content Sharing**: Reposts and quote sharing (NIP-18)
-- **Rich Profiles**: User metadata and customizable profiles
-- **Notification Center**: Real-time alerts for zaps, mentions, and reposts
+- **Zap Reactions**: Tip videos with Lightning/Cashu integration
+- **Comments**: Threaded discussions on videos (NIP-22 backend infrastructure ready)
+- **Content Sharing**: Repost videos to your followers (NIP-18)
+- **Customizable Profiles**: User metadata, avatars, banners, and bio links
+- **Notification Center**: Real-time alerts for zaps, mentions, reposts, and follows
 
 ### 💼 **Advanced Features**
-- **Cashu Wallet Management**: Full wallet interface with transaction history
-- **Relay Management**: Advanced relay configuration and monitoring
-- **Video Analytics**: View tracking and engagement metrics
-- **QR Code Scanner**: Built-in scanner for lightning invoices and Cashu tokens
-- **Mint Discovery**: Automatic Cashu mint detection and management
+- **Cashu Wallet Management**: Full wallet interface with mint management and transaction history
+- **QR Code Integration**: Scan lightning invoices, Cashu tokens, and Nostr identifiers
+- **Relay Health Monitoring**: Real-time relay status and performance tracking
+- **Video Analytics**: View counts, engagement metrics, and zap statistics
+- **Content Moderation**: User-controlled muting and filtering options
 
 ### 📱 **Progressive Web App**
 - **Full PWA Support**: Installable on mobile and desktop
@@ -62,10 +72,12 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 - **Content Discovery**: Hashtag following and search capabilities
 
 ### 🚀 **Coming Next**
-- **Threaded Comments UI**: Display and interact with NIP-22 comments (backend ready)
-- **Private Messages**: Encrypted DMs (NIP-17)
-- **Live Streaming**: Real-time broadcasting (NIP-53)
-- **Creator Tools**: Zap goals, badges, long-form content
+- **Threaded Comments UI**: Rich comment display and interactions
+- **Private Messages**: Encrypted direct messaging (NIP-17)
+- **Live Streaming**: Real-time video broadcasting (NIP-53)
+- **Creator Tools**: Zap goals, supporter badges, and subscriber perks
+- **Long-Form Content**: Article and blog post support (NIP-23)
+- **Video Playlists**: Curated collections and watch later functionality
 
 ## Philosophy
 
@@ -79,34 +91,148 @@ ZapTok believes in:
 
 
 
-## How ZapTok's Protocol Integration Benefits You:
+## Frequently Asked Questions
 
-For Creators:
-Own Your Brand & Earnings
+### Getting Started
 
-- Keep your identity and follower relationships (Nostr) - no platform can delete you
-- Receive instant Bitcoin tips (aka lightning zaps in satoshis) with zero platform fees
-- Get paid 24/7 from a global audience without banking restrictions
-- Build once, publish everywhere - your content works across Nostr apps
-- No chargebacks or payment reversals on zaps received
-  
-For Viewers/Fans:
-True Privacy & Control
+<details>
+<summary><strong>� New to ZapTok? Start here</strong></summary>
 
-- Watch and interact without giving up personal data
-- Tip creators directly with pseudo-anonymous Bitcoin zap payments
-- Your viewing history and preferences stay private by design
-- Access content that can't be censored or geo-blocked
-- Use the same identity across all Nostr-compatible apps
-  
-For Everyone:
-Bulletproof & Transparent
+Visit [ZapTok.social](https://zaptok.social) and explore in read-only mode, or log in with:
+- **Nostr browser extension**: [Alby](https://getalby.com/alby-extension), [nos2x](https://github.com/fiatjaf/nos2x)
+- **Remote signer**: [nsec.app](https://nsec.app) (recommended for mobile)
+- **Create new identity**: [nstart.me](https://nstart.me/en)
 
-- No single company can shut down the network of relays or your nostr account
-- Open source code - verify security and suggest improvements
-- Real-time interactions without corporate algorithms deciding what you see
-- Global access - works the same no matter the location as long as you have internet access 
-- Your posts and social connections are portable between platforms
+For detailed setup instructions, visit the [in-app FAQ](https://zaptok.social/#/faq).
+
+</details>
+
+### Platform Overview
+
+<details>
+<summary><strong>🎯 How is ZapTok different from TikTok or YouTube?</strong></summary>
+
+**ZapTok (Decentralized)**
+- You own your account and data
+- Zero platform fees on earnings
+- No algorithmic content manipulation
+- Censorship-resistant
+- Privacy-focused
+- Works across all Nostr apps
+- Open source code
+
+**Centralized Platforms**
+- Platform owns your account
+- 30-50% platform fees
+- Algorithm controls what you see
+- Can ban or shadow-ban at will
+- Data harvesting and tracking
+- Walled garden (platform-locked)
+- Proprietary code
+
+</details>
+
+<details>
+<summary><strong>💰 Do I keep all my earnings?</strong></summary>
+
+Yes! Zaps are sent directly to YOUR Lightning or Cashu wallet address. ZapTok never holds your funds—payments go straight from the sender to your wallet in seconds. You control the keys, you control the money. There's no platform custody, no withdrawal requests, and no waiting periods. Just pure peer-to-peer payments with zero fees deducted.
+
+Want to convert to on-chain Bitcoin? Use [Boltz.exchange](https://boltz.exchange) for non-custodial atomic swaps to your Bitcoin wallet, or custodial services like [Strike](https://strike.me) or [Bitcoin Well](https://bitcoinwell.com) that handle the conversion for you.
+
+</details>
+
+<details>
+<summary><strong>🔐 Can my account be deleted or banned?</strong></summary>
+
+No. Your Nostr identity and social connections are yours forever. Because ZapTok is built on the decentralized Nostr protocol, no single company can delete your account, ban you, or remove your followers. Your identity is cryptographically secured by your private key.
+
+</details>
+
+<details>
+<summary><strong>🌐 Does my content work on other Nostr platforms?</strong></summary>
+
+Absolutely! Your videos, profile, and social connections work across all Nostr-compatible apps. Post on ZapTok, and your content is accessible through Amethyst, Damus, Primal, and hundreds of other Nostr clients. Build your audience once, reach them everywhere.
+
+</details>
+
+<details>
+<summary><strong>🛡️ Can ZapTok be shut down?</strong></summary>
+
+The platform is decentralized, so there's no single point of failure. Even if ZapTok.social went offline tomorrow, your content and social connections would remain accessible through other Nostr relays and clients. The network of relays ensures your data persists independently of any single service.
+
+</details>
+
+### Privacy & Payments
+
+<details>
+<summary><strong>👁️ Is my viewing history private?</strong></summary>
+
+Yes. Your viewing history and preferences stay completely private by design. Unlike centralized platforms that track and sell your data, ZapTok doesn't collect or store your browsing behavior. You watch, you interact, you move on - no data harvesting.
+
+</details>
+
+<details>
+<summary><strong>⚡ Are there payment restrictions or chargebacks?</strong></summary>
+
+No restrictions or chargebacks! Lightning zaps are:
+- **Instant** - Creators receive payments in seconds
+- **Global** - No banking restrictions or geographic limitations
+- **Final** - No chargebacks or payment reversals
+- **24/7** - Get paid anytime from anyone, anywhere
+
+</details>
+
+<details>
+<summary><strong>🎭 Can I tip creators anonymously?</strong></summary>
+
+Zaps offer pseudo-anonymous payments. While Lightning transactions are publicly visible on the blockchain, they're not directly tied to your real-world identity. For even more privacy, use Cashu Nutzaps - our eCash integration that provides enhanced privacy for peer-to-peer payments.
+
+</details>
+
+<details>
+<summary><strong>🚫 Can content be censored or geo-blocked?</strong></summary>
+
+Content on Nostr is censorship-resistant. Because videos and data are distributed across multiple independent relays (not a single company's servers), content can't be easily censored or geo-blocked. If one relay removes content, it remains accessible through other relays.
+
+</details>
+
+### Technical Details
+
+<details>
+<summary><strong>📖 Is the code open source?</strong></summary>
+
+Yes! ZapTok is fully open source under the AGPL-3.0 license. You can:
+- Review the code for security and privacy
+- Verify there are no backdoors or tracking
+- Suggest improvements or contribute features
+- Fork and run your own instance
+
+Transparency builds trust.
+
+</details>
+
+<details>
+<summary><strong>🔌 What are relays and why do they matter?</strong></summary>
+
+Relays are servers that store and distribute Nostr events (posts, videos, profiles). Unlike centralized platforms with one company server, Nostr uses multiple independent relays:
+
+- **Redundancy** - Your content lives on multiple relays
+- **Censorship resistance** - If one relay removes content, others keep it
+- **User choice** - You pick which relays to use
+- **No single point of failure** - The network stays online even if relays go down
+
+You can configure which relays to use in ZapTok's settings.
+
+</details>
+
+<details>
+<summary><strong>� Do I need multiple accounts for different Nostr apps?</strong></summary>
+
+No! One Nostr identity works everywhere. Your same npub (Nostr public key) logs you into ZapTok, Damus, Amethyst, Primal, and every other Nostr app. Your followers, content, and settings follow you across the entire Nostr ecosystem.
+
+</details>
+
+**For detailed information about account security, key management, and step-by-step setup instructions, visit the comprehensive [in-app FAQ](https://zaptok.social/#/faq).**
 
 
 ## Community
@@ -122,42 +248,69 @@ Bulletproof & Transparent
 <summary>Full NIP Implementation Status (Click to expand)</summary>
 
 **✅ Fully Implemented**
+
+*Core Protocol*
 - NIP-01: Basic protocol flow description
-- NIP-02: Contact List and Petnames  
-- NIP-05: DNS-based verification
-- NIP-07: Browser extension interface
+- NIP-19: Bech32-encoded entities (npub, note, nevent, naddr, etc.)
+
+*Identity & Authentication*
+- NIP-02: Contact List and Petnames (follow system)
+- NIP-05: DNS-based verification (Nostr addresses)
+- NIP-07: Browser extension interface (Alby, nos2x)
+- NIP-46: Nostr Connect (remote signers)
+
+*Content & Metadata*
 - NIP-10: Conventions for `e` and `p` tags (replies/mentions)
-- NIP-18: Reposts and Share functionality
-- NIP-19: Bech32-encoded entities
-- NIP-22: Comments (backend infrastructure and publishing)
-- NIP-46: Nostr Connect
-- NIP-47: Wallet Connect
-- NIP-50: Search Capability
-- NIP-57: Lightning Zaps
-- NIP-60: Cashu Wallets
-- NIP-61: Nutzaps
-- NIP-71: Video Events
+- NIP-18: Reposts (sharing content)
+- NIP-22: Comments (threaded discussions, backend complete)
+- NIP-71: Video Events (short-form video format)
 
-**Partially Implemented**
-- NIP-22: Comments UI (threaded display coming soon)
+*Payments*
+- NIP-47: Wallet Connect (Nostr Wallet Connect)
+- NIP-57: Lightning Zaps (instant Bitcoin tips)
+- NIP-60: Cashu Wallets (eCash integration)
+- NIP-61: Nutzaps (private peer-to-peer eCash zaps)
 
-**Planned for Implementation**
-- NIP-17: Private Direct Messages
-- NIP-53: Live Activities
-- NIP-75: Zap Goals
+*Encryption & Security*
+- NIP-44: Encrypted Payloads (modern encryption standard)
 
-**Research & Future Consideration**
-- Bandwidth Optimization
-- CDN/Mirror Integration
-- Content Licensing & Rights Management
-- Creator Analytics
-- Creator Revenue Splits
-- Cross-Platform Embedding
-- Paywall Integrations
-- Playlist Support
-- Recurring Payments/Subscriptions
-- Video Annotations & Timestamps
-- Video Quality Metadata
+*Media & Storage*
+- NIP-94: File Metadata (Blossom upload integration)
+- NIP-96: HTTP File Storage Integration (media servers)
+
+*Advanced Features*
+- NIP-50: Search Capability (content discovery)
+- NIP-98: HTTP Auth (API authentication)
+
+**🔨 In Progress**
+- NIP-22: Comments UI (threaded display interface)
+
+**📋 Planned for Implementation**
+- NIP-17: Private Direct Messages (encrypted DMs)
+- NIP-23: Long-form Content (articles and blog posts)
+- NIP-53: Live Activities (live streaming)
+- NIP-75: Zap Goals (creator funding goals)
+
+**🔬 Research & Future Consideration**
+
+*Platform Enhancements*
+- Video playlists and collections
+- Video annotations & chapter timestamps
+- Advanced creator analytics dashboard
+- Content moderation tools and filters
+
+*Monetization Features*
+- Recurring payments/subscriptions
+- Creator revenue splits
+- Paywall integrations
+- Supporter badges and perks
+
+*Technical Improvements*
+- Dedicated ZapTok relay integration (wss://relay.zaptok.social)
+- Bandwidth optimization strategies
+- Video quality adaptive streaming
+- Cross-platform embedding
+- Content licensing & rights management
 
 </details>
 
@@ -252,12 +405,11 @@ ZapTok stands on the shoulders of giants. We're deeply grateful to the open-sour
 - **[Zapstore](https://github.com/zapstore/zapstore)** **([zapstore.dev](https://zapstore.dev/))** - The social permissionless app store
 
 ### Technical Foundation
-- **React Team** - The UI framework powering our interface
-- **Vite & Tailwind CSS** - Development tools enabling rapid iteration
 - **[Nostr Protocol](https://github.com/nostr-protocol/nips)** - Collectively building the Nostr specification
 - **[Bitcoin Connect](https://github.com/getAlby/bitcoin-connect)** **([Alby/Bitcoin-Connect](https://bitcoin-connect.com/))** - Connecting lightning wallets to your webapp has never been easier. Enable WebLN in all browsers with a single button
 - **[Cashu Protocol](https://github.com/cashubtc)** **([cashu.space](https://cashu.space))** - Cashu is ecash for Bitcoin
 - **[Blossom Protocol](https://github.com/hzrd149/blossom)** - Decentralized file storage solutions using nostr public / private keys 
+- **[Blossom-client-sdk](https://github.com/hzrd149/blossom-client-sdk)** - A simple client for managing blobs on blossom servers
 - **[Nostr Logins](https://github.com/nostrband/nostr-login)** -  powerful window.nostr provider
 - **[NoAuth](https://github.com/nostrband/noauth)** **([nsec.app](https://nsec.app/))** - Noauth Nostr key manager
 - **[MKStack](https://soapbox.pub/mkstack)** **([Gitlab](https://gitlab.com/soapbox-pub/mkstack))** - Nostr client framework for web.
