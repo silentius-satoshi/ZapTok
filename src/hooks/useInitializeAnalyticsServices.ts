@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNostr } from '@nostrify/react';
 import { videoCommentsService } from '@/services/videoComments.service';
 import { videoRepostsService } from '@/services/videoReposts.service';
@@ -25,18 +25,23 @@ import { logInfo } from '@/lib/logger';
  */
 export function useInitializeAnalyticsServices() {
   const { nostr } = useNostr();
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
-    // Create relay group for analytics (BIG_RELAY_URLS = 4 major relays)
-    const relayGroup = nostr.group([...BIG_RELAY_URLS]);
-    const queryFn = relayGroup.query.bind(relayGroup);
+    if (!isInitializedRef.current) {
+      // Create relay group for analytics (BIG_RELAY_URLS = 4 major relays)
+      const relayGroup = nostr.group([...BIG_RELAY_URLS]);
+      const queryFn = relayGroup.query.bind(relayGroup);
 
-    // Initialize all analytics services with same query function
-    videoCommentsService.setNostrQueryFn(queryFn);
-    videoRepostsService.setNostrQueryFn(queryFn);
-    videoReactionsService.setNostrQueryFn(queryFn);
+      // Initialize all analytics services with same query function
+      videoCommentsService.setNostrQueryFn(queryFn);
+      videoRepostsService.setNostrQueryFn(queryFn);
+      videoReactionsService.setNostrQueryFn(queryFn);
 
-    logInfo('[Analytics] ✅ Initialized comments, reposts, reactions services for feed-level prefetching');
+      logInfo('[Analytics] ✅ Initialized comments, reposts, reactions services for feed-level prefetching');
+
+      isInitializedRef.current = true;
+    }
 
     // No cleanup needed - services are singletons that persist across feed mounts
     // Query function updates automatically when nostr changes
