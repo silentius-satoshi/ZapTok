@@ -29,6 +29,7 @@ import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
 import { DollarSign, Bitcoin } from 'lucide-react';
+// import FeedButton from '@/components/FeedButton'; // Disabled until feed switching is fully implemented
 
 export function MobileNavigation() {
   const { user, isAuthenticated } = useCurrentUser();
@@ -254,8 +255,14 @@ export function MobileNavigation() {
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="mx-auto flex w-full max-w-screen-sm items-center justify-between px-4 py-3">
-          {/* Left side - Currency Toggle Button */}
-          <div className="flex gap-2 font-semibold text-lg tracking-wide pointer-events-auto">
+          {/* Left side - Currency Toggle (Feed Switcher disabled until fully implemented) */}
+          <div className="flex gap-2 items-center pointer-events-auto">
+            {/* Feed Switcher Button - Disabled until feed switching is fully implemented */}
+            {/* <div className="flex items-center">
+              <FeedButton className="bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200 px-2 py-1.5 text-xs" />
+            </div> */}
+
+            {/* Currency Toggle Button */}
             <button
               className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
               onClick={() => {
@@ -412,14 +419,14 @@ export function MobileNavigation() {
                     <div className="flex items-start gap-3">
                       <ZapTokLogo size={40} />
                       <div className="flex flex-col items-start">
-                        <SheetTitle className="text-white text-lg text-left">
+                        <SheetTitle className="text-lg text-left bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
                           ZapTok
                         </SheetTitle>
                         <a
                           href="https://github.com/silentius-satoshi/ZapTok/tree/main"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-purple-400 hover:text-purple-300 text-sm transition-colors"
+                          className="text-white hover:text-gray-300 text-sm transition-colors"
                           onClick={() => setIsOpen(false)}
                         >
                           v{__APP_VERSION__} ({__GIT_COMMIT__})

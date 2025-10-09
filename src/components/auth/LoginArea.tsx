@@ -17,7 +17,7 @@ import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { cn } from '@/lib/utils';
 import { bundleLog } from '@/lib/logBundler';
 import { devLog } from '@/lib/devConsole';
-import FeedButton from '@/components/FeedButton';
+// import FeedButton from '@/components/FeedButton'; // Disabled until feed switching is fully implemented
 
 export interface LoginAreaProps {
   className?: string;
@@ -180,8 +180,8 @@ export function LoginArea({
 
   return (
     <div className={cn("inline-flex items-center justify-start min-w-0 max-w-full", className)}>
-      {/* Feed Selection Button - Conditionally visible */}
-      {!hideFeedButton && <FeedButton />}
+      {/* Feed Selection Button - Disabled until feed switching is fully implemented */}
+      {/* {!hideFeedButton && <FeedButton />} */}
 
       {currentUser ? (
         <div className="flex items-center gap-2 ml-2 min-w-0">
