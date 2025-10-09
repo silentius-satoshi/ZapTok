@@ -86,7 +86,7 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
       {/* Enhanced mobile PWA grid layout - optimized for profile viewing */}
       <div className={`grid gap-3 ${
         isMobile
-          ? 'grid-cols-2 max-h-[70vh]' // Mobile PWA: 2 columns, better height management
+          ? 'grid-cols-1 max-h-[70vh]' // Mobile PWA: Single column for full-width thumbnails
           : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 max-h-[600px]' // Desktop: responsive columns
       } overflow-y-auto scrollbar-hide`}>
         {videos.map((video, index) => (
