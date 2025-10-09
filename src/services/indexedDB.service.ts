@@ -17,7 +17,7 @@ const StoreNames = {
   RELAY_INFOS: 'relayInfos',
   FAVORITE_RELAY_EVENTS: 'favoriteRelayEvents',
   RELAY_SET_EVENTS: 'relaySetEvents',
-  USER_PROFILES: 'userProfiles',
+  PROFILE_EVENTS: 'profileEvents', // Phase 6.1: Profile caching (Jumble pattern)
 } as const;
 
 export interface TRelayInfo {
@@ -51,7 +51,7 @@ class IndexedDBService {
   init(): Promise<void> {
     if (!this.initPromise) {
       this.initPromise = new Promise((resolve, reject) => {
-        const request = window.indexedDB.open('zaptok', 2);
+        const request = window.indexedDB.open('zaptok', 3); // Version 3: Added PROFILE_EVENTS
 
         request.onerror = (event) => {
           reject(event);
@@ -78,8 +78,8 @@ class IndexedDBService {
           if (!db.objectStoreNames.contains(StoreNames.RELAY_SET_EVENTS)) {
             db.createObjectStore(StoreNames.RELAY_SET_EVENTS, { keyPath: 'key' });
           }
-          if (!db.objectStoreNames.contains(StoreNames.USER_PROFILES)) {
-            db.createObjectStore(StoreNames.USER_PROFILES, { keyPath: 'key' });
+          if (!db.objectStoreNames.contains(StoreNames.PROFILE_EVENTS)) {
+            db.createObjectStore(StoreNames.PROFILE_EVENTS, { keyPath: 'key' });
           }
 
           this.db = db;
@@ -279,6 +279,111 @@ class IndexedDBService {
   }
 
   /**
+   * Store profile event (kind 0) - Phase 6.1: Jumble pattern
+   * Only stores if newer than existing cached profile
+   */
+  async putProfileEvent(event: NostrEvent): Promise<NostrEvent> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.PROFILE_EVENTS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.PROFILE_EVENTS);
+      const key = event.pubkey;
+
+      const getRequest = store.get(key);
+      getRequest.onsuccess = () => {
+        const oldValue = getRequest.result as TValue<NostrEvent> | undefined;
+
+        // Only store if newer (replaceable event logic)
+        if (oldValue?.value && oldValue.value.created_at >= event.created_at) {
+          transaction.commit();
+          return resolve(oldValue.value);
+        }
+
+        const putRequest = store.put(this.formatValue(key, event));
+        putRequest.onsuccess = () => {
+          transaction.commit();
+          resolve(event);
+        };
+
+        putRequest.onerror = (event) => {
+          transaction.commit();
+          reject(event);
+        };
+      };
+
+      getRequest.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Get profile event by pubkey - Phase 6.1: Jumble pattern
+   */
+  async getProfileEvent(pubkey: string): Promise<NostrEvent | null> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.PROFILE_EVENTS, 'readonly');
+      const store = transaction.objectStore(StoreNames.PROFILE_EVENTS);
+      const request = store.get(pubkey);
+
+      request.onsuccess = () => {
+        transaction.commit();
+        resolve((request.result as TValue<NostrEvent>)?.value || null);
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Iterate all profile events - Phase 6.1: For FlexSearch rebuild
+   */
+  async iterateProfileEvents(callback: (event: NostrEvent) => Promise<void>): Promise<void> {
+    await this.initPromise;
+    if (!this.db) {
+      return;
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const transaction = this.db!.transaction(StoreNames.PROFILE_EVENTS, 'readonly');
+      const store = transaction.objectStore(StoreNames.PROFILE_EVENTS);
+      const request = store.openCursor();
+
+      request.onsuccess = async (event) => {
+        const cursor = (event.target as IDBRequest).result;
+        if (cursor) {
+          const value = (cursor.value as TValue<NostrEvent>).value;
+          if (value) {
+            await callback(value);
+          }
+          cursor.continue();
+        } else {
+          transaction.commit();
+          resolve();
+        }
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
    * Format value with metadata for storage
    */
   private formatValue<T>(key: string, value: T): TValue<T> {
@@ -315,7 +420,7 @@ class IndexedDBService {
         expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 * 30 // 1 month
       },
       {
-        name: StoreNames.USER_PROFILES,
+        name: StoreNames.PROFILE_EVENTS,
         expirationTimestamp: Date.now() - 1000 * 60 * 60 * 24 // 1 day
       }
     ];
