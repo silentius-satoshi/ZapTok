@@ -4,6 +4,7 @@ import { videoCommentsService } from '@/services/videoComments.service';
 import { videoRepostsService } from '@/services/videoReposts.service';
 import videoReactionsService from '@/services/videoReactions.service';
 import { BIG_RELAY_URLS } from '@/constants/relays';
+import { logInfo } from '@/lib/logger';
 
 /**
  * Initialize analytics services with query functions at feed level
@@ -35,7 +36,7 @@ export function useInitializeAnalyticsServices() {
     videoRepostsService.setNostrQueryFn(queryFn);
     videoReactionsService.setNostrQueryFn(queryFn);
 
-    console.log('[Analytics] ✅ Initialized comments, reposts, reactions services for feed-level prefetching');
+    logInfo('[Analytics] ✅ Initialized comments, reposts, reactions services for feed-level prefetching');
 
     // No cleanup needed - services are singletons that persist across feed mounts
     // Query function updates automatically when nostr changes

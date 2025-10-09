@@ -16,6 +16,7 @@
 import DataLoader from 'dataloader';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { isValidRepostForVideo } from '@/lib/videoAnalyticsValidators';
+import { logInfo, logWarning, logError, logDebug } from '@/lib/logger';
 
 export interface VideoReposts {
   count: number;
@@ -74,7 +75,7 @@ class VideoRepostsService {
    */
   async getReposts(videoId: string): Promise<VideoReposts> {
     if (!this.nostrQueryFn) {
-      console.warn('[VideoRepostsService] Query function not set, returning empty reposts');
+      logWarning('[VideoRepostsService] Query function not set, returning empty reposts');
       return { count: 0, reposts: [] };
     }
 
@@ -94,12 +95,12 @@ class VideoRepostsService {
    */
   private async batchLoadReposts(videoIds: readonly string[]): Promise<VideoReposts[]> {
     if (!this.nostrQueryFn) {
-      console.error('[VideoRepostsService] Query function not initialized');
+      logError('[VideoRepostsService] Query function not initialized');
       return videoIds.map(() => ({ count: 0, reposts: [] }));
     }
 
     try {
-      console.log(`[DataLoader] Batching ${videoIds.length} video repost queries`);
+      logInfo(`[DataLoader] Batching ${videoIds.length} video repost queries`);
       
       const signal = AbortSignal.timeout(5000);
       
@@ -112,7 +113,7 @@ class VideoRepostsService {
 
       const events = await this.nostrQueryFn([filter], { signal });
 
-      console.log(`[VideoReposts] 📊 Received ${events.length} repost events for ${videoIds.length} videos`);
+      logInfo(`[VideoReposts] 📊 Received ${events.length} repost events for ${videoIds.length} videos`);
 
       // Group reposts by video ID
       const repostsByVideo = new Map<string, NostrEvent[]>();
@@ -126,7 +127,7 @@ class VideoRepostsService {
             const isValid = isValidRepostForVideo(event, eventId);
             
             if (!isValid) {
-              console.log(`[VideoReposts] ❌ Invalid repost for video ${eventId.slice(0, 8)}:`, {
+              logInfo(`[VideoReposts] ❌ Invalid repost for video ${eventId.slice(0, 8)}:`, {
                 repostId: event.id.slice(0, 8) + '...',
                 kind: event.kind,
                 hasETag: event.tags.some(([name]) => name === 'e'),
@@ -175,7 +176,7 @@ class VideoRepostsService {
 
       return results;
     } catch (error) {
-      console.error('[VideoRepostsService] Batch query failed:', error);
+      logError('[VideoRepostsService] Batch query failed:', error);
       // Return empty results for all videos on error
       return videoIds.map(() => ({ count: 0, reposts: [] }));
     }
@@ -232,13 +233,13 @@ class VideoRepostsService {
    */
   async prefetchReposts(videoIds: string[]): Promise<void> {
     if (!this.nostrQueryFn) {
-      console.warn('[VideoRepostsService] Cannot prefetch - query function not set');
+      logWarning('[VideoRepostsService] Cannot prefetch - query function not set');
       return;
     }
 
     if (videoIds.length === 0) return;
 
-    console.log(`[VideoReposts] 🚀 Prefetching reposts for ${videoIds.length} videos`);
+    logInfo(`[VideoReposts] 🚀 Prefetching reposts for ${videoIds.length} videos`);
     await this.prefetch(videoIds);
   }
 }

@@ -20,6 +20,8 @@
 import DataLoader from 'dataloader';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { NPool, NRelay1 } from '@nostrify/nostrify';
+import { isValidZapForVideo } from '@/lib/videoAnalyticsValidators';
+import { logInfo, logWarning, logError } from '@/lib/logger';
 import { CASHU_RELAY } from '@/lib/simplePool';
 
 export interface VideoNutzaps {
@@ -80,7 +82,7 @@ class VideoNutzapsService {
       },
     });
 
-    console.log(`[VideoNutzapsService] Initialized dedicated NPool for Cashu relay: ${CASHU_RELAY}`);
+    logInfo(`[VideoNutzapsService] Initialized dedicated NPool for Cashu relay: ${CASHU_RELAY}`);
   }
 
   static getInstance(): VideoNutzapsService {
@@ -95,7 +97,7 @@ class VideoNutzapsService {
    */
   async getNutzaps(videoId: string): Promise<VideoNutzaps> {
     if (!this.cashuPool) {
-      console.warn('[VideoNutzapsService] Cashu pool not initialized, returning empty nutzaps');
+      logWarning('[VideoNutzapsService] Cashu pool not initialized, returning empty nutzaps');
       return { totalAmount: 0, count: 0, nutzaps: [] };
     }
 
@@ -121,7 +123,7 @@ class VideoNutzapsService {
     }
 
     try {
-      console.log(`[DataLoader] Batching ${videoIds.length} video nutzap queries → Cashu relay ONLY`);
+      logInfo(`[DataLoader] Batching ${videoIds.length} video nutzap queries → Cashu relay ONLY`);
       
       const signal = AbortSignal.timeout(5000);
       
@@ -136,7 +138,7 @@ class VideoNutzapsService {
       // Query via dedicated Cashu pool (isolated from general relays)
       const events = await this.cashuPool.query([filter], { signal });
 
-      console.log(`[VideoNutzaps] 📊 Received ${events.length} nutzap events for ${videoIds.length} videos`);
+      logInfo(`[VideoNutzaps] 📊 Received ${events.length} nutzap events for ${videoIds.length} videos`);
 
       // Group nutzaps by video ID
       const nutzapsByVideo = new Map<string, NostrEvent[]>();
@@ -167,7 +169,7 @@ class VideoNutzapsService {
               return sum + (isNaN(amount) ? 0 : amount);
             }
           } catch (error) {
-            console.error('[VideoNutzapsService] Error parsing nutzap amount:', error);
+            logError('[VideoNutzapsService] Error parsing nutzap amount:', error);
           }
           return sum;
         }, 0);
@@ -190,7 +192,7 @@ class VideoNutzapsService {
 
       return results;
     } catch (error) {
-      console.error('[VideoNutzapsService] Batch query failed:', error);
+      logError('[VideoNutzapsService] Batch query failed:', error);
       // Return empty results for all videos on error
       return videoIds.map(() => ({ totalAmount: 0, count: 0, nutzaps: [] }));
     }
@@ -247,13 +249,13 @@ class VideoNutzapsService {
    */
   async prefetchNutzaps(videoIds: string[]): Promise<void> {
     if (!this.cashuPool) {
-      console.warn('[VideoNutzapsService] Cannot prefetch - Cashu pool not initialized');
+      logWarning('[VideoNutzapsService] Cannot prefetch - Cashu pool not initialized');
       return;
     }
 
     if (videoIds.length === 0) return;
 
-    console.log(`[VideoNutzaps] 🚀 Prefetching nutzaps for ${videoIds.length} videos`);
+    logInfo(`[VideoNutzaps] 🚀 Prefetching nutzaps for ${videoIds.length} videos`);
     await this.prefetch(videoIds);
   }
 

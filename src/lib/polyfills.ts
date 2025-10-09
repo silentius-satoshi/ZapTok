@@ -7,6 +7,8 @@
  * @see https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/any_static
  */
 
+import { logInfo, logWarning } from './logger';
+
 // Check if AbortSignal.any is already available
 if (!AbortSignal.any) {
   AbortSignal.any = function(signals: AbortSignal[]): AbortSignal {
@@ -101,10 +103,10 @@ if (!AbortSignal.timeout) {
   // Store original WebLN if it exists and is valid
   if (window.webln) {
     if (isValidWebLN(window.webln)) {
-      console.log('[WebLN Protection] Valid browser extension WebLN detected:', window.webln.constructor?.name);
+      logInfo('[WebLN Protection] Valid browser extension WebLN detected:', window.webln.constructor?.name);
       (window as any).__originalBrowserWebLN = window.webln;
     } else {
-      console.log('[WebLN Protection] 🚨 Broken browser extension WebLN detected - clearing it');
+      logInfo('[WebLN Protection] 🚨 Broken browser extension WebLN detected - clearing it');
       delete (window as any).webln;
     }
   }
@@ -112,7 +114,7 @@ if (!AbortSignal.timeout) {
   // Function to clear broken WebLN objects
   const clearBrokenWebLN = (): void => {
     if (window.webln && !isValidWebLN(window.webln)) {
-      console.log('[WebLN Protection] 🧹 Clearing broken WebLN object');
+      logInfo('[WebLN Protection] 🧹 Clearing broken WebLN object');
       delete (window as any).webln;
 
       // Mark that we cleared a broken extension
@@ -135,11 +137,11 @@ if (!AbortSignal.timeout) {
   // Intercept attempts to set window.webln
   Object.defineProperty = function(obj: any, prop: string, descriptor: PropertyDescriptor) {
     if (obj === window && prop === 'webln') {
-      console.log('[WebLN Protection] WebLN assignment detected:', descriptor.value?.constructor?.name);
+      logInfo('[WebLN Protection] WebLN assignment detected:', descriptor.value?.constructor?.name);
 
       // Validate the new WebLN object
       if (descriptor.value && !isValidWebLN(descriptor.value)) {
-        console.log('[WebLN Protection] 🚨 Blocking assignment of broken WebLN object');
+        logWarning('[WebLN Protection] 🚨 Blocking assignment of broken WebLN object');
         return originalDefineProperty.call(this, obj, prop, {
           ...descriptor,
           value: undefined // Clear broken WebLN
@@ -150,7 +152,7 @@ if (!AbortSignal.timeout) {
       if ((window as any).__bitcoinConnectActive &&
           descriptor.value !== (window as any).__bitcoinConnectWebLN &&
           (window as any).__bitcoinConnectWebLN) {
-        console.log('[WebLN Protection] 🚨 Blocking browser extension WebLN override during Bitcoin Connect session');
+        logWarning('[WebLN Protection] 🚨 Blocking browser extension WebLN override during Bitcoin Connect session');
         return originalDefineProperty.call(this, obj, prop, {
           ...descriptor,
           value: (window as any).__bitcoinConnectWebLN
@@ -168,11 +170,11 @@ if (!AbortSignal.timeout) {
       return webLNValue;
     },
     set(newValue) {
-      console.log('[WebLN Protection] Direct WebLN assignment:', newValue?.constructor?.name);
+      logInfo('[WebLN Protection] Direct WebLN assignment:', newValue?.constructor?.name);
 
       // Validate the new WebLN object
       if (newValue && !isValidWebLN(newValue)) {
-        console.log('[WebLN Protection] 🚨 Rejecting broken WebLN assignment');
+        logWarning('[WebLN Protection] 🚨 Rejecting broken WebLN assignment');
         return; // Don't update the value
       }
 
@@ -180,7 +182,7 @@ if (!AbortSignal.timeout) {
       if ((window as any).__bitcoinConnectActive &&
           newValue !== (window as any).__bitcoinConnectWebLN &&
           (window as any).__bitcoinConnectWebLN) {
-        console.log('[WebLN Protection] 🚨 Blocking direct WebLN override during Bitcoin Connect session');
+        logWarning('[WebLN Protection] 🚨 Blocking direct WebLN override during Bitcoin Connect session');
         return; // Don't update the value
       }
 

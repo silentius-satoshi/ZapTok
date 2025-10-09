@@ -8,6 +8,7 @@ import { useFollowing } from '@/hooks/useFollowing';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { logInfo } from '@/lib/logger';
 
 // Import analytics services for feed-level prefetching
 import { videoCommentsService } from '@/services/videoComments.service';
@@ -95,7 +96,7 @@ export function useOptimizedGlobalVideoFeed() {
 
         // ✅ Feed-level prefetching: Load all analytics for videos in this batch
         const videoIds = videoEvents.map(v => v.id);
-        console.log(`[GlobalFeed] 🚀 Triggering feed-level prefetch for ${videoIds.length} videos`);
+        logInfo(`[GlobalFeed] 🚀 Triggering feed-level prefetch for ${videoIds.length} videos`);
 
         // Prefetch all analytics in parallel (fire-and-forget)
         Promise.all([
@@ -104,7 +105,7 @@ export function useOptimizedGlobalVideoFeed() {
           videoNutzapsService.prefetchNutzaps(videoIds),
           videoReactionsService.prefetchReactions(videoIds),
         ]).catch(error => {
-          console.error('[GlobalFeed] Failed to prefetch video analytics:', error);
+          logInfo('[GlobalFeed] Failed to prefetch video analytics:', error);
         });
       }
 

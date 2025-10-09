@@ -1,6 +1,7 @@
 import DataLoader from 'dataloader';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { isValidZapForVideo } from '@/lib/videoAnalyticsValidators';
+import { logInfo, logWarning, logError } from '@/lib/logger';
 
 export interface VideoReactions {
   zaps: number;
@@ -55,10 +56,10 @@ class VideoReactionsService {
   private async batchLoadReactions(
     videoIds: readonly string[]
   ): Promise<VideoReactions[]> {
-    console.log(`[DataLoader] Batching ${videoIds.length} video reaction queries`);
+    logInfo(`[DataLoader] Batching ${videoIds.length} video reaction queries`);
 
     if (!this.nostrQueryFn) {
-      console.error('[DataLoader] Nostr query function not initialized');
+      logError('[DataLoader] Nostr query function not initialized');
       return videoIds.map(() => ({
         zaps: 0,
         totalSats: 0,
@@ -82,7 +83,7 @@ class VideoReactionsService {
       const eventsByVideoId = new Map<string, NostrEvent[]>();
       videoIds.forEach((id) => eventsByVideoId.set(id, []));
 
-      console.log(`[VideoReactions] 📊 Received ${events.length} zap events for ${videoIds.length} videos`);
+      logInfo(`[VideoReactions] 📊 Received ${events.length} zap events for ${videoIds.length} videos`);
 
       events.forEach((event) => {
         // Find which video this event is for
@@ -94,7 +95,7 @@ class VideoReactionsService {
           const isValid = isValidZapForVideo(event, videoId);
           
           if (!isValid) {
-            console.log(`[VideoReactions] ❌ Invalid zap for video ${videoId.slice(0, 8)}:`, {
+            logInfo(`[VideoReactions] ❌ Invalid zap for video ${videoId.slice(0, 8)}:`, {
               zapId: event.id.slice(0, 8) + '...',
               hasBolt11: event.tags.some(([name]) => name === 'bolt11'),
               hasETag: event.tags.some(([name]) => name === 'e'),
@@ -126,7 +127,7 @@ class VideoReactionsService {
 
       return results;
     } catch (error) {
-      console.error('[DataLoader] Batch load failed:', error);
+      logError('[DataLoader] Batch load failed:', error);
       
       // Return empty reactions for all video IDs on error
       return videoIds.map(() => ({
@@ -265,7 +266,7 @@ class VideoReactionsService {
 
     if (videoIds.length === 0) return;
 
-    console.log(`[VideoReactions] 🚀 Prefetching reactions for ${videoIds.length} videos`);
+    logInfo(`[VideoReactions] 🚀 Prefetching reactions for ${videoIds.length} videos`);
     await this.prefetch(videoIds);
   }
 }

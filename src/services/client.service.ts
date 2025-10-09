@@ -16,6 +16,7 @@ import type { Event as NostrToolsEvent, Filter } from 'nostr-tools';
 import DataLoader from 'dataloader';
 import { simplePool } from '@/lib/simplePool';
 import { BIG_RELAY_URLS } from '@/constants';
+import { logInfo, logWarning, logError } from '@/lib/logger';
 
 export interface AuthorProfile {
   pubkey: string;
@@ -84,7 +85,7 @@ class ClientService {
   private async batchLoadProfiles(
     pubkeys: readonly string[]
   ): Promise<(AuthorProfile | null)[]> {
-    console.log(`[ProfileBatching] Loading ${pubkeys.length} profiles in batch`);
+    logInfo(`[ProfileBatching] Loading ${pubkeys.length} profiles in batch`);
 
     try {
       // Query all profiles in a single request to BIG_RELAY_URLS
@@ -118,7 +119,7 @@ class ClientService {
             event: event as NostrEvent,
           };
         } catch (error) {
-          console.warn(`[ProfileBatching] Failed to parse metadata for ${pubkey}:`, error);
+          logWarning(`[ProfileBatching] Failed to parse metadata for ${pubkey}:`, error);
           return {
             pubkey,
             event: event as NostrEvent,
@@ -126,7 +127,7 @@ class ClientService {
         }
       });
     } catch (error) {
-      console.error('[ProfileBatching] Batch load failed:', error);
+      logError('[ProfileBatching] Batch load failed:', error);
       // Return null for all pubkeys on error
       return pubkeys.map(() => null);
     }

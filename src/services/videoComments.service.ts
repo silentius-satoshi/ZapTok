@@ -16,6 +16,7 @@
 import DataLoader from 'dataloader';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { isValidCommentForVideo } from '@/lib/videoAnalyticsValidators';
+import { logInfo, logWarning, logError } from '@/lib/logger';
 
 export interface VideoComments {
   comments: NostrEvent[];
@@ -101,7 +102,7 @@ class VideoCommentsService {
    */
   async getComments(videoId: string): Promise<VideoComments> {
     if (!this.nostrQueryFn) {
-      console.warn('[VideoCommentsService] Query function not set, returning empty comments');
+      logWarning('[VideoCommentsService] Query function not set, returning empty comments');
       return { comments: [], commentCount: 0 };
     }
 
@@ -121,12 +122,12 @@ class VideoCommentsService {
    */
   private async batchLoadComments(videoIds: readonly string[]): Promise<VideoComments[]> {
     if (!this.nostrQueryFn) {
-      console.error('[VideoCommentsService] Query function not initialized');
+      logError('[VideoCommentsService] Query function not initialized');
       return videoIds.map(() => ({ comments: [], commentCount: 0 }));
     }
 
     try {
-      console.log(`[DataLoader] Batching ${videoIds.length} video comment queries`);
+      logInfo(`[DataLoader] Batching ${videoIds.length} video comment queries`);
       
       const signal = AbortSignal.timeout(5000);
       
@@ -140,7 +141,7 @@ class VideoCommentsService {
 
       const events = await this.nostrQueryFn([filter], { signal });
 
-      console.log(`[VideoComments] 📊 Received ${events.length} comment events for ${videoIds.length} videos`);
+      logInfo(`[VideoComments] 📊 Received ${events.length} comment events for ${videoIds.length} videos`);
 
       // Group comments by video ID (using 'E' tag - root scope)
       const commentsByVideo = new Map<string, NostrEvent[]>();
@@ -188,7 +189,7 @@ class VideoCommentsService {
 
       return results;
     } catch (error) {
-      console.error('[VideoCommentsService] Batch query failed:', error);
+      logError('[VideoCommentsService] Batch query failed:', error);
       // Return empty results for all videos on error
       return videoIds.map(() => ({ comments: [], commentCount: 0 }));
     }
@@ -246,13 +247,13 @@ class VideoCommentsService {
    */
   async prefetchComments(videoIds: string[]): Promise<void> {
     if (!this.nostrQueryFn) {
-      console.warn('[VideoCommentsService] Cannot prefetch - query function not set');
+      logWarning('[VideoCommentsService] Cannot prefetch - query function not set');
       return;
     }
 
     if (videoIds.length === 0) return;
 
-    console.log(`[VideoComments] 🚀 Prefetching comments for ${videoIds.length} videos`);
+    logInfo(`[VideoComments] 🚀 Prefetching comments for ${videoIds.length} videos`);
     await this.prefetch(videoIds);
   }
 }
