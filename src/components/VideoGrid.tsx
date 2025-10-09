@@ -55,7 +55,7 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
     return (
       <div className={`grid ${gridCols} gap-3`}>
         {Array.from({ length: skeletonCount }).map((_, i) => (
-          <Card key={i} className="aspect-[9/16] overflow-hidden">
+          <Card key={i} className="w-full aspect-[9/16] overflow-hidden">
             <CardContent className="p-0 h-full">
               <Skeleton className="w-full h-full" />
             </CardContent>
@@ -92,7 +92,7 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
         {videos.map((video, index) => (
           <div
             key={video.id}
-            className={`relative aspect-[9/16] cursor-pointer rounded-lg overflow-hidden transition-all duration-200 group ${
+            className={`relative w-full aspect-[9/16] cursor-pointer rounded-lg overflow-hidden transition-all duration-200 group ${
               isMobile
                 ? 'hover:scale-102 active:scale-95' // Mobile: subtle touch feedback
                 : 'hover:scale-105' // Desktop: standard hover effect
