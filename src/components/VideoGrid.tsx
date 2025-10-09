@@ -48,14 +48,15 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
   };
 
   if (isLoading) {
-    // Enhanced mobile PWA loading grid - better mobile layout
-    const gridCols = isMobile ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
-    const skeletonCount = isMobile ? 4 : 6;
+    // TikTok-style compact loading grid - 3 columns on mobile
+    const gridCols = isMobile ? 'grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
+    const skeletonCount = isMobile ? 9 : 6;
+    const itemHeight = isMobile ? 'h-[200px]' : 'aspect-[9/16]';
 
     return (
-      <div className={`grid ${gridCols} gap-3`}>
+      <div className={`grid ${gridCols} gap-2`}>
         {Array.from({ length: skeletonCount }).map((_, i) => (
-          <Card key={i} className="w-full aspect-[9/16] overflow-hidden">
+          <Card key={i} className={`w-full ${itemHeight} overflow-hidden`}>
             <CardContent className="p-0 h-full">
               <Skeleton className="w-full h-full" />
             </CardContent>
@@ -83,32 +84,30 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
 
   return (
     <>
-      {/* Enhanced mobile PWA grid layout - optimized for profile viewing */}
-      <div className={`grid gap-3 ${
+      {/* Enhanced mobile PWA grid layout - TikTok-style compact grid */}
+      <div className={`grid gap-2 ${
         isMobile
-          ? 'grid-cols-1 max-h-[70vh]' // Mobile PWA: Single column for full-width thumbnails
+          ? 'grid-cols-3 auto-rows-auto' // Mobile PWA: 3 columns like TikTok
           : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 max-h-[600px]' // Desktop: responsive columns
-      } overflow-y-auto scrollbar-hide`}>
+      } ${isMobile ? '' : 'overflow-y-auto scrollbar-hide'}`}>
         {videos.map((video, index) => (
           <div
             key={video.id}
-            className={`relative w-full aspect-[9/16] cursor-pointer rounded-lg overflow-hidden transition-all duration-200 group flex-shrink-0 ${
+            className={`relative w-full cursor-pointer rounded-lg overflow-hidden transition-all duration-200 group ${
               isMobile
-                ? 'hover:scale-102 active:scale-95' // Mobile: subtle touch feedback
-                : 'hover:scale-105' // Desktop: standard hover effect
+                ? 'h-[200px] active:scale-95' // Mobile: Fixed height, compact like TikTok
+                : 'aspect-[9/16] hover:scale-105' // Desktop: aspect ratio with hover effect
             }`}
             onClick={() => handleVideoClick(index)}
           >
-            <div className="absolute inset-0">
-              <VideoCard
-                event={video}
-                isActive={false} // Grid videos should never auto-play, only in modal/viewer
-                onNext={() => setCurrentVideoIndex(Math.min(index + 1, videos.length - 1))}
-                onPrevious={() => setCurrentVideoIndex(Math.max(index - 1, 0))}
-                showVerificationBadge={showVerificationBadge}
-                gridMode={true} // Show zap analytics instead of username/description/date
-              />
-            </div>
+            <VideoCard
+              event={video}
+              isActive={false} // Grid videos should never auto-play, only in modal/viewer
+              onNext={() => setCurrentVideoIndex(Math.min(index + 1, videos.length - 1))}
+              onPrevious={() => setCurrentVideoIndex(Math.max(index - 1, 0))}
+              showVerificationBadge={showVerificationBadge}
+              gridMode={true} // Show zap analytics instead of username/description/date
+            />
 
             {/* Enhanced remove bookmark button for mobile */}
             {allowRemove && (
