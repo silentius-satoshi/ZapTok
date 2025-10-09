@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -88,6 +88,9 @@ export default function CustomZap({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Send Zap ⚡</DialogTitle>
+          <DialogDescription>
+            Send sats to support this content
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">

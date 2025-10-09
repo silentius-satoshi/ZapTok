@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -89,6 +90,9 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
             <MessageCircle className="h-5 w-5" />
             Comments ({commentsData?.commentCount || 0})
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            View and post comments on this video
+          </DialogDescription>
         </DialogHeader>
 
         {/* Comments List */}

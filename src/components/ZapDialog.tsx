@@ -1,5 +1,5 @@
 import { useState, useEffect, Dispatch, SetStateAction } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,6 +58,9 @@ export default function ZapDialog({
             <UserAvatar size="small" userId={pubkey} />
             <Username userId={pubkey} className="truncate flex-1 max-w-fit text-start h-5" />
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Send Lightning sats to support this user
+          </DialogDescription>
         </DialogHeader>
         <ZapDialogContent
           open={open}

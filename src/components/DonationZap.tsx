@@ -3,6 +3,7 @@ import { X, Zap, ExternalLink, Wallet } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -193,6 +194,9 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
               {zapTokProfile?.metadata?.name || zapTokProfile?.metadata?.display_name || 'ZapTok'}
             </div>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Send Lightning sats to support ZapTok development
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

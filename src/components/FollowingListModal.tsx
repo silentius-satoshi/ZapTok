@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,6 +31,9 @@ export function FollowingListModal({ isOpen, onClose, pubkeys, followingCount }:
             <Users className="w-5 h-5" />
             <span>Following ({followingCount?.toLocaleString() || pubkeys.length})</span>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            View the list of users being followed
+          </DialogDescription>
         </DialogHeader>
         
         <ScrollArea className="h-[60vh] pr-4">

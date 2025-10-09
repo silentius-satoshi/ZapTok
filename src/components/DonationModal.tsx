@@ -3,6 +3,7 @@ import { X, Zap } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -60,6 +61,9 @@ export function DonationModal({ isOpen, onClose }: DonationModalProps) {
             <Zap className="h-5 w-5" />
             Support ZapTok
           </DialogTitle>
+          <DialogDescription>
+            Send a Lightning payment to support ZapTok development
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

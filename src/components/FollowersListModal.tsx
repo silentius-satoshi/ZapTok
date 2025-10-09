@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -52,6 +53,9 @@ export function FollowersListModal({
             <Users className="w-5 h-5" />
             <span>Followers {followerCount !== null && followerCount !== undefined ? `(${followerCount.toLocaleString()})` : ''}</span>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            View the list of followers
+          </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="h-[60vh] pr-4">
