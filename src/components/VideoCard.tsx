@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useVideoRegistration } from '@/hooks/useVideoRegistration';
 import { useVideoUrlFallback } from '@/hooks/useVideoUrlFallback';
+import { useThumbnailCache } from '@/hooks/useThumbnailCache';
 import { useUserInteraction } from '@/contexts/UserInteractionContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { usePWA } from '@/hooks/usePWA';
@@ -44,6 +45,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const author = useAuthor(event.pubkey);
   const isMobile = useIsMobile();
   const { isStandalone, isInstalled } = usePWA();
+
+  // Phase 6.4: Cache thumbnails for grid mode
+  const { cachedUrl: cachedThumbnail } = useThumbnailCache(event.thumbnail, gridMode);
 
   // Use fallback URL system to find working video URLs
   const { workingUrl, isTestingUrls } = useVideoUrlFallback({
@@ -306,7 +310,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
           <video
             ref={videoRef}
             src={workingUrl}
-            poster={event.thumbnail}
+            poster={cachedThumbnail || event.thumbnail}
             className={`w-full h-full ${objectFitClass} cursor-pointer`}
             loop
             playsInline

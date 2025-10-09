@@ -20,6 +20,7 @@ const StoreNames = {
   PROFILE_EVENTS: 'profileEvents', // Phase 6.1: Profile caching (Jumble pattern)
   FOLLOW_LIST_EVENTS: 'followListEvents', // Phase 6.2: Contact list caching (kind 3)
   VIDEO_EVENTS: 'videoEvents', // Phase 6.3: Video metadata caching (kinds 21, 22)
+  THUMBNAIL_BLOBS: 'thumbnailBlobs', // Phase 6.4: Thumbnail image caching (blob storage)
 } as const;
 
 export interface TRelayInfo {
@@ -53,7 +54,7 @@ class IndexedDBService {
   init(): Promise<void> {
     if (!this.initPromise) {
       this.initPromise = new Promise((resolve, reject) => {
-        const request = window.indexedDB.open('zaptok', 5); // Version 5: Added VIDEO_EVENTS
+        const request = window.indexedDB.open('zaptok', 6); // Version 6: Added THUMBNAIL_BLOBS
 
         request.onerror = (event) => {
           reject(event);
@@ -88,6 +89,9 @@ class IndexedDBService {
           }
           if (!db.objectStoreNames.contains(StoreNames.VIDEO_EVENTS)) {
             db.createObjectStore(StoreNames.VIDEO_EVENTS, { keyPath: 'key' });
+          }
+          if (!db.objectStoreNames.contains(StoreNames.THUMBNAIL_BLOBS)) {
+            db.createObjectStore(StoreNames.THUMBNAIL_BLOBS, { keyPath: 'key' });
           }
 
           this.db = db;
@@ -892,6 +896,67 @@ class IndexedDBService {
       };
 
       request.onerror = (event) => {
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Phase 6.4: Thumbnail blob caching
+   * Store thumbnail image blob for offline access
+   */
+  async putThumbnailBlob(url: string, blob: Blob): Promise<void> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.THUMBNAIL_BLOBS, 'readwrite');
+      const store = transaction.objectStore(StoreNames.THUMBNAIL_BLOBS);
+
+      const putRequest = store.put(this.formatValue(url, blob));
+      putRequest.onsuccess = () => {
+        transaction.commit();
+        resolve();
+      };
+
+      putRequest.onerror = (event) => {
+        transaction.commit();
+        reject(event);
+      };
+    });
+  }
+
+  /**
+   * Phase 6.4: Get cached thumbnail blob
+   * Returns blob if cached and not expired (7-day TTL)
+   */
+  async getThumbnailBlob(url: string): Promise<Blob | null> {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        return reject('database not initialized');
+      }
+
+      const transaction = this.db.transaction(StoreNames.THUMBNAIL_BLOBS, 'readonly');
+      const store = transaction.objectStore(StoreNames.THUMBNAIL_BLOBS);
+      const request = store.get(url);
+
+      request.onsuccess = () => {
+        transaction.commit();
+        const value = request.result as TValue<Blob> | undefined;
+        
+        // Check TTL (7 days)
+        if (value?.value && value.addedAt > Date.now() - 1000 * 60 * 60 * 24 * 7) {
+          resolve(value.value);
+        } else {
+          resolve(null);
+        }
+      };
+
+      request.onerror = (event) => {
+        transaction.commit();
         reject(event);
       };
     });
