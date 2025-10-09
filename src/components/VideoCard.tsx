@@ -301,17 +301,8 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             isActive={isActive}
             className="w-full h-full"
           />
-        ) : gridMode && event.thumbnail ? (
-          // Grid mode: Show thumbnail image for better performance and resource usage
-          <img
-            src={event.thumbnail}
-            alt={event.title || 'Video thumbnail'}
-            className={`w-full h-full ${objectFitClass} cursor-pointer`}
-            loading="lazy"
-            onClick={handlePlayPause}
-          />
         ) : (
-          // Viewer mode: Standard HTML5 Video for playback
+          // Standard HTML5 Video
           <video
             ref={videoRef}
             src={workingUrl}
@@ -320,7 +311,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             loop
             playsInline
             muted={!isActive} // Mute inactive videos, unmute active video
-            preload={isActive || shouldPreload ? "auto" : "metadata"} // Preload active video and adjacent videos for smooth scrolling
+            preload={isActive || shouldPreload || (gridMode && isMobile) ? "auto" : "metadata"} // Force auto preload for mobile grid to show poster
             webkit-playsinline="true" // iOS Safari compatibility
             x5-video-player-type="h5" // WeChat browser optimization
             x5-video-player-fullscreen="true" // WeChat fullscreen optimization
