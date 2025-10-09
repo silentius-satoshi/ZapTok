@@ -301,8 +301,17 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             isActive={isActive}
             className="w-full h-full"
           />
+        ) : gridMode && event.thumbnail ? (
+          // Grid mode: Show thumbnail image for better performance and resource usage
+          <img
+            src={event.thumbnail}
+            alt={event.title || 'Video thumbnail'}
+            className={`w-full h-full ${objectFitClass} cursor-pointer`}
+            loading="lazy"
+            onClick={handlePlayPause}
+          />
         ) : (
-          // Standard HTML5 Video
+          // Viewer mode: Standard HTML5 Video for playback
           <video
             ref={videoRef}
             src={workingUrl}
