@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { createHybridVideoEvent, createNip71VideoEvent, createDualVideoEvents } from '../../lib/hybridEventStrategy';
-import type { HybridVideoEventData } from '../../lib/hybridEventStrategy';
+import { createVideoEvent, createNip71VideoEvent, createDualVideoEvents } from '../../lib/videoEventStrategy';
+import type { VideoEventData } from '../../lib/videoEventStrategy';
 
-describe('Hybrid Event Strategy', () => {
-  const mockVideoData: HybridVideoEventData = {
+describe('Video Event Strategy', () => {
+  const mockVideoData: VideoEventData = {
     title: "Test Video",
-    description: "A test video for hybrid events",
+    description: "A test video for events",
     videoUrl: "https://example.com/video.mp4",
     hash: "abcd1234567890",
     width: 1920,
@@ -15,14 +15,13 @@ describe('Hybrid Event Strategy', () => {
     type: "video/mp4"
   };
 
-  describe('createHybridVideoEvent', () => {
-    it('should create a kind 1 event with rich metadata', () => {
-      const event = createHybridVideoEvent(mockVideoData);
+  describe('createVideoEvent', () => {
+    it('should create a kind 21/22 event with rich metadata', () => {
+      const event = createVideoEvent(mockVideoData);
 
-      expect(event.kind).toBe(1);
+      expect([21, 22]).toContain(event.kind);
       expect(event.content).toContain("Test Video");
-      expect(event.content).toContain("A test video for hybrid events");
-      expect(event.content).toContain("https://example.com/video.mp4");
+      expect(event.content).toContain("A test video for events");
 
       // Check for imeta tag (NIP-92 style)
       const imetaTag = event.tags?.find(tag => tag[0] === 'imeta');
@@ -34,7 +33,7 @@ describe('Hybrid Event Strategy', () => {
 
       // Check for summary tag (NIP-71 style)
       const summaryTag = event.tags?.find(tag => tag[0] === 'summary');
-      expect(summaryTag?.[1]).toBe("A test video for hybrid events");
+      expect(summaryTag?.[1]).toBe("A test video for events");
 
       // Check for title tag
       const titleTag = event.tags?.find(tag => tag[0] === 'title');
@@ -42,18 +41,17 @@ describe('Hybrid Event Strategy', () => {
     });
 
     it('should handle missing optional fields gracefully', () => {
-      const minimalData: HybridVideoEventData = {
+      const minimalData: VideoEventData = {
         title: "Minimal Video",
         description: "A minimal test video",
         videoUrl: "https://example.com/minimal.mp4",
         hash: "minimal123"
       };
 
-      const event = createHybridVideoEvent(minimalData);
+      const event = createVideoEvent(minimalData);
 
-      expect(event.kind).toBe(1);
+      expect([21, 22]).toContain(event.kind);
       expect(event.content).toContain("Minimal Video");
-      expect(event.content).toContain("https://example.com/minimal.mp4");
 
       const imetaTag = event.tags?.find(tag => tag[0] === 'imeta');
       expect(imetaTag).toBeTruthy();
@@ -68,7 +66,7 @@ describe('Hybrid Event Strategy', () => {
       const event = createNip71VideoEvent(mockVideoData, uniqueId);
 
       expect(event.kind).toBe(21); // Long-form video (>60s)
-      expect(event.content).toBe("A test video for hybrid events");
+      expect(event.content).toBe("A test video for events");
 
       // Check for NIP-71 tags
       const titleTag = event.tags?.find(tag => tag[0] === 'title');
@@ -86,19 +84,19 @@ describe('Hybrid Event Strategy', () => {
   });
 
   describe('createDualVideoEvents', () => {
-    it('should create both hybrid and NIP-71 events', () => {
+    it('should create both video and NIP-71 events', () => {
       const result = createDualVideoEvents(mockVideoData);
 
-      expect(result.hybridEvent).toBeTruthy();
+      expect(result.videoEvent).toBeTruthy();
       expect(result.nip71Event).toBeTruthy();
       
-      const { hybridEvent, nip71Event } = result;
+      const { videoEvent, nip71Event } = result;
 
-      expect(hybridEvent.kind).toBe(1);
+      expect([21, 22]).toContain(videoEvent.kind);
       expect(nip71Event.kind).toBe(21); // Long-form video
 
-      // Hybrid event should have imeta tag
-      const imetaTag = hybridEvent.tags?.find(tag => tag[0] === 'imeta');
+      // Video event should have imeta tag
+      const imetaTag = videoEvent.tags?.find(tag => tag[0] === 'imeta');
       expect(imetaTag).toBeTruthy();
 
       // NIP-71 event should have url tag
@@ -107,29 +105,29 @@ describe('Hybrid Event Strategy', () => {
     });
   });
 
-  describe('Cross-client compatibility', () => {
-    it('should ensure hybrid events are readable by basic clients', () => {
-      const event = createHybridVideoEvent(mockVideoData);
+  describe('NIP-71 compliance', () => {
+    it('should ensure video events use proper kind numbers', () => {
+      const event = createVideoEvent(mockVideoData);
 
-      // Basic clients can read the content as regular text
+      // Video events use kind 21 (landscape/long) or 22 (portrait/short)
+      expect([21, 22]).toContain(event.kind);
       expect(event.content).toContain("Test Video");
-      expect(event.content).toContain("https://example.com/video.mp4");
       
       // Advanced clients can parse the imeta tag for rich metadata
       const imetaTag = event.tags?.find(tag => tag[0] === 'imeta');
       expect(imetaTag).toBeTruthy();
-      
-      // The event is a standard kind 1 note
-      expect(event.kind).toBe(1);
     });
 
-    it('should provide fallback content for clients without NIP-71 support', () => {
-      const event = createHybridVideoEvent(mockVideoData);
+    it('should provide clean content without auto-generated text', () => {
+      const event = createVideoEvent(mockVideoData);
 
-      // Content should be human-readable even without special video support
+      // Content should only contain user-provided title and description
       expect(event.content).toMatch(/Test Video/);
-      expect(event.content).toMatch(/https:\/\/example\.com\/video\.mp4/);
-      expect(event.content).toMatch(/A test video for hybrid events/);
+      expect(event.content).toMatch(/A test video for events/);
+      // Should NOT contain emojis or auto-generated text
+      expect(event.content).not.toMatch(/🎬/);
+      expect(event.content).not.toMatch(/📹 Watch:/);
+      expect(event.content).not.toMatch(/⏱️ Duration:/);
     });
   });
 });

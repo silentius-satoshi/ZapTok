@@ -11,7 +11,7 @@ import { Upload, Play, Video, FileVideo, CheckCircle2, Zap } from 'lucide-react'
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
-import { createHybridVideoEvent, type HybridVideoEventData } from '@/lib/hybridEventStrategy';
+import { createVideoEvent, type VideoEventData } from '@/lib/videoEventStrategy';
 import { compressVideo, shouldCompressVideo, isCompressionSupported } from '@/lib/videoCompression';
 import blossomUploadService from '@/services/blossom-upload.service';
 
@@ -27,6 +27,7 @@ interface VideoMetadata {
   size: number;
   type: string;
   thumbnailUrl?: string;
+  customHashtags: string; // Comma-separated hashtags entered by user
 }
 
 export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
@@ -40,7 +41,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     description: '',
     duration: 0,
     size: 0,
-    type: ''
+    type: '',
+    customHashtags: ''
   });
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -179,7 +181,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       description: '',
       duration: 0,
       size: 0,
-      type: ''
+      type: '',
+      customHashtags: ''
     });
     setPreviewUrl(null);
     setUploadProgress(0);
@@ -403,8 +406,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       const videoSize = parseInt(videoTags.find(tag => tag[0] === 'size')?.[1] || '0');
       const videoType = videoTags.find(tag => tag[0] === 'm')?.[1] || videoMetadata.type;
 
-      // Prepare video data for hybrid event
-      const hybridVideoData: HybridVideoEventData = {
+      // Prepare video data for event
+      const videoData: VideoEventData = {
         title: videoMetadata.title,
         description: videoMetadata.description,
         videoUrl: videoUrl,
@@ -420,11 +423,25 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                 parseInt(videoTags.find(tag => tag[0] === 'dim')![1].split('x')[1]) : undefined,
       };
 
-      // Create hybrid event (kind 1 with rich metadata)
-      const hybridEvent = createHybridVideoEvent(hybridVideoData, {
+      // Parse custom hashtags (remove # if user included it, split by comma, trim whitespace)
+      const customTags = videoMetadata.customHashtags
+        .split(',')
+        .map(tag => tag.trim().replace(/^#/, ''))
+        .filter(tag => tag.length > 0);
+
+      // Combine auto-tags with custom tags
+      const allHashtags = [
+        'video',
+        'zaptok',
+        ...(videoMetadata.duration <= 60 ? ['short'] : []),
+        ...customTags
+      ];
+
+      // Create video event (kind 21/22 with rich metadata)
+      const videoEvent = createVideoEvent(videoData, {
         includeNip71Tags: true,
         includeRichContent: true,
-        hashtags: ['video', 'zaptok', ...(videoMetadata.duration <= 60 ? ['short'] : [])],
+        hashtags: allHashtags,
         includeImeta: true
       });
 
@@ -432,24 +449,24 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       const additionalTags = videoTags.filter(tag =>
         !['url', 'x', 'size', 'dim', 'm', 'thumb'].includes(tag[0])
       );
-      hybridEvent.tags = [...(hybridEvent.tags || []), ...additionalTags];
+      videoEvent.tags = [...(videoEvent.tags || []), ...additionalTags];
 
-      console.log('Publishing hybrid event to Nostr...', {
-        kind: hybridEvent.kind,
-        contentPreview: hybridEvent.content?.substring(0, 50),
-        tagCount: hybridEvent.tags?.length,
+      console.log('Publishing video event to Nostr...', {
+        kind: videoEvent.kind,
+        contentPreview: videoEvent.content?.substring(0, 50),
+        tagCount: videoEvent.tags?.length,
         videoUrl: videoUrl,
         videoHash: videoHash
       });
 
-      createEvent(hybridEvent);
+      createEvent(videoEvent);
 
       setUploadProgress(100);
       setUploadStep('complete');
 
       toast({
         title: 'Video uploaded successfully!',
-        description: `Your ${videoMetadata.duration <= 60 ? 'short' : 'normal'} video has been published with cross-client compatibility.`,
+        description: `Your ${videoMetadata.duration <= 60 ? 'short' : 'normal'} video has been published.`,
       });
 
       // Reset form after a delay
@@ -647,6 +664,20 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                   maxLength={500}
                   rows={3}
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="hashtags">Custom Hashtags (optional)</Label>
+                <Input
+                  id="hashtags"
+                  value={videoMetadata.customHashtags}
+                  onChange={(e) => setVideoMetadata(prev => ({ ...prev, customHashtags: e.target.value }))}
+                  placeholder="e.g., nostr, bitcoin, technology"
+                  maxLength={100}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Separate with commas. Auto-tags: #video, #zaptok{videoMetadata.duration <= 60 ? ', #short' : ''}
+                </p>
               </div>
             </div>
 

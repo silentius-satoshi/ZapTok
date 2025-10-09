@@ -1,13 +1,13 @@
 /**
- * Test to verify that imeta tags are created correctly by hybridEventStrategy
+ * Test to verify that imeta tags are created correctly by videoEventStrategy
  */
 
 import { describe, it, expect } from 'vitest';
-import { createHybridVideoEvent, type HybridVideoEventData } from '../lib/hybridEventStrategy';
+import { createVideoEvent, type VideoEventData } from '../lib/videoEventStrategy';
 
 describe('Imeta Tag Creation', () => {
   it('should create correctly formatted imeta tags', () => {
-    const mockVideoData: HybridVideoEventData = {
+    const mockVideoData: VideoEventData = {
       title: 'Test Video',
       description: 'A test video for debugging',
       videoUrl: 'https://blossom.band/abc123def456.webm',
@@ -18,7 +18,7 @@ describe('Imeta Tag Creation', () => {
       height: 3840,
     };
     
-    const event = createHybridVideoEvent(mockVideoData, {
+    const event = createVideoEvent(mockVideoData, {
       includeImeta: true,
       includeNip71Tags: true,
     });
@@ -39,7 +39,7 @@ describe('Imeta Tag Creation', () => {
   });
 
   it('should create the same format as our working test case', () => {
-    const mockVideoData: HybridVideoEventData = {
+    const mockVideoData: VideoEventData = {
       title: 'Test Video',
       description: 'A test video',
       videoUrl: 'https://blossom.band/abc123def456',
@@ -50,7 +50,7 @@ describe('Imeta Tag Creation', () => {
       height: 3840,
     };
 
-    const event = createHybridVideoEvent(mockVideoData);
+    const event = createVideoEvent(mockVideoData);
     const imetaTag = event.tags?.find(tag => tag[0] === 'imeta');
 
     // This should match our working test case from video-url-encoding-debug.test.ts

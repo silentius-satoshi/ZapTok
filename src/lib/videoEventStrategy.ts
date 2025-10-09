@@ -1,14 +1,13 @@
 /**
- * Hybrid Event Strategy for Cross-Client Compatibility
+ * Video Event Strategy for NIP-71 Compliance
  * 
- * This strategy creates kind 1 events with rich metadata that can be understood
- * by both NIP-71 aware and non-aware clients, maximizing compatibility across
- * the Nostr ecosystem.
+ * This strategy creates NIP-71 compliant video events (kind 21/22) with rich metadata
+ * that can be understood by video-aware Nostr clients.
  */
 
 import type { NostrEvent } from '@nostrify/nostrify';
 
-export interface HybridVideoEventData {
+export interface VideoEventData {
   title: string;
   description: string;
   videoUrl: string;
@@ -21,7 +20,7 @@ export interface HybridVideoEventData {
   height?: number;
 }
 
-export interface HybridEventOptions {
+export interface VideoEventOptions {
   // Whether to include NIP-71 specific tags for clients that support them
   includeNip71Tags?: boolean;
   // Whether to include rich metadata in content for better readability
@@ -33,18 +32,18 @@ export interface HybridEventOptions {
 }
 
 /**
- * Create a hybrid video event that works across clients
+ * Create a NIP-71 compliant video event
  * 
  * Strategy:
- * 1. Use kind 1 (text note) for maximum compatibility
- * 2. Include video URL in content for simple clients
+ * 1. Use kind 21 (normal videos) or kind 22 (short videos) based on dimensions/duration
+ * 2. Include video URL and metadata in tags
  * 3. Add NIP-71 style tags for advanced clients
  * 4. Use imeta tags for media metadata
  * 5. Include rich metadata for discoverability
  */
-export function createHybridVideoEvent(
-  data: HybridVideoEventData, 
-  options: HybridEventOptions = {}
+export function createVideoEvent(
+  data: VideoEventData, 
+  options: VideoEventOptions = {}
 ): Partial<NostrEvent> {
   const {
     includeNip71Tags = true,
@@ -57,28 +56,17 @@ export function createHybridVideoEvent(
   let content = '';
   
   if (includeRichContent) {
-    // Rich content format for better readability
+    // Clean content format - just title and description, no auto-generated text
     if (data.title) {
-      content += `🎬 ${data.title}\n\n`;
+      content += `${data.title}\n\n`;
     }
     
     if (data.description) {
-      content += `${data.description}\n\n`;
-    }
-    
-    content += `📹 Watch: ${data.videoUrl}`;
-    
-    // Add duration info if available
-    if (data.duration) {
-      const minutes = Math.floor(data.duration / 60);
-      const seconds = data.duration % 60;
-      content += `\n⏱️ Duration: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+      content += `${data.description}`;
     }
   } else {
     // Simple content format
     content = data.description || data.title || '';
-    if (content) content += '\n\n';
-    content += data.videoUrl;
   }
 
   // Build tags array
@@ -183,10 +171,10 @@ export function createHybridVideoEvent(
 
 /**
  * Create a fallback NIP-71 event for clients that support it
- * This can be published alongside the hybrid event for maximum coverage
+ * This can be published alongside the video event for maximum coverage
  */
 export function createNip71VideoEvent(
-  data: HybridVideoEventData, 
+  data: VideoEventData, 
   uniqueId: string
 ): Partial<NostrEvent> {
   const tags: string[][] = [];
@@ -240,26 +228,26 @@ export function createNip71VideoEvent(
 }
 
 /**
- * Dual Publishing Strategy: Create both hybrid and NIP-71 events
+ * Dual Publishing Strategy: Create both video and NIP-71 events
  * This ensures maximum compatibility and feature support
  */
 export interface DualPublishResult {
-  hybridEvent: Partial<NostrEvent>;
+  videoEvent: Partial<NostrEvent>;
   nip71Event: Partial<NostrEvent>;
 }
 
 export function createDualVideoEvents(
-  data: HybridVideoEventData,
-  options: HybridEventOptions = {}
+  data: VideoEventData,
+  options: VideoEventOptions = {}
 ): DualPublishResult {
   // Generate unique ID for NIP-71 event
   const uniqueId = `video-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
-  const hybridEvent = createHybridVideoEvent(data, options);
+  const videoEvent = createVideoEvent(data, options);
   const nip71Event = createNip71VideoEvent(data, uniqueId);
 
   return {
-    hybridEvent,
+    videoEvent,
     nip71Event
   };
 }

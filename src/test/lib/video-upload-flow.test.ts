@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createHybridVideoEvent, type HybridVideoEventData } from '../../lib/hybridEventStrategy';
+import { createVideoEvent, type VideoEventData } from '../../lib/videoEventStrategy';
 
 describe('Video Upload/Publishing Flow Logic', () => {
-  describe('Hybrid Video Event Creation', () => {
-    const mockVideoData: HybridVideoEventData = {
+  describe('Video Event Creation', () => {
+    const mockVideoData: VideoEventData = {
       title: 'Test Video',
       description: 'A test video for ZapTok',
       videoUrl: 'https://blossom.band/testvideo.mp4',
@@ -17,7 +17,7 @@ describe('Video Upload/Publishing Flow Logic', () => {
     };
 
     it('should create basic hybrid video event with cross-client compatibility', () => {
-      const event = createHybridVideoEvent(mockVideoData, {
+      const event = createVideoEvent(mockVideoData, {
         includeNip71Tags: true,
         includeRichContent: true,
         hashtags: ['video', 'test'],
@@ -41,7 +41,7 @@ describe('Video Upload/Publishing Flow Logic', () => {
     });
 
     it('should include imeta tag for NIP-94 compatibility', () => {
-      const event = createHybridVideoEvent(mockVideoData, {
+      const event = createVideoEvent(mockVideoData, {
         includeImeta: true
       });
 
@@ -56,7 +56,7 @@ describe('Video Upload/Publishing Flow Logic', () => {
     });
 
     it('should add hashtags as t tags', () => {
-      const event = createHybridVideoEvent(mockVideoData, {
+      const event = createVideoEvent(mockVideoData, {
         hashtags: ['zaptok', 'short', 'vertical']
       });
 
@@ -66,14 +66,14 @@ describe('Video Upload/Publishing Flow Logic', () => {
     });
 
     it('should handle short video metadata correctly', () => {
-      const shortVideoData: HybridVideoEventData = {
+      const shortVideoData: VideoEventData = {
         ...mockVideoData,
         duration: 30,
         height: 1920, // Vertical
         width: 1080
       };
 
-      const event = createHybridVideoEvent(shortVideoData, {
+      const event = createVideoEvent(shortVideoData, {
         includeNip71Tags: true,
         hashtags: ['short']
       });
@@ -89,14 +89,14 @@ describe('Video Upload/Publishing Flow Logic', () => {
     });
 
     it('should handle missing optional fields gracefully', () => {
-      const minimalVideoData: HybridVideoEventData = {
+      const minimalVideoData: VideoEventData = {
         title: 'Minimal Video',
         description: '', // Optional description can be empty
         videoUrl: 'https://example.com/video.mp4',
         hash: 'hash123'
       };
 
-      const event = createHybridVideoEvent(minimalVideoData, {
+      const event = createVideoEvent(minimalVideoData, {
         includeNip71Tags: true
       });
 
@@ -112,7 +112,7 @@ describe('Video Upload/Publishing Flow Logic', () => {
     });
 
     it('should create rich content format', () => {
-      const event = createHybridVideoEvent(mockVideoData, {
+      const event = createVideoEvent(mockVideoData, {
         includeRichContent: true
       });
 
@@ -225,7 +225,7 @@ describe('Video Upload/Publishing Flow Logic', () => {
 
   describe('Cross-Client Compatibility', () => {
     it('should create events compatible with multiple Nostr clients', () => {
-      const videoData: HybridVideoEventData = {
+      const videoData: VideoEventData = {
         title: 'Cross-Client Video',
         description: 'Testing compatibility',
         videoUrl: 'https://blossom.band/video.mp4',
@@ -233,36 +233,36 @@ describe('Video Upload/Publishing Flow Logic', () => {
         duration: 120
       };
 
-      const hybridEvent = createHybridVideoEvent(videoData, {
+      const videoEvent = createVideoEvent(videoData, {
         includeNip71Tags: true,
         includeImeta: true,
         includeRichContent: true
       });
 
       // Should have kind 1 for broad compatibility
-      expect(hybridEvent.kind).toBe(1);
+      expect(videoEvent.kind).toBe(1);
       
       // Should have both NIP-71 tags and imeta for different client support
-      const urlTag = hybridEvent.tags?.find(tag => tag[0] === 'url');
-      const imetaTag = hybridEvent.tags?.find(tag => tag[0] === 'imeta');
+      const urlTag = videoEvent.tags?.find(tag => tag[0] === 'url');
+      const imetaTag = videoEvent.tags?.find(tag => tag[0] === 'imeta');
       
       expect(urlTag).toBeDefined();
       expect(imetaTag).toBeDefined();
       
       // Content should be readable by any client
-      expect(hybridEvent.content).toContain('Cross-Client Video');
-      expect(hybridEvent.content).toContain('https://blossom.band/video.mp4');
+      expect(videoEvent.content).toContain('Cross-Client Video');
+      expect(videoEvent.content).toContain('https://blossom.band/video.mp4');
     });
 
     it('should include client identification tag', () => {
-      const videoData: HybridVideoEventData = {
+      const videoData: VideoEventData = {
         title: 'ZapTok Video',
         description: 'Test video description',
         videoUrl: 'https://example.com/video.mp4',
         hash: 'hash123'
       };
 
-      const event = createHybridVideoEvent(videoData, {});
+      const event = createVideoEvent(videoData, {});
       
       // Should include client tag (this would be added by useNostrPublish)
       // For testing purposes, we can verify the structure allows it
