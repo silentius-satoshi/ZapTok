@@ -6,6 +6,7 @@ import { useAuthors } from '@/hooks/useAuthors';
 import { genUserName } from '@/lib/genUserName';
 import { Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
 interface FollowingListModalProps {
   isOpen: boolean;
@@ -17,6 +18,13 @@ interface FollowingListModalProps {
 export function FollowingListModal({ isOpen, onClose, pubkeys, followingCount }: FollowingListModalProps) {
   const authors = useAuthors(pubkeys);
   const navigate = useNavigate();
+
+  // Refetch author metadata when modal opens
+  useEffect(() => {
+    if (isOpen && pubkeys.length > 0) {
+      authors.refetch();
+    }
+  }, [isOpen]); // Only depend on isOpen, not authors.refetch to avoid loops
 
   const handleProfileClick = (pubkey: string) => {
     navigate(`/profile/${pubkey}`);

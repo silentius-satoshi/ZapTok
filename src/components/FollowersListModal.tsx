@@ -40,6 +40,13 @@ export function FollowersListModal({
     }
   }, [open, followers.length, isLoading, fetchFollowers]);
 
+  // Refetch author metadata when modal opens
+  useEffect(() => {
+    if (open && followers.length > 0) {
+      authors.refetch();
+    }
+  }, [open, followers.length]); // Only depend on open and followers.length
+
   const handleProfileClick = (pubkey: string) => {
     navigate(`/profile/${pubkey}`);
     onOpenChange(false);

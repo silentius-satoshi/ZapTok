@@ -15,7 +15,11 @@ export function getAmountFromInvoice(invoice: string): number {
     const _invoice = new Invoice({ pr: invoice });
     return _invoice.satoshi;
   } catch (error) {
-    console.error('Failed to parse invoice:', error);
+    // Silently return 0 for invalid invoices - these are filtered out in the hooks
+    // Only log in development if needed for debugging
+    if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_INVOICES) {
+      console.warn('Failed to parse invoice:', error);
+    }
     return 0;
   }
 }

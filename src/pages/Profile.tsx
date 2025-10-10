@@ -14,6 +14,9 @@ import { useUserVideos } from '@/hooks/useUserVideos';
 import { useRepostedVideos } from '@/hooks/useRepostedVideos';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useLoginPrompt } from '@/hooks/useLoginPrompt';
+import { useUserReceivedZapsTotal } from '@/hooks/useUserReceivedZaps';
+import { useUserSentZapsTotal } from '@/hooks/useUserSentZaps';
+import { useInitializeAnalyticsServices } from '@/hooks/useInitializeAnalyticsServices';
 import { genUserName } from '@/lib/genUserName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +43,12 @@ import { nip19 } from 'nostr-tools';
 import { usePrimalFollowerCount } from '@/hooks/usePrimalFollowerCount';
 import { getLightningAddress } from '@/lib/lightning';
 import { isYouTubeUrl } from '@/lib/youtubeEmbed';
+import nostrJson from '@/../public/.well-known/nostr.json';
+
+// Helper function to check if pubkey is in nostr.json
+const isZapTokVerified = (pubkey: string): boolean => {
+  return Object.values(nostrJson.names).includes(pubkey);
+};
 
 const Profile = () => {
   const { pubkey: paramPubkey } = useParams();
@@ -105,6 +114,9 @@ const Profile = () => {
 
   const isOwnProfile = !paramPubkey || targetPubkey === user?.pubkey;
 
+  // Initialize analytics services for video reactions/comments/reposts
+  useInitializeAnalyticsServices();
+
   const author = useAuthor(targetPubkey);
   const following = useFollowing(targetPubkey);
   const currentUserFollowing = useFollowing(user?.pubkey || '');
@@ -116,6 +128,10 @@ const Profile = () => {
   
   // Fetch accurate follower and following counts from Primal
   const { followerCount, followingCount, isLoading: followerCountLoading } = usePrimalFollowerCount(targetPubkey);
+
+  // Fetch zap statistics for the user
+  const { total: receivedSats, isLoading: receivedZapsLoading } = useUserReceivedZapsTotal(targetPubkey);
+  const { total: sentSats, isLoading: sentZapsLoading } = useUserSentZapsTotal(targetPubkey);
 
   // Check if current user is following the target user
   const isFollowingTarget = Boolean(
@@ -342,7 +358,61 @@ const Profile = () => {
                   <div className={`${isMobile ? 'mb-6' : 'mb-8'}`}>
                     <div className="flex flex-col items-center space-y-6">
                       <div className="relative">
-                        <Avatar className={`${isMobile ? 'w-24 h-24' : 'w-32 h-32'}`}>
+                        {/* Voltage effect for ZapTok verified users */}
+                        {isZapTokVerified(targetPubkey) && (
+                          <div className="voltage-wrapper">
+                            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" viewBox="0 0 234.6 234.6" preserveAspectRatio="none">
+                              <defs>
+                                <filter id="glow">
+                                  <feGaussianBlur className="blur" result="coloredBlur" stdDeviation="4"></feGaussianBlur>
+                                  <feTurbulence type="fractalNoise" baseFrequency="0.1" numOctaves="1" seed="0" result="turbulence">
+                                    <animate attributeName="seed" from="0" to="100" dur="8s" repeatCount="indefinite"></animate>
+                                  </feTurbulence>
+                                  <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="96" xChannelSelector="R" yChannelSelector="R" result="displace"></feDisplacementMap>
+                                  <feMerge>
+                                    <feMergeNode in="coloredBlur"></feMergeNode>
+                                    <feMergeNode in="displace"></feMergeNode>
+                                  </feMerge>
+                                </filter>
+                                {/* Radial gradients for burst effects */}
+                                <radialGradient id="burst-gradient-orange">
+                                  <stop offset="0%" style={{ stopColor: '#fb923c', stopOpacity: 1 }} />
+                                  <stop offset="100%" style={{ stopColor: '#fb923c', stopOpacity: 0 }} />
+                                </radialGradient>
+                                <radialGradient id="burst-gradient-pink">
+                                  <stop offset="0%" style={{ stopColor: '#7c3aed', stopOpacity: 1 }} />
+                                  <stop offset="100%" style={{ stopColor: '#7c3aed', stopOpacity: 0 }} />
+                                </radialGradient>
+                                <radialGradient id="burst-gradient-purple">
+                                  <stop offset="0%" style={{ stopColor: '#6b21a8', stopOpacity: 1 }} />
+                                  <stop offset="100%" style={{ stopColor: '#6b21a8', stopOpacity: 0 }} />
+                                </radialGradient>
+                              </defs>
+                              <circle className="voltage-line-1" cx="117.3" cy="117.3" r="110" fill="none" strokeWidth="3" filter="url(#glow)"/>
+                              <circle className="voltage-line-2" cx="117.3" cy="117.3" r="110" fill="none" strokeWidth="3" filter="url(#glow)"/>
+                              <circle className="voltage-line-3" cx="117.3" cy="117.3" r="110" fill="none" strokeWidth="3" filter="url(#glow)"/>
+                              {/* Inner offset rings for depth */}
+                              <circle className="voltage-line-inner-1" cx="117.3" cy="117.3" r="105" fill="none" strokeWidth="2" filter="url(#glow)"/>
+                              <circle className="voltage-line-inner-2" cx="117.3" cy="117.3" r="115" fill="none" strokeWidth="2" filter="url(#glow)"/>
+                              {/* Lightning burst elements */}
+                              <circle className="lightning-burst burst-1" cx="117.3" cy="7.3" r="8" fill="url(#burst-gradient-orange)" filter="url(#glow)"/>
+                              <circle className="lightning-burst burst-2" cx="207.3" cy="67.3" r="6" fill="url(#burst-gradient-pink)" filter="url(#glow)"/>
+                              <circle className="lightning-burst burst-3" cx="207.3" cy="167.3" r="7" fill="url(#burst-gradient-purple)" filter="url(#glow)"/>
+                              <circle className="lightning-burst burst-4" cx="117.3" cy="227.3" r="5" fill="url(#burst-gradient-orange)" filter="url(#glow)"/>
+                              <circle className="lightning-burst burst-5" cx="27.3" cy="167.3" r="6" fill="url(#burst-gradient-pink)" filter="url(#glow)"/>
+                              <circle className="lightning-burst burst-6" cx="27.3" cy="67.3" r="7" fill="url(#burst-gradient-purple)" filter="url(#glow)"/>
+                            </svg>
+                            <div className="dots">
+                              <div className="dot dot-1"></div>
+                              <div className="dot dot-2"></div>
+                              <div className="dot dot-3"></div>
+                              <div className="dot dot-4"></div>
+                              <div className="dot dot-5"></div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <Avatar className={`${isMobile ? 'w-24 h-24' : 'w-32 h-32'} relative z-0`}>
                           <AvatarImage src={profileImage} alt={displayName} />
                           <AvatarFallback className={`${isMobile ? 'text-xl' : 'text-2xl'}`}>
                             {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
@@ -354,7 +424,7 @@ const Profile = () => {
                           <Button
                             size="icon"
                             variant="secondary"
-                            className="absolute -bottom-2 -right-2 h-10 w-10 rounded-full bg-gray-800 hover:bg-gray-700 border-2 border-black shadow-lg"
+                            className="absolute -bottom-2 -right-2 h-10 w-10 rounded-full bg-gray-800 hover:bg-gray-700 border-2 border-black shadow-lg z-20"
                             onClick={() => setShowNotificationSettings(true)}
                           >
                             <Bell className="w-5 h-5" />
@@ -366,7 +436,7 @@ const Profile = () => {
                           <Button
                             size="icon"
                             variant="secondary"
-                            className="absolute -bottom-2 -right-2 h-10 w-10 rounded-full bg-gray-800 hover:bg-gray-700 border-2 border-black shadow-lg"
+                            className="absolute -bottom-2 -right-2 h-10 w-10 rounded-full bg-gray-800 hover:bg-gray-700 border-2 border-black shadow-lg z-20"
                             onClick={() => setShowQRModal(true)}
                           >
                             <QrCode className="w-5 h-5" />
@@ -375,11 +445,53 @@ const Profile = () => {
                       </div>
 
                       <div className="text-center space-y-3">
-                        <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold`}>{displayName}</h1>
-                        <div className="flex items-center justify-center gap-2 flex-wrap">
-                          {userName !== displayName && (
-                            <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-gray-400`}>@{userName}</p>
+                        <div className="flex items-center justify-center gap-2">
+                          <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold`}>{displayName}</h1>
+                          {nip05 && (
+                            <div className="relative w-6 h-6 flex items-center justify-center">
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="w-full h-full"
+                                style={{
+                                  filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3))',
+                                }}
+                              >
+                                <defs>
+                                  <linearGradient id={isZapTokVerified(targetPubkey) ? 'zaptokGradient' : 'standardGradient'} x1="0%" y1="0%" x2="100%" y2="0%">
+                                    {isZapTokVerified(targetPubkey) ? (
+                                      <>
+                                        <stop offset="0%" style={{ stopColor: '#fb923c', stopOpacity: 1 }} />
+                                        <stop offset="35%" style={{ stopColor: '#ec4899', stopOpacity: 1 }} />
+                                        <stop offset="100%" style={{ stopColor: '#9333ea', stopOpacity: 1 }} />
+                                      </>
+                                    ) : (
+                                      <>
+                                        <stop offset="0%" style={{ stopColor: '#fb923c', stopOpacity: 1 }} />
+                                        <stop offset="50%" style={{ stopColor: '#ec4899', stopOpacity: 1 }} />
+                                        <stop offset="100%" style={{ stopColor: '#9333ea', stopOpacity: 1 }} />
+                                      </>
+                                    )}
+                                  </linearGradient>
+                                </defs>
+                                {/* Badge with decorative ridged edges */}
+                                <path
+                                  d="M12 2L13.5 3.5L15.5 3L16.5 4.5L18.5 4.5L19 6.5L21 7.5L21 9.5L22 12L21 14.5L21 16.5L19 17.5L18.5 19.5L16.5 19.5L15.5 21L13.5 20.5L12 22L10.5 20.5L8.5 21L7.5 19.5L5.5 19.5L5 17.5L3 16.5L3 14.5L2 12L3 9.5L3 7.5L5 6.5L5.5 4.5L7.5 4.5L8.5 3L10.5 3.5L12 2Z"
+                                  fill={isZapTokVerified(targetPubkey) ? 'url(#zaptokGradient)' : 'url(#standardGradient)'}
+                                />
+                                {/* White checkmark */}
+                                <path
+                                  d="M9 12l2 2 4-4"
+                                  stroke="white"
+                                  strokeWidth="2.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  fill="none"
+                                />
+                              </svg>
+                            </div>
                           )}
+                        </div>
+                        <div className="flex items-center justify-center gap-2 flex-wrap">
                           {nip05 && (
                             <Badge 
                               variant="secondary" 
@@ -392,35 +504,39 @@ const Profile = () => {
                                 });
                               }}
                             >
-                              ✓ {nip05}
+                              {nip05}
+                            </Badge>
+                          )}
+                          
+                          {nip05 && lightningAddress && (
+                            <Separator orientation="vertical" className="h-4" />
+                          )}
+                          
+                          {lightningAddress && (
+                            <Badge
+                              variant="secondary"
+                              className="text-sm bg-transparent hover:bg-gray-800 cursor-pointer transition-colors inline-flex items-center gap-1.5"
+                              onClick={() => {
+                                navigator.clipboard.writeText(lightningAddress);
+                                toast({
+                                  title: "Copied!",
+                                  description: "Lightning address copied to clipboard",
+                                });
+                              }}
+                            >
+                              <span className="text-yellow-500">⚡</span>
+                              <span>{lightningAddress}</span>
                             </Badge>
                           )}
                         </div>
-                        {lightningAddress && (
-                          <Badge
-                            variant="secondary"
-                            className="text-sm bg-transparent hover:bg-gray-800 cursor-pointer transition-colors inline-flex items-center gap-1.5"
-                            onClick={() => {
-                              navigator.clipboard.writeText(lightningAddress);
-                              toast({
-                                title: "Copied!",
-                                description: "Lightning address copied to clipboard",
-                              });
-                            }}
-                          >
-                            <span className="text-yellow-500">⚡</span>
-                            <span>{lightningAddress}</span>
-                          </Badge>
-                        )}
                       </div>
 
-                      {/* Profile Action Buttons - Only Following List and QR Code above bio */}
-                      <div className={`flex ${isMobile ? 'flex-wrap justify-center gap-2' : 'space-x-3'}`}>
-                        {/* 1. Followers Button */}
-                        <Button
-                          variant="outline"
+                      {/* Profile Stats - Followers, Following, Zap Stats with Four-way Divider */}
+                      <div className={`flex ${isMobile ? 'flex-wrap justify-center gap-1' : 'items-center'}`}>
+                        {/* 1. Followers */}
+                        <div
                           onClick={() => setShowFollowersModal(true)}
-                          className="flex items-center space-x-2"
+                          className="flex items-center space-x-2 cursor-pointer hover:opacity-70 transition-opacity"
                         >
                           <Users className="w-4 h-4" />
                           <span>
@@ -429,14 +545,18 @@ const Profile = () => {
                               : 'Followers'
                             }
                           </span>
-                        </Button>
+                        </div>
 
-                        {/* 2. Following List Button */}
-                        <Button
-                          variant="outline"
+                        <Separator orientation="vertical" className="h-6 mx-2" />
+
+                        {/* 2. Following */}
+                        <div
                           onClick={handleFollowingClick}
-                          className="flex items-center space-x-2"
-                          disabled={followerCountLoading || !following.data?.count}
+                          className={`flex items-center space-x-2 ${
+                            followerCountLoading || !following.data?.count
+                              ? 'opacity-50 cursor-not-allowed'
+                              : 'cursor-pointer hover:opacity-70 transition-opacity'
+                          }`}
                         >
                           <Users className="w-4 h-4" />
                           <span>
@@ -447,22 +567,50 @@ const Profile = () => {
                                 : `${following.data?.count || 0} Following`
                             }
                           </span>
-                        </Button>
+                        </div>
 
-                        {/* 4. Edit Profile Button - Only for own profile */}
-                        {isOwnProfile && (
-                          <Button
-                            variant="outline"
-                            onClick={() => withLoginCheck(() => setShowEditForm(true), {
-                              loginMessage: 'Login required to edit profile',
-                            })}
-                            className="flex items-center space-x-2"
-                          >
-                            <Edit className="w-4 h-4" />
-                            <span>Edit Profile</span>
-                          </Button>
-                        )}
+                        <Separator orientation="vertical" className="h-6 mx-2" />
+
+                        {/* 3. Sats Received */}
+                        <div className="flex items-center space-x-2">
+                          <span className="text-yellow-500">⚡</span>
+                          <span>
+                            {receivedZapsLoading ? (
+                              'Loading...'
+                            ) : (
+                              `${receivedSats.toLocaleString()} Received`
+                            )}
+                          </span>
+                        </div>
+
+                        <Separator orientation="vertical" className="h-6 mx-2" />
+
+                        {/* 4. Sats Sent */}
+                        <div className="flex items-center space-x-2">
+                          <span className="text-yellow-500">⚡</span>
+                          <span>
+                            {sentZapsLoading ? (
+                              'Loading...'
+                            ) : (
+                              `${sentSats.toLocaleString()} Sent`
+                            )}
+                          </span>
+                        </div>
                       </div>
+
+                      {/* Edit Profile Button - Only for own profile */}
+                      {isOwnProfile && (
+                        <Button
+                          variant="outline"
+                          onClick={() => withLoginCheck(() => setShowEditForm(true), {
+                            loginMessage: 'Login required to edit profile',
+                          })}
+                          className="flex items-center space-x-2"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span>Edit Profile</span>
+                        </Button>
+                      )}
 
                       {/* Bio - No border */}
                       {bio && (

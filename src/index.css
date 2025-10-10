@@ -309,3 +309,422 @@
     border-radius: 0 !important;
   }
 }
+
+/* Lightning pulse animation for ZapTok verified users */
+@keyframes lightning-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Spark flash animation */
+@keyframes spark-flash {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  10% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  20% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  30%, 90% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+/* Aura pulse animation */
+@keyframes pulse-aura {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+/* Slow spin animation for electric ring */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Voltage button effect */
+.voltage-button {
+  position: relative;
+}
+
+.voltage-button svg {
+  display: block;
+  position: absolute;
+  top: -0.75em;
+  left: -0.25em;
+  width: calc(100% + 0.5em);
+  height: calc(100% + 1.5em);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.4s;
+  transition-delay: 0.1s;
+}
+
+.voltage-button svg path {
+  stroke-dasharray: 100;
+  filter: url('#glow');
+}
+
+.voltage-button svg path.line-1 {
+  stroke: #f6de8d;
+  stroke-dashoffset: 0;
+  animation: spark-1 3s linear infinite;
+}
+
+.voltage-button svg path.line-2 {
+  stroke: #6bfeff;
+  stroke-dashoffset: 500;
+  animation: spark-2 3s linear infinite;
+}
+
+.voltage-button .dots {
+  opacity: 1;
+  transition: opacity 0.3s;
+  transition-delay: 0.4s;
+}
+
+.voltage-button .dots .dot {
+  width: 1.5rem;
+  height: 1.5rem;
+  background: white;
+  border-radius: 100%;
+  position: absolute;
+  opacity: 0;
+  box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.9), 
+              0 0 40px 10px rgba(246, 222, 141, 0.6);
+}
+
+.voltage-button .dots .dot-1 {
+  top: 0;
+  left: 20%;
+  animation: fly-up 3s linear infinite;
+}
+
+.voltage-button .dots .dot-2 {
+  top: 0;
+  left: 55%;
+  animation: fly-up 3s linear infinite;
+  animation-delay: 0.5s;
+}
+
+.voltage-button .dots .dot-3 {
+  top: 0;
+  left: 80%;
+  animation: fly-up 3s linear infinite;
+  animation-delay: 1s;
+}
+
+.voltage-button .dots .dot-4 {
+  bottom: 0;
+  left: 30%;
+  animation: fly-down 3s linear infinite;
+  animation-delay: 2.5s;
+}
+
+.voltage-button .dots .dot-5 {
+  bottom: 0;
+  left: 65%;
+  animation: fly-down 3s linear infinite;
+  animation-delay: 1.5s;
+}
+
+/* Voltage border effect around circular profile */
+.voltage-wrapper {
+  position: absolute;
+  top: -0.5em;
+  left: -0.5em;
+  width: calc(100% + 1em);
+  height: calc(100% + 1em);
+  pointer-events: none;
+  opacity: 0.8;
+  filter: brightness(1.1) contrast(1.0);
+  z-index: 10;
+}
+
+.voltage-wrapper svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.voltage-wrapper svg circle {
+  stroke-dasharray: 100;
+  filter: url('#glow');
+}
+
+.voltage-wrapper svg .voltage-line-1 {
+  stroke: #fb923c;
+  stroke-dashoffset: 0;
+  animation: spark-1 5s linear infinite, pulse-width 1.5s ease-in-out infinite;
+}
+
+.voltage-wrapper svg .voltage-line-2 {
+  stroke: #7c3aed;
+  stroke-dashoffset: 250;
+  animation: spark-2-reverse 4.5s linear infinite, pulse-width 1.8s ease-in-out infinite;
+  animation-delay: 0s, 0.4s;
+}
+
+.voltage-wrapper svg .voltage-line-3 {
+  stroke: #6b21a8;
+  stroke-dashoffset: 500;
+  animation: spark-1 4s linear infinite, pulse-width 2.1s ease-in-out infinite;
+  animation-delay: 0s, 0.8s;
+}
+
+.voltage-wrapper svg .voltage-line-inner-1 {
+  stroke: #fb923c;
+  stroke-dashoffset: 150;
+  opacity: 0.5;
+  animation: spark-2 4.2s linear infinite, pulse-width-thin 1.3s ease-in-out infinite;
+  animation-delay: 0s, 0.5s;
+}
+
+.voltage-wrapper svg .voltage-line-inner-2 {
+  stroke: #6b21a8;
+  stroke-dashoffset: 350;
+  opacity: 0.5;
+  animation: spark-1-reverse 4.8s linear infinite, pulse-width-thin 1.7s ease-in-out infinite;
+  animation-delay: 0s, 0.9s;
+}
+
+/* Lightning burst effects */
+.voltage-wrapper svg .lightning-burst {
+  opacity: 0;
+}
+
+.voltage-wrapper svg .burst-1 {
+  animation: lightning-strike 3s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+.voltage-wrapper svg .burst-2 {
+  animation: lightning-strike 2.5s ease-in-out infinite;
+  animation-delay: 1.2s;
+}
+
+.voltage-wrapper svg .burst-3 {
+  animation: lightning-strike 3.2s ease-in-out infinite;
+  animation-delay: 2.1s;
+}
+
+.voltage-wrapper svg .burst-4 {
+  animation: lightning-strike 2.8s ease-in-out infinite;
+  animation-delay: 0.8s;
+}
+
+.voltage-wrapper svg .burst-5 {
+  animation: lightning-strike 3.5s ease-in-out infinite;
+  animation-delay: 1.7s;
+}
+
+.voltage-wrapper svg .burst-6 {
+  animation: lightning-strike 2.3s ease-in-out infinite;
+  animation-delay: 0.3s;
+}
+
+@keyframes lightning-strike {
+  0%, 90%, 100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  92% {
+    opacity: 0.8;
+    transform: scale(1.5);
+  }
+  94% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  95% {
+    opacity: 1;
+    transform: scale(2);
+  }
+  97% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
+.voltage-wrapper .dots {
+  opacity: 1;
+  transition: opacity 0.3s;
+  transition-delay: 0.4s;
+  position: absolute;
+  inset: 0;
+}
+
+.voltage-wrapper .dots .dot {
+  width: 1rem;
+  height: 1rem;
+  background: white;
+  border-radius: 100%;
+  position: absolute;
+  opacity: 0;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+.voltage-wrapper .dots .dot-1 {
+  top: 0;
+  left: 20%;
+  animation: fly-up 3s linear infinite;
+}
+
+.voltage-wrapper .dots .dot-2 {
+  top: 0;
+  left: 55%;
+  animation: fly-up 3s linear infinite;
+  animation-delay: 0.5s;
+}
+
+.voltage-wrapper .dots .dot-3 {
+  top: 0;
+  left: 80%;
+  animation: fly-up 3s linear infinite;
+  animation-delay: 1s;
+}
+
+.voltage-wrapper .dots .dot-4 {
+  bottom: 0;
+  left: 30%;
+  animation: fly-down 3s linear infinite;
+  animation-delay: 2.5s;
+}
+
+.voltage-wrapper .dots .dot-5 {
+  bottom: 0;
+  left: 65%;
+  animation: fly-down 3s linear infinite;
+  animation-delay: 1.5s;
+}
+
+@keyframes spark-1 {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+@keyframes spark-2 {
+  to {
+    stroke-dashoffset: -500;
+  }
+}
+
+@keyframes spark-1-reverse {
+  to {
+    stroke-dashoffset: 1000;
+  }
+}
+
+@keyframes spark-2-reverse {
+  to {
+    stroke-dashoffset: 500;
+  }
+}
+
+@keyframes fly-up {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.2);
+  }
+  5% {
+    opacity: 1;
+    transform: translateY(-1.5rem) scale(0.4);
+  }
+  10%, 100% {
+    opacity: 0;
+    transform: translateY(-3rem) scale(0.2);
+  }
+}
+
+@keyframes fly-down {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.2);
+  }
+  5% {
+    opacity: 1;
+    transform: translateY(1.5rem) scale(0.4);
+  }
+  10%, 100% {
+    opacity: 0;
+    transform: translateY(3rem) scale(0.2);
+  }
+}
+
+@keyframes voltage-flicker {
+  0%, 100% {
+    opacity: 1;
+  }
+  25% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes pulse-width {
+  0%, 100% {
+    stroke-width: 3;
+  }
+  50% {
+    stroke-width: 5;
+  }
+}
+
+@keyframes pulse-width-thin {
+  0%, 100% {
+    stroke-width: 2;
+  }
+  50% {
+    stroke-width: 3.5;
+  }
+}
+
+@layer utilities {
+  .animate-spin-slow {
+    animation: spin-slow 8s linear infinite;
+  }
+  
+  .animate-spin-spark-1 {
+    animation: spin-slow 3s linear infinite;
+  }
+  
+  .animate-spin-spark-2 {
+    animation: spin-slow 3s linear infinite reverse;
+  }
+  
+  .animate-spin-spark-3 {
+    animation: spin-slow 4s linear infinite;
+  }
+  
+  .animate-pulse-aura {
+    animation: pulse-aura 2s ease-in-out infinite;
+  }
+}
