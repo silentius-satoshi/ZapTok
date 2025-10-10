@@ -157,7 +157,7 @@ export function LoginArea({
           <div className="flex items-center gap-0.5">
             <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
             <img 
-              src="/images/cashu-icon.png" 
+              src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
               alt="Cashu" 
               className="w-3 h-3"
             />

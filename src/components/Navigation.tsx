@@ -443,7 +443,7 @@ export function Navigation() {
                 title="Sign in to view your Cashu wallet"
               >
                 <img 
-                  src="/images/cashu-icon.png" 
+                  src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
                   alt="Cashu" 
                   className="w-5 h-5 rounded-full"
                 />

@@ -119,6 +119,12 @@ export function usePWA(): PWAState & PWAActions {
   // Register service worker
   // Service Worker registration with duplicate prevention
   useEffect(() => {
+    // Skip service worker registration in development mode
+    if (import.meta.env.DEV) {
+      console.log('[PWA] Service Worker disabled in development mode');
+      return;
+    }
+
     let hasRegistered = false;
 
     if ('serviceWorker' in navigator && !hasRegistered) {

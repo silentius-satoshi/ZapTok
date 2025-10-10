@@ -138,7 +138,7 @@ export function NutzapButton({ postId, showText = true, onToggle, isOpen = false
     >
       {/* Always show Cashu icon since this is specifically for Cashu payments */}
       <img 
-        src="/images/cashu-icon.png" 
+        src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
         alt="Cashu" 
         className="drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:scale-110 transition-all duration-200"
         style={{
