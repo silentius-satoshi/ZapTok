@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { MessageCircle, Bookmark, Plus, Repeat2, ArrowUpRight, Check, QrCode } from 'lucide-react';
-import { nip19 } from 'nostr-tools';
+import { MessageCircle, Bookmark, Plus, Repeat2, ArrowUpRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -14,12 +13,12 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useFollowUser } from '@/hooks/useFollowUser';
 import { useBookmarkVideo } from '@/hooks/useBookmarks';
-import { useToast } from '@/hooks/useToast';
 import { genUserName } from '@/lib/genUserName';
 import { ZapButton } from '@/components/ZapButton';
 import { NutzapButton } from '@/components/users/NutzapButton';
 import { CommentsModal } from '@/components/CommentsModal';
 import { QRModal } from '@/components/QRModal';
+import { ShareModal } from '@/components/ShareModal';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -51,13 +50,13 @@ export function VideoActionButtons({
   onProfileClick,
   onShare,
 }: VideoActionButtonsProps) {
-  const { user, canSign, isReadOnly } = useCurrentUser();
+  const { user } = useCurrentUser();
   const { withLoginCheck } = useLoginPrompt();
   const { config } = useAppContext();
   const { logins } = useNostrLogin();
-  const { toast } = useToast();
   const isMobile = useIsMobile();
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const reactions = useVideoReactions(event.id);
   const commentsData = useVideoComments(event.id);
   const repostsData = useVideoReposts(event.id);
@@ -146,65 +145,8 @@ export function VideoActionButtons({
     });
   });
 
-  const handleShare = onShare || (async () => {
-    try {
-      // Extract video URL from event tags (imeta or url tag)
-      let videoUrl: string | null = null;
-      
-      // First try to get URL from imeta tag
-      const imetaTag = event.tags.find(tag => tag[0] === 'imeta');
-      if (imetaTag && imetaTag.length > 1) {
-        // Parse imeta tag to get URL
-        const imetaStr = imetaTag[1];
-        const urlMatch = imetaStr.match(/url\s+(\S+)/);
-        if (urlMatch) {
-          videoUrl = urlMatch[1];
-        }
-      }
-      
-      // Fallback to url tag if no imeta found
-      if (!videoUrl) {
-        const urlTag = event.tags.find(tag => tag[0] === 'url');
-        if (urlTag && urlTag[1]) {
-          videoUrl = urlTag[1];
-        }
-      }
-      
-      // Use video URL if found, otherwise fallback to nevent
-      const shareUrl = videoUrl || (() => {
-        const nevent = nip19.neventEncode({
-          id: event.id,
-          author: event.pubkey,
-          kind: event.kind,
-        });
-        return `${window.location.origin}/${nevent}`;
-      })();
-
-      if (navigator.share) {
-        // Use native device share API when available
-        await navigator.share({
-          title: "ZapTok Video Post",
-          url: shareUrl,
-        });
-      } else {
-        // Fallback to copying URL to clipboard
-        await navigator.clipboard.writeText(shareUrl);
-        toast({
-          title: "Copied!",
-          description: "Video URL copied to clipboard",
-        });
-      }
-    } catch (error) {
-      // Handle errors gracefully
-      if ((error as Error).name !== 'AbortError') {
-        // AbortError occurs when user cancels the share dialog, which is normal
-        toast({
-          title: "Error",
-          description: "Failed to share post",
-          variant: "destructive",
-        });
-      }
-    }
+  const handleShare = onShare || (() => {
+    setShowShareModal(true);
   });
 
   const handleProfileClick = onProfileClick || (() => {
@@ -386,29 +328,6 @@ export function VideoActionButtons({
             Share
           </span>
         </div>
-
-        {/* 8. QR Code Button */}
-        <div className="flex flex-col items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`group rounded-full bg-transparent hover:bg-white/10 text-white transition-all duration-200 ${
-              isMobile ? 'h-12 w-12' : 'h-12 w-12'
-            }`}
-            onClick={() => setShowQRModal(true)}
-          >
-            <QrCode
-              className="text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-green-300 group-hover:scale-110 transition-all duration-200"
-              style={{
-                width: '28px',
-                height: '28px'
-              }}
-            />
-          </Button>
-          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
-            QR
-          </span>
-        </div>
       </div>
 
       {/* Comments Modal */}
@@ -424,9 +343,17 @@ export function VideoActionButtons({
         onClose={() => setShowQRModal(false)}
         pubkey={event.pubkey}
         metadata={author.data?.metadata}
-        displayName={displayName || genUserName(event.pubkey)}
+        displayName={authorDisplayName}
         relays={config.relayUrls}
         event={event}
+      />
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        event={event}
+        onQRCodeClick={() => setShowQRModal(true)}
       />
     </>
   );

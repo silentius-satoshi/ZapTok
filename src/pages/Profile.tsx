@@ -360,6 +360,18 @@ const Profile = () => {
                             <Bell className="w-5 h-5" />
                           </Button>
                         )}
+
+                        {/* QR Code Button - Only for other users' profiles */}
+                        {!isOwnProfile && (
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            className="absolute -bottom-2 -right-2 h-10 w-10 rounded-full bg-gray-800 hover:bg-gray-700 border-2 border-black shadow-lg"
+                            onClick={() => setShowQRModal(true)}
+                          >
+                            <QrCode className="w-5 h-5" />
+                          </Button>
+                        )}
                       </div>
 
                       <div className="text-center space-y-3">
@@ -435,15 +447,6 @@ const Profile = () => {
                                 : `${following.data?.count || 0} Following`
                             }
                           </span>
-                        </Button>
-
-                        {/* 3. QR Code Button */}
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowQRModal(true)}
-                          className="flex items-center justify-center w-10 h-10 p-0"
-                        >
-                          <QrCode className="w-4 h-4" />
                         </Button>
 
                         {/* 4. Edit Profile Button - Only for own profile */}
