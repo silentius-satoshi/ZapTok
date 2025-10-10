@@ -1,6 +1,7 @@
 import { useNostr } from '@/hooks/useNostr';
 import { useQuery } from '@tanstack/react-query';
 import { getZapInfoFromEvent } from '@/lib/event-metadata';
+import { usePrimalFollowerCount } from '@/hooks/usePrimalFollowerCount';
 
 /**
  * Hook to fetch all Lightning zaps received by a user across all their content
@@ -47,23 +48,26 @@ export function useUserReceivedZaps(userPubkey?: string) {
       return zaps;
     },
     enabled: !!nostr && !!userPubkey,
+    staleTime: 60 * 1000, // Consider data fresh for 1 minute
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 }
 
 /**
  * Hook to get the total amount of Lightning zaps received by a user
+ * Uses Primal's aggregated data for consistent, accurate totals
  */
 export function useUserReceivedZapsTotal(userPubkey?: string) {
-  const { data: zaps, isLoading, error } = useUserReceivedZaps(userPubkey);
+  const { profile, isLoading: primalLoading } = usePrimalFollowerCount(userPubkey);
 
-  // Calculate total sats received
-  const total = zaps?.reduce((acc, zap) => acc + zap.amount, 0) || 0;
+  // Use Primal's aggregated data for consistent totals
+  const total = profile?.total_satszapped || 0;
+  const count = profile?.total_zap_count || 0;
 
   return {
     total,
-    count: zaps?.length || 0,
-    zaps,
-    isLoading,
-    error,
+    count,
+    isLoading: primalLoading,
+    error: null,
   };
 }

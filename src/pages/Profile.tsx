@@ -44,6 +44,7 @@ import { usePrimalFollowerCount } from '@/hooks/usePrimalFollowerCount';
 import { getLightningAddress } from '@/lib/lightning';
 import { isYouTubeUrl } from '@/lib/youtubeEmbed';
 import nostrJson from '@/../public/.well-known/nostr.json';
+import { useNip05Verification } from '@/hooks/useNip05Verification';
 
 // Helper function to check if pubkey is in nostr.json
 const isZapTokVerified = (pubkey: string): boolean => {
@@ -147,6 +148,9 @@ const Profile = () => {
   const website = metadata?.website;
   const nip05 = metadata?.nip05;
   const lightningAddress = getLightningAddress(metadata);
+
+  // Verify NIP-05 identifier
+  const { isValid: isNip05Verified } = useNip05Verification(nip05, targetPubkey);
 
   // Generate NIP-19 identifiers for meta tags
   const npub = targetPubkey ? nip19.npubEncode(targetPubkey) : '';
@@ -447,7 +451,8 @@ const Profile = () => {
                       <div className="text-center space-y-3">
                         <div className="flex items-center justify-center gap-2">
                           <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold`}>{displayName}</h1>
-                          {nip05 && (
+                          {/* Only show verified badge if nip05 is actually verified */}
+                          {nip05 && isNip05Verified === true && (
                             <div className="relative w-6 h-6 flex items-center justify-center">
                               <svg
                                 viewBox="0 0 24 24"
@@ -460,15 +465,16 @@ const Profile = () => {
                                   <linearGradient id={isZapTokVerified(targetPubkey) ? 'zaptokGradient' : 'standardGradient'} x1="0%" y1="0%" x2="100%" y2="0%">
                                     {isZapTokVerified(targetPubkey) ? (
                                       <>
+                                        {/* ZapTok gradient colors */}
                                         <stop offset="0%" style={{ stopColor: '#fb923c', stopOpacity: 1 }} />
                                         <stop offset="35%" style={{ stopColor: '#ec4899', stopOpacity: 1 }} />
                                         <stop offset="100%" style={{ stopColor: '#9333ea', stopOpacity: 1 }} />
                                       </>
                                     ) : (
                                       <>
-                                        <stop offset="0%" style={{ stopColor: '#fb923c', stopOpacity: 1 }} />
-                                        <stop offset="50%" style={{ stopColor: '#ec4899', stopOpacity: 1 }} />
-                                        <stop offset="100%" style={{ stopColor: '#9333ea', stopOpacity: 1 }} />
+                                        {/* Plain gray for non-ZapTok verified */}
+                                        <stop offset="0%" style={{ stopColor: '#6b7280', stopOpacity: 1 }} />
+                                        <stop offset="100%" style={{ stopColor: '#6b7280', stopOpacity: 1 }} />
                                       </>
                                     )}
                                   </linearGradient>

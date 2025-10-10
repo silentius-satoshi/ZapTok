@@ -47,11 +47,15 @@ export function useUserSentZaps(userPubkey?: string) {
       return zaps;
     },
     enabled: !!nostr && !!userPubkey,
+    staleTime: 60 * 1000, // Consider data fresh for 1 minute
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 }
 
 /**
  * Hook to get the total amount of Lightning zaps sent by a user
+ * Note: Sent zaps are not aggregated by Primal, so we query relays directly
+ * The staleTime ensures consistent results across refreshes
  */
 export function useUserSentZapsTotal(userPubkey?: string) {
   const { data: zaps, isLoading, error } = useUserSentZaps(userPubkey);
