@@ -7,13 +7,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Play, Video, FileVideo, CheckCircle2, Zap } from 'lucide-react';
+import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Camera } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
 import { createVideoEvent, type VideoEventData } from '@/lib/videoEventStrategy';
 import { compressVideo, shouldCompressVideo, isCompressionSupported } from '@/lib/videoCompression';
 import blossomUploadService from '@/services/blossom-upload.service';
+import { VideoRecorderModal } from '@/components/VideoRecorderModal';
 
 interface VideoUploadModalProps {
   isOpen: boolean;
@@ -52,6 +53,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const [retryInfo, setRetryInfo] = useState<string>('');
   const [currentServer, setCurrentServer] = useState<string>('');
   const [uploadAttempts, setUploadAttempts] = useState<{server: string, attempt: number, error?: string}[]>([]);
+  const [showRecorderModal, setShowRecorderModal] = useState(false);
 
   // No longer using old upload hooks - hybrid Blossom service handles all uploads
   const [compressionProgress, setCompressionProgress] = useState(0);
@@ -554,23 +556,58 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         {/* Step 1: File Selection */}
         {uploadStep === 'select' && (
           <div className="space-y-4">
+            {/* Two-option layout: Record or Upload */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Record Video Button */}
+              <button
+                onClick={() => setShowRecorderModal(true)}
+                className="group relative overflow-hidden rounded-lg border-2 border-dashed border-gray-300 hover:border-purple-500 transition-all p-8 text-center cursor-pointer bg-gradient-to-br from-purple-50/50 to-orange-50/50 dark:from-purple-900/10 dark:to-orange-900/10 hover:from-purple-100/50 hover:to-orange-100/50 dark:hover:from-purple-900/20 dark:hover:to-orange-900/20"
+              >
+                <Camera className="mx-auto h-12 w-12 text-purple-600 dark:text-purple-400 mb-4 group-hover:scale-110 transition-transform" />
+                <p className="text-lg font-medium mb-2 bg-gradient-to-r from-purple-600 to-orange-600 bg-clip-text text-transparent">
+                  Record Video
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  Use your camera
+                </p>
+                <p className="text-xs text-gray-500">
+                  Record directly in browser
+                </p>
+              </button>
+
+              {/* Choose File Button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="group relative overflow-hidden rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-500 transition-all p-8 text-center cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/10"
+              >
+                <Upload className="mx-auto h-12 w-12 text-blue-600 dark:text-blue-400 mb-4 group-hover:scale-110 transition-transform" />
+                <p className="text-lg font-medium mb-2 text-blue-600 dark:text-blue-400">
+                  Choose File
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  From your device
+                </p>
+                <p className="text-xs text-gray-500">
+                  MP4, WebM, MOV, AVI
+                </p>
+              </button>
+            </div>
+
+            {/* Optional: Traditional drag-and-drop area */}
             <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer ${
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
                 isDragging
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-300 hover:border-gray-400'
+                  : 'border-gray-300/50'
               }`}
-              onClick={() => fileInputRef.current?.click()}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
-              <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <p className="text-lg font-medium mb-2">Select a video file</p>
-              <p className="text-sm text-gray-600 mb-4">
-                Drag and drop or click to browse
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Or drag and drop a video file here
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 mt-1">
                 Supports: MP4, WebM, MOV, AVI (max 100MB)
               </p>
             </div>
@@ -801,6 +838,16 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
           </div>
         )}
       </DialogContent>
+
+      {/* Camera Recording Modal */}
+      <VideoRecorderModal
+        isOpen={showRecorderModal}
+        onClose={() => setShowRecorderModal(false)}
+        onVideoReady={(file) => {
+          processFile(file);
+          setShowRecorderModal(false);
+        }}
+      />
     </Dialog>
   );
 }
