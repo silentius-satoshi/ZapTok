@@ -8,11 +8,13 @@ import { AuthenticationDebug } from '@/components/debug/AuthenticationDebug';
 import { WalletPaymentsDebug } from '@/components/debug/WalletPaymentsDebug';
 import { TechnicalDiagnostics } from '@/components/debug/TechnicalDiagnostics';
 import { AdvancedAnalysis } from '@/components/debug/AdvancedAnalysis';
+import { CacheManagementSettings } from '@/components/settings/CacheManagementSettings';
+import { PWAManagementSettings } from '@/components/settings/PWAManagementSettings';
 import { Copy, Download } from 'lucide-react';
 
 /**
  * Consolidated Developer Settings page with improved organization and reduced redundancy
- * Replaces the previous scattered debug components with a unified, progressive disclosure UI
+ * Includes Cache Management, PWA Management, and Debug tools in one unified interface
  */
 export function ConsolidatedDeveloperSettings() {
   const { user, metadata } = useCurrentUser();
@@ -174,6 +176,18 @@ export function ConsolidatedDeveloperSettings() {
         <WalletPaymentsDebug />
         <TechnicalDiagnostics />
         <AdvancedAnalysis />
+      </div>
+
+      {/* PWA Management Section */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-semibold">PWA Management</h3>
+        <PWAManagementSettings />
+      </div>
+
+      {/* Cache Management Section */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-semibold">Cache Management</h3>
+        <CacheManagementSettings />
       </div>
 
       {/* Footer Info */}
