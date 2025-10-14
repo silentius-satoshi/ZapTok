@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 // Preload and cache the logo image
 const logoImage = new Image();
-logoImage.src = '/images/icon-512x512.png';
+logoImage.src = `${import.meta.env.BASE_URL}images/icon-512x512.png`;
 
 export default function QrCode({ value, size = 180 }: { value: string; size?: number }) {
   const ref = useRef<HTMLDivElement>(null);

@@ -279,7 +279,7 @@ export function MobileNavigation() {
                   <div className="flex items-center gap-0.5">
                     <Bitcoin className="w-4 h-4 text-orange-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
                     <img 
-                      src="/images/cashu-icon.png" 
+                      src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
                       alt="Cashu" 
                       className="w-3 h-3" 
                       style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}

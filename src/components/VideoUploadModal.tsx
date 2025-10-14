@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,13 +7,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Play, Video, FileVideo, CheckCircle2, Zap } from 'lucide-react';
+import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
 import { createVideoEvent, type VideoEventData } from '@/lib/videoEventStrategy';
 import { compressVideo, shouldCompressVideo, isCompressionSupported } from '@/lib/videoCompression';
 import blossomUploadService from '@/services/blossom-upload.service';
+import { useRecordVideo } from '@/hooks/useRecordVideo';
 
 interface VideoUploadModalProps {
   isOpen: boolean;
@@ -35,6 +36,22 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const { mutate: createEvent } = useNostrPublish();
   const { toast } = useToast();
 
+  // Recording state from useRecordVideo hook
+  const {
+    isRecording,
+    isPaused,
+    recordedBlob,
+    error: recordingError,
+    stream,
+    duration: recordingDuration,
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+    resetRecording,
+    createFile,
+  } = useRecordVideo();
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoMetadata, setVideoMetadata] = useState<VideoMetadata>({
     title: '',
@@ -47,8 +64,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [uploadStep, setUploadStep] = useState<'select' | 'metadata' | 'uploading' | 'complete'>('select');
-  const [isDragging, setIsDragging] = useState(false);
+  const [uploadStep, setUploadStep] = useState<'camera' | 'metadata' | 'uploading' | 'complete'>('camera');
   const [retryInfo, setRetryInfo] = useState<string>('');
   const [currentServer, setCurrentServer] = useState<string>('');
   const [uploadAttempts, setUploadAttempts] = useState<{server: string, attempt: number, error?: string}[]>([]);
@@ -60,6 +76,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraPreviewRef = useRef<HTMLVideoElement>(null);
 
   const processFile = useCallback((file: File) => {
     // Validate file type
@@ -104,32 +121,6 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     setUploadStep('metadata');
   }, [toast, previewUrl]);
 
-  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    processFile(file);
-  }, [processFile]);
-
-  const handleDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    setIsDragging(false);
-
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      processFile(file);
-    }
-  }, [processFile]);
-
   const handleVideoLoad = useCallback(() => {
     if (videoRef.current) {
       const duration = videoRef.current.duration;
@@ -169,9 +160,27 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   }, []);
 
   const handleClose = useCallback(() => {
+    console.log('handleClose called - cleaning up');
+    
+    // FIRST: Reset recording state (this clears recordedBlob)
+    resetRecording();
+    
     // Clean up URLs
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
+    }
+
+    // Stop camera stream if active (resetRecording should already do this, but double-check)
+    if (stream) {
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log('Stopped camera track:', track.kind);
+      });
+    }
+
+    // Clean up recorded blob URL if exists
+    if (recordedBlob) {
+      URL.revokeObjectURL(URL.createObjectURL(recordedBlob));
     }
 
     // Reset state
@@ -187,7 +196,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     setPreviewUrl(null);
     setUploadProgress(0);
     setIsProcessing(false);
-    setUploadStep('select');
+    setUploadStep('camera');
     setCompressionProgress(0);
     setIsCompressing(false);
     setCompressionResult(null);
@@ -198,7 +207,123 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     }
 
     onClose();
-  }, [previewUrl, onClose]);
+  }, [previewUrl, stream, recordedBlob, resetRecording, onClose]);
+
+  // Cleanup when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      console.log('Modal closing - cleaning up camera and recording state');
+      
+      // Stop camera stream
+      if (stream) {
+        stream.getTracks().forEach(track => {
+          track.stop();
+          console.log('Stopped track:', track.kind);
+        });
+      }
+      
+      // Reset recording state completely
+      resetRecording();
+      
+      // Also reset local state
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      setUploadStep('camera');
+    }
+  }, [isOpen, stream, resetRecording]);
+
+  // Initialize camera when modal opens
+  useEffect(() => {
+    if (isOpen && uploadStep === 'camera' && !selectedFile && !recordedBlob) {
+      console.log('Modal opened - initializing camera');
+      
+      // Small delay to ensure cleanup has completed
+      const timer = setTimeout(() => {
+        startRecording().catch((err) => {
+          console.error('Failed to start camera:', err);
+          toast({
+            title: 'Camera Error',
+            description: 'Unable to access camera. Please check permissions.',
+            variant: 'destructive',
+          });
+        });
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, uploadStep, selectedFile, recordedBlob, startRecording, toast]);
+
+  // Attach stream to camera preview video element
+  useEffect(() => {
+    if (stream && cameraPreviewRef.current) {
+      cameraPreviewRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  // Handle recorded video
+  const handleUseRecording = useCallback(() => {
+    if (!recordedBlob) return;
+    
+    const file = createFile(`recording-${Date.now()}.webm`);
+    if (file) {
+      processFile(file);
+    }
+  }, [recordedBlob, createFile, processFile]);
+
+  // Handle re-record - fully reset and restart camera
+  const handleReRecord = useCallback(async () => {
+    console.log('Re-record: Resetting recording state...');
+    
+    // First, reset the recording state (clears recordedBlob)
+    resetRecording();
+    
+    // Wait a moment for state to clear
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Then start a fresh recording
+    try {
+      await startRecording();
+      console.log('Re-record: Camera restarted successfully');
+    } catch (err) {
+      console.error('Re-record: Failed to restart camera:', err);
+      toast({
+        title: 'Camera Error',
+        description: 'Unable to restart camera. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [resetRecording, startRecording, toast]);
+
+  // Handle record/pause button click
+  const handleRecordPauseClick = useCallback(() => {
+    if (!isRecording && !recordedBlob) {
+      // Start recording (camera already initialized)
+      return; // Camera auto-starts, no action needed
+    } else if (isRecording && !isPaused) {
+      // Pause recording
+      pauseRecording();
+    } else if (isPaused) {
+      // Resume recording
+      resumeRecording();
+    }
+  }, [isRecording, isPaused, recordedBlob, pauseRecording, resumeRecording]);
+
+  const handleStopRecording = useCallback(() => {
+    stopRecording();
+  }, [stopRecording]);
+
+  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    // Stop camera when file is selected
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+    resetRecording();
+    
+    processFile(file);
+  }, [processFile, stream, resetRecording]);
 
   const handleUpload = useCallback(async () => {
     if (!selectedFile || !user) return;
@@ -540,41 +665,142 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Video className="h-5 w-5" />
-            Upload Video to Nostr
-          </DialogTitle>
-          <DialogDescription>
-            Share your video content on the decentralized Nostr network
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Step 1: File Selection */}
-        {uploadStep === 'select' && (
-          <div className="space-y-4">
-            <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer ${
-                isDragging
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
+      <DialogContent 
+        hideClose
+        className="p-0 gap-0 border-0 bg-transparent max-w-none w-full h-full md:max-w-2xl md:h-[90vh] overflow-hidden"
+      >
+        {/* Camera View - Matches VideoCard dimensions exactly */}
+        {uploadStep === 'camera' && (
+          <div className="relative w-full h-full bg-black md:rounded-3xl md:border-2 md:border-gray-800 overflow-hidden md:shadow-2xl">
+            {/* Close Button */}
+            <button
+              onClick={handleClose}
+              className="absolute top-4 left-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
             >
-              <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <p className="text-lg font-medium mb-2">Select a video file</p>
-              <p className="text-sm text-gray-600 mb-4">
-                Drag and drop or click to browse
-              </p>
-              <p className="text-xs text-gray-500">
-                Supports: MP4, WebM, MOV, AVI (max 100MB)
-              </p>
+              <X className="h-6 w-6 text-white" />
+            </button>
+
+            {/* Camera Preview or Recorded Video Playback */}
+            <div className="w-full h-full flex items-center justify-center">
+              {recordedBlob ? (
+                // Playback after recording
+                <video
+                  ref={videoRef}
+                  src={URL.createObjectURL(recordedBlob)}
+                  controls
+                  className="w-full h-full object-cover"
+                  autoPlay
+                />
+              ) : (
+                // Live camera preview - mirrored for front-facing camera
+                <video
+                  ref={cameraPreviewRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover scale-x-[-1]"
+                  style={{ transform: 'scaleX(-1)' }}
+                />
+              )}
+
+              {/* Error State */}
+              {recordingError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                  <div className="text-center text-white max-w-md px-6">
+                    <p className="text-lg font-medium mb-2">Camera Access Required</p>
+                    <p className="text-sm text-gray-300">{recordingError}</p>
+                    <Button
+                      onClick={handleClose}
+                      variant="outline"
+                      className="mt-4"
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
+            {/* Duration Display - Top Center */}
+            {isRecording && (
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 px-4 py-2 rounded-full bg-red-600 text-white font-mono text-sm flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-white animate-pulse" />
+                {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
+              </div>
+            )}
+
+            {/* Bottom Controls */}
+            <div className="absolute bottom-0 left-0 right-0 z-40 pb-8 pt-12 bg-gradient-to-t from-black/80 to-transparent">
+              <div className="flex items-center justify-between px-6">
+                {/* Upload File Button - Bottom Left */}
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full bg-gray-800/70 hover:bg-gray-700 text-white h-14 w-14"
+                >
+                  <ImageIcon className="h-6 w-6" />
+                </Button>
+
+                {/* Center Record/Pause Button */}
+                <div className="flex flex-col items-center gap-2">
+                  {recordedBlob ? (
+                    // Show "Next" button after recording
+                    <Button
+                      onClick={handleUseRecording}
+                      size="lg"
+                      className="rounded-full h-20 w-20 bg-gradient-to-r from-purple-600 to-orange-600 hover:from-purple-700 hover:to-orange-700"
+                    >
+                      <CheckCircle2 className="h-8 w-8" />
+                    </Button>
+                  ) : (
+                    <button
+                      onClick={handleRecordPauseClick}
+                      className="relative h-20 w-20 rounded-full border-4 border-white flex items-center justify-center bg-transparent hover:bg-white/10 transition-all"
+                    >
+                      {isRecording && !isPaused ? (
+                        <div className="w-12 h-12 bg-white" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-red-600" />
+                      )}
+                    </button>
+                  )}
+                  
+                  {/* Recording control buttons */}
+                  {isRecording && !recordedBlob && (
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleStopRecording}
+                        variant="ghost"
+                        size="sm"
+                        className="text-white hover:bg-white/20"
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-1" />
+                        Done
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Re-record after recording is done */}
+                  {recordedBlob && (
+                    <Button
+                      onClick={handleReRecord}
+                      variant="ghost"
+                      size="sm"
+                      className="text-white hover:bg-white/20"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-1" />
+                      Re-record
+                    </Button>
+                  )}
+                </div>
+
+                {/* Right side placeholder for symmetry */}
+                <div className="h-14 w-14" />
+              </div>
+            </div>
+
+            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
@@ -585,11 +811,26 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
           </div>
         )}
 
-        {/* Step 2: Metadata Input */}
+        {/* Metadata Step - Matches VideoCard dimensions */}
         {uploadStep === 'metadata' && selectedFile && (
-          <div className="space-y-4">
+          <div className="w-full h-full bg-gradient-to-b from-gray-900 to-black md:rounded-3xl md:border-2 md:border-gray-800 overflow-hidden flex flex-col md:shadow-2xl">
+            {/* Header with Close Button */}
+            <div className="flex items-center justify-between p-4 bg-black/50 backdrop-blur-sm border-b border-gray-800">
+              <button
+                onClick={() => setUploadStep('camera')}
+                className="p-2 rounded-full hover:bg-gray-800 transition-colors text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <h2 className="text-lg font-semibold text-white">Video Details</h2>
+              <div className="w-9" /> {/* Spacer for centering */}
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto scrollbar-hide">
+              <div className="space-y-4 p-4">
             {/* Video Preview */}
-            <Card>
+            <Card className="bg-gray-800/50 border-gray-700">
               <CardContent className="p-4">
                 <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4 relative">
                   {previewUrl ? (
@@ -683,7 +924,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
             {/* Action Buttons */}
             <div className="flex gap-2 pt-4">
-              <Button variant="outline" onClick={() => setUploadStep('select')}>
+              <Button variant="outline" onClick={() => setUploadStep('camera')}>
                 Back
               </Button>
               <Button
@@ -695,12 +936,15 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                 Upload to Nostr
               </Button>
             </div>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Step 3: Uploading */}
         {uploadStep === 'uploading' && (
-          <div className="space-y-4 text-center">
+          <div className="w-full h-full bg-black md:rounded-3xl md:border-2 md:border-gray-800 overflow-hidden flex items-center justify-center md:shadow-2xl">
+          <div className="space-y-4 text-center max-w-md px-6">
             {isCompressing ? (
               <>
                 <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
@@ -771,11 +1015,13 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               </>
             )}
           </div>
+          </div>
         )}
 
         {/* Step 4: Complete */}
         {uploadStep === 'complete' && (
-          <div className="space-y-4 text-center">
+          <div className="w-full h-full bg-black md:rounded-3xl md:border-2 md:border-gray-800 overflow-hidden flex items-center justify-center md:shadow-2xl">
+          <div className="space-y-4 text-center max-w-md px-6">
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
@@ -798,6 +1044,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             <Button onClick={handleClose} className="w-full">
               Done
             </Button>
+          </div>
           </div>
         )}
       </DialogContent>

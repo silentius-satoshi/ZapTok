@@ -42,7 +42,7 @@ import { nip19 } from 'nostr-tools';
 import { usePrimalFollowerCount } from '@/hooks/usePrimalFollowerCount';
 import { getLightningAddress } from '@/lib/lightning';
 import { isYouTubeUrl } from '@/lib/youtubeEmbed';
-import nostrJson from '@/../public/.well-known/nostr.json';
+import nostrJson from '@/.well-known/nostr.json';
 import { useNip05Verification } from '@/hooks/useNip05Verification';
 
 // Helper function to check if pubkey is in nostr.json
@@ -674,7 +674,7 @@ const Profile = () => {
                             className="w-10 h-10"
                             onClick={() => setIsNutzapDialogOpen(true)}
                           >
-                            <img src="/images/cashu-icon.png" alt="Cashu" className="h-4 w-4" />
+                            <img src={`${import.meta.env.BASE_URL}images/cashu-icon.png`} alt="Cashu" className="h-4 w-4" />
                           </Button>
 
                           {/* 4. Direct Message Button */}

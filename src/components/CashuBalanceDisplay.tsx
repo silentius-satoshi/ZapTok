@@ -48,7 +48,7 @@ export function CashuBalanceDisplay({
         title="Click to open Cashu wallet"
       >
         <img 
-          src="/images/cashu-icon.png" 
+          src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
           alt="Cashu" 
           className="h-4 w-4" 
         />
@@ -72,7 +72,7 @@ export function CashuBalanceDisplay({
       <div className="flex items-center space-x-3">
         <div className="p-2 rounded-full bg-yellow-500/10">
           <img 
-            src="/images/cashu-icon.png" 
+            src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
             alt="Cashu" 
             className="h-5 w-5" 
           />

@@ -1,5 +1,8 @@
 // ZapTok Service Worker - Lightning & Nostr PWA
+/// <reference lib="webworker" />
 import { precacheAndRoute } from 'workbox-precaching';
+
+declare const self: ServiceWorkerGlobalScope;
 
 // Precache files injected by Workbox during build
 precacheAndRoute(self.__WB_MANIFEST);
@@ -148,7 +151,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Network-first strategy (for dynamic content)
-async function networkFirst(request) {
+async function networkFirst(request: Request): Promise<Response> {
   try {
     const networkResponse = await fetch(request);
 
@@ -198,7 +201,7 @@ async function networkFirst(request) {
 }
 
 // Cache-first strategy (for static assets)
-async function cacheFirst(request) {
+async function cacheFirst(request: Request): Promise<Response> {
   try {
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
@@ -236,7 +239,7 @@ async function cacheFirst(request) {
 }
 
 // Stale-while-revalidate strategy (for general content)
-async function staleWhileRevalidate(request) {
+async function staleWhileRevalidate(request: Request): Promise<Response> {
   try {
     const cache = await caches.open(DYNAMIC_CACHE);
     const cachedResponse = await cache.match(request);
@@ -300,10 +303,10 @@ async function syncCashuTransactions() {
       try {
         // Retry the transaction
         await retryTransaction(transaction);
-        console.log('[SW] Successfully synced Cashu transaction:', transaction.id);
+        console.log('[SW] Successfully synced Cashu transaction:', (transaction as any).id);
 
         // Remove from pending queue
-        await removePendingTransaction(transaction.id);
+        await removePendingTransaction((transaction as any).id);
 
         // Notify the app
         await notifyClients({
@@ -311,7 +314,7 @@ async function syncCashuTransactions() {
           transaction
         });
       } catch (error) {
-        console.error('[SW] Failed to sync Cashu transaction:', transaction.id, error);
+        console.error('[SW] Failed to sync Cashu transaction:', (transaction as any).id, error);
       }
     }
   } catch (error) {
@@ -341,7 +344,7 @@ self.addEventListener('message', (event) => {
     const { payload } = event.data;
     console.log('[SW] Notification payload:', payload);
     
-    const options = {
+    const options: NotificationOptions & { vibrate?: number[] } = {
       body: payload.body,
       icon: payload.icon,
       badge: payload.badge,
@@ -353,7 +356,7 @@ self.addEventListener('message', (event) => {
 
     // Add actions if provided
     if (payload.actions && payload.actions.length > 0) {
-      options.actions = payload.actions;
+      (options as any).actions = payload.actions;
     }
 
     console.log('[SW] About to show notification with options:', options);
@@ -376,30 +379,30 @@ self.addEventListener('message', (event) => {
 self.addEventListener('push', (event) => {
   console.log('[SW] Push notification received');
 
-  let data = {};
+  let data: any = {};
   try {
     data = event.data ? event.data.json() : {};
   } catch (error) {
     console.error('[SW] Failed to parse push data:', error);
   }
 
-  const options = {
+  const options: NotificationOptions & { vibrate?: number[] } = {
     badge: '/ZapTok/images/ZapTok-v3.png',
     icon: '/ZapTok/images/ZapTok-v3.png',
     vibrate: [200, 100, 200],
     data: data,
-    actions: []
   };
 
   let title = 'ZapTok';
   let body = 'You have a new notification';
+  let actions: Array<{ action: string; title: string }> = [];
 
   // Handle different notification types
   switch (data.type) {
     case 'lightning-payment':
       title = '⚡ Lightning Payment';
       body = `Received ${data.amount} sats${data.from ? ` from ${data.from}` : ''}`;
-      options.actions = [
+      actions = [
         { action: 'view', title: 'View Payment' },
         { action: 'dismiss', title: 'Dismiss' }
       ];
@@ -408,7 +411,7 @@ self.addEventListener('push', (event) => {
     case 'cashu-token':
       title = '🥜 Cashu Token';
       body = `New ${data.amount} sat token${data.from ? ` from ${data.from}` : ''}`;
-      options.actions = [
+      actions = [
         { action: 'redeem', title: 'Redeem Token' },
         { action: 'view', title: 'View Details' }
       ];
@@ -417,7 +420,7 @@ self.addEventListener('push', (event) => {
     case 'zap':
       title = '⚡ Zap Received';
       body = `${data.amount} sats zapped to your content!`;
-      options.actions = [
+      actions = [
         { action: 'view', title: 'View Content' },
         { action: 'thank', title: 'Send Thanks' }
       ];
@@ -426,7 +429,7 @@ self.addEventListener('push', (event) => {
     case 'comment':
       title = '💬 New Comment';
       body = data.preview || 'Someone commented on your video';
-      options.actions = [
+      actions = [
         { action: 'reply', title: 'Reply' },
         { action: 'view', title: 'View Video' }
       ];
@@ -437,8 +440,10 @@ self.addEventListener('push', (event) => {
       body = data.body || body;
   }
 
-  options.title = title;
   options.body = body;
+  if (actions.length > 0) {
+    (options as any).actions = actions;
+  }
 
   event.waitUntil(
     self.registration.showNotification(title, options)
@@ -494,7 +499,7 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
         // Check if app is already open
         for (const client of clientList) {
@@ -511,8 +516,8 @@ self.addEventListener('notificationclick', (event) => {
         }
 
         // Open new window if app is not open
-        if (clients.openWindow) {
-          return clients.openWindow(url);
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(url);
         }
       })
   );
@@ -524,16 +529,16 @@ async function getPendingCashuTransactions() {
   return [];
 }
 
-async function removePendingTransaction(transactionId) {
+async function removePendingTransaction(transactionId: string) {
   // Implementation would remove transaction from IndexedDB
 }
 
-async function retryTransaction(transaction) {
+async function retryTransaction(transaction: any) {
   // Implementation would retry the failed transaction
 }
 
 // Notify all clients about events
-async function notifyClients(message) {
+async function notifyClients(message: any) {
   const clients = await self.clients.matchAll();
   clients.forEach(client => {
     client.postMessage(message);
