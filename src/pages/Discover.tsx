@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { Navigation } from '@/components/Navigation';
 import { LoginArea } from '@/components/auth/LoginArea';
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { VideoGrid } from '@/components/VideoGrid';
+import { VideoCard } from '@/components/VideoCard';
 import { Search, TrendingUp, Hash, X, Users, Globe } from 'lucide-react';
 import { useTimelineGlobalVideoFeed } from '@/hooks/useTimelineVideoFeed';
 import { useSearchVideos, useSearchVideosInFollowing } from '@/hooks/useSearchVideos';
@@ -17,6 +18,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useFollowing } from '@/hooks/useFollowing';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { debounce } from 'lodash';
+import type { VideoEvent } from '@/lib/validateVideoEvent';
 
 const Discover = () => {
   const { user } = useCurrentUser();
@@ -25,6 +27,9 @@ const Discover = () => {
   const [searchFilter, setSearchFilter] = useState('');
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [searchScope, setSearchScope] = useState<'all' | 'following'>('all');
+  const [showVideoViewer, setShowVideoViewer] = useState(false);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const videoViewerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
   // Use timeline global feed when not searching
@@ -48,7 +53,7 @@ const Discover = () => {
   const isSearching = searchFilter.trim().length > 0;
   const searchResults = searchScope === 'all' ? globalSearchResults : followingSearchResults;
   
-  const displayVideos = isSearching ? searchResults : globalVideos;
+  const displayVideos: VideoEvent[] | undefined = isSearching ? searchResults : globalVideos;
   const isLoading = isSearching 
     ? (searchScope === 'all' ? isGlobalLoading : isFollowingLoading)
     : isGlobalFeedLoading;
@@ -118,6 +123,69 @@ const Discover = () => {
     setSearchFilter(combinedQuery);
   };
 
+  // Video viewer handlers
+  const handleVideoClick = (index: number) => {
+    setCurrentVideoIndex(index);
+    setShowVideoViewer(true);
+  };
+
+  const handleCloseVideoViewer = () => {
+    setShowVideoViewer(false);
+  };
+
+  const handleNextVideo = () => {
+    const videos = displayVideos || [];
+    if (currentVideoIndex < videos.length - 1) {
+      setCurrentVideoIndex(currentVideoIndex + 1);
+    }
+  };
+
+  const handlePreviousVideo = () => {
+    if (currentVideoIndex > 0) {
+      setCurrentVideoIndex(currentVideoIndex - 1);
+    }
+  };
+
+  // Track scroll position to update current video index
+  useEffect(() => {
+    if (!showVideoViewer || !videoViewerRef.current) return;
+
+    const handleScroll = () => {
+      const container = videoViewerRef.current;
+      if (!container) return;
+
+      const scrollPosition = container.scrollTop;
+      const videoHeight = container.clientHeight;
+      const newIndex = Math.round(scrollPosition / videoHeight);
+      const videos = displayVideos || [];
+      
+      if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < videos.length) {
+        setCurrentVideoIndex(newIndex);
+      }
+    };
+
+    const container = videoViewerRef.current;
+    container.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [showVideoViewer, currentVideoIndex, displayVideos]);
+
+  // Scroll to the clicked video when viewer opens
+  useEffect(() => {
+    if (showVideoViewer && videoViewerRef.current) {
+      const container = videoViewerRef.current;
+      const videoHeight = container.clientHeight;
+      const scrollPosition = currentVideoIndex * videoHeight;
+      
+      container.scrollTo({
+        top: scrollPosition,
+        behavior: 'instant'
+      });
+    }
+  }, [showVideoViewer, currentVideoIndex]);
+
   const trendingTags = [
     'zaptok', 'bitcoin', 'nostr', 'comedy', 'music', 'technology', 'art', 'news', 'gaming'
   ];
@@ -164,7 +232,42 @@ const Discover = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Search Scope Toggle - Removed */}
+                    {/* Search Scope Toggle */}
+                    {user && following.data && following.data.pubkeys.length > 0 && (
+                      <div className="flex items-center space-x-2 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium mb-1">Search Scope</p>
+                          <p className="text-xs text-gray-400">
+                            {searchScope === 'all' 
+                              ? 'Searching across all users on the relay'
+                              : `Searching within ${following.data.pubkeys.length} people you follow`
+                            }
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant={searchScope === 'all' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setSearchScope('all')}
+                            className="flex items-center space-x-1"
+                          >
+                            <Globe className="w-3 h-3" />
+                            <span>All Users</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={searchScope === 'following' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setSearchScope('following')}
+                            className="flex items-center space-x-1"
+                          >
+                            <Users className="w-3 h-3" />
+                            <span>Following</span>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     <form onSubmit={handleSearchSubmit} className="flex space-x-2">
                       <div className="flex-1 relative">
@@ -272,6 +375,8 @@ const Discover = () => {
                               : "Enter a search query to find videos"
                         }
                         allowRemove={false}
+                        showVerificationBadge={false}
+                        onVideoClick={handleVideoClick}
                       />
 
                       {/* Load More Button for Global Feed */}
@@ -336,15 +441,6 @@ const Discover = () => {
                             <div className="space-y-3">
                               <div>
                                 <p className="text-sm text-blue-300 mb-2">
-                                  <strong>Search Scopes:</strong>
-                                </p>
-                                <ul className="text-sm text-blue-300 space-y-1 ml-4">
-                                  <li>• <strong>All Users:</strong> Search through all videos on the relay</li>
-                                  <li>• <strong>Following Only:</strong> Search only within videos from people you follow</li>
-                                </ul>
-                              </div>
-                              <div>
-                                <p className="text-sm text-blue-300 mb-2">
                                   <strong>NIP-50 Search Extensions:</strong>
                                 </p>
                                 <ul className="text-sm text-blue-300 space-y-1 ml-4">
@@ -372,6 +468,46 @@ const Discover = () => {
             </div>
           </div>
         </main>
+
+        {/* Feed-Style Video Viewer */}
+        {showVideoViewer && displayVideos && displayVideos.length > 0 && (
+          <div 
+            ref={videoViewerRef}
+            className="fixed inset-0 z-50 bg-black overflow-y-auto snap-y snap-mandatory"
+          >
+            {/* Close Button */}
+            <button
+              onClick={handleCloseVideoViewer}
+              className="fixed top-4 right-4 z-50 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+              aria-label="Close video viewer"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+
+            {/* Render all videos for scrolling */}
+            {displayVideos.map((video, index) => {
+              // Determine if this video should be preloaded for smooth scrolling
+              // Preload current, next, and previous videos
+              const shouldPreload = Math.abs(index - currentVideoIndex) <= 1;
+              
+              return (
+                <div key={video.id} className="h-screen flex items-center justify-center snap-start">
+                  <div className="flex w-full items-end h-full gap-6 max-w-2xl">
+                    <div className="flex-1 h-full rounded-3xl border-2 border-gray-800 overflow-hidden bg-black shadow-2xl relative">
+                      <VideoCard 
+                        event={video}
+                        isActive={index === currentVideoIndex}
+                        onNext={handleNextVideo}
+                        onPrevious={handlePreviousVideo}
+                        shouldPreload={shouldPreload}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </AuthGate>
   );
