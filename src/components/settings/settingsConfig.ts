@@ -2,8 +2,6 @@ import { ComponentType } from 'react';
 
 // Import all settings components
 import { AppearanceSettings } from './AppearanceSettings';
-import { FeedsSettings } from './FeedsSettings';
-import { DiscoverySettings } from './DiscoverySettings';
 import { MediaUploadsSettings } from './MediaUploadsSettings';
 import { StreamSettings } from './StreamSettings';
 import { CashuWalletSettings } from './CashuWalletSettings';
@@ -13,8 +11,6 @@ import { ZapsSettings } from './ZapsSettings';
 import { GenericSettings } from './GenericSettings';
 import { ConsolidatedDeveloperSettings } from '../debug/ConsolidatedDeveloperSettings';
 import { KeysSettings } from './KeysSettings';
-import { CacheManagementSettings } from './CacheManagementSettings';
-import { PWAManagementSettings } from './PWAManagementSettings';
 
 export interface SettingsSectionConfig {
   id: string;
@@ -24,7 +20,7 @@ export interface SettingsSectionConfig {
   requiresProps?: boolean;
 }
 
-export const settingsSections: SettingsSectionConfig[] = [
+const allSettingsSections: SettingsSectionConfig[] = [
   // Core Identity & Security Settings
   {
     id: 'keys',
@@ -57,18 +53,6 @@ export const settingsSections: SettingsSectionConfig[] = [
   },
 
   // Content Settings
-  {
-    id: 'feeds',
-    title: 'Feeds',
-    component: FeedsSettings,
-    category: 'content'
-  },
-  {
-    id: 'discovery',
-    title: 'Discovery',
-    component: DiscoverySettings,
-    category: 'content'
-  },
   {
     id: 'stream',
     title: 'Stream',
@@ -104,22 +88,10 @@ export const settingsSections: SettingsSectionConfig[] = [
     category: 'interface'
   },
 
-  // Developer Settings
-  {
-    id: 'cache-management',
-    title: 'Cache Management',
-    component: CacheManagementSettings,
-    category: 'developer'
-  },
-  {
-    id: 'pwa-management',
-    title: 'PWA Management',
-    component: PWAManagementSettings,
-    category: 'developer'
-  },
+  // Developer Settings (includes Cache & PWA Management)
   {
     id: 'developer',
-    title: 'Developer Debug',
+    title: 'Developer & Advanced',
     component: ConsolidatedDeveloperSettings,
     category: 'developer'
   },
@@ -132,6 +104,15 @@ export const settingsSections: SettingsSectionConfig[] = [
     category: 'monetization'
   }
 ];
+
+// Filter out sections that should be hidden in production
+export const settingsSections: SettingsSectionConfig[] = allSettingsSections.filter(section => {
+  // Hide appearance, muted content, and content moderation from production
+  if (import.meta.env.PROD) {
+    return !['appearance', 'muted-content', 'content-moderation'].includes(section.id);
+  }
+  return true;
+});
 
 export const getSettingSectionById = (id: string): SettingsSectionConfig | undefined => {
   return settingsSections.find(section => section.id === id);

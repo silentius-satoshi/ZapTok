@@ -115,7 +115,8 @@ export function Navigation() {
   };
 
     const navItems = [
-    { id: 'search', icon: Search, label: 'Discover', path: '/discover' },
+    // Hide Discover page from production
+    ...(!import.meta.env.PROD ? [{ id: 'search', icon: Search, label: 'Discover', path: '/discover' }] : []),
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
     { id: 'following', icon: Users, label: 'Following', path: '/following' },
     { id: 'global', icon: Globe, label: 'Global', path: '/' },

@@ -19,6 +19,7 @@ import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Global from "./pages/Global";
 import Discover from "./pages/Discover";
+import Hashtag from "./pages/Hashtag";
 import Notifications from "./pages/Notifications";
 import { Settings } from "./pages/Settings";
 import { LightningWallet } from "./pages/LightningWallet";
@@ -59,7 +60,9 @@ function RouteHandler() {
     <Routes>
       <Route path="/" element={<Global />} />
       <Route path="/following" element={<Index />} />
-      <Route path="/discover" element={<Discover />} />
+      {/* Hide Discover page from production */}
+      {!import.meta.env.PROD && <Route path="/discover" element={<Discover />} />}
+      <Route path="/t/:tag" element={<Hashtag />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/profile/:pubkey" element={<Profile />} />
       <Route path="/global" element={<Global />} />
