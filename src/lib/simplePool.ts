@@ -1,5 +1,6 @@
 import { SimplePool } from '@nostr/tools/pool';
 import type { Filter, Event as NostrToolsEvent } from 'nostr-tools';
+import type { EventTemplate, VerifiedEvent } from '@nostr/tools';
 
 /**
  * Singleton SimplePool instance for timeline/feed operations
@@ -146,4 +147,129 @@ export function getEventHints(eventId: string): string[] {
 export function getEventHint(eventId: string): string | undefined {
   const relays = getEventHints(eventId);
   return relays[0];
+}
+
+/**
+ * Signer interface matching NIP-07 pattern
+ * Used for NIP-42 AUTH event signing
+ */
+export interface Signer {
+  signEvent(event: EventTemplate): Promise<VerifiedEvent>;
+  getPublicKey(): Promise<string>;
+}
+
+/**
+ * Publish event with automatic NIP-42 AUTH handling (Jumble pattern)
+ * 
+ * Implements inline error-catching pattern from Jumble:
+ * 1. Attempt to publish event
+ * 2. If "auth-required" error occurs, authenticate using relay.auth()
+ * 3. Retry publish after successful authentication
+ * 
+ * SimplePool's relay.auth() method handles the entire AUTH flow:
+ * - Receives challenge from relay
+ * - Creates kind 22242 AUTH event
+ * - Signs event with provided signer
+ * - Sends AUTH response to relay
+ * 
+ * @param relayUrl - Single relay URL to publish to
+ * @param event - Event to publish
+ * @param signer - Signer for AUTH events (optional, required for protected relays)
+ * @returns Promise resolving when event is published
+ * 
+ * @example
+ * ```ts
+ * const { user } = useCurrentUser();
+ * await publishWithAuth(
+ *   'wss://relay.example.com',
+ *   myEvent,
+ *   user.signer
+ * );
+ * ```
+ */
+export async function publishWithAuth(
+  relayUrl: string,
+  event: NostrToolsEvent,
+  signer?: Signer
+): Promise<void> {
+  const relay = await simplePool.ensureRelay(relayUrl);
+  
+  try {
+    // First attempt: publish without AUTH
+    await relay.publish(event);
+  } catch (error) {
+    // Check if error is auth-required
+    const isAuthRequired = 
+      error instanceof Error && 
+      error.message.toLowerCase().includes('auth-required');
+    
+    if (isAuthRequired && signer) {
+      // Authenticate using relay's built-in auth() method
+      // This handles the entire NIP-42 flow automatically
+      await relay.auth((authEvent: EventTemplate) => signer.signEvent(authEvent));
+      
+      // Retry publish after successful authentication
+      await relay.publish(event);
+    } else {
+      // Re-throw if not auth-required or no signer available
+      throw error;
+    }
+  }
+}
+
+/**
+ * Query events with automatic NIP-42 AUTH handling (Jumble pattern)
+ * 
+ * Implements the same inline error-catching pattern as publishWithAuth:
+ * 1. Attempt to query events
+ * 2. If "auth-required" error occurs, authenticate using relay.auth()
+ * 3. Retry query after successful authentication
+ * 
+ * @param relayUrl - Single relay URL to query
+ * @param filters - Nostr filter object(s)
+ * @param signer - Signer for AUTH events (optional, required for protected relays)
+ * @param opts - Optional query options (signal for abort)
+ * @returns Promise resolving to array of events
+ * 
+ * @example
+ * ```ts
+ * const { user } = useCurrentUser();
+ * const events = await queryWithAuth(
+ *   'wss://relay.example.com',
+ *   [{ kinds: [1], limit: 20 }],
+ *   user.signer,
+ *   { signal: AbortSignal.timeout(3000) }
+ * );
+ * ```
+ */
+export async function queryWithAuth(
+  relayUrl: string,
+  filters: Filter[],
+  signer?: Signer,
+  opts?: { signal?: AbortSignal }
+): Promise<NostrToolsEvent[]> {
+  try {
+    // First attempt: query without AUTH
+    const events = await fetchEvents([relayUrl], filters, opts);
+    return events;
+  } catch (error) {
+    // Check if error is auth-required
+    const isAuthRequired = 
+      error instanceof Error && 
+      error.message.toLowerCase().includes('auth-required');
+    
+    if (isAuthRequired && signer) {
+      const relay = await simplePool.ensureRelay(relayUrl);
+      
+      // Authenticate using relay's built-in auth() method
+      await relay.auth((authEvent: EventTemplate) => signer.signEvent(authEvent));
+      
+      // Retry query after successful authentication
+      const events = await fetchEvents([relayUrl], filters, opts);
+      return events;
+    } else {
+      // Re-throw if not auth-required or no signer available
+      throw error;
+    }
+  }
 }
