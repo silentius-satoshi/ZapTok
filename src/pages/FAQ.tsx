@@ -253,6 +253,17 @@ export function FAQ() {
                                         </a>
                                         {' '}remote signer (recommended for beginners)
                                       </li>
+                                      <li>Android users: Use{' '}
+                                        <a 
+                                          href="https://github.com/greenart7c3/Amber" 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline"
+                                        >
+                                          Amber
+                                        </a>
+                                        {' '}app (works as both extension and remote signer via bunker://)
+                                      </li>
                                       <li>Works across all devices with QR code login</li>
                                     </ul>
                                     
@@ -370,12 +381,22 @@ export function FAQ() {
                                       >
                                         chrome
                                       </a>
-                                      {')'}):
+                                      {'), '}
+                                      <a 
+                                        href="https://github.com/greenart7c3/Amber" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline"
+                                      >
+                                        Amber
+                                      </a>
+                                      {' (Android)'}):
                                     </p>
                                     <ul className="list-disc pl-5 space-y-1">
-                                      <li>Store keys locally in your browser</li>
-                                      <li>Good for desktop use</li>
+                                      <li>Store keys locally in your browser or device</li>
+                                      <li>Good for desktop use (Alby, nos2x) or mobile (Amber)</li>
                                       <li>Work only on the device where installed</li>
+                                      <li>Amber can also work as a remote signer via bunker:// for PWA usage</li>
                                     </ul>
                                     
                                     <p><strong>Remote Signers</strong> ({' '}

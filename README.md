@@ -54,9 +54,7 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 ### 💼 **Advanced Features**
 - **Cashu Wallet Management**: Full wallet interface with mint management and transaction history
 - **QR Code Integration**: Scan lightning invoices, Cashu tokens, and Nostr identifiers
-- **Relay Health Monitoring**: Real-time relay status and performance tracking
 - **Video Analytics**: View counts, engagement metrics, and zap statistics
-- **Content Moderation**: User-controlled muting and filtering options
 
 ### 📱 **Progressive Web App**
 - **Full PWA Support**: Installable on mobile and desktop
@@ -78,6 +76,7 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 - **Creator Tools**: Zap goals, supporter badges, and subscriber perks
 - **Long-Form Content**: Article and blog post support (NIP-23)
 - **Video Playlists**: Curated collections and watch later functionality
+- **Content Moderation**: User-controlled muting and filtering options
 
 ## Philosophy
 
@@ -99,8 +98,8 @@ ZapTok believes in:
 <summary><strong>� New to ZapTok? Start here</strong></summary>
 
 Visit [ZapTok.social](https://zaptok.social) and explore in read-only mode, or log in with:
-- **Nostr browser extension**: [Alby](https://getalby.com/alby-extension), [nos2x](https://github.com/fiatjaf/nos2x)
-- **Remote signer**: [nsec.app](https://nsec.app) (recommended for mobile)
+- **Nostr browser extension**: [Alby](https://getalby.com/alby-extension), [nos2x](https://github.com/fiatjaf/nos2x), [Amber](https://github.com/greenart7c3/Amber) (Android)
+- **Remote signer**: [nsec.app](https://nsec.app) (recommended for mobile), Amber via bunker://
 - **Create new identity**: [nstart.me](https://nstart.me/en)
 
 For detailed setup instructions, visit the [in-app FAQ](https://zaptok.social/#/faq).
@@ -256,8 +255,8 @@ No! One Nostr identity works everywhere. Your same npub (Nostr public key) logs 
 *Identity & Authentication*
 - NIP-02: Contact List and Petnames (follow system)
 - NIP-05: DNS-based verification (Nostr addresses)
-- NIP-07: Browser extension interface (Alby, nos2x)
-- NIP-46: Nostr Connect (remote signers)
+- NIP-07: Browser extension interface (Alby, nos2x, Amber)
+- NIP-46: Nostr Connect (remote signers like nsec.app and Amber)
 
 *Content & Metadata*
 - NIP-10: Conventions for `e` and `p` tags (replies/mentions)
@@ -337,11 +336,6 @@ For developers interested in contributing to ZapTok:
 
 ZapTok is licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0-or-later).
 
-This means:
-- ✅ You can use, study, modify, and share this software freely
-- ✅ If you run a modified version as a web service, you must share your source code
-- ✅ All modifications must also be licensed under AGPL-3.0
-- ✅ This protects the open source community from proprietary forks
 
 ### Copyright Notice
 
@@ -412,6 +406,7 @@ ZapTok stands on the shoulders of giants. We're deeply grateful to the open-sour
 - **[Blossom-client-sdk](https://github.com/hzrd149/blossom-client-sdk)** - A simple client for managing blobs on blossom servers
 - **[Nostr Logins](https://github.com/nostrband/nostr-login)** -  powerful window.nostr provider
 - **[NoAuth](https://github.com/nostrband/noauth)** **([nsec.app](https://nsec.app/))** - Noauth Nostr key manager
+- **[Amber](https://github.com/greenart7c3/Amber)** - Amber is a nostr event signer for Android. It allows users to keep their nsec segregated in a single, dedicated app.
 - **[MKStack](https://soapbox.pub/mkstack)** **([Gitlab](https://gitlab.com/soapbox-pub/mkstack))** - Nostr client framework for web.
 
 

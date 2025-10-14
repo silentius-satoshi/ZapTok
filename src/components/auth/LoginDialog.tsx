@@ -28,6 +28,10 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
   const [nsec, setNsec] = useState('');
   const [bunkerUri, setBunkerUri] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Detect Android/mobile for Amber hint
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const login = useLoginActions();
 
   const handleExtensionLogin = () => {
@@ -179,6 +183,13 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                 <label htmlFor='bunkerUri' className='text-sm font-medium text-gray-700 dark:text-gray-400'>
                   Bunker URI
                 </label>
+                {isAndroid && (
+                  <div className="mb-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                      📱 <strong>Amber users:</strong> Open Amber app → Settings → Generate bunker:// connection → Copy and paste below
+                    </p>
+                  </div>
+                )}
                 <Input
                   id='bunkerUri'
                   value={bunkerUri}
@@ -188,6 +199,11 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                 />
                 {bunkerUri && !bunkerUri.startsWith('bunker://') && (
                   <p className='text-red-500 text-xs'>URI must start with bunker://</p>
+                )}
+                {!bunkerUri && (
+                  <p className='text-xs text-gray-500 dark:text-gray-400'>
+                    Works with nsec.app, Amber, and other NIP-46 signers
+                  </p>
                 )}
               </div>
 
