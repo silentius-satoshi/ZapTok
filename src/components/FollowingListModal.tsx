@@ -2,11 +2,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 import { useAuthors } from '@/hooks/useAuthors';
 import { genUserName } from '@/lib/genUserName';
-import { Users } from 'lucide-react';
+import { Users, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 interface FollowingListModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ interface FollowingListModalProps {
 export function FollowingListModal({ isOpen, onClose, pubkeys, followingCount }: FollowingListModalProps) {
   const authors = useAuthors(pubkeys);
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Refetch author metadata when modal opens
   useEffect(() => {
@@ -26,10 +28,33 @@ export function FollowingListModal({ isOpen, onClose, pubkeys, followingCount }:
     }
   }, [isOpen]); // Only depend on isOpen, not authors.refetch to avoid loops
 
+  // Reset search when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery('');
+    }
+  }, [isOpen]);
+
   const handleProfileClick = (pubkey: string) => {
     navigate(`/profile/${pubkey}`);
     onClose();
   };
+
+  // Filter authors based on search query
+  const filteredAuthors = useMemo(() => {
+    if (!searchQuery.trim() || !authors.data) {
+      return authors.data || [];
+    }
+
+    const query = searchQuery.toLowerCase();
+    return authors.data.filter((author) => {
+      const displayName = (author.metadata?.display_name || author.metadata?.name || genUserName(author.pubkey)).toLowerCase();
+      const userName = (author.metadata?.name || genUserName(author.pubkey)).toLowerCase();
+      const nip05 = String(author.metadata?.nip05 || '').toLowerCase();
+      
+      return displayName.includes(query) || userName.includes(query) || nip05.includes(query);
+    });
+  }, [authors.data, searchQuery]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -43,6 +68,18 @@ export function FollowingListModal({ isOpen, onClose, pubkeys, followingCount }:
             View the list of users being followed
           </DialogDescription>
         </DialogHeader>
+
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search by name, username, or NIP-05..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         
         <ScrollArea className="h-[60vh] pr-4">
           <div className="space-y-3">
@@ -62,12 +99,21 @@ export function FollowingListModal({ isOpen, onClose, pubkeys, followingCount }:
                 <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>Not following anyone yet</p>
               </div>
+            ) : filteredAuthors.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No results found</p>
+                <p className="text-sm mt-2">Try a different search term</p>
+              </div>
             ) : (
-              authors.data?.map((author) => {
-                const displayName = author.metadata?.display_name || author.metadata?.name || genUserName(author.pubkey);
-                const userName = author.metadata?.name || genUserName(author.pubkey);
+              filteredAuthors.map((author) => {
+                if (!author || !author.pubkey) return null;
+                
+                const displayName = String(author.metadata?.display_name || author.metadata?.name || genUserName(author.pubkey));
+                const userName = String(author.metadata?.name || genUserName(author.pubkey));
                 const profileImage = author.metadata?.picture;
                 const about = author.metadata?.about;
+                const nip05 = author.metadata?.nip05;
                 
                 return (
                   <div
@@ -87,7 +133,10 @@ export function FollowingListModal({ isOpen, onClose, pubkeys, followingCount }:
                       {userName !== displayName && (
                         <p className="text-xs text-muted-foreground truncate">@{userName}</p>
                       )}
-                      {about && (
+                      {nip05 && typeof nip05 === 'string' && (
+                        <p className="text-xs text-blue-400 truncate">✓ {nip05}</p>
+                      )}
+                      {about && typeof about === 'string' && !nip05 && (
                         <p className="text-xs text-muted-foreground truncate mt-1">{about}</p>
                       )}
                     </div>
@@ -102,10 +151,13 @@ export function FollowingListModal({ isOpen, onClose, pubkeys, followingCount }:
         {!authors.isLoading && pubkeys.length > 0 && (
           <div className="pt-2 border-t text-center">
             <p className="text-xs text-muted-foreground">
-              {followingCount && pubkeys.length !== followingCount
-                ? `Showing ${pubkeys.length} of ${followingCount.toLocaleString()} following · Count from Primal`
-                : `All ${pubkeys.length} following`
-              }
+              {searchQuery.trim() ? (
+                `Showing ${filteredAuthors.length} of ${pubkeys.length} results`
+              ) : followingCount && pubkeys.length !== followingCount ? (
+                `Showing ${pubkeys.length} of ${followingCount.toLocaleString()} following · Count from Primal`
+              ) : (
+                `All ${pubkeys.length} following`
+              )}
             </p>
           </div>
         )}

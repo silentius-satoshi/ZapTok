@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,8 +9,9 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Users } from "lucide-react";
+import { AlertCircle, Users, Search } from "lucide-react";
 import { usePrimalFollowers } from "@/hooks/usePrimalFollowers";
 import { useAuthors } from "@/hooks/useAuthors";
 import { useNavigate } from "react-router-dom";
@@ -32,6 +33,7 @@ export function FollowersListModal({
   const { followers, isLoading, error, fetchFollowers } = usePrimalFollowers(pubkey);
   const authors = useAuthors(followers);
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch followers when modal opens
   useEffect(() => {
@@ -47,10 +49,33 @@ export function FollowersListModal({
     }
   }, [open, followers.length]); // Only depend on open and followers.length
 
+  // Reset search when modal closes
+  useEffect(() => {
+    if (!open) {
+      setSearchQuery('');
+    }
+  }, [open]);
+
   const handleProfileClick = (pubkey: string) => {
     navigate(`/profile/${pubkey}`);
     onOpenChange(false);
   };
+
+  // Filter authors based on search query
+  const filteredAuthors = useMemo(() => {
+    if (!searchQuery.trim() || !authors.data) {
+      return authors.data || [];
+    }
+
+    const query = searchQuery.toLowerCase();
+    return authors.data.filter((author) => {
+      const displayName = (author.metadata?.display_name || author.metadata?.name || genUserName(author.pubkey)).toLowerCase();
+      const userName = (author.metadata?.name || genUserName(author.pubkey)).toLowerCase();
+      const nip05 = String(author.metadata?.nip05 || '').toLowerCase();
+      
+      return displayName.includes(query) || userName.includes(query) || nip05.includes(query);
+    });
+  }, [authors.data, searchQuery]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -65,9 +90,21 @@ export function FollowersListModal({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search by name, username, or NIP-05..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
         <ScrollArea className="h-[60vh] pr-4">
           <div className="space-y-3">
-            {isLoading ? (
+            {isLoading || authors.isLoading ? (
               // Loading skeletons
               Array.from({ length: 10 }).map((_, i) => (
                 <div key={i} className="flex items-center space-x-3 p-3 rounded-lg">
@@ -92,10 +129,20 @@ export function FollowersListModal({
                   Follower data provided by Primal's indexing service
                 </p>
               </div>
+            ) : filteredAuthors.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No results found</p>
+                <p className="text-sm mt-2">Try a different search term</p>
+              </div>
             ) : (
-              authors.data?.map((author) => {
-                const displayName = author.metadata?.display_name || author.metadata?.name || genUserName(author.pubkey);
+              filteredAuthors.map((author) => {
+                if (!author || !author.pubkey) return null;
+                
+                const displayName = String(author.metadata?.display_name || author.metadata?.name || genUserName(author.pubkey));
+                const userName = String(author.metadata?.name || genUserName(author.pubkey));
                 const profileImage = author.metadata?.picture;
+                const nip05 = author.metadata?.nip05;
 
                 return (
                   <div
@@ -112,8 +159,11 @@ export function FollowersListModal({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{displayName}</p>
                       <p className="text-xs text-muted-foreground truncate">
-                        @{author.metadata?.name || genUserName(author.pubkey)}
+                        @{userName}
                       </p>
+                      {nip05 && typeof nip05 === 'string' && (
+                        <p className="text-xs text-blue-400 truncate">✓ {nip05}</p>
+                      )}
                     </div>
                   </div>
                 );
@@ -122,14 +172,18 @@ export function FollowersListModal({
           </div>
         </ScrollArea>
 
-        {!isLoading && !error && followers.length > 0 && (
+        {!isLoading && !authors.isLoading && !error && followers.length > 0 && (
           <div className="pt-2 border-t text-center">
             <p className="text-xs text-muted-foreground">
-              {followers.length >= 1000 
-                ? `Showing first ${followers.length} followers · Data from Primal`
-                : followers.length === followerCount
-                  ? `All ${followers.length} followers · Data from Primal`
-                  : `Showing ${followers.length} of ${followerCount?.toLocaleString()} followers · Data from Primal`
+              {searchQuery.trim() 
+                ? `Showing ${filteredAuthors.length} of ${followers.length} results`
+                : followers.length >= 1000 
+                  ? `Showing first ${followers.length} followers · Data from Primal`
+                  : followerCount && followers.length === followerCount 
+                    ? `All ${followers.length} followers · Data from Primal`
+                    : followerCount
+                      ? `Showing ${followers.length} of ${followerCount.toLocaleString()} followers · Data from Primal`
+                      : `${followers.length} followers · Data from Primal`
               }
             </p>
           </div>
