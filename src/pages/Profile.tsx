@@ -15,7 +15,6 @@ import { useRepostedVideos } from '@/hooks/useRepostedVideos';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useLoginPrompt } from '@/hooks/useLoginPrompt';
 import { useUserReceivedZapsTotal } from '@/hooks/useUserReceivedZaps';
-import { useUserSentZapsTotal } from '@/hooks/useUserSentZaps';
 import { useInitializeAnalyticsServices } from '@/hooks/useInitializeAnalyticsServices';
 import { genUserName } from '@/lib/genUserName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -132,7 +131,6 @@ const Profile = () => {
 
   // Fetch zap statistics for the user
   const { total: receivedSats, isLoading: receivedZapsLoading } = useUserReceivedZapsTotal(targetPubkey);
-  const { total: sentSats, isLoading: sentZapsLoading } = useUserSentZapsTotal(targetPubkey);
 
   // Check if current user is following the target user
   const isFollowingTarget = Boolean(
@@ -589,19 +587,6 @@ const Profile = () => {
                           </span>
                         </div>
 
-                        <Separator orientation="vertical" className="h-6 mx-2" />
-
-                        {/* 4. Sats Sent */}
-                        <div className="flex items-center space-x-2">
-                          <span className="text-yellow-500">⚡</span>
-                          <span>
-                            {sentZapsLoading ? (
-                              'Loading...'
-                            ) : (
-                              `${sentSats.toLocaleString()} Sent`
-                            )}
-                          </span>
-                        </div>
                       </div>
 
                       {/* Edit Profile Button - Only for own profile */}
