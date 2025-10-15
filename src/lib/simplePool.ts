@@ -1,5 +1,5 @@
 import { SimplePool } from '@nostr/tools/pool';
-import type { Filter, Event as NostrToolsEvent } from 'nostr-tools';
+import type { Filter, Event as NostrToolsEvent } from '@nostr/tools';
 import type { EventTemplate, VerifiedEvent } from '@nostr/tools';
 
 /**

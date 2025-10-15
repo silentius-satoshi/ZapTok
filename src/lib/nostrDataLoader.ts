@@ -1,6 +1,6 @@
 import DataLoader from 'dataloader';
 import { SimplePool } from '@nostr/tools/pool';
-import type { Filter, Event as NostrEvent } from 'nostr-tools';
+import type { Filter, Event as NostrEvent } from '@nostr/tools';
 
 /**
  * DataLoader configuration for Nostr event batching
@@ -36,9 +36,10 @@ export function createEventDataLoader(
           const events: NostrEvent[] = [];
           const eventSet = new Set<string>();
 
+          const filters: Filter[] = [{ ids: Array.from(eventIds) }];
           const sub = pool.subscribeMany(
             relays,
-            [{ ids: Array.from(eventIds) }],
+            filters,
             {
               onevent(event) {
                 // Deduplicate by ID
@@ -109,9 +110,10 @@ export function createProfileDataLoader(
           const profiles: NostrEvent[] = [];
           const pubkeySet = new Set<string>();
 
+          const filters: Filter[] = [{ kinds: [0], authors: Array.from(pubkeys) }];
           const sub = pool.subscribeMany(
             relays,
-            [{ kinds: [0], authors: Array.from(pubkeys) }],
+            filters,
             {
               onevent(event) {
                 // Only keep the latest profile per pubkey
@@ -185,9 +187,10 @@ export function createRelayListDataLoader(
         const relayListsPromise = new Promise<NostrEvent[]>((resolve) => {
           const relayLists: NostrEvent[] = [];
 
+          const filters: Filter[] = [{ kinds: [10002], authors: Array.from(pubkeys) }];
           const sub = pool.subscribeMany(
             relays,
-            [{ kinds: [10002], authors: Array.from(pubkeys) }],
+            filters,
             {
               onevent(event) {
                 // Only keep the latest relay list per pubkey
@@ -263,9 +266,10 @@ export function createContactListDataLoader(
         const contactListsPromise = new Promise<NostrEvent[]>((resolve) => {
           const contactLists: NostrEvent[] = [];
 
+          const filters: Filter[] = [{ kinds: [3], authors: Array.from(pubkeys) }];
           const sub = pool.subscribeMany(
             relays,
-            [{ kinds: [3], authors: Array.from(pubkeys) }],
+            filters,
             {
               onevent(event) {
                 // Only keep the latest contact list per pubkey
