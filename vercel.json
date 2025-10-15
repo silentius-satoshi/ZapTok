@@ -1,4 +1,5 @@
 {
+  "buildCommand": "git fetch --unshallow --tags && npm run build",
   "headers": [
     {
       "source": "/.well-known/nostr.json",
