@@ -67,6 +67,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const location = useLocation(); // Add location for route-based decisions
   const { logins } = useNostrLogin(); // Get authentication state
 
+  // Track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+  
   // Track relay connection states
   const [connectionState, setConnectionState] = useState<RelayConnectionState>({});
   
@@ -336,8 +339,10 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   if (!pool.current) {
     pool.current = new NPool({
       open(url: string) {
-        // Set initial connecting state
-        setConnectionState(prev => ({ ...prev, [url]: 'connecting' }));
+        // Set initial connecting state only if component is still mounted
+        if (isMountedRef.current) {
+          setConnectionState(prev => ({ ...prev, [url]: 'connecting' }));
+        }
 
         const relay = new NRelay1(url);
 
@@ -346,6 +351,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         const cleanupTimeouts: NodeJS.Timeout[] = [];
         
         const checkConnection = () => {
+          // Guard against state updates after unmount
+          if (!isMountedRef.current) return;
+          
           if (relay.socket && !hasLogged) {
             if (relay.socket.readyState === 1) {
               // Success - add to connected list (avoid duplicates)
@@ -409,6 +417,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   // Cleanup effect to prevent memory leaks
   useEffect(() => {
     return () => {
+      // Mark component as unmounted to prevent state updates
+      isMountedRef.current = false;
+      
       // Clean up timers in all relays
       if (pool.current) {
         // Access the private relays Map from NPool
