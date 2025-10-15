@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readFileSync } from "node:fs";
 
 import react from "@vitejs/plugin-react-swc";
 import { VitePWA } from 'vite-plugin-pwa';
@@ -16,36 +17,7 @@ const getGitHash = () => {
 };
 
 const getAppVersion = () => {
-  console.log('[Version] Attempting to get version from Git tags...');
-  
-  try {
-    // Try to get the latest Git tag (e.g., "v0.1.0")
-    const tag = execSync('git describe --tags --abbrev=0 2>/dev/null', { encoding: 'utf8' }).trim();
-    if (tag && tag.length > 0) {
-      console.log(`[Version] Found tag via describe: ${tag}`);
-      return JSON.stringify(tag);
-    }
-  } catch (error) {
-    console.log('[Version] git describe failed, trying alternative...');
-  }
-  
-  try {
-    // Try getting all tags and use the latest one
-    const tags = execSync('git tag -l "v*" --sort=-version:refname 2>/dev/null', { encoding: 'utf8' }).trim();
-    if (tags && tags.length > 0) {
-      const latestTag = tags.split('\n')[0];
-      if (latestTag) {
-        console.log(`[Version] Found tag via tag list: ${latestTag}`);
-        return JSON.stringify(latestTag);
-      }
-    }
-  } catch (error) {
-    console.log('[Version] git tag list failed');
-  }
-  
-  // If no tags exist or git commands fail, fall back to "dev"
-  console.warn('[Version] No Git tags found, using "dev" as version');
-  return '"dev"';
+  return JSON.stringify(packageJson.version);
 };
 
 // https://vitejs.dev/config/
