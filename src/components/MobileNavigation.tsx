@@ -335,52 +335,25 @@ export function MobileNavigation() {
               <UserPlus className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
             </button>
 
-            {/* Wallet Icons - show based on user type or default for read-only */}
-            {user && isNsecSigner ? (
-              <>
-                {/* Cashu Wallet Icon */}
-                <button
-                  onClick={() => navigate('/cashu-wallet')}
-                  aria-label="Cashu Wallet"
-                  className="text-white/80 hover:text-white transition-colors"
-                >
-                  <img
-                    src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
-                    alt="Cashu"
-                    className="w-6 h-6"
-                    style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
-                  />
-                </button>
-
-                {/* Bitcoin Connect Wallet Icon */}
-                <button
-                  onClick={() => navigate('/bitcoin-connect-wallet')}
-                  aria-label="Bitcoin Connect Wallet"
-                  className="text-white/80 hover:text-white transition-colors"
-                >
-                  <Zap className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => {
-                  if (!user) {
-                    setShowLoginModal(true);
-                  } else {
-                    navigate('/cashu-wallet');
-                  }
-                }}
-                aria-label="Cashu Wallet"
-                className="text-white/80 hover:text-white transition-colors"
-              >
-                <img
-                  src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
-                  alt="Cashu"
-                  className="w-6 h-6"
-                  style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
-                />
-              </button>
-            )}
+            {/* Wallet Icon - Cashu only (Bitcoin Connect is in bottom nav) */}
+            <button
+              onClick={() => {
+                if (!user) {
+                  setShowLoginModal(true);
+                } else {
+                  navigate('/cashu-wallet');
+                }
+              }}
+              aria-label="Cashu Wallet"
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+                alt="Cashu"
+                className="w-6 h-6"
+                style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
+              />
+            </button>
 
             {/* Upload Icon */}
             <button
