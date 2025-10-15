@@ -357,6 +357,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             className={`w-full h-full ${objectFitClass} cursor-pointer`}
             loop
             playsInline
+            autoPlay={isActive}
             muted={!isActive} // Mute inactive videos, unmute active video
             preload={isActive || shouldPreload || (gridMode && isMobile) ? "auto" : "metadata"} // Force auto preload for mobile grid to show poster
             webkit-playsinline="true" // iOS Safari compatibility
@@ -365,15 +366,6 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             onClick={handlePlayPause}
             onPlay={handleVideoPlay}
             onPause={handleVideoPause}
-            onTouchStart={(e) => {
-              // PWA mobile touch optimization
-              const isPWAMobile = isMobile && (isStandalone || isInstalled);
-              if (isPWAMobile) {
-                // Prevent default to avoid mobile browser interference
-                e.preventDefault();
-                bundleLog('mobilePWAInteraction', '👆 Touch interaction on video in PWA');
-              }
-            }}
           />
         )
       ) : isTestingUrls ? (
