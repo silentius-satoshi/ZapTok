@@ -229,48 +229,32 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         videoElement.currentTime = 0;
         hasBeenActivatedRef.current = true;
       }
-      
-      // Unmute the active video for audio playback
-      videoElement.muted = false;
 
       if (!userPaused) {
         // Enhanced PWA mobile autoplay strategy
         const isPWAMobile = isMobile && (isStandalone || isInstalled);
+        
+        // Always start muted for reliable autoplay across all platforms
+        videoElement.muted = true;
+        
         const playPromise = videoElement.play();
 
         if (playPromise !== undefined) {
           playPromise
             .then(() => {
-              // Autoplay with audio succeeded
-              bundleLog('videoAutoPlay', `✅ Video autoplay with audio successful${isPWAMobile ? ' (PWA Mobile)' : ''}`);
+              bundleLog('videoAutoPlay', `✅ Muted autoplay successful${isPWAMobile ? ' (PWA Mobile)' : ''}`);
               setIsPlaying(true);
+
+              // Try to unmute after successful muted autoplay
+              setTimeout(() => {
+                if (!userPaused && isActive && videoElement) {
+                  videoElement.muted = false;
+                  bundleLog('videoAutoPlay', '🔊 Attempting to unmute after autoplay');
+                }
+              }, 100);
             })
             .catch((error) => {
-              // If autoplay with audio fails, try muted autoplay as fallback
-              bundleLog('videoAutoPlayErrors', `Audio autoplay failed, trying muted fallback: ${error.message}${isPWAMobile ? ' (PWA Mobile)' : ''}`);
-              videoElement.muted = true;
-
-              const mutedPlayPromise = videoElement.play();
-              if (mutedPlayPromise !== undefined) {
-                mutedPlayPromise
-                  .then(() => {
-                    bundleLog('videoAutoPlay', `✅ Muted autoplay successful${isPWAMobile ? ' (PWA Mobile)' : ''}`);
-                    setIsPlaying(true);
-
-                    // For PWA mobile, try to unmute after a short delay if user interacted
-                    if (isPWAMobile) {
-                      setTimeout(() => {
-                        if (!userPaused && isActive && videoElement) {
-                          videoElement.muted = false;
-                          bundleLog('videoAutoPlay', '🔊 PWA Mobile: Attempting to unmute after muted autoplay');
-                        }
-                      }, 1000);
-                    }
-                  })
-                  .catch((mutedError) => {
-                    bundleLog('videoAutoPlayErrors', `❌ Even muted autoplay failed: ${mutedError.message}${isPWAMobile ? ' (PWA Mobile)' : ''}`);
-                  });
-              }
+              bundleLog('videoAutoPlayErrors', `❌ Autoplay failed: ${error.message}${isPWAMobile ? ' (PWA Mobile)' : ''}`);
             });
         } else {
           setIsPlaying(true);
