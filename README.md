@@ -8,13 +8,13 @@
 
 ## Overview
 
-ZapTok is a decentralized short-form video platform where instant Bitcoin meets endless swipeable content — enabling direct creator monetization through value-for-value on Nostr.
+ZapTok is a decentralized short-form video Nostr client where instant Bitcoin meets endless swipeable content — enabling direct creator monetization through value-for-value on Nostr.
 
 We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips (aka zaps), giving creators and users complete control over their data and earnings. Experience familiar social media with true ownership and privacy — where your content and earnings are actually yours.
 
-***You keep 100% of your earnings. No percentage of your earnings is distributed to the platform.***
+***You keep 100% of your earnings. No percentage of your earnings is distributed to ZapTok.***
 
-### 🎬 **Video Platform**
+### 🎬 **Video Features**
 - **Short-Form Video Sharing**: TikTok-style infinite scroll with snap-to-video behavior
 - **Video Upload**: Drag-and-drop upload with support for MP4, WebM, and MOV formats
 - **Decentralized Storage**: Blossom protocol integration for censorship-resistant hosting
@@ -25,7 +25,7 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 ### ⚡ **Lightning & Payments**
 - **Instant Bitcoin Zaps**: Lightning Network integration for immediate tips (NIP-57)
 - **Cashu Nutzaps**: Private peer-to-peer eCash tips with enhanced anonymity (NIP-60, NIP-61)
-- **Zero Platform Fees**: Creators keep 100% of earnings, payments direct to your wallet
+- **Zero fees toward ZapTok on your earnings**: Creators keep 100% of earnings, payments direct to your wallet
 - **Wallet Connect**: Lightning wallet integration via Nostr Wallet Connect (NIP-47)
 - **Bitcoin Conversion**: Withdraw to on-chain via Boltz, Strike, or Bitcoin Well
 
@@ -78,16 +78,6 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 - **Video Playlists**: Curated collections and watch later functionality
 - **Content Moderation**: User-controlled muting and filtering options
 
-## Philosophy
-
-ZapTok believes in:
-- **Self sovereignty**: Users own their data, identity, and monetary interactions - no intermediaries, no gatekeepers
-- **Creator-first economy**: Tools and features that empower creators to monetize directly without middlemen taking a cut
-- **Interoperability**: Seamless integration with other Nostr apps and services for a unified user experience
-- **Open source**: Transparent, auditable code that the community can verify and improve
-- **Privacy by design**: Built-in privacy protections, not afterthoughts or add-ons
-- **Censorship resistance**: Decentralized architecture with no single point of failure or control 
-
 
 
 ## Frequently Asked Questions
@@ -106,14 +96,14 @@ For detailed setup instructions, visit the [in-app FAQ](https://zaptok.social/#/
 
 </details>
 
-### Platform Overview
+### Overview & Features
 
 <details>
 <summary><strong>🎯 How is ZapTok different from TikTok or YouTube?</strong></summary>
 
-**ZapTok (Decentralized)**
+**ZapTok (Decentralized Nostr client)**
 - You own your account and data
-- Zero platform fees on earnings
+- Zero client fees on earnings
 - No algorithmic content manipulation
 - Censorship-resistant
 - Privacy-focused
@@ -157,7 +147,7 @@ Absolutely! Your videos, profile, and social connections work across all Nostr-c
 <details>
 <summary><strong>🛡️ Can ZapTok be shut down?</strong></summary>
 
-The platform is decentralized, so there's no single point of failure. Even if ZapTok.social went offline tomorrow, your content and social connections would remain accessible through other Nostr relays and clients. The network of relays ensures your data persists independently of any single service.
+ZapTok as a nostr client is part of a decentralized nostr ecosystem, so there's no single point of failure. Even if ZapTok.social went offline tomorrow, your content and social connections would remain accessible through other Nostr relays and clients. The network of relays ensures your data persists independently of any single service.
 
 </details>
 
@@ -350,7 +340,7 @@ For third-party dependency attributions, see the [NOTICE](./NOTICE) file.
 
 ## Support ZapTok
 
-Help us continue building and improving ZapTok. Your support enables us to maintain the platform, add new features, and keep the community growing.
+Help us continue building and improving ZapTok. Your support enables us to maintain our developments, add new features, and keep the nostr community growing.
 
 <div align="center">
 
@@ -376,7 +366,7 @@ Help us continue building and improving ZapTok. Your support enables us to maint
 
 <div align="center">
 
-ZapTok stands on the shoulders of giants. We're deeply grateful to the open-source communities and visionary builders who made this platform possible:
+ZapTok stands on the shoulders of giants. We're deeply grateful to the open-source communities and visionary builders who made ZapTok and all of nostr, as a decentralized nostr ecosystem, possible:
 
 </div>
 
