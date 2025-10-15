@@ -49,7 +49,7 @@ export function getNPoolRelays(): string[] {
  * following Jumble's implementation pattern.
  * 
  * @param relays - Array of relay URLs to query
- * @param filter - Nostr filter object(s)
+ * @param filter - Nostr filter object
  * @param options - Optional configuration
  * @returns Promise resolving to array of events
  * 
@@ -63,7 +63,7 @@ export function getNPoolRelays(): string[] {
  */
 export async function fetchEvents(
   relays: string[],
-  filter: Filter | Filter[],
+  filter: Filter,
   options: {
     onevent?: (evt: NostrToolsEvent) => void;
     signal?: AbortSignal;
@@ -73,11 +73,7 @@ export async function fetchEvents(
   
   return new Promise<NostrToolsEvent[]>((resolve, reject) => {
     const events: NostrToolsEvent[] = [];
-    const uniqueRelays = Array.from(new Set(relays));
-    
-    // Normalize filter to array
-    const filters: Filter[] = Array.isArray(filter) ? filter : [filter];
-    
+    const uniqueRelays = Array.from(new Set(relays));    
     // Handle abort signal
     if (signal?.aborted) {
       reject(new DOMException('Query aborted', 'AbortError'));
@@ -86,7 +82,7 @@ export async function fetchEvents(
     
     const sub = simplePool.subscribeMany(
       uniqueRelays,
-      filters,
+      filter,
       {
         onevent: (evt: NostrToolsEvent) => {
           onevent?.(evt);
@@ -247,13 +243,13 @@ export async function publishWithAuth(
  */
 export async function queryWithAuth(
   relayUrl: string,
-  filters: Filter[],
+  filter: Filter,
   signer?: Signer,
   opts?: { signal?: AbortSignal }
 ): Promise<NostrToolsEvent[]> {
   try {
     // First attempt: query without AUTH
-    const events = await fetchEvents([relayUrl], filters, opts);
+    const events = await fetchEvents([relayUrl], filter, opts);
     return events;
   } catch (error) {
     // Check if error is auth-required
@@ -268,7 +264,7 @@ export async function queryWithAuth(
       await relay.auth((authEvent: EventTemplate) => signer.signEvent(authEvent));
       
       // Retry query after successful authentication
-      const events = await fetchEvents([relayUrl], filters, opts);
+      const events = await fetchEvents([relayUrl], filter, opts);
       return events;
     } else {
       // Re-throw if not auth-required or no signer available
