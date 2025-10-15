@@ -41,27 +41,26 @@ export function CashuTokenCard() {
 
   const handleSendToken = async () => {
     if (!amount || !user) return;
-    
+
     try {
       setError(null);
-      
-      // Get the first mint URL from the store
-      const availableMints = Object.keys(cashuStore.mints);
-      if (availableMints.length === 0) {
-        throw new Error("No mints available");
+
+      // Get the active mint URL from the store
+      const activeMintUrl = cashuStore.activeMintUrl;
+      if (!activeMintUrl) {
+        throw new Error("No active mint selected");
       }
-      
-      const proofs = await sendToken(availableMints[0], parseInt(amount));
-      
-      // Generate token string from proofs
+
+      const proofs = await sendToken(activeMintUrl, parseInt(amount));
+
+      // Create a simple token string representation (for this component)
       const tokenData = {
-        token: [{
-          mint: availableMints[0],
-          proofs: proofs
-        }]
+        mint: activeMintUrl,
+        proofs: proofs
       };
+      const tokenString = JSON.stringify(tokenData);
       
-      setGeneratedToken(JSON.stringify(tokenData));
+      setGeneratedToken(tokenString);
       setSuccess("Token generated successfully!");
       setAmount("");
     } catch (err: any) {
@@ -71,7 +70,7 @@ export function CashuTokenCard() {
 
   const handleReceiveToken = async () => {
     if (!token.trim()) return;
-    
+
     try {
       setError(null);
       await receiveToken(token.trim());
@@ -136,7 +135,7 @@ export function CashuTokenCard() {
                     className="min-h-[100px]"
                   />
                 </div>
-                <Button 
+                <Button
                   onClick={handleReceiveToken}
                   disabled={!token.trim() || isLoading}
                   className="w-full"
@@ -157,7 +156,7 @@ export function CashuTokenCard() {
                     onChange={(e) => setAmount(e.target.value)}
                   />
                 </div>
-                <Button 
+                <Button
                   onClick={handleSendToken}
                   disabled={!amount || isLoading}
                   className="w-full"

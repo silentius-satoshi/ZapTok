@@ -5,8 +5,27 @@ import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { bytesToHex } from '@noble/hashes/utils';
 import { useNostrLogin } from '@nostrify/react/login';
 import { useToast } from '@/hooks/useToast';
+import { useBunkerPermissions } from '@/hooks/useBunkerPermissions';
 import { useAuthState } from './useAuthState';
 import { createNostrifyBunkerLogin } from './useNostrToolsBridge';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useAppContext } from '@/hooks/useAppContext';
+import { debugLog } from '@/lib/debug';
+
+/**
+ * Detect if app is running in PWA mode
+ */
+function isPWA(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  // Check for various PWA indicators
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true ||
+    document.referrer.includes('android-app://') ||
+    window.location.search.includes('utm_source=pwa')
+  );
+}
 
 interface BunkerLoginState {
   loading: boolean;
@@ -34,9 +53,30 @@ export function useNostrToolsBunkerLogin() {
   const { addLogin, setLogin } = useNostrLogin();
   const authState = useAuthState();
   const { toast } = useToast();
+  const { requestVideoPermissions, getBunkerConnectionOptions } = useBunkerPermissions();
+  const isMobile = useIsMobile();
+  const isInPWA = isPWA();
+  const { config, addRelay } = useAppContext();
 
   const bunkerLogin = useCallback(async (bunkerUri: string): Promise<BunkerLoginResult> => {
     setState({ loading: true, error: null, success: false });
+
+    // Request video permissions early in the process
+    try {
+      await requestVideoPermissions();
+    } catch (error) {
+      debugLog.bunkerWarn('Permission request display failed:', error);
+      // Don't fail the login if we can't show the permission toast
+    }
+
+    // Show preemptive warning for mobile PWA users
+    if (isMobile && isInPWA) {
+      toast({
+        title: "🔐 Approval Required",
+        description: "You'll need to approve the connection in nsec.app. We'll open it for you, but you may need to switch apps manually.",
+        duration: 10000, // Show longer for mobile users
+      });
+    }
 
     try {
       // Validate input
@@ -44,56 +84,152 @@ export function useNostrToolsBunkerLogin() {
         throw new Error('Bunker URI cannot be empty');
       }
 
-      console.log('🔐 Starting nostr-tools bunker login...', { uri: bunkerUri });
-
-      // Parse bunker input (supports both bunker:// URLs and NIP-05)
-      const bunkerPointer = await parseBunkerInput(bunkerUri.trim());
-
-      if (!bunkerPointer) {
-        throw new Error('Invalid bunker URI or NIP-05 identifier');
-      }
-
-      console.log('✅ Parsed bunker pointer:', {
-        pubkey: bunkerPointer.pubkey,
-        relays: bunkerPointer.relays,
-        hasSecret: !!bunkerPointer.secret,
-      });
+      debugLog.bunker('🔐 Starting nostr-tools bunker login...', { uri: bunkerUri });
 
       // Generate local secret key for communication
       const localSecretKey = generateSecretKey();
       const localPubkey = getPublicKey(localSecretKey);
 
-      console.log('🔑 Generated local keypair for bunker communication');
+      debugLog.bunker('🔑 Generated local keypair for bunker communication');
 
       // Create relay pool
       const pool = new SimplePool();
 
-      // Create bunker signer with timeout handling
-      const bunker = new BunkerSigner(localSecretKey, bunkerPointer, {
-        pool,
-        onauth: (authUrl: string) => {
-          console.log('🔗 Auth URL received:', authUrl);
-          
-          // Show user-friendly notification
-          toast({
-            title: "🔐 Approval Required",
-            description: "Please check nsec.app to approve the connection request. The link has been copied to your clipboard.",
-            duration: 8000, // Show for 8 seconds
-          });
-          
-          // Copy auth URL to clipboard for user convenience
-          if (navigator.clipboard) {
-            navigator.clipboard.writeText(authUrl).catch(console.warn);
-          }
-          
-          // Open nsec.app in a new tab for user convenience
-          if (typeof window !== 'undefined') {
-            window.open(authUrl, '_blank', 'noopener,noreferrer');
-          }
+      // Create bunker signer with timeout handling and video permissions
+      const connectionOptions = getBunkerConnectionOptions();
+      
+      let bunker: BunkerSigner;
+      let bunkerPubkey: string;
+      let relays: string[];
+      let secret: string | undefined;
+      
+      // Detect URI type and use appropriate factory method
+      if (bunkerUri.startsWith('nostrconnect://')) {
+        // For nostrconnect:// URIs, use fromURI (Nostr Connect protocol)
+        debugLog.bunker('🔗 Using Nostr Connect URI format (nostrconnect://)');
+        
+        // Parse URI to extract metadata
+        try {
+          const url = new URL(bunkerUri);
+          bunkerPubkey = url.hostname; // Remote signer pubkey
+          const relayParam = url.searchParams.get('relay');
+          relays = relayParam ? [decodeURIComponent(relayParam)] : ['wss://relay.nsec.app'];
+          secret = url.searchParams.get('secret') || undefined;
+        } catch (e) {
+          debugLog.bunkerWarn('Failed to parse nostrconnect URI, using defaults:', e);
+          bunkerPubkey = ''; // Will be set after getting user pubkey
+          relays = ['wss://relay.nsec.app'];
+          secret = undefined;
         }
-      });
+        
+        bunker = await BunkerSigner.fromURI(localSecretKey, bunkerUri.trim(), {
+          pool,
+          ...connectionOptions,
+          onauth: (authUrl: string) => {
+            debugLog.bunker('🔗 Auth URL received:', authUrl);
+            
+            // Enhance auth URL with permissions if supported
+            const enhancedUrl = authUrl.includes('?') 
+              ? `${authUrl}&perms=${encodeURIComponent(connectionOptions.perms)}`
+              : `${authUrl}?perms=${encodeURIComponent(connectionOptions.perms)}`;
+            
+            debugLog.bunker('📋 Requesting permissions:', connectionOptions.perms);
+            
+            // Copy enhanced auth URL to clipboard
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(enhancedUrl).catch(() => {
+                navigator.clipboard.writeText(authUrl).catch((err) => {
+                  debugLog.bunkerWarn('Failed to copy auth URL to clipboard:', err);
+                });
+              });
+            }
+            
+            // Handle platform-specific behavior
+            if (isMobile && isInPWA) {
+              toast({
+                title: "🔗 Connection Ready",
+                description: "The connection URL has been copied to your clipboard. Please open nsec.app manually to approve.",
+                duration: 12000,
+              });
+            } else {
+              // Open in new tab for desktop
+              window.open(enhancedUrl, '_blank');
+            }
+          }
+        });
+      } else {
+        // For bunker:// URLs and NIP-05 identifiers, parse first then use fromBunker
+        debugLog.bunker('🔗 Using bunker:// URL or NIP-05 format');
+        const bunkerPointer = await parseBunkerInput(bunkerUri.trim());
 
-      console.log('🤝 Connecting to bunker...');
+        if (!bunkerPointer) {
+          throw new Error('Invalid bunker URI or NIP-05 identifier');
+        }
+
+        debugLog.bunker('✅ Parsed bunker pointer:', {
+          pubkey: bunkerPointer.pubkey,
+          relays: bunkerPointer.relays,
+          hasSecret: !!bunkerPointer.secret,
+        });
+
+        // Assign metadata from parsed pointer
+        bunkerPubkey = bunkerPointer.pubkey;
+        relays = bunkerPointer.relays;
+        secret = bunkerPointer.secret || undefined;
+
+        bunker = BunkerSigner.fromBunker(localSecretKey, bunkerPointer, {
+          pool,
+          // Include permissions in the connection request
+          ...connectionOptions,
+          onauth: (authUrl: string) => {
+            debugLog.bunker('🔗 Auth URL received:', authUrl);
+            
+            // Enhance auth URL with permissions if supported
+            const enhancedUrl = authUrl.includes('?') 
+              ? `${authUrl}&perms=${encodeURIComponent(connectionOptions.perms)}`
+              : `${authUrl}?perms=${encodeURIComponent(connectionOptions.perms)}`;
+            
+            debugLog.bunker('📋 Requesting permissions:', connectionOptions.perms);
+            
+            // Copy enhanced auth URL to clipboard
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(enhancedUrl).catch(() => {
+                // Fallback to original URL if enhanced URL fails
+                navigator.clipboard.writeText(authUrl).catch((err) => {
+                  debugLog.bunkerWarn('Failed to copy auth URL to clipboard:', err);
+                });
+              });
+            }
+            
+            // Handle differently based on platform
+            if (isMobile && isInPWA) {
+              // For mobile PWA: show different message since we already warned them
+              toast({
+                title: "🔗 Connection Ready",
+                description: "The connection URL has been copied to your clipboard. Please open nsec.app manually to approve.",
+                duration: 12000, // Show longer for mobile users
+              });
+              
+              // Don't try to open automatically on mobile PWA - it often fails
+              debugLog.bunker('📱 Mobile PWA detected - not opening auth URL automatically');
+            } else {
+              // For desktop browser: show standard notification and auto-open
+              toast({
+                title: "🔐 Approval Required", 
+                description: "Please check nsec.app to approve the connection request.",
+                duration: 8000,
+              });
+              
+              // Open nsec.app in a new tab for desktop convenience
+              if (typeof window !== 'undefined') {
+                window.open(authUrl, '_blank', 'noopener,noreferrer');
+              }
+            }
+          }
+        });
+      }
+
+      debugLog.bunker('🤝 Connecting to bunker...');
 
       // Connect with timeout
       const connectPromise = bunker.connect();
@@ -102,46 +238,82 @@ export function useNostrToolsBunkerLogin() {
       );
 
       await Promise.race([connectPromise, timeoutPromise]);
-      console.log('✅ Connected to bunker successfully');
+      debugLog.bunker('✅ Connected to bunker successfully');
 
       // Get user's public key
-      console.log('🔍 Getting user public key...');
+      debugLog.bunker('🔍 Getting user public key...');
       const userPubkey = await bunker.getPublicKey();
 
       if (!userPubkey) {
         throw new Error('Failed to get user public key from bunker');
       }
 
-      console.log('✅ Retrieved user pubkey:', userPubkey);
+      debugLog.bunker('✅ Retrieved user pubkey:', userPubkey);
 
-      // Store bunker signer and local secret for future use
+      // Store bunker signer and local secret for future use (enhanced like Jumble)
+      const clientSecretKey = bytesToHex(localSecretKey); // Store client secret like Jumble
       const bunkerData = {
         type: 'bunker' as const,
         userPubkey,
-        bunkerPubkey: bunkerPointer.pubkey,
-        localSecretHex: bytesToHex(localSecretKey),
-        relays: bunkerPointer.relays,
-        secret: bunkerPointer.secret,
+        bunkerPubkey,
+        localSecretHex: clientSecretKey, // Keep for backward compatibility
+        clientSecretKey: clientSecretKey, // Add explicit client secret key like Jumble
+        relays,
+        secret,
         localPubkey,
         originalBunkerUri: bunkerUri, // Store the original bunker URI
+        createdAt: Date.now(), // Add timestamp
+        lastUsed: Date.now(), // Track usage
       };
+
+      debugLog.bunker('💾 Storing bunker data with client secret key');
 
       // Store in localStorage for persistence
       const storageKey = `bunker-${userPubkey}`;
       localStorage.setItem(storageKey, JSON.stringify(bunkerData));
 
-      // Create Nostrify-compatible login object
-      const login = createNostrifyBunkerLogin(userPubkey, bunker, bunkerData);
+      // Create Nostrify-compatible login object with client secret
+      const login = createNostrifyBunkerLogin(userPubkey, bunker, bunkerData, clientSecretKey);
+
+      // Clear this pubkey from removed sessions list since user is explicitly logging back in
+      try {
+        const removedSessions = JSON.parse(sessionStorage.getItem('removed-bunker-sessions') || '[]');
+        const updatedRemovedSessions = removedSessions.filter((pubkey: string) => pubkey !== userPubkey);
+        if (updatedRemovedSessions.length !== removedSessions.length) {
+          sessionStorage.setItem('removed-bunker-sessions', JSON.stringify(updatedRemovedSessions));
+          debugLog.bunker('🔄 Cleared pubkey from removed sessions list:', userPubkey?.substring(0, 16) + '...');
+        }
+      } catch (error) {
+        debugLog.bunker('⚠️ Failed to clear removed sessions:', error);
+      }
 
       // Add to Nostrify's login system
       addLogin(login);
       setLogin(login.id);
 
-      console.log('💾 Integrated with Nostrify login system');
+      debugLog.bunker('💾 Integrated with Nostrify login system with enhanced bunker support');
+
+      // Automatically add bunker relay to user's relay configuration if not already present
+      const bunkerRelayUrl = 'wss://relay.nsec.app';
+      if (relays && relays.length > 0) {
+        const primaryBunkerRelay = relays[0];
+        if (!config.relayUrls.includes(primaryBunkerRelay)) {
+          debugLog.bunker('🔗 Adding bunker relay to user configuration:', primaryBunkerRelay);
+          addRelay(primaryBunkerRelay);
+        } else {
+          debugLog.bunker('🔗 Bunker relay already in configuration:', primaryBunkerRelay);
+        }
+      } else if (!config.relayUrls.includes(bunkerRelayUrl)) {
+        // Fallback to default bunker relay
+        debugLog.bunker('🔗 Adding default bunker relay to user configuration:', bunkerRelayUrl);
+        addRelay(bunkerRelayUrl);
+      } else {
+        debugLog.bunker('🔗 Default bunker relay already in configuration');
+      }
 
       setState({ loading: false, error: null, success: true });
 
-      console.log('🎉 Bunker login completed successfully!');
+      debugLog.bunker('🎉 Bunker login completed successfully!');
 
       return {
         userPubkey,
@@ -150,7 +322,7 @@ export function useNostrToolsBunkerLogin() {
       };
 
     } catch (error) {
-      console.error('❌ Bunker login failed:', error);
+      debugLog.bunkerError('Bunker login failed:', error);
 
       let errorMessage = 'Bunker login failed';
       if (error instanceof Error) {
@@ -160,7 +332,7 @@ export function useNostrToolsBunkerLogin() {
       setState({ loading: false, error: errorMessage, success: false });
       throw error;
     }
-  }, [addLogin, setLogin]);
+  }, [addLogin, setLogin, toast, isMobile, isInPWA, addRelay, config.relayUrls]);
 
   const resetState = useCallback(() => {
     setState({ loading: false, error: null, success: false });
@@ -201,11 +373,11 @@ export async function restoreBunkerSigner(userPubkey: string): Promise<BunkerSig
 
     // Create new bunker signer
     const pool = new SimplePool();
-    const bunker = new BunkerSigner(localSecretKey, bunkerPointer, { pool });
+    const bunker = BunkerSigner.fromBunker(localSecretKey, bunkerPointer, { pool });
 
     return bunker;
   } catch (error) {
-    console.error('Failed to restore bunker signer:', error);
+    debugLog.bunkerError('Failed to restore bunker signer:', error);
     return null;
   }
 }

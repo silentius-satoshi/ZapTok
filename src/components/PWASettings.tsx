@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Settings, 
   Download, 
@@ -18,6 +18,9 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { usePWA } from '@/hooks/usePWA';
 import { PWAStatusIndicator, PWACapabilityCheck } from '@/components/PWAStatusIndicator';
+import { useVideoCache } from '@/hooks/useVideoCache';
+import { clearCashuStoreCache } from '@/stores/userCashuStore';
+import { useCacheSize } from '@/hooks/useCacheSize';
 import { cn } from '@/lib/utils';
 
 interface PWASettingsProps {
@@ -36,6 +39,12 @@ export function PWASettings({ className, showAdvanced = false }: PWASettingsProp
     updateServiceWorker,
     dismissInstallPrompt,
   } = usePWA();
+  
+  const { cleanCache } = useVideoCache();
+  const { breakdown, isLoading, formatSize, refresh: refreshCacheSize } = useCacheSize();
+  
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const handleInstall = async () => {
     await installPWA();
@@ -46,6 +55,73 @@ export function PWASettings({ className, showAdvanced = false }: PWASettingsProp
       await updateServiceWorker();
     } catch (error) {
       console.error('[PWA] Update failed:', error);
+    }
+  };
+
+  // Refresh all caches
+  const handleRefreshCache = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      // Clear and refresh service worker caches
+      if ('serviceWorker' in navigator && 'caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map(cacheName => 
+            caches.open(cacheName).then(cache => {
+              console.log(`🔄 Refreshing cache: ${cacheName}`);
+            })
+          )
+        );
+      }
+
+      // Refresh cache size calculations
+      await refreshCacheSize();
+
+      console.log('✅ Cache refresh completed');
+    } catch (error) {
+      console.error('❌ Cache refresh failed:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Clear all caches
+  const handleClearAllCache = async () => {
+    if (isClearing) return;
+    
+    setIsClearing(true);
+    try {
+      // Clear IndexedDB video cache
+      await cleanCache();
+      
+      // Clear Cashu store cache
+      clearCashuStoreCache();
+      
+      // Clear service worker caches
+      if ('serviceWorker' in navigator && 'caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
+      }
+      
+      // Clear localStorage (except for essential settings)
+      const keysToPreserve = ['nostr:login', 'nostr:relay-url', 'app:theme'];
+      const allKeys = Object.keys(localStorage);
+      allKeys.forEach(key => {
+        if (!keysToPreserve.some(preserve => key.startsWith(preserve))) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      console.log('🗑️ All caches cleared successfully');
+      
+      // Refresh cache size calculations after clearing
+      await refreshCacheSize();
+    } catch (error) {
+      console.error('❌ Cache clearing failed:', error);
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -150,32 +226,46 @@ export function PWASettings({ className, showAdvanced = false }: PWASettingsProp
           <div className="grid gap-3 text-sm">
             <div className="flex items-center justify-between">
               <span>Offline video cache</span>
-              <Badge variant="secondary">~50MB</Badge>
+              <Badge variant="secondary">
+                {isLoading ? 'Loading...' : formatSize(breakdown.videoCache)}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span>Profile images</span>
-              <Badge variant="secondary">~5MB</Badge>
+              <Badge variant="secondary">
+                {isLoading ? 'Loading...' : formatSize(breakdown.profileImages)}
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span>App resources</span>
-              <Badge variant="secondary">~2MB</Badge>
+              <Badge variant="secondary">
+                {isLoading ? 'Loading...' : formatSize(breakdown.appResources)}
+              </Badge>
             </div>
           </div>
           
           <Separator />
           
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" className="flex-1">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh Cache
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="flex-1"
+              onClick={handleRefreshCache}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh Cache'}
             </Button>
             <Button 
               size="sm" 
               variant="destructive" 
               className="flex-1"
+              onClick={handleClearAllCache}
+              disabled={isClearing}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Clear All
+              <Trash2 className={`h-4 w-4 mr-2 ${isClearing ? 'animate-pulse' : ''}`} />
+              {isClearing ? 'Clearing...' : 'Clear All'}
             </Button>
           </div>
         </CardContent>

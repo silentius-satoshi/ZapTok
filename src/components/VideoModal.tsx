@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { X, Volume2, VolumeX, SkipBack, SkipForward } from 'lucide-react';
+import { X, Volume2, VolumeX, SkipBack, SkipForward, ArrowLeft } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useVideoRegistration } from '@/hooks/useVideoRegistration';
 import { useVideoUrlFallback } from '@/hooks/useVideoUrlFallback';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { genUserName } from '@/lib/genUserName';
 import type { VideoEvent } from '@/lib/validateVideoEvent';
 
@@ -28,7 +29,13 @@ export function VideoModal({
 }: VideoModalProps) {
   const [isMuted, setIsMuted] = useState(true);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const videoRef = useVideoRegistration();
+  const isMobile = useIsMobile();
+
+  // Minimum swipe distance (in px)
+  const minSwipeDistance = 50;
 
   const currentVideo = videos[currentIndex];
   const author = useAuthor(currentVideo?.pubkey);
@@ -98,24 +105,65 @@ export function VideoModal({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, currentIndex, videos.length, onClose, onIndexChange]);
 
+  // Enhanced Mobile PWA Touch/Swipe Navigation
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile) return;
+    setTouchEnd(null); // otherwise the swipe is fired even with usual touch events
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!isMobile) return;
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!isMobile || !touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && currentIndex < videos.length - 1) {
+      onIndexChange(currentIndex + 1); // Swipe left = next video
+    }
+    if (isRightSwipe && currentIndex > 0) {
+      onIndexChange(currentIndex - 1); // Swipe right = previous video
+    }
+  };
+
   if (!currentVideo) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-none w-screen h-screen p-0 bg-black border-none">
         <div className="relative w-full h-full flex items-center justify-center">
+          {/* Back Button */}
+          <Button
+            variant="ghost"
+            size={isMobile ? "default" : "sm"}
+            className={`absolute top-4 left-4 z-50 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm ${
+              isMobile ? 'h-12 w-12' : 'h-10 w-10'
+            }`}
+            onClick={onClose}
+          >
+            <ArrowLeft className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
+          </Button>
+
           {/* Close Button */}
           <Button
             variant="ghost"
-            size="sm"
-            className="absolute top-4 right-4 z-50 rounded-full bg-black/40 hover:bg-black/60 text-white h-10 w-10 backdrop-blur-sm"
+            size={isMobile ? "default" : "sm"}
+            className={`absolute top-4 right-4 z-50 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm ${
+              isMobile ? 'h-12 w-12' : 'h-10 w-10'
+            }`}
             onClick={onClose}
           >
-            <X className="w-5 h-5" />
+            <X className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
           </Button>
 
-          {/* Navigation Buttons */}
-          {currentIndex > 0 && (
+          {/* Navigation Buttons - Hidden on mobile for cleaner swipe experience */}
+          {!isMobile && currentIndex > 0 && (
             <Button
               variant="ghost"
               size="sm"
@@ -126,7 +174,7 @@ export function VideoModal({
             </Button>
           )}
 
-          {currentIndex < videos.length - 1 && (
+          {!isMobile && currentIndex < videos.length - 1 && (
             <Button
               variant="ghost"
               size="sm"
@@ -145,11 +193,14 @@ export function VideoModal({
                 src={workingUrl}
                 poster={currentVideo.thumbnail}
                 className="w-full h-full object-contain"
-                controls
+                controls={!isMobile} // Hide controls on mobile for cleaner touch experience
                 loop
                 muted
                 playsInline
                 autoPlay
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
               />
             ) : isTestingUrls ? (
               <div className="text-center text-gray-400">
@@ -165,11 +216,13 @@ export function VideoModal({
           </div>
 
           {/* Volume Control */}
-          <div className="absolute top-4 right-20 z-50">
+          <div className={`absolute z-50 ${isMobile ? 'top-4 right-4' : 'top-4 right-20'}`}>
             <Button
               variant="ghost"
-              size="sm"
-              className="rounded-full bg-black/40 hover:bg-black/60 text-white h-10 w-10 backdrop-blur-sm"
+              size={isMobile ? "default" : "sm"}
+              className={`rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm ${
+                isMobile ? 'h-12 w-12' : 'h-10 w-10'
+              }`}
               onClick={() => {
                 if (videoRef.current) {
                   videoRef.current.muted = !videoRef.current.muted;
@@ -177,9 +230,22 @@ export function VideoModal({
                 }
               }}
             >
-              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+              {isMuted ? (
+                <VolumeX className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
+              ) : (
+                <Volume2 className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
+              )}
             </Button>
           </div>
+
+          {/* Mobile Swipe Indicators */}
+          {isMobile && videos.length > 1 && (
+            <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50">
+              <div className="bg-black/40 backdrop-blur-sm rounded-full px-4 py-2 text-white text-xs">
+                {currentIndex + 1} / {videos.length}
+              </div>
+            </div>
+          )}
 
           {/* Video Info Overlay */}
           <div className="absolute bottom-4 left-4 right-4 text-white z-50">
@@ -242,11 +308,6 @@ export function VideoModal({
                 {currentIndex + 1} of {videos.length}
               </div>
             </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="absolute top-4 left-4 z-50 text-white text-xs opacity-75">
-            <p>Use ← → to navigate • Space to play/pause • M to mute • Esc to close</p>
           </div>
         </div>
       </DialogContent>

@@ -1,45 +1,35 @@
-import { useQuery } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
+import { useSyncExternalStore, useEffect } from 'react';
+import { videoRepostsService } from '@/services/videoReposts.service';
 
+// Re-export VideoReposts type for backward compatibility
+export type { VideoReposts } from '@/services/videoReposts.service';
+
+/**
+ * Hook to get video reposts using Jumble's service + useSyncExternalStore pattern
+ * This implementation uses DataLoader batching to reduce concurrent queries
+ * 
+ * Note: Service must be initialized at feed level using useInitializeAnalyticsServices()
+ * This hook only subscribes to the service and loads data - it does NOT initialize.
+ */
 export function useVideoReposts(videoId: string) {
-  const { nostr } = useNostr();
+  // Subscribe to repost updates using useSyncExternalStore (Jumble's pattern)
+  const reposts = useSyncExternalStore(
+    (callback) => videoRepostsService.subscribe(callback),
+    () => videoRepostsService.getSnapshot(videoId)
+  );
 
-  return useQuery({
-    queryKey: ['video-reposts', videoId],
-    queryFn: async () => {
-      if (!videoId) {
-        return { count: 0, reposts: [] };
-      }
-
-      const signal = AbortSignal.timeout(3000);
-      
-      // Query for repost events that reference this video
-      const repostEvents = await nostr.query([
-        {
-          kinds: [6, 16], // Regular and generic reposts
-          '#e': [videoId],
-          limit: 500,
-        }
-      ], { signal });
-
-      // Deduplicate by user (one repost per user)
-      const uniqueReposts = new Map();
-      repostEvents.forEach(repost => {
-        const existing = uniqueReposts.get(repost.pubkey);
-        if (!existing || repost.created_at > existing.created_at) {
-          uniqueReposts.set(repost.pubkey, repost);
-        }
+    // Trigger query if not already cached
+  useEffect(() => {
+    if (!reposts && videoId) {
+      videoRepostsService.getReposts(videoId).catch((error) => {
+        console.error('Failed to load reposts for video:', videoId, error);
       });
+    }
+  }, [videoId, reposts]);
 
-      const reposts = Array.from(uniqueReposts.values());
-
-      return {
-        count: reposts.length,
-        reposts,
-      };
-    },
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 60 * 1000, // 1 minute for live updates
-    enabled: !!videoId,
-  });
+  // Return reposts or default empty state
+  return reposts || {
+    count: 0,
+    reposts: [],
+  };
 }

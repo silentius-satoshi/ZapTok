@@ -65,7 +65,7 @@ export const EditProfileForm: React.FC = () => {
   const uploadPicture = async (file: File, field: 'picture' | 'banner') => {
     try {
       // The first tuple in the array contains the URL
-      const [[_, url]] = await uploadFile(file);
+      const [[_, url]] = await uploadFile({ file });
       form.setValue(field, url);
       toast({
         title: 'Success',

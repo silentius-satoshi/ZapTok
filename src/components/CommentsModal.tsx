@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -11,12 +13,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
-import { Send, MessageCircle, Heart, Reply } from 'lucide-react';
+import { Send, MessageCircle, Reply } from 'lucide-react';
 import { NoteContent } from '@/components/NoteContent';
+import { ZapButton } from '@/components/ZapButton';
+import { NutzapButton } from '@/components/users/NutzapButton';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useVideoComments } from '@/hooks/useVideoComments';
 import { usePublishComment } from '@/hooks/usePublishComment';
 import { useAuthor } from '@/hooks/useAuthor';
+import { useLoginPrompt } from '@/hooks/useLoginPrompt';
+import { useNostr } from '@/hooks/useNostr';
+import { useToast } from '@/hooks/useToast';
+import { useVideoReactions } from '@/hooks/useVideoReactions';
+import { useVideoNutzaps } from '@/hooks/useVideoNutzaps';
+import { CommentPrompt } from '@/components/auth/LoginPrompt';
+import { LoginModal } from '@/components/auth/LoginModal';
 import { genUserName } from '@/lib/genUserName';
 import type { NostrEvent } from '@nostrify/nostrify';
 
@@ -27,17 +38,19 @@ interface CommentsModalProps {
 }
 
 export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProps) {
-  const { user } = useCurrentUser();
-  const { data: commentsData, isLoading: isLoadingComments } = useVideoComments(videoEvent.id);
+  const { user, canSign, isReadOnly } = useCurrentUser();
+  const { withLoginCheck } = useLoginPrompt();
+  const commentsData = useVideoComments(videoEvent.id);
   const { mutate: publishComment, isPending: isPublishing } = usePublishComment();
 
   const [commentText, setCommentText] = useState('');
   const [replyingTo, setReplyingTo] = useState<NostrEvent | null>(null);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
 
   const handleSubmitComment = async () => {
-    if (!commentText.trim() || !user) return;
+    if (!commentText.trim()) return;
 
-    try {
+    await withLoginCheck(async () => {
       await publishComment({
         content: commentText.trim(),
         videoEvent,
@@ -46,14 +59,22 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
 
       setCommentText('');
       setReplyingTo(null);
-    } catch (error) {
-      console.error('Failed to publish comment:', error);
-    }
+    }, {
+      loginMessage: 'Login required to comment',
+      onLoginRequired: () => {
+        // This would trigger the login modal
+        console.log('Login required for commenting');
+      }
+    });
   };
 
   const handleReply = (comment: NostrEvent) => {
-    setReplyingTo(comment);
-    // Focus will be handled by the effect when replyingTo changes
+    withLoginCheck(() => {
+      setReplyingTo(comment);
+      // Focus will be handled by the effect when replyingTo changes
+    }, {
+      loginMessage: 'Login required to reply to comments'
+    });
   };
 
   const handleCancelReply = () => {
@@ -69,17 +90,18 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
             <MessageCircle className="h-5 w-5" />
             Comments ({commentsData?.commentCount || 0})
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            View and post comments on this video
+          </DialogDescription>
         </DialogHeader>
 
         {/* Comments List */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {isLoadingComments ? (
-            <CommentsLoadingSkeleton />
-          ) : commentsData?.comments.length === 0 ? (
+          {commentsData.comments.length === 0 ? (
             <EmptyCommentsState />
           ) : (
             <div className="space-y-4">
-              {commentsData?.comments.map((comment) => (
+              {commentsData.comments.map((comment) => (
                 <CommentItem
                   key={comment.id}
                   comment={comment}
@@ -91,7 +113,7 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
         </div>
 
         {/* Comment Input */}
-        {user ? (
+        {canSign ? (
           <div className="border-t px-6 py-4 space-y-3">
             {replyingTo && (
               <div className="bg-muted/50 rounded-lg p-3 text-sm">
@@ -139,17 +161,34 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
             </div>
           </div>
         ) : (
-          <div className="border-t px-6 py-4 text-center">
-            <p className="text-muted-foreground mb-2">Sign in to join the conversation</p>
+          <div className="border-t px-6 py-4">
+            <CommentPrompt 
+              onLoginClick={() => setLoginModalOpen(true)}
+            />
           </div>
         )}
       </DialogContent>
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={loginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+      />
     </Dialog>
   );
 }
 
 function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () => void }) {
   const author = useAuthor(comment.pubkey);
+  const { canSign } = useCurrentUser();
+  const navigate = useNavigate();
+
+  // Get zap analytics for this comment
+  const reactions = useVideoReactions(comment.id);
+  const nutzapData = useVideoNutzaps(comment.id);
+  
+  // Calculate total zaps (Lightning + Cashu)
+  const totalSats = reactions.totalSats + nutzapData.totalAmount;
 
   const authorMetadata = author.data?.metadata;
   const displayName = authorMetadata?.display_name || authorMetadata?.name || genUserName(comment.pubkey);
@@ -157,10 +196,17 @@ function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () =>
 
   const timeAgo = formatDistanceToNow(new Date(comment.created_at * 1000), { addSuffix: true });
 
+  const handleProfileClick = () => {
+    navigate(`/profile/${comment.pubkey}`);
+  };
+
   return (
     <div className="group space-y-2">
       <div className="flex gap-3">
-        <Avatar className="h-8 w-8 flex-shrink-0">
+        <Avatar 
+          className="h-8 w-8 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={handleProfileClick}
+        >
           <AvatarImage src={profilePicture} alt={displayName} />
           <AvatarFallback className="text-xs">
             {displayName.slice(0, 2).toUpperCase()}
@@ -177,25 +223,52 @@ function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () =>
             <NoteContent event={comment} />
           </div>
 
-          <div className="flex items-center gap-4 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onReply}
-              className="h-6 px-2 text-xs gap-1 hover:bg-blue-500/10 hover:text-blue-500"
-            >
-              <Reply className="h-3 w-3" />
-              Reply
-            </Button>
+          <div className="flex items-center gap-4 mt-2">
+            {canSign && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onReply}
+                  className="h-6 px-2 text-xs gap-1 hover:bg-blue-500/10 hover:text-blue-500"
+                >
+                  <Reply className="h-3 w-3" />
+                  Reply
+                </Button>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs gap-1 hover:bg-red-500/10 hover:text-red-500"
-            >
-              <Heart className="h-3 w-3" />
-              Like
-            </Button>
+                {/* Lightning Zap Button */}
+                <div className="flex items-center gap-1">
+                  <ZapButton
+                    recipientPubkey={comment.pubkey}
+                    eventId={comment.id}
+                    iconStyle={{ width: '12px', height: '12px' }}
+                    className="h-6 px-2"
+                    size="sm"
+                  />
+                  <span className="text-xs font-medium">
+                    {reactions.totalSats > 0 ? reactions.totalSats : '0'}
+                  </span>
+                </div>
+
+                {/* Cashu Nutzap Button */}
+                <div className="flex items-center gap-1">
+                  <NutzapButton
+                    postId={comment.id}
+                    authorPubkey={comment.pubkey}
+                    showText={false}
+                  />
+                  <span className="text-xs font-medium">
+                    {nutzapData.totalAmount > 0 ? nutzapData.totalAmount : '0'}
+                  </span>
+                </div>
+              </>
+            )}
+            
+            {!canSign && (
+              <span className="text-xs text-muted-foreground">
+                Login to reply and zap comments
+              </span>
+            )}
           </div>
         </div>
       </div>

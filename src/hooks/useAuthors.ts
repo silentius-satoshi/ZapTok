@@ -1,25 +1,35 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
+import { useSimplePool } from '@/hooks/useSimplePool';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { useNostrConnectionState } from '@/components/NostrProvider';
+import { createConnectionAwareSignal } from '@/lib/queryOptimization';
 
 export function useAuthors(pubkeys: string[]) {
-  const { nostr } = useNostr();
+  const { fetchEvents, simplePoolRelays } = useSimplePool();
+  const { getOptimalRelaysForQuery } = useNostrConnectionState();
 
   return useQuery({
     queryKey: ['authors', pubkeys.sort()],
-    queryFn: async (c) => {
+    queryFn: async ({ signal }) => {
       if (!pubkeys.length) return [];
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      // Phase 2: Use connection-aware signal with optimal relays for metadata
+      const connectionAwareSignal = createConnectionAwareSignal({
+        availableRelays: getOptimalRelaysForQuery('profile', 5),
+        queryType: 'profile',
+        baseTimeout: 8000,
+      }, signal);
       
-      // Query for metadata events (kind 0) for all pubkeys
-      const events = await nostr.query([
+      // Optimized batch query for metadata events (kind 0)
+      const events = await fetchEvents(
+        simplePoolRelays,
         {
           kinds: [0],
           authors: pubkeys,
-          limit: pubkeys.length,
-        }
-      ], { signal });
+          limit: pubkeys.length * 2, // Allow for multiple metadata events per author
+        },
+        { signal: connectionAwareSignal }
+      ) as NostrEvent[];
 
       // Create a map of pubkey -> latest metadata event
       const metadataMap = new Map<string, NostrEvent>();
@@ -52,6 +62,10 @@ export function useAuthors(pubkeys: string[]) {
       });
     },
     enabled: pubkeys.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    // Optimized cache configuration for author metadata
+    staleTime: 10 * 60 * 1000,    // 10 minutes - metadata changes infrequently
+    gcTime: 60 * 60 * 1000,      // 1 hour - keep author data longer
+    refetchOnWindowFocus: false,  // Don't refetch metadata on focus
+    refetchOnReconnect: false,    // Don't refetch metadata on reconnect (it's stable)
   });
 }

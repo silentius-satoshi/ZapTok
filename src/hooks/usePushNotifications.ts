@@ -1,6 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePWA } from '@/hooks/usePWA';
+import { useToast } from '@/hooks/useToast';
+
+// Helper function to convert base64 URL-safe string to Uint8Array
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 export interface PushNotificationState {
   permission: NotificationPermission;
@@ -41,6 +58,7 @@ export function usePushNotifications(): PushNotificationState & PushNotification
 
   const { user } = useCurrentUser();
   const { serviceWorkerRegistration } = usePWA();
+  const { toast } = useToast();
 
   const isSupported = 'PushManager' in window && 'Notification' in window && 'serviceWorker' in navigator;
   const isSubscribed = subscription !== null;
@@ -107,15 +125,34 @@ export function usePushNotifications(): PushNotificationState & PushNotification
       setError(null);
 
       const registration = await navigator.serviceWorker.ready;
+      console.log('[Push] Service Worker ready:', registration);
 
-      // Generate VAPID keys for your application
-      // You would typically get this from your server/environment
-      const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY ||
+      // Check if push is supported
+      if (!registration.pushManager) {
+        throw new Error('Push notifications are not supported');
+      }
+
+      // Check for existing subscription and unsubscribe if exists
+      const existingSubscription = await registration.pushManager.getSubscription();
+      if (existingSubscription) {
+        console.log('[Push] Found existing subscription, unsubscribing first...');
+        await existingSubscription.unsubscribe();
+      }
+
+      // Get VAPID public key from environment variable
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY ||
         'BEl62iUYgUivxIkv69yViEuiBIa40HI80NM9Ame50P1S1b-dQD1-1HEhNh8Ui4Eg7lGGAT4XFb9R8iqhW9SZ3uE';
+
+      console.log('[Push] Using VAPID key:', vapidPublicKey?.substring(0, 20) + '...');
+      console.log('[Push] VAPID key length:', vapidPublicKey?.length);
+
+      // Convert VAPID key to Uint8Array
+      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+      console.log('[Push] Converted key length:', applicationServerKey.length, 'bytes');
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: vapidPublicKey,
+        applicationServerKey: applicationServerKey as BufferSource,
       });
 
       if (!subscription) {
@@ -131,6 +168,11 @@ export function usePushNotifications(): PushNotificationState & PushNotification
       return true;
     } catch (error) {
       console.error('[Push] Subscription failed:', error);
+      if (error instanceof Error) {
+        console.error('[Push] Error name:', error.name);
+        console.error('[Push] Error message:', error.message);
+        console.error('[Push] Error stack:', error.stack);
+      }
       setError('Failed to subscribe to push notifications');
       return false;
     } finally {
@@ -271,17 +313,69 @@ async function removeSubscriptionFromServer(subscription: PushSubscription): Pro
 }
 
 // Utility function to show local notification (fallback when push isn't available)
-export function showLocalNotification(payload: NotificationPayload): void {
+// Uses native notifications in PWA mode, toast in browser mode
+export function showLocalNotification(payload: NotificationPayload, toast?: ReturnType<typeof useToast>['toast']): void {
+  // Check if running in PWA/standalone mode
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                      (window.navigator as any).standalone === true ||
+                      document.referrer.includes('android-app://');
+
+  // If not in PWA mode and toast is available, use toast instead
+  if (!isStandalone && toast) {
+    toast({
+      title: payload.title,
+      description: payload.body,
+      duration: 5000,
+    });
+    return;
+  }
+
+  // PWA mode: send message to service worker to show native notification
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'show-notification',
+      payload: {
+        title: payload.title,
+        body: payload.body,
+        icon: payload.icon || `${import.meta.env.BASE_URL}images/ZapTok-v3.png`,
+        badge: payload.badge || `${import.meta.env.BASE_URL}images/ZapTok-v3.png`,
+        data: payload.data,
+        tag: payload.type,
+        actions: payload.actions,
+      }
+    });
+    console.log('[Notification] Message sent to service worker:', payload.title);
+    return;
+  }
+
+  // Fallback: try Notification API directly (shouldn't reach here in PWA mode)
   if (!('Notification' in window)) {
     console.warn('[Notification] Notifications not supported');
+    // Last resort: use toast if available
+    if (toast) {
+      toast({
+        title: payload.title,
+        description: payload.body,
+        duration: 5000,
+      });
+    }
     return;
   }
 
   if (Notification.permission !== 'granted') {
     console.warn('[Notification] Permission not granted');
+    // Fallback to toast if available
+    if (toast) {
+      toast({
+        title: payload.title,
+        description: payload.body,
+        duration: 5000,
+      });
+    }
     return;
   }
 
+  // Direct Notification API (non-PWA fallback)
   const options: NotificationOptions = {
     body: payload.body,
     icon: payload.icon || `${import.meta.env.BASE_URL}images/ZapTok-v3.png`,
@@ -321,21 +415,22 @@ export function showLocalNotification(payload: NotificationPayload): void {
 export function useEventNotifications() {
   const { isSubscribed, subscribeToPush } = usePushNotifications();
   const { user } = useCurrentUser();
+  const { toast } = useToast();
 
   const notifyLightningPayment = useCallback((amount: number, from?: string) => {
     if (isSubscribed) {
       // Send push notification via server
       // Implementation would send to your notification API
     } else {
-      // Fallback to local notification
+      // Fallback to local notification (uses toast in browser mode, native in PWA)
       showLocalNotification({
         type: 'lightning-payment',
         title: '⚡ Lightning Payment',
         body: `Received ${amount} sats${from ? ` from ${from}` : ''}`,
         data: { amount, from, url: '/wallet' },
-      });
+      }, toast);
     }
-  }, [isSubscribed]);
+  }, [isSubscribed, toast]);
 
   const notifyCashuToken = useCallback((amount: number, from?: string) => {
     if (isSubscribed) {
@@ -346,9 +441,9 @@ export function useEventNotifications() {
         title: '🥜 Cashu Token',
         body: `New ${amount} sat token${from ? ` from ${from}` : ''}`,
         data: { amount, from, url: '/wallet' },
-      });
+      }, toast);
     }
-  }, [isSubscribed]);
+  }, [isSubscribed, toast]);
 
   const notifyZap = useCallback((amount: number, content?: string) => {
     if (isSubscribed) {
@@ -359,9 +454,9 @@ export function useEventNotifications() {
         title: '⚡ Zap Received',
         body: `${amount} sats zapped to your content!`,
         data: { amount, content, url: '/wallet' },
-      });
+      }, toast);
     }
-  }, [isSubscribed]);
+  }, [isSubscribed, toast]);
 
   const notifyComment = useCallback((from: string, preview: string, videoId?: string) => {
     if (isSubscribed) {
@@ -372,9 +467,9 @@ export function useEventNotifications() {
         title: '💬 New Comment',
         body: preview,
         data: { from, preview, videoId, url: videoId ? `/video/${videoId}` : '/' },
-      });
+      }, toast);
     }
-  }, [isSubscribed]);
+  }, [isSubscribed, toast]);
 
   // Auto-subscribe for logged-in users if not already subscribed
   useEffect(() => {

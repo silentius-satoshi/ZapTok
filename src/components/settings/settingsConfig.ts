@@ -2,27 +2,48 @@ import { ComponentType } from 'react';
 
 // Import all settings components
 import { AppearanceSettings } from './AppearanceSettings';
-import { FeedsSettings } from './FeedsSettings';
-import { DiscoverySettings } from './DiscoverySettings';
 import { MediaUploadsSettings } from './MediaUploadsSettings';
 import { StreamSettings } from './StreamSettings';
-import { ConnectedWalletsSettings } from './ConnectedWalletsSettings';
+import { CashuWalletSettings } from './CashuWalletSettings';
 import { NotificationsSettings } from './NotificationsSettings';
 import { NetworkSettings } from './NetworkSettings';
 import { ZapsSettings } from './ZapsSettings';
 import { GenericSettings } from './GenericSettings';
-import { DeveloperSettings } from './DeveloperSettings';
+import { ConsolidatedDeveloperSettings } from '../debug/ConsolidatedDeveloperSettings';
 import { KeysSettings } from './KeysSettings';
 
 export interface SettingsSectionConfig {
   id: string;
   title: string;
   component: ComponentType<unknown>;
-  category: 'interface' | 'content' | 'network' | 'monetization' | 'moderation';
+  category: 'interface' | 'content' | 'network' | 'monetization' | 'moderation' | 'developer';
   requiresProps?: boolean;
 }
 
-export const settingsSections: SettingsSectionConfig[] = [
+const allSettingsSections: SettingsSectionConfig[] = [
+  // Core Identity & Security Settings
+  {
+    id: 'keys',
+    title: 'Keys',
+    component: KeysSettings,
+    category: 'monetization'
+  },
+
+  // Connection & Network Settings
+  {
+    id: 'cashu-wallet',
+    title: 'Cashu Wallet',
+    component: CashuWalletSettings,
+    category: 'network',
+    requiresProps: true
+  },
+  {
+    id: 'network',
+    title: 'Network & Relays',
+    component: NetworkSettings,
+    category: 'network'
+  },
+
   // Interface Settings
   {
     id: 'appearance',
@@ -33,27 +54,15 @@ export const settingsSections: SettingsSectionConfig[] = [
 
   // Content Settings
   {
-    id: 'feeds',
-    title: 'Feeds',
-    component: FeedsSettings,
-    category: 'content'
-  },
-  {
-    id: 'discovery',
-    title: 'Discovery',
-    component: DiscoverySettings,
+    id: 'stream',
+    title: 'Stream',
+    component: StreamSettings,
     category: 'content'
   },
   {
     id: 'media-uploads',
     title: 'Media Uploads',
     component: MediaUploadsSettings,
-    category: 'content'
-  },
-  {
-    id: 'stream',
-    title: 'Stream',
-    component: StreamSettings,
     category: 'content'
   },
 
@@ -71,34 +80,20 @@ export const settingsSections: SettingsSectionConfig[] = [
     category: 'moderation'
   },
 
-  // Network & Connection Settings
-  {
-    id: 'connected-wallets',
-    title: 'Connected Wallets',
-    component: ConnectedWalletsSettings,
-    category: 'network',
-    requiresProps: true
-  },
+  // Notification Settings
   {
     id: 'notifications',
     title: 'Notifications',
     component: NotificationsSettings,
     category: 'interface'
   },
-  {
-    id: 'network',
-    title: 'Network',
-    component: NetworkSettings,
-    category: 'network',
-    requiresProps: true
-  },
 
-  // Developer Settings
+  // Developer Settings (includes Cache & PWA Management)
   {
     id: 'developer',
-    title: 'Developer',
-    component: DeveloperSettings,
-    category: 'interface'
+    title: 'Developer & Advanced',
+    component: ConsolidatedDeveloperSettings,
+    category: 'developer'
   },
 
   // Monetization Settings
@@ -107,14 +102,17 @@ export const settingsSections: SettingsSectionConfig[] = [
     title: 'Zaps',
     component: ZapsSettings,
     category: 'monetization'
-  },
-  {
-    id: 'keys',
-    title: 'Keys',
-    component: KeysSettings,
-    category: 'monetization'
   }
 ];
+
+// Filter out sections that should be hidden in production
+export const settingsSections: SettingsSectionConfig[] = allSettingsSections.filter(section => {
+  // Hide appearance, muted content, and content moderation from production
+  if (import.meta.env.PROD) {
+    return !['appearance', 'muted-content', 'content-moderation'].includes(section.id);
+  }
+  return true;
+});
 
 export const getSettingSectionById = (id: string): SettingsSectionConfig | undefined => {
   return settingsSections.find(section => section.id === id);

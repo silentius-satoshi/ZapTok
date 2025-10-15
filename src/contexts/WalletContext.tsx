@@ -1,11 +1,13 @@
 import { useEffect, useState, ReactNode, useRef } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrLogin } from '@nostrify/react/login';
 import type {
   Transaction,
   WalletInfo,
   WebLNProvider,
 } from '@/lib/wallet-types';
 import { WalletContext } from './wallet-context';
+import { devLog, devError, bundleLog } from '@/lib/devConsole';
 
 // User-specific Lightning wallet balance storage
 const getUserLightningBalanceKey = (pubkey: string) => `lightning_balance_${pubkey}`;
@@ -49,6 +51,7 @@ const setUserLightningEnabled = (pubkey: string, enabled: boolean): void => {
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const { user } = useCurrentUser(); // Only auto-connect if user is logged in
+  const { logins } = useNostrLogin();
   const [provider, setProvider] = useState<WebLNProvider | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +69,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   // Ref to track ongoing async operations
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Get the current user's login type from the login objects
+  const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
+  const loginType = currentUserLogin?.type;
+
+  // Centralized bunker signer detection
+  const isBunkerSigner = !!(loginType === 'bunker' ||
+                           loginType === 'x-bunker-nostr-tools' ||
+                           user?.signer?.constructor?.name?.includes('bunker'));
+
+  // Debug bunker detection in development
+  if (import.meta.env.DEV && user?.pubkey) {
+    bundleLog('bunkerDetection', `Bunker signer: ${isBunkerSigner} (${loginType})`);
+  }
+
+  // Extension signer detection - only these should get WebLN auto-enable
+  const isExtensionSigner = !!(loginType === 'extension' ||
+                              user?.signer?.constructor?.name?.includes('NIP07') ||
+                              user?.signer?.constructor?.name?.includes('Extension'));
+
+  // Local nsec/private key signer detection (raw key in memory)
+  const isNsecSigner = !!(loginType === 'nsec' || user?.signer?.constructor?.name?.toLowerCase?.().includes('nsec'));
+
+  // Cashu compatibility check - bunker signers now supported with comprehensive permissions
+  const isCashuCompatible = true;
+
   // Reset wallet state when user changes
   useEffect(() => {
     const currentUserPubkey = user?.pubkey;
@@ -73,14 +101,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     // If user changed (including logout), reset wallet state
     if (currentUserPubkey !== previousUserPubkey) {
-      if (import.meta.env.DEV) {
-        console.log('👤 User changed, resetting wallet state:', {
-          previous: previousUserPubkey?.slice(0,8) + '...',
-          current: currentUserPubkey?.slice(0,8) + '...',
-          previousWalletInfo: walletInfo,
-          isConnected: isConnected
-        });
-      }
+      devLog('👤 User changed, resetting wallet state:', {
+        previous: previousUserPubkey?.slice(0,8) + '...',
+        current: currentUserPubkey?.slice(0,8) + '...',
+        previousWalletInfo: walletInfo,
+        isConnected: isConnected
+      });
 
       // Cancel any ongoing async operations
       if (abortControllerRef.current) {
@@ -99,13 +125,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         if (hasLightningAccess) {
           // User has Lightning access - maintain connection and load their balance
-          const userBalance = getUserLightningBalance(currentUserPubkey);
+          const userLightningBalance = getUserLightningBalance(currentUserPubkey);
+          
+          // For extension signers, include Cashu balance in total
+          const cashuBalance = 0; // Note: Cashu balance integration removed due to hook ordering issues
+          const totalBalance = userLightningBalance + cashuBalance;
+          
           setWalletInfo(prev => prev ? {
             ...prev,
-            balance: userBalance
+            balance: totalBalance
           } : {
             alias: 'WebLN Wallet',
-            balance: userBalance,
+            balance: totalBalance,
             implementation: 'WebLN',
           });
         } else {
@@ -124,12 +155,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setTransactionSupport(null);
       }
 
-      if (import.meta.env.DEV) {
-        console.log('👤 Wallet state reset complete for user:', {
-          user: currentUserPubkey?.slice(0,8) + '...',
-          hasLightningAccess: currentUserPubkey ? getUserLightningEnabled(currentUserPubkey) : false
-        });
-      }
+      devLog('👤 Wallet state reset complete for user:', {
+        user: currentUserPubkey?.slice(0,8) + '...',
+        hasLightningAccess: currentUserPubkey ? getUserLightningEnabled(currentUserPubkey) : false
+      });
 
       // Update the ref for next comparison
       previousUserRef.current = currentUserPubkey;
@@ -137,57 +166,169 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [user?.pubkey, walletInfo]);
 
   useEffect(() => {
-    // Only attempt automatic WebLN connection if user is logged in and has Lightning access
-    if (!user || !getUserLightningEnabled(user.pubkey)) {
+    // Auto-detect WebLN for extension signers AND nsec signers (not bunker or other remote signers)
+    if (!user?.pubkey || (!isExtensionSigner && !isNsecSigner)) {
+      bundleLog('walletAutoDetection', '[WalletContext] Skipping WebLN auto-detection - Extension signer: ' + isExtensionSigner + ', Nsec signer: ' + isNsecSigner + ', User: ' + !!user?.pubkey);
       return;
     }
 
-    const checkConnection = async () => {
+    const attemptAutoDetection = async () => {
       try {
+        // Check if user has explicitly disabled Lightning access
+        const userExplicitlyDisabled = localStorage.getItem(`lightning_disabled_${user.pubkey}`);
+        if (userExplicitlyDisabled === 'true') {
+          bundleLog('walletAutoDetection', '[WalletContext] Auto-detection skipped - user explicitly disabled Lightning');
+          return;
+        }
+
+        bundleLog('walletAutoDetection', '[WalletContext] Signer type detection - Extension signer: ' + isExtensionSigner + ', Nsec signer: ' + isNsecSigner + ', Constructor: ' + user.signer?.constructor?.name);
+
+        // Check if WebLN is available
         if (window.webln) {
-          // Always try to enable first, even if isEnabled is true
+          bundleLog('walletAutoDetection', '[WalletContext] WebLN detected, attempting auto-enable for extension/nsec signer: ' + user.pubkey.slice(0, 8) + '...');
+
           try {
             await window.webln.enable();
             const webln = window.webln;
+
+            // Successfully enabled - set up the connection
             setProvider({
               ...webln,
               isEnabled: webln.isEnabled ?? true
             });
             setIsConnected(true);
 
-            // Load initial wallet data after enabling
+            // Mark this user as having Lightning access
+            setUserLightningEnabled(user.pubkey, true);
+            setUserHasLightningAccess(true);
+
+            // Load initial wallet data
             try {
               const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
-              const userBalance = user?.pubkey ? getUserLightningBalance(user.pubkey) : balance.balance || 0;
+              // Use fresh balance from provider, fallback to stored balance if provider fails
+              const userLightningBalance = balance.balance || getUserLightningBalance(user.pubkey) || 0;
+              
+              // For extension signers, also include Cashu balance in total
+              const cashuBalance = 0; // Note: Cashu balance integration removed due to hook ordering issues
+              const totalBalance = userLightningBalance + cashuBalance;
 
               setWalletInfo({
                 alias: 'WebLN Wallet',
-                balance: userBalance,
+                balance: totalBalance, // Combined Lightning + Cashu balance
                 implementation: 'WebLN',
               });
 
-              // Check transaction support once during initial connection
+              // Store the Lightning balance separately for user-specific tracking
+              setUserLightningBalance(user.pubkey, userLightningBalance);
+
               setTransactionSupport(!!window.webln.listTransactions);
-            } catch {
-            if (import.meta.env.DEV) {
-              console.log('Could not load initial wallet data');
+
+              bundleLog('walletBalanceChanges', `Balance update: Lightning connected, Lightning: ${userLightningBalance} sats, Cashu: ${cashuBalance} sats, Total: ${totalBalance} sats`);
+              bundleLog('walletAutoDetection', '[WalletContext] Auto-detection successful for extension signer: ' + user.pubkey.slice(0, 8) + '...');
+            } catch (balanceError) {
+              bundleLog('walletAutoDetection', '[WalletContext] Could not load initial wallet data: ' + balanceError);
             }
-            }
-          } catch {
-          if (import.meta.env.DEV) {
-            console.log('WebLN provider not enabled or user rejected');
+          } catch (enableError) {
+            bundleLog('walletAutoDetection', '[WalletContext] WebLN enable failed (user may have rejected): ' + enableError);
+            // Don't mark as explicitly disabled here - user might try again later
           }
-          }
+        } else {
+          bundleLog('walletAutoDetection', '[WalletContext] No WebLN provider detected for extension signer');
         }
-      } catch {
-      if (import.meta.env.DEV) {
-        console.log('No existing wallet connection');
-      }
+      } catch (error) {
+        bundleLog('walletAutoDetection', '[WalletContext] Auto-detection error: ' + error);
       }
     };
 
-    checkConnection();
-  }, [user]); // Only run when user login state changes
+    attemptAutoDetection();
+  }, [user?.pubkey, isExtensionSigner]); // Run when user or signer type changes
+
+  // Track Cashu balance changes for extension signers to update total balance
+  // Note: Removed due to hook ordering issues - needs different implementation approach
+  /*
+  useEffect(() => {
+    if (!user?.pubkey || !isExtensionSigner || !isConnected) {
+      return;
+    }
+
+    // Update the wallet info to include current Cashu balance
+    const updateTotalBalance = () => {
+      try {
+        const lightningBalance = getUserLightningBalance(user.pubkey);
+        // Get a fresh Cashu store instance and safely call getTotalBalance
+        const currentCashuStore = useUserCashuStore.getState?.(user.pubkey);
+        const cashuBalance = currentCashuStore?.getTotalBalance?.() || 0;
+        const totalBalance = lightningBalance + cashuBalance;
+
+        setWalletInfo(prev => prev ? {
+          ...prev,
+          balance: totalBalance
+        } : null);
+
+        bundleLog('walletBalanceChanges', `Balance update: Cashu balance changed, Lightning: ${lightningBalance} sats, Cashu: ${cashuBalance} sats, Total: ${totalBalance} sats`);
+      } catch (error) {
+        // Silently handle any Cashu store access errors
+        bundleLog('walletBalanceChanges', 'Error accessing Cashu store, using Lightning balance only');
+      }
+    };
+
+    // Update immediately
+    updateTotalBalance();
+
+    // Since Zustand doesn't provide a subscription method that we can easily access here,
+    // we'll set up a periodic check. This is not ideal but ensures the balance stays in sync.
+    const interval = setInterval(updateTotalBalance, 2000); // Check every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [user?.pubkey, isExtensionSigner, isConnected]);
+  */
+
+  // Periodically refresh Lightning balance from provider to keep sidebar in sync
+  useEffect(() => {
+    if (!provider || !isConnected || !user?.pubkey) {
+      return;
+    }
+
+    const refreshBalance = async () => {
+      try {
+        if (provider.getBalance) {
+          // Enable provider if not already enabled
+          if (!provider.isEnabled) {
+            await provider.enable();
+          }
+
+          const response = await provider.getBalance();
+          const lightningBalance = response.balance;
+
+          // Store the Lightning balance for this user
+          setUserLightningBalance(user.pubkey, lightningBalance);
+
+          // Update walletInfo with fresh balance
+          setWalletInfo(prev => prev ? {
+            ...prev,
+            balance: lightningBalance
+          } : {
+            alias: 'WebLN Wallet',
+            balance: lightningBalance,
+            implementation: 'WebLN',
+          });
+
+          bundleLog('walletBalanceChanges', `Balance refreshed from provider: ${lightningBalance} sats`);
+        }
+      } catch (error) {
+        // Silently handle balance refresh errors
+        devError('Error refreshing balance:', error);
+      }
+    };
+
+    // Refresh immediately
+    refreshBalance();
+
+    // Refresh every 5 seconds to keep in sync
+    const interval = setInterval(refreshBalance, 5000);
+
+    return () => clearInterval(interval);
+  }, [provider, isConnected, user?.pubkey]);
 
   const connect = async () => {
     if (!user?.pubkey) {
@@ -200,7 +341,32 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       // Try to use WebLN first
       if (window.webln) {
-        await window.webln.enable();
+        try {
+          // Only call webln.enable() if not rejected
+          const isAlbyRejected = (window.webln as any).__albyRejected;
+          const isAlbyExtension = window.webln?.constructor?.name === 'i';
+
+          if (!isAlbyRejected) {
+            await window.webln.enable();
+          } else if (isAlbyExtension) {
+            bundleLog('walletConnection', '[WalletContext] Skipping WebLN enable - Alby extension has been rejected');
+          }
+        } catch (enableError) {
+          const errorMessage = String(enableError);
+          console.warn('[WalletContext] WebLN enable failed (non-critical):', enableError);
+
+          // Mark Alby as rejected if it's blocking further calls (but only for extension providers)
+          const isAlbyExtension = window.webln?.constructor?.name === 'i';
+          if (isAlbyExtension && (errorMessage.includes('webln.enable() failed') || errorMessage.includes('rejecting further'))) {
+            (window.webln as any).__albyRejected = true;
+            bundleLog('walletConnection', '[WalletContext] Marking Alby WebLN as rejected to avoid future conflicts');
+          }
+
+          // Don't fail the entire connection for WebLN enable errors
+          // This commonly happens when browser extension prompts are closed
+        }
+
+        // Use the WebLN provider
         const webln = window.webln;
         setProvider({
           ...webln,
@@ -214,8 +380,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         // Load initial wallet data
         try {
-          const balance = await (window.webln.getBalance?.() || Promise.resolve({ balance: 0 }));
-          const actualBalance = balance.balance || 0;
+          // Always ensure the provider is enabled before querying balance
+          if (!webln.isEnabled && typeof webln.enable === 'function') {
+            try {
+              bundleLog('walletConnection', '[WalletContext] Enabling provider before getBalance');
+              await webln.enable();
+            } catch (enableErr) {
+              bundleLog('walletConnection', '[WalletContext] Provider enable attempt before getBalance failed: ' + enableErr);
+              // Continue – some providers may still allow getBalance without explicit enable
+            }
+          }
+
+          bundleLog('walletConnection', `[WalletContext] About to call getBalance() on provider: ${webln.constructor?.name}`);
+          
+          if (!webln.getBalance) {
+            bundleLog('walletConnection', '[WalletContext] WebLN getBalance method not available');
+            throw new Error('WebLN provider does not support getBalance');
+          }
+          
+          const balance = await webln.getBalance();
+          const actualBalance = balance?.balance || 0;
 
           // Store the actual balance for this user
           setUserLightningBalance(user.pubkey, actualBalance);
@@ -227,18 +411,27 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           });
 
           // Check transaction support once during manual connection
-          setTransactionSupport(!!window.webln.listTransactions);
-        } catch {
-          console.log('Could not load initial wallet data');
+          setTransactionSupport(!!webln.listTransactions);
+        } catch (dataError) {
+          bundleLog('walletConnection', '[WalletContext] Could not load initial wallet data');
+          console.warn('[WalletContext] Wallet data loading error:', dataError);
+
+          // Set minimal wallet info even if balance loading fails
+          setWalletInfo({
+            alias: 'WebLN Wallet',
+            balance: 0,
+            implementation: 'WebLN',
+          });
+
+          setTransactionSupport(false);
         }
 
         return;
       }
 
-      // If WebLN is not available, we'll need Bitcoin Connect
-      // For now, throw an error to guide users to install a WebLN wallet
+      // If WebLN is not available, throw an error
       throw new Error(
-        'No Lightning wallet found. Please install a WebLN-compatible wallet like Alby, or connect using Bitcoin Connect.'
+        'No Lightning wallet found. Please install a WebLN-compatible wallet like Alby.'
       );
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to connect wallet');
@@ -248,13 +441,42 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const disconnect = () => {
-    setProvider(null);
-    setIsConnected(false);
-    setError(null);
-    setWalletInfo(null);
-    setTransactions([]);
-    setTransactionSupport(null);
+  const disconnect = async () => {
+    try {
+      // Try to disable WebLN provider if available
+      if (window.webln?.disable) {
+        await window.webln.disable();
+      }
+
+      // Clear user-specific Lightning access if user is logged in
+      if (user?.pubkey) {
+        setUserLightningEnabled(user.pubkey, false);
+        setUserHasLightningAccess(false);
+      }
+
+      // Reset local state
+      setProvider(null);
+      setIsConnected(false);
+      setError(null);
+      setWalletInfo(null);
+      setTransactions([]);
+      setTransactionSupport(null);
+    } catch (error) {
+      // Even if WebLN disable fails, still clear local state
+      console.warn('WebLN disable failed, but clearing local state:', error);
+
+      if (user?.pubkey) {
+        setUserLightningEnabled(user.pubkey, false);
+        setUserHasLightningAccess(false);
+      }
+
+      setProvider(null);
+      setIsConnected(false);
+      setError(null);
+      setWalletInfo(null);
+      setTransactions([]);
+      setTransactionSupport(null);
+    }
   };
 
   const sendPayment = async (invoice: string): Promise<{ preimage: string }> => {
@@ -291,22 +513,29 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       if (provider.getBalance && user?.pubkey) {
         const response = await provider.getBalance();
-        const actualBalance = response.balance;
+        const lightningBalance = response.balance;
 
-        // Store the actual balance from WebLN for this user
-        setUserLightningBalance(user.pubkey, actualBalance);
+        // Store the Lightning balance for this user
+        setUserLightningBalance(user.pubkey, lightningBalance);
 
-        // Update walletInfo with the new balance
+        // For extension signers, include Cashu balance in total
+        const cashuBalance = 0; // Note: Cashu balance integration removed due to hook ordering issues
+        const totalBalance = lightningBalance + cashuBalance;
+
+        // Update walletInfo with the combined balance
         setWalletInfo(prev => prev ? {
           ...prev,
-          balance: actualBalance
+          balance: totalBalance
         } : {
           alias: 'WebLN Wallet',
-          balance: actualBalance,
+          balance: totalBalance,
           implementation: 'WebLN',
         });
 
-        return actualBalance;
+        bundleLog('walletBalanceChanges', `Balance update: Lightning refreshed, Lightning: ${lightningBalance} sats, Cashu: ${cashuBalance} sats, Total: ${totalBalance} sats`);
+
+        // Return the Lightning balance only (for API compatibility)
+        return lightningBalance;
       }
 
       // Return stored user balance if WebLN getBalance not available
@@ -364,14 +593,35 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const testConnection = async (): Promise<boolean> => {
+    try {
+      if (!provider) {
+        throw new Error('No wallet connected');
+      }
+
+      // Try to enable the provider
+      if (!provider.isEnabled) {
+        await provider.enable();
+      }
+
+      // Optionally test getInfo or getBalance to verify connection
+      if (provider.getInfo) {
+        await provider.getInfo();
+      }
+
+      return true;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Connection test failed');
+    }
+  };
+
   const getTransactionHistory = async (args?: {
-    from?: number;
-    until?: number;
     limit?: number;
     offset?: number;
     unpaid?: boolean;
-    type?: "incoming" | "outgoing";
-  }): Promise<Transaction[]> => {
+    from?: number;
+    until?: number;
+  }) => {
     if (!provider) throw new Error('No wallet connected');
 
     try {
@@ -397,16 +647,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         if (!hasSupport) {
           if (import.meta.env.DEV) {
-          console.log('listTransactions method not available on provider (browser extension limitation)');
+          bundleLog('transactionHistory', 'listTransactions method not available on provider (browser extension limitation)');
           }
           setTransactions([]);
           return [];
         }
       } else if (transactionSupport === false) {
         // Already confirmed no support, skip API call
-        if (import.meta.env.DEV) {
-        console.log('Skipping transaction history call - provider does not support listTransactions');
-        }
+        bundleLog('transactionHistory', 'Skipping transaction history call - provider does not support listTransactions');
         setTransactions([]);
         return [];
       }
@@ -414,7 +662,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Provider supports transactions, proceed with API call
       if (provider.listTransactions) {
         if (import.meta.env.DEV) {
-          console.log('Fetching transaction history with args:', args);
+          bundleLog('transactionHistory', 'Fetching transaction history with args: ' + JSON.stringify(args));
         }
 
         try {
@@ -423,15 +671,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
           // Check if operation was cancelled
           if (currentAbortController.signal.aborted) {
-            if (import.meta.env.DEV) {
-              console.log('Transaction history fetch aborted - user changed');
-            }
+            bundleLog('transactionHistory', 'Transaction history fetch aborted - user changed');
             return [];
           }
 
-          if (import.meta.env.DEV) {
-          console.log('Transaction response:', response);
-          }
+          bundleLog('transactionHistory', 'Transaction response: ' + JSON.stringify(response));
 
           // Map the NWC/NIP-47 transaction format to our internal format
           transactions = response.transactions?.map((tx: Record<string, unknown>) => ({
@@ -445,13 +689,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             settled: tx.settled !== false,
           })) || [];
 
-          if (import.meta.env.DEV) {
-          console.log('Mapped transactions:', transactions);
-          }
+          bundleLog('transactionHistory', 'Mapped transactions: ' + JSON.stringify(transactions));
         } catch (error) {
-          if (import.meta.env.DEV) {
-          console.log('Failed to fetch transactions from provider:', error);
-          }
+          bundleLog('transactionHistory', 'Failed to fetch transactions from provider: ' + error);
           // Fall through to show unsupported message
         }
       }
@@ -463,7 +703,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       return transactions;
     } catch (error) {
-      console.error('Failed to fetch transaction history:', error);
+      devError('Failed to fetch transaction history:', error);
       // Return empty array instead of throwing to prevent UI crashes
       setTransactions([]);
       return [];
@@ -480,6 +720,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       makeInvoice,
       getTransactionHistory,
       getWalletInfo,
+      testConnection,
       provider,
       error,
       walletInfo,
@@ -487,6 +728,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       isLoading,
       transactionSupport,
       userHasLightningAccess,
+      isBunkerSigner,
+      isCashuCompatible,
+      isExtensionSigner,
+      isNsecSigner,
     }}>
       {children}
     </WalletContext.Provider>

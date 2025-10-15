@@ -3,11 +3,13 @@ import { useLocation } from 'react-router-dom';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useToast } from '@/hooks/useToast';
 import { useWallet } from '@/hooks/useWallet';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export function useSettingsLogic() {
   const location = useLocation();
   const { toast } = useToast();
-  const { isConnected, disconnect } = useWallet();
+  const { isConnected, testConnection } = useWallet();
+  const { user } = useCurrentUser();
   const { config, presetRelays = [] } = useAppContext();
 
   // Settings state
@@ -43,48 +45,21 @@ export function useSettingsLogic() {
     });
   }, [config.relayUrls, presetRelays]);
 
-  // Wallet connection handlers
-  const handleBitcoinConnect = async () => {
-    setIsConnecting('btc');
+  const handleTestConnection = async () => {
     try {
-      // Attempt to connect to WebLN wallet (browser extension)
-      if (!window.webln) {
-        throw new Error('No WebLN wallet found. Please install a Lightning wallet extension like Alby.');
-      }
-
-      await window.webln.enable();
-
+      await testConnection();
       toast({
-        title: "Bitcoin Connect",
-        description: "Successfully connected your Bitcoin wallet!"
+        title: "✅ Connection Test Successful",
+        description: "Lightning wallet connection is working properly",
       });
-    } catch (err) {
+    } catch (error) {
       toast({
-        title: "Connection failed",
-        description: err instanceof Error ? err.message : "Could not connect to Bitcoin Connect",
-        variant: "destructive"
-      });
-    } finally {
-      setIsConnecting(null);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    try {
-      await disconnect();
-      toast({
-        title: "Wallet Disconnected",
-        description: "Your Lightning wallet has been disconnected."
-      });
-    } catch {
-      toast({
-        title: "Disconnect failed",
-        description: "Could not disconnect wallet",
-        variant: "destructive"
+        title: "❌ Connection Test Failed",
+        description: error instanceof Error ? error.message : "Failed to test wallet connection",
+        variant: "destructive",
       });
     }
   };
-
   const handleNostrWalletConnect = async () => {
     setIsConnecting('nwc');
     try {
@@ -119,8 +94,7 @@ export function useSettingsLogic() {
     isConnected,
 
     // Handlers
-    handleBitcoinConnect,
-    handleDisconnect,
+    handleTestConnection,
     handleNostrWalletConnect
   };
 }

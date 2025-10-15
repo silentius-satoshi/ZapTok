@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Copy, Clock, Zap, QrCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { decodeLightningInvoice, formatSats, generateInvoiceQR, type LightningInvoiceData } from '@/lib/lightning-invoice';
+import { decodeLightningInvoice, type LightningInvoiceData } from '@/lib/lightning-invoice';
+import { formatBalance } from '@/lib/cashu';
 import { useToast } from '@/hooks/useToast';
+import LightningInvoiceQrCode from '@/components/LightningInvoiceQrCode';
 
 interface LightningInvoiceProps {
   invoice: string;
@@ -28,8 +30,6 @@ export function LightningInvoice({
   const [invoiceData, setInvoiceData] = useState<LightningInvoiceData | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [showQRCode, setShowQRCode] = useState(false);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
-  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -37,27 +37,14 @@ export function LightningInvoice({
     setInvoiceData(decoded);
   }, [invoice]);
 
-  // Generate QR code when requested
-  useEffect(() => {
-    if (showQRCode && !qrCodeDataUrl && !isGeneratingQR) {
-      setIsGeneratingQR(true);
-      generateInvoiceQR(invoice).then((dataUrl) => {
-        setQrCodeDataUrl(dataUrl);
-        setIsGeneratingQR(false);
-      }).catch((error) => {
-        console.error('Failed to generate QR code:', error);
-        setIsGeneratingQR(false);
-      });
-    }
-  }, [showQRCode, qrCodeDataUrl, isGeneratingQR, invoice]);
-
   // Update countdown timer
   useEffect(() => {
     if (!invoiceData) return;
 
     const updateTimer = () => {
       const now = Math.floor(Date.now() / 1000);
-      const timeLeft = invoiceData.expiry - now;
+      const expiryTime = invoiceData.expiry || 0;
+      const timeLeft = expiryTime - now;
 
       if (timeLeft <= 0) {
         setTimeLeft('Expired');
@@ -123,7 +110,7 @@ export function LightningInvoice({
       <div className={cn("flex items-center gap-3 p-3 border rounded-lg", className)}>
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-yellow-500" />
-          <span className="font-mono text-sm">{formatSats(invoiceData.amount)} sats</span>
+          <span className="font-mono text-sm">{invoiceData.amount ? formatBalance(invoiceData.amount) : 'Amount not specified'}</span>
         </div>
 
         {invoiceData.isExpired ? (
@@ -136,6 +123,7 @@ export function LightningInvoice({
         )}
 
         <div className="ml-auto flex gap-2">
+          <LightningInvoiceQrCode invoice={invoice} amount={invoiceData.amount} />
           <Button size="sm" variant="outline" onClick={handleCopyInvoice}>
             <Copy className="h-3 w-3" />
           </Button>
@@ -176,7 +164,7 @@ export function LightningInvoice({
         {/* Amount */}
         <div className="text-center">
           <div className="text-3xl font-bold font-mono">
-            {formatSats(invoiceData.amount)}
+            {invoiceData.amount ? formatBalance(invoiceData.amount) : 'Amount not specified'}
           </div>
           <div className="text-sm text-muted-foreground">sats</div>
         </div>
@@ -195,25 +183,17 @@ export function LightningInvoice({
         {showQR && (
           <div className="text-center">
             {showQRCode ? (
-              <div className="space-y-2">
-                {isGeneratingQR ? (
-                  <div className="mx-auto w-32 h-32 border rounded flex items-center justify-center">
-                    <div className="text-sm text-muted-foreground">Generating QR...</div>
-                  </div>
-                ) : (
-                  <img
-                    src={qrCodeDataUrl}
-                    alt="Lightning invoice QR code"
-                    className="mx-auto w-32 h-32 border rounded"
+              <div className="space-y-4">
+                <div className="mx-auto w-64 h-64">
+                  <LightningInvoiceQrCode 
+                    invoice={invoice} 
+                    amount={invoiceData.amount} 
                   />
-                )}
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setShowQRCode(false);
-                    setQrCodeDataUrl(''); // Clear QR to regenerate if shown again
-                  }}
+                  onClick={() => setShowQRCode(false)}
                 >
                   Hide QR
                 </Button>
@@ -236,15 +216,15 @@ export function LightningInvoice({
           <div className="space-y-2 text-xs text-muted-foreground">
             <div className="flex justify-between">
               <span>Payment Hash:</span>
-              <span className="font-mono">{invoiceData.paymentHash.slice(0, 16)}...</span>
+              <span className="font-mono">{invoiceData.paymentHash ? invoiceData.paymentHash.slice(0, 16) + '...' : 'N/A'}</span>
             </div>
             <div className="flex justify-between">
               <span>Created:</span>
-              <span>{new Date(invoiceData.created * 1000).toLocaleString()}</span>
+              <span>{invoiceData.created ? new Date(invoiceData.created * 1000).toLocaleString() : 'N/A'}</span>
             </div>
             <div className="flex justify-between">
               <span>Expires:</span>
-              <span>{new Date(invoiceData.expiry * 1000).toLocaleString()}</span>
+              <span>{invoiceData.expiry ? new Date(invoiceData.expiry * 1000).toLocaleString() : 'N/A'}</span>
             </div>
           </div>
         )}

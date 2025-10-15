@@ -17,12 +17,9 @@ export interface PendingTransaction {
 interface TransactionHistoryStore {
   history: (SpendingHistoryEntry & { id: string })[];
   pendingTransactions: PendingTransaction[];
-  transactions: Record<string, any[]>; // For backwards compatibility
 
   // Add a new history entry to the store
   addHistoryEntry: (entry: SpendingHistoryEntry & { id: string }) => void;
-  // Add multiple history entries in one batch (skips duplicates)
-  addHistoryEntries: (entries: (SpendingHistoryEntry & { id: string })[]) => void;
 
   // Add a pending transaction
   addPendingTransaction: (transaction: PendingTransaction) => void;
@@ -41,10 +38,6 @@ interface TransactionHistoryStore {
 
   // Clear history entries for a specific user
   clearHistory: (pubkey?: string) => void;
-
-  // Backwards compatibility methods
-  getTransactions: (pubkey: string) => any[];
-  setTransactions: (pubkey: string, transactions: any[]) => void;
 }
 
 export const useTransactionHistoryStore = create<TransactionHistoryStore>()(
@@ -52,7 +45,6 @@ export const useTransactionHistoryStore = create<TransactionHistoryStore>()(
     (set, get) => ({
       history: [],
       pendingTransactions: [],
-      transactions: {},
 
       addHistoryEntry(entry) {
         // Check if entry already exists
@@ -62,16 +54,6 @@ export const useTransactionHistoryStore = create<TransactionHistoryStore>()(
             history: [entry, ...state.history]
           }));
         }
-      },
-
-      addHistoryEntries(entries) {
-        if (!entries.length) return;
-        const existingIds = new Set(get().history.map(h => h.id));
-        const deduped = entries.filter(e => !existingIds.has(e.id));
-        if (!deduped.length) return;
-        set(state => ({
-          history: [...deduped, ...state.history]
-        }));
       },
 
       addPendingTransaction(transaction) {
@@ -116,23 +98,10 @@ export const useTransactionHistoryStore = create<TransactionHistoryStore>()(
         return [...history, ...pending].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
       },
 
-      clearHistory() {
+      clearHistory(pubkey) {
+        // If pubkey provided, we could filter by it in the future
         // Currently just clear all history
         set({ history: [], pendingTransactions: [] });
-      },
-
-      // Backwards compatibility methods
-      getTransactions(pubkey) {
-        return get().transactions[pubkey] || [];
-      },
-
-      setTransactions(pubkey, transactions) {
-        set(state => ({
-          transactions: {
-            ...state.transactions,
-            [pubkey]: transactions
-          }
-        }));
       },
     }),
     { name: 'cashu-history' },

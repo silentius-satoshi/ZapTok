@@ -2,15 +2,13 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNutzapInfo } from '@/hooks/useNutzaps';
-import { useReceivedNutzaps, ReceivedNutzap } from '@/hooks/useReceivedNutzaps';
-import { useNutzapRedemption } from '@/hooks/useNutzapRedemption';
+import { useReceivedNutzaps, useRedeemNutzap, ReceivedNutzap } from '@/hooks/useReceivedNutzaps';
 import { CASHU_EVENT_KINDS } from '@/lib/cashu';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
 import { useWalletUiStore } from '@/stores/walletUiStore';
 import { formatBalance } from '@/lib/cashu';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
-import { useAppContext } from '@/hooks/useAppContext';
 import { toast } from 'sonner';
 
 /**
@@ -21,34 +19,15 @@ export function useAutoReceiveNutzaps() {
   const { user } = useCurrentUser();
   const { nostr } = useNostr();
   const nutzapInfoQuery = useNutzapInfo(user?.pubkey);
-  const { nutzaps: fetchedNutzaps, refetch: refetchNutzaps } = useReceivedNutzaps();
-  const { redeemNutzap } = useNutzapRedemption();
+  const { data: fetchedNutzaps, refetch: refetchNutzaps } = useReceivedNutzaps();
+  const { mutateAsync: redeemNutzap } = useRedeemNutzap();
   const walletUiStore = useWalletUiStore();
   const { showSats } = useCurrencyDisplayStore();
   const { data: btcPrice } = useBitcoinPrice();
-  const { config } = useAppContext();
-  
+
   // Keep track of processed event IDs to avoid duplicates
   const processedEventIds = useRef<Set<string>>(new Set());
   const subscriptionController = useRef<AbortController | null>(null);
-
-  // Check if Cashu operations should run in the current context
-  const shouldRunCashuOperations = config.relayContext === 'all' || 
-    config.relayContext === 'wallet' || 
-    config.relayContext === 'cashu-only' || 
-    config.relayContext === 'settings-cashu';
-
-  // Early return if Cashu operations shouldn't run
-  useEffect(() => {
-    if (!shouldRunCashuOperations) {
-      // Clean up any existing subscriptions
-      if (subscriptionController.current) {
-        subscriptionController.current.abort();
-        subscriptionController.current = null;
-      }
-      return;
-    }
-  }, [shouldRunCashuOperations]);
 
   // Format amount based on user preference
   const formatAmount = useCallback((sats: number) => {
@@ -62,43 +41,38 @@ export function useAutoReceiveNutzaps() {
 
   // Process and auto-redeem a nutzap
   const processNutzap = useCallback(async (nutzap: ReceivedNutzap) => {
-    if (nutzap.status === 'claimed' || processedEventIds.current.has(nutzap.id)) {
+    if (nutzap.redeemed || processedEventIds.current.has(nutzap.id)) {
       return;
     }
 
     processedEventIds.current.add(nutzap.id);
 
     try {
-      await redeemNutzap({
-        nutzapEventIds: [nutzap.id],
-        direction: 'in',
-        amount: nutzap.amount.toString(),
-        createdTokenEventId: nutzap.id
-      });
-      
+      await redeemNutzap(nutzap);
+
       const amount = nutzap.proofs.reduce((sum, p) => sum + p.amount, 0);
-      
+
       // Show success notification
       toast.success(`eCash received! ${formatAmount(amount)}`, {
-        description: nutzap.comment || 'Auto-redeemed to your wallet',
+        description: nutzap.content || 'Auto-redeemed to your wallet',
         duration: 4000,
       });
 
       // Animate the balance in the header
       walletUiStore.setBalanceAnimation(true);
       setTimeout(() => walletUiStore.setBalanceAnimation(false), 1000);
-      
+
     } catch (error) {
       console.error('Failed to auto-redeem nutzap:', error);
-      
+
       const amount = nutzap.proofs.reduce((sum, p) => sum + p.amount, 0);
-      
+
       // Show notification that eCash was received but manual redemption needed
       toast.info(`eCash received! ${formatAmount(amount)}`, {
         description: 'Manual redemption required - check your wallet',
         action: {
           label: 'Open Wallet',
-          onClick: () => walletUiStore.setShowWallet(true),
+          onClick: () => walletUiStore.setCardExpanded('wallet', true),
         },
         duration: 5000,
       });
@@ -107,22 +81,22 @@ export function useAutoReceiveNutzaps() {
 
   // Process initial nutzaps on load
   useEffect(() => {
-    if (!shouldRunCashuOperations || !fetchedNutzaps || fetchedNutzaps.length === 0) return;
+    if (!fetchedNutzaps || fetchedNutzaps.length === 0) return;
 
     // Process any unredeemed nutzaps
-    const unredeemedNutzaps = fetchedNutzaps.filter(n => n.status === 'pending');
-    
+    const unredeemedNutzaps = fetchedNutzaps.filter(n => !n.redeemed);
+
     unredeemedNutzaps.forEach(nutzap => {
       processNutzap(nutzap);
     });
 
     // Add all fetched nutzap IDs to processed set
     fetchedNutzaps.forEach(n => processedEventIds.current.add(n.id));
-  }, [shouldRunCashuOperations, fetchedNutzaps, processNutzap]);
+  }, [fetchedNutzaps, processNutzap]);
 
   // Set up real-time subscription
   useEffect(() => {
-    if (!shouldRunCashuOperations || !user || !nutzapInfoQuery.data) return;
+    if (!user || !nutzapInfoQuery.data) return;
 
     // Get trusted mints from nutzap info
     const trustedMints = nutzapInfoQuery.data.mints.map((mint) => mint.url);
@@ -149,7 +123,7 @@ export function useAutoReceiveNutzaps() {
       user.pubkey,
       CASHU_EVENT_KINDS.HISTORY
     );
-    
+
     if (lastRedemptionTimestamp) {
       Object.assign(filter, { since: lastRedemptionTimestamp });
     }
@@ -159,10 +133,10 @@ export function useAutoReceiveNutzaps() {
       try {
         // Initial query to catch any recent events
         const events = await nostr.query([filter], { signal });
-        
+
         for (const event of events) {
           if (processedEventIds.current.has(event.id)) continue;
-          
+
           try {
             // Get the mint URL from tags
             const mintTag = event.tags.find((tag) => tag[0] === "u");
@@ -190,28 +164,30 @@ export function useAutoReceiveNutzaps() {
             if (proofs.length === 0) continue;
 
             // Get the zapped event if any
+            let zappedEvent: string | undefined;
             const eventTag = event.tags.find((tag) => tag[0] === "e");
-            const _zappedEvent = eventTag ? eventTag[1] : undefined;
+            if (eventTag) {
+              zappedEvent = eventTag[1];
+            }
 
             // Create nutzap object
             const nutzap: ReceivedNutzap = {
               id: event.id,
-              senderPubkey: event.pubkey,
-              amount: proofs.reduce((sum, p) => sum + p.amount, 0),
-              comment: event.content,
-              mintUrl,
-              timestamp: event.created_at,
-              status: 'pending',
+              pubkey: event.pubkey,
+              createdAt: event.created_at,
+              content: event.content,
               proofs,
-              originalEvent: event,
+              mintUrl,
+              zappedEvent,
+              redeemed: false,
             };
 
             // Process the nutzap
             await processNutzap(nutzap);
-            
+
             // Refresh the nutzaps list
             refetchNutzaps();
-            
+
           } catch (error) {
             console.error("Error processing nutzap event:", error);
           }
@@ -240,7 +216,7 @@ export function useAutoReceiveNutzaps() {
         subscriptionController.current = null;
       }
     };
-  }, [shouldRunCashuOperations, user, nutzapInfoQuery.data, nostr, processNutzap, refetchNutzaps]);
+  }, [user, nutzapInfoQuery.data, nostr, processNutzap, refetchNutzaps]);
 
   return {
     // Expose refetch in case manual refresh is needed

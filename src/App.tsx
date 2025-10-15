@@ -5,10 +5,15 @@ import { Suspense, useEffect } from 'react';
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AuthFilter } from '@/components/auth/AuthFilter';
+import { ZapProvider } from '@/contexts/ZapProvider';
+import { CurrentVideoProvider } from '@/contexts/CurrentVideoContext';
+import { FeedRefreshProvider } from '@/contexts/FeedRefreshContext';
 import { AppConfig } from '@/contexts/AppContext';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
-import { primalBlossom } from '@/lib/blossomUtils';
+import { DEFAULT_BLOSSOM_SERVERS } from '@/lib/blossomUtils';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
+import { useWelshmanBunkerRestoration } from '@/hooks/useWelshmanBunkerRestoration';
+import { videoCache } from '@/lib/unifiedVideoCache';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -28,31 +33,35 @@ const queryClient = new QueryClient({
   },
 });
 
+// Initialize video cache with QueryClient
+videoCache.setQueryClient(queryClient);
+
 const defaultConfig: AppConfig = {
   theme: "dark", // Changed to dark theme for ZapTok
   relayUrls: [
     // Start with Chorus relay first for better Cashu transaction discovery
     "wss://relay.chorus.community",
     "wss://relay.nostr.band",
-    "wss://ditto.pub/relay",
     "wss://relay.damus.io",
     "wss://relay.primal.net"
   ],
   relayContext: 'all', // Start with all relays, will be optimized automatically
   defaultZap,
   availableZapOptions: defaultZapOptions,
-  blossomServers: [primalBlossom],
+  blossomServers: DEFAULT_BLOSSOM_SERVERS,
 };
 
 const presetRelays = [
   { url: 'wss://relay.chorus.community', name: 'Chorus' },
-  { url: 'wss://ditto.pub/relay', name: 'Ditto' },
   { url: 'wss://relay.nostr.band', name: 'Nostr.Band' },
   { url: 'wss://relay.damus.io', name: 'Damus' },
   { url: 'wss://relay.primal.net', name: 'Primal' },
 ];
 
 function AppContent() {
+  // Initialize bunker login restoration on app startup
+  useWelshmanBunkerRestoration();
+
   // Set dark theme on app load
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -79,9 +88,15 @@ export function App() {
       <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
-            <AuthFilter>
-              <AppContent />
-            </AuthFilter>
+            <ZapProvider>
+              <CurrentVideoProvider>
+                <FeedRefreshProvider>
+                  <AuthFilter>
+                    <AppContent />
+                  </AuthFilter>
+                </FeedRefreshProvider>
+              </CurrentVideoProvider>
+            </ZapProvider>
           </NostrLoginProvider>
         </QueryClientProvider>
       </AppProvider>

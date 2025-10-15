@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SimplePool, nip19 } from 'nostr-tools';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { isolateTest } from './test-utils';
 
-// Mock SimplePool for testing relay interactions
+// Mock SimplePool with service layer abstractions
 vi.mock('nostr-tools', async () => {
   const actual = await vi.importActual('nostr-tools');
   return {
@@ -25,6 +26,8 @@ describe('Profile Verification Tests', () => {
   let mockQuerySync: any;
 
   beforeEach(() => {
+    isolateTest();
+    
     mockQuerySync = vi.fn();
     mockPool = {
       querySync: mockQuerySync,
@@ -35,7 +38,6 @@ describe('Profile Verification Tests', () => {
 
   describe('Relay Profile Verification', () => {
     it('should verify that new account profile exists on relays', async () => {
-      // Mock the relay response for new account
       const newAccountProfileEvent: NostrEvent = {
         id: 'new-account-event-id',
         pubkey: newAccountPubkey,
@@ -69,11 +71,10 @@ describe('Profile Verification Tests', () => {
     });
 
     it('should verify that original account profile remains unchanged', async () => {
-      // Mock the relay response for original account
       const originalAccountProfileEvent: NostrEvent = {
         id: 'original-account-event-id',
         pubkey: originalAccountPubkey,
-        created_at: Math.floor(Date.now() / 1000) - 3600, // Created 1 hour ago
+        created_at: Math.floor(Date.now() / 1000) - 3600,
         kind: 0,
         tags: [],
         content: JSON.stringify({
@@ -124,7 +125,6 @@ describe('Profile Verification Tests', () => {
         sig: 'new-signature',
       };
 
-      // Mock different responses based on the pubkey being queried
       mockQuerySync.mockImplementation((relays, filter) => {
         if (filter.authors.includes(originalAccountPubkey)) {
           return Promise.resolve([originalEvent]);
@@ -137,21 +137,18 @@ describe('Profile Verification Tests', () => {
 
       const pool = new SimplePool();
 
-      // Query for original account
       const originalEvents = await pool.querySync(testRelays, {
         kinds: [0],
         authors: [originalAccountPubkey],
         limit: 1,
       });
 
-      // Query for new account
       const newEvents = await pool.querySync(testRelays, {
         kinds: [0],
         authors: [newAccountPubkey],
         limit: 1,
       });
 
-      // Verify both accounts exist independently
       expect(originalEvents).toHaveLength(1);
       expect(newEvents).toHaveLength(1);
 
@@ -193,7 +190,6 @@ describe('Profile Verification Tests', () => {
         sig: 'abcd1234567890efabcd1234567890efabcd1234567890efabcd1234567890efabcd1234567890efabcd1234567890efabcd1234567890efabcd1234567890ef',
       };
 
-      // Validate NIP-01 requirements
       expect(typeof validEvent.id).toBe('string');
       expect(validEvent.id).toMatch(/^[a-f0-9]{64}$/);
 
@@ -233,7 +229,6 @@ describe('Profile Verification Tests', () => {
 
       const contentString = JSON.stringify(validKind0Content);
 
-      // Should be valid JSON
       expect(() => JSON.parse(contentString)).not.toThrow();
 
       const parsed = JSON.parse(contentString);
@@ -259,7 +254,6 @@ describe('Profile Verification Tests', () => {
         });
       });
 
-      // First element should be the tag name
       expect(validTags[0][0]).toBe('e');
       expect(validTags[1][0]).toBe('p');
       expect(validTags[2][0]).toBe('client');
@@ -271,7 +265,6 @@ describe('Profile Verification Tests', () => {
     it('should properly encode and decode npub identifiers', () => {
       const pubkeyHex = newAccountPubkey;
 
-      // Use the already set up global mocks
       const npub = nip19.npubEncode(pubkeyHex);
       expect(npub).toMatch(/^npub1/);
 
@@ -283,7 +276,6 @@ describe('Profile Verification Tests', () => {
     it('should properly encode and decode nsec identifiers', () => {
       const secretKeyBytes = new Uint8Array(32).fill(1);
 
-      // Use the already set up global mocks
       const nsec = nip19.nsecEncode(secretKeyBytes);
       expect(nsec).toMatch(/^nsec1/);
 
@@ -295,7 +287,6 @@ describe('Profile Verification Tests', () => {
 
   describe('Cross-Client Compatibility Tests', () => {
     it('should generate events that other Nostr clients can read', () => {
-      // This test ensures our events follow NIP-01 standard that other clients expect
       const zapTokGeneratedEvent: NostrEvent = {
         id: 'zaptok-generated-event-id'.padEnd(64, '0').slice(0, 64),
         pubkey: newAccountPubkey,
@@ -311,12 +302,10 @@ describe('Profile Verification Tests', () => {
         sig: 'zaptok-signature'.padEnd(128, '0').slice(0, 128),
       };
 
-      // Verify it meets the standard that other clients like Primal, Damus expect
-      expect(zapTokGeneratedEvent.kind).toBe(0); // Standard metadata event
+      expect(zapTokGeneratedEvent.kind).toBe(0);
       expect(JSON.parse(zapTokGeneratedEvent.content).name).toBeTruthy();
       expect(zapTokGeneratedEvent.tags.find(tag => tag[0] === 'client')?.[1]).toBe('zaptok');
 
-      // Event structure should be exactly what NIP-01 specifies
       const requiredFields = ['id', 'pubkey', 'created_at', 'kind', 'tags', 'content', 'sig'];
       requiredFields.forEach(field => {
         expect(zapTokGeneratedEvent).toHaveProperty(field);

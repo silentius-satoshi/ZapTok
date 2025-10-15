@@ -17,13 +17,15 @@ import { useBitcoinPrice, satsToUSD, formatUSD } from "@/hooks/useBitcoinPrice";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   AlertCircle,
+  AlertTriangle,
   ChevronDown,
   ChevronUp,
   Plus,
   Trash,
   Eraser,
 } from "lucide-react";
-import { useCashuStore, CashuWalletStruct } from "@/stores/cashuStore";
+import { useCashuStore } from "@/stores/cashuStore";
+import { CashuWalletStruct } from "@/lib/cashu";
 
 import { Badge } from "@/components/ui/badge";
 import { useCashuToken } from "@/hooks/useCashuToken";
@@ -33,9 +35,9 @@ import { useWalletUiStore } from "@/stores/walletUiStore";
 
 export function CashuWalletCard() {
   const { user } = useCurrentUser();
-  const { wallet, isLoading, createWallet } = useCashuWallet();
+  const { wallet, isLoading, createWallet: updateWallet } = useCashuWallet();
   const cashuStore = useCashuStore();
-  const { cleanSpentProofs } = useCashuToken();
+  const { cleanSpentProofs, cleanUnspendableP2PKProofs } = useCashuToken();
   const { data: btcPrice } = useBitcoinPrice();
   const { showSats } = useCurrencyDisplayStore();
   const walletUiStore = useWalletUiStore();
@@ -86,7 +88,7 @@ export function CashuWalletCard() {
   }, [wallet, cashuStore]);
 
   const {
-    mutate: handleCreateWallet,
+    mutate: handleCreateNewWallet,
     isPending: isCreatingWallet,
     error: createWalletError,
   } = useCreateCashuWallet();
@@ -107,17 +109,11 @@ export function CashuWalletCard() {
 
       // Add mint to wallet
       const updatedWalletData: CashuWalletStruct = {
-        id: crypto.randomUUID(),
-        name: 'My Wallet',
-        unit: 'sat',
-        mints: [...wallet.mints, newMint],
-        balance: 0,
-        proofs: [],
-        lastUpdated: Date.now(),
         privkey: wallet.privkey,
+        mints: [...wallet.mints, newMint],
       };
-      
-      handleCreateWallet(updatedWalletData);
+
+      updateWallet(updatedWalletData);
 
       // Clear input
       setNewMint("");
@@ -142,17 +138,11 @@ export function CashuWalletCard() {
     try {
       // Remove mint from wallet
       const updatedWalletData: CashuWalletStruct = {
-        id: crypto.randomUUID(),
-        name: 'My Wallet',
-        unit: 'sat',
-        mints: wallet.mints.filter((m) => m !== mintUrl),
-        balance: 0,
-        proofs: [],
-        lastUpdated: Date.now(),
         privkey: wallet.privkey,
+        mints: wallet.mints.filter((m) => m !== mintUrl),
       };
-      
-      handleCreateWallet(updatedWalletData);
+
+      updateWallet(updatedWalletData);
     } catch {
       setError("Failed to remove mint");
     }
@@ -177,11 +167,24 @@ export function CashuWalletCard() {
   const handleCleanSpentProofs = async (mintUrl: string) => {
     if (!wallet || !wallet.mints) return;
     if (!cashuStore.activeMintUrl) return;
-    const spentProofs = await cleanSpentProofs(mintUrl);
-    const proofSum = spentProofs.reduce((sum, proof) => sum + proof.amount, 0);
-    console.log(
-      `Removed ${spentProofs.length} spent proofs for ${proofSum} sats`
-    );
+    try {
+      await cleanSpentProofs(mintUrl);
+      console.log(`Cleaned spent proofs for mint: ${mintUrl}`);
+    } catch (error) {
+      console.error('Error cleaning spent proofs:', error);
+    }
+  };
+
+  const handleCleanP2PKIssues = async (mintUrl: string) => {
+    if (!wallet || !wallet.mints) return;
+    if (!cashuStore.activeMintUrl) return;
+    try {
+      const removedProofs = await cleanUnspendableP2PKProofs(mintUrl);
+      const proofSum = removedProofs.reduce((sum, proof) => sum + proof.amount, 0);
+      console.log(`Removed ${removedProofs.length} unspendable P2PK proofs totaling ${proofSum} sats from ${mintUrl}`);
+    } catch (error) {
+      console.error('Error cleaning P2PK proofs:', error);
+    }
   };
 
   // Set active mint when clicking on a mint
@@ -224,7 +227,7 @@ export function CashuWalletCard() {
           </div>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => handleCreateWallet(undefined)} disabled={!user}>
+          <Button onClick={() => handleCreateNewWallet()} disabled={!user}>
             Create Wallet
           </Button>
           {!user && (
@@ -320,25 +323,36 @@ export function CashuWalletCard() {
                           </div>
                         </div>
                         {isExpanded && (
-                          <div className="pl-4 flex justify-end gap-2 pt-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCleanSpentProofs(mint)}
-                              className="border-muted-foreground/20 hover:bg-muted"
-                            >
-                              <Eraser className="h-4 w-4 mr-1 text-amber-500" />
-                              Cleanup Wallet
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRemoveMint(mint)}
-                              className="border-muted-foreground/20 hover:bg-destructive/10"
-                            >
-                              <Trash className="h-4 w-4 mr-1 text-destructive" />
-                              Remove
-                            </Button>
+                          <div className="pl-4 flex flex-col gap-2 pt-1">
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCleanSpentProofs(mint)}
+                                className="border-muted-foreground/20 hover:bg-muted"
+                              >
+                                <Eraser className="h-4 w-4 mr-1 text-amber-500" />
+                                Clean All Spent
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCleanP2PKIssues(mint)}
+                                className="border-muted-foreground/20 hover:bg-orange-100"
+                              >
+                                <AlertTriangle className="h-4 w-4 mr-1 text-orange-500" />
+                                Clean P2PK Issues
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRemoveMint(mint)}
+                                className="border-muted-foreground/20 hover:bg-destructive/10"
+                              >
+                                <Trash className="h-4 w-4 mr-1 text-destructive" />
+                                Remove
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>

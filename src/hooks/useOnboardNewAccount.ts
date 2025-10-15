@@ -117,8 +117,7 @@ export function useOnboardNewAccount() {
         name: displayName.trim(),
         ...(about && { about: about.trim() }),
         ...(pictureUrl && { picture: pictureUrl }),
-        // Add a subtle indicator this account was created via ZapTok
-        nip05: `${displayName.toLowerCase().replace(/\s+/g, '')}@zaptok.app`
+        // Note: Users can add their own NIP-05 identifier later in profile settings
       };
 
       const profileEvent = await newUser.signer.signEvent({

@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { MessageCircle, Bookmark, Plus, Repeat2 } from 'lucide-react';
+import { MessageCircle, Bookmark, Plus, Repeat2, ArrowUpRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useLoginPrompt } from '@/hooks/useLoginPrompt';
 import { useVideoReactions } from '@/hooks/useVideoReactions';
 import { useVideoComments } from '@/hooks/useVideoComments';
 import { useVideoReposts } from '@/hooks/useVideoReposts';
+import { useVideoNutzaps } from '@/hooks/useVideoNutzaps';
 import { useRepost } from '@/hooks/useRepost';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollowing } from '@/hooks/useFollowing';
@@ -13,10 +15,17 @@ import { useFollowUser } from '@/hooks/useFollowUser';
 import { useBookmarkVideo } from '@/hooks/useBookmarks';
 import { genUserName } from '@/lib/genUserName';
 import { ZapButton } from '@/components/ZapButton';
-import { NutzapButton } from '@/components/NutzapButton';
+import { NutzapButton } from '@/components/users/NutzapButton';
 import { CommentsModal } from '@/components/CommentsModal';
+import { QRModal } from '@/components/QRModal';
+import { ShareModal } from '@/components/ShareModal';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useNostrLogin } from '@nostrify/react/login';
+import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
+import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
+import { useAppContext } from '@/hooks/useAppContext';
 
 interface VideoActionButtonsProps {
   event: NostrEvent;
@@ -24,27 +33,34 @@ interface VideoActionButtonsProps {
   profilePicture?: string;
   isBookmarked?: boolean;
   isFollowing?: boolean;
-  onZap?: () => void;
   onComment?: () => void;
   onBookmark?: () => void;
   onFollow?: () => void;
   onProfileClick?: () => void;
+  onShare?: () => void;
 }
 
 export function VideoActionButtons({
   event,
   displayName,
   profilePicture,
-  onZap: _onZap,
   onComment,
   onBookmark,
   onFollow,
   onProfileClick,
+  onShare,
 }: VideoActionButtonsProps) {
   const { user } = useCurrentUser();
+  const { withLoginCheck } = useLoginPrompt();
+  const { config } = useAppContext();
+  const { logins } = useNostrLogin();
+  const isMobile = useIsMobile();
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const reactions = useVideoReactions(event.id);
-  const { data: commentsData } = useVideoComments(event.id);
-  const { data: repostsData } = useVideoReposts(event.id);
+  const commentsData = useVideoComments(event.id);
+  const repostsData = useVideoReposts(event.id);
+  const nutzapData = useVideoNutzaps(event.id);
   const { mutate: createRepost, isPending: isRepostPending } = useRepost();
   const author = useAuthor(event.pubkey);
   const following = useFollowing(user?.pubkey || '');
@@ -52,6 +68,30 @@ export function VideoActionButtons({
   const { mutate: followUser, isPending: isFollowPending } = useFollowUser();
   const { mutate: bookmarkVideo, isPending: isBookmarkPending } = useBookmarkVideo();
   const navigate = useNavigate();
+
+  // Currency display settings
+  const { showSats } = useCurrencyDisplayStore();
+  const { data: btcPrice } = useBitcoinPrice();
+
+  // Format nutzap amount
+  const formatNutzapAmount = (amount: number): string => {
+    if (showSats) {
+      return amount >= 1000 ? `${(amount / 1000).toFixed(1)}K` : amount.toString();
+    } else {
+      if (btcPrice?.USD) {
+        const usdAmount = satsToUSD(amount, btcPrice.USD);
+        return usdAmount >= 1000 ? `${(usdAmount / 1000).toFixed(1)}K` : usdAmount.toFixed(2);
+      }
+      return amount >= 1000 ? `${(amount / 1000).toFixed(1)}K` : amount.toString();
+    }
+  };
+
+  // Detect signer type to hide Cashu features for bunker signers
+  const currentUserLogin = logins.find(login => login.pubkey === user?.pubkey);
+  const loginType = currentUserLogin?.type;
+  const isBunkerSigner = loginType === 'bunker' ||
+                        loginType === 'x-bunker-nostr-tools' ||
+                        user?.signer?.constructor?.name?.includes('bunker');
 
   const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
 
@@ -74,29 +114,39 @@ export function VideoActionButtons({
   });
 
   const handleBookmark = onBookmark || (() => {
-    if (!user) return;
-
-    bookmarkVideo({
-      eventId: event.id,
-      isCurrentlyBookmarked: isCurrentlyBookmarked,
+    withLoginCheck(() => {
+      bookmarkVideo({
+        eventId: event.id,
+        isCurrentlyBookmarked: isCurrentlyBookmarked,
+      });
+    }, {
+      loginMessage: 'Login required to bookmark videos'
     });
   });
 
   const handleRepost = () => {
-    if (!user) return;
-
-    createRepost({
-      event: event,
+    withLoginCheck(() => {
+      createRepost({
+        event: event,
+      });
+    }, {
+      loginMessage: 'Login required to repost videos'
     });
   };
 
   const handleFollow = onFollow || (() => {
-    if (!user) return;
-
-    followUser({
-      pubkeyToFollow: event.pubkey,
-      isCurrentlyFollowing: isCurrentlyFollowing,
+    withLoginCheck(() => {
+      followUser({
+        pubkeyToFollow: event.pubkey,
+        isCurrentlyFollowing: isCurrentlyFollowing,
+      });
+    }, {
+      loginMessage: 'Login required to follow users'
     });
+  });
+
+  const handleShare = onShare || (() => {
+    setShowShareModal(true);
   });
 
   const handleProfileClick = onProfileClick || (() => {
@@ -115,11 +165,13 @@ export function VideoActionButtons({
 
   return (
     <>
-      <div className="flex flex-col items-center gap-4 w-16">
+      <div className={`flex items-center ${isMobile ? 'flex-col gap-3 w-16' : 'flex-col gap-3 w-16'}`}>
         {/* 1. Profile Picture with Follow Button (no click functionality on profile picture) */}
-        <div className="relative">
-          <div className="rounded-full p-0 h-12 w-12 overflow-hidden border-2 border-gray-700 bg-gray-900/80 shadow-lg backdrop-blur-sm">
-            <Avatar className="h-12 w-12">
+        <div className={`relative ${isMobile ? 'mb-2' : ''}`}>
+          <div className={`rounded-full p-0 overflow-hidden bg-transparent ${
+            isMobile ? 'h-12 w-12' : 'h-12 w-12'
+          }`}>
+            <Avatar className={isMobile ? 'h-12 w-12' : 'h-12 w-12'}>
               <AvatarImage src={authorProfilePicture} alt={authorDisplayName} />
               <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
                 {authorDisplayName.slice(0, 2).toUpperCase()}
@@ -132,7 +184,9 @@ export function VideoActionButtons({
             <Button
               variant="ghost"
               size="sm"
-              className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 rounded-full h-5 w-5 ${
+              className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 rounded-full p-0 flex items-center justify-center ${
+                isMobile ? 'h-5 w-5' : 'h-6 w-6'
+              } ${
                 isCurrentlyFollowing
                   ? 'bg-gray-600 hover:bg-gray-700'
                   : 'bg-red-500 hover:bg-red-600'
@@ -140,32 +194,40 @@ export function VideoActionButtons({
               onClick={handleFollow}
               disabled={isFollowPending}
             >
-              <Plus className="w-3 h-3" />
+              {isCurrentlyFollowing ? (
+                <Check className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
+              ) : (
+                <Plus className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
+              )}
             </Button>
           )}
         </div>
 
-        {/* 2. Zap Button */}
+        {/* 2. Zap Button - Interactive on both Mobile and Desktop */}
         <div className="flex flex-col items-center gap-1">
           <ZapButton
             recipientPubkey={event.pubkey}
             eventId={event.id}
-            className="rounded-full bg-gray-900/80 hover:bg-gray-800/80 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg p-0"
+            iconStyle={{
+              width: '28px',
+              height: '28px'
+            }}
+            className={isMobile ? 'h-12 w-12' : 'h-12 w-12'}
           />
-          <span className="text-white text-xs font-bold">
-            {reactions.data ? formatCount(reactions.data.zaps) : '0'}
+          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
+            {reactions.totalSats > 0 ? formatCount(reactions.totalSats) : '0'}
           </span>
         </div>
 
-        {/* 3. Nutzap Button */}
+        {/* 3. Nutzap Button - Now available for all signer types */}
         <div className="flex flex-col items-center gap-1">
           <NutzapButton
-            userPubkey={event.pubkey}
-            eventId={event.id}
-            className="rounded-full bg-gray-900/80 hover:bg-orange-500/10 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg p-0"
+            postId={event.id}
+            authorPubkey={event.pubkey}
+            showText={false}
           />
-          <span className="text-white text-xs font-bold">
-            nutzap!
+          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
+            {nutzapData?.totalAmount ? formatNutzapAmount(nutzapData.totalAmount) : '0'}
           </span>
         </div>
 
@@ -174,12 +236,20 @@ export function VideoActionButtons({
           <Button
             variant="ghost"
             size="sm"
-            className="group rounded-full bg-gray-900/80 hover:bg-blue-500/10 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg transition-all duration-200"
+            className={`group rounded-full bg-transparent hover:bg-white/10 text-white transition-all duration-200 ${
+              isMobile ? 'h-12 w-12' : 'h-12 w-12'
+            }`}
             onClick={handleComment}
           >
-            <MessageCircle className="w-6 h-6 text-blue-400 drop-shadow-[0_0_4px_rgba(59,130,246,0.6)] group-hover:text-blue-300 group-hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.8)] group-hover:scale-110 transition-all duration-200" />
+            <MessageCircle
+              className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200`}
+              style={{
+                width: '28px',
+                height: '28px'
+              }}
+            />
           </Button>
-          <span className="text-white text-xs font-bold">
+          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
             {commentsData ? formatCount(commentsData.commentCount) : '0'}
           </span>
         </div>
@@ -189,13 +259,21 @@ export function VideoActionButtons({
           <Button
             variant="ghost"
             size="sm"
-            className="group rounded-full bg-gray-900/80 hover:bg-green-500/10 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg disabled:opacity-50 transition-all duration-200"
+            className={`group rounded-full bg-transparent hover:bg-white/10 text-white disabled:opacity-50 transition-all duration-200 ${
+              isMobile ? 'h-12 w-12' : 'h-12 w-12'
+            }`}
             onClick={handleRepost}
             disabled={isRepostPending || !user}
           >
-            <Repeat2 className="w-6 h-6 text-green-400 drop-shadow-[0_0_4px_rgba(34,197,94,0.6)] group-hover:text-green-300 group-hover:drop-shadow-[0_0_8px_rgba(34,197,94,0.8)] group-hover:scale-110 transition-all duration-200" />
+            <Repeat2
+              className={`text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-green-300 group-hover:scale-110 transition-all duration-200`}
+              style={{
+                width: '28px',
+                height: '28px'
+              }}
+            />
           </Button>
-          <span className="text-white text-xs font-bold">
+          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
             {repostsData ? formatCount(repostsData.count) : '0'}
           </span>
         </div>
@@ -205,38 +283,49 @@ export function VideoActionButtons({
           <Button
             variant="ghost"
             size="sm"
-            className="group rounded-full bg-gray-900/80 hover:bg-purple-500/10 text-white h-12 w-12 backdrop-blur-sm border border-gray-700 shadow-lg disabled:opacity-50 transition-all duration-200"
+            className={`group rounded-full bg-transparent hover:bg-white/10 text-white disabled:opacity-50 transition-all duration-200 ${
+              isMobile ? 'h-12 w-12' : 'h-12 w-12'
+            }`}
             onClick={handleBookmark}
             disabled={isBookmarkPending}
           >
-            <Bookmark className={`w-6 h-6 transition-all duration-200 ${
-              isCurrentlyBookmarked
-                ? 'fill-purple-500 text-purple-500 drop-shadow-[0_0_8px_rgba(147,51,234,0.8)]'
-                : 'text-purple-400 drop-shadow-[0_0_4px_rgba(147,51,234,0.6)] group-hover:text-purple-300 group-hover:drop-shadow-[0_0_8px_rgba(147,51,234,0.8)] group-hover:scale-110'
-            }`} />
+            <Bookmark
+              className={`transition-all duration-200 ${
+                isCurrentlyBookmarked
+                  ? 'fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]'
+                  : 'text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-yellow-300 group-hover:scale-110'
+              }`}
+              style={{
+                width: '28px',
+                height: '28px'
+              }}
+            />
           </Button>
-          <span className="text-white text-xs font-bold">
+          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
             0
           </span>
         </div>
 
-        {/* 7. Profile Picture Button (clickable for profile page) */}
+        {/* 7. Share Button */}
         <div className="flex flex-col items-center gap-1">
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-full p-0 h-12 w-12 overflow-hidden border-2 border-gray-700 bg-gray-900/80 hover:bg-gray-800/80 shadow-lg backdrop-blur-sm"
-            onClick={handleProfileClick}
+            className={`group rounded-full bg-transparent hover:bg-white/10 text-white transition-all duration-200 ${
+              isMobile ? 'h-12 w-12' : 'h-12 w-12'
+            }`}
+            onClick={handleShare}
           >
-            <Avatar className="h-12 w-12">
-              <AvatarImage src={authorProfilePicture} alt={authorDisplayName} />
-              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
-                {authorDisplayName.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <ArrowUpRight
+              className="text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200"
+              style={{
+                width: '28px',
+                height: '28px'
+              }}
+            />
           </Button>
-          <span className="text-white text-xs font-bold">
-            Profile
+          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
+            Share
           </span>
         </div>
       </div>
@@ -246,6 +335,25 @@ export function VideoActionButtons({
         isOpen={isCommentsModalOpen}
         onClose={() => setIsCommentsModalOpen(false)}
         videoEvent={event}
+      />
+
+      {/* QR Modal for Video Sharing */}
+      <QRModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        pubkey={event.pubkey}
+        metadata={author.data?.metadata}
+        displayName={authorDisplayName}
+        relays={config.relayUrls}
+        event={event}
+      />
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        event={event}
+        onQRCodeClick={() => setShowQRModal(true)}
       />
     </>
   );

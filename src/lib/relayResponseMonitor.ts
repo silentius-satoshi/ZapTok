@@ -3,6 +3,9 @@
  * Intercepts WebSocket messages to track relay responses for published events
  */
 
+import { bundleLog } from '@/lib/logBundler';
+import { devLog, devWarn } from '@/lib/devConsole';
+
 interface RelayResponse {
   relay: string;
   eventId: string;
@@ -23,7 +26,7 @@ class RelayResponseMonitor {
   startMonitoring() {
     if (this.isMonitoring) return;
 
-    console.log('[RelayMonitor] 🔍 Starting relay response monitoring...');
+    devLog('[RelayMonitor] 🔍 Starting relay response monitoring...');
     this.isMonitoring = true;
 
     // Store reference to instance methods
@@ -44,11 +47,11 @@ class RelayResponseMonitor {
 
         // Log connection attempts
         this.addEventListener('open', () => {
-          console.log('[RelayMonitor] 🔌 Connected to relay:', this.relayUrl);
+          bundleLog('relayConnections', `🔌 Connected to relay: ${this.relayUrl}`);
         });
 
         this.addEventListener('error', (error) => {
-          console.log('[RelayMonitor] ❌ Relay connection error:', this.relayUrl, error);
+          bundleLog('relayConnectionErrors', `❌ Relay connection error: ${this.relayUrl}`);
         });
       }
     } as any;
@@ -57,7 +60,7 @@ class RelayResponseMonitor {
   stopMonitoring() {
     if (!this.isMonitoring) return;
 
-    console.log('[RelayMonitor] 🛑 Stopping relay response monitoring');
+    devLog('[RelayMonitor] 🛑 Stopping relay response monitoring');
     window.WebSocket = this.originalWebSocket;
     this.isMonitoring = false;
   }
@@ -85,7 +88,7 @@ class RelayResponseMonitor {
       // Handle NOTICE messages (general relay messages)
       else if (Array.isArray(message) && message[0] === 'NOTICE') {
         const [, notice] = message;
-        console.log(`[RelayMonitor] 📢 NOTICE from ${new URL(relayUrl).hostname}:`, notice);
+        bundleLog('relayNotices', `📢 NOTICE from ${new URL(relayUrl).hostname}: ${notice}`);
       }
 
       // Handle EVENT messages (for debugging subscription responses)
@@ -111,19 +114,9 @@ class RelayResponseMonitor {
     const eventIdShort = eventId.slice(0, 12) + '...';
 
     if (success) {
-      console.log(`[RelayMonitor] ✅ ${relay} accepted event ${eventIdShort}`, {
-        eventId: eventIdShort,
-        relay,
-        timestamp: new Date(timestamp).toISOString(),
-        message: message || 'Event accepted'
-      });
+      bundleLog('relayAcceptances', `✅ ${relay} accepted event ${eventIdShort}`);
     } else {
-      console.warn(`[RelayMonitor] ❌ ${relay} rejected event ${eventIdShort}`, {
-        eventId: eventIdShort,
-        relay,
-        reason: message || 'No reason provided',
-        timestamp: new Date(timestamp).toISOString()
-      });
+      bundleLog('relayRejections', `❌ ${relay} rejected event ${eventIdShort}: ${message || 'Unknown reason'}`);
     }
   }
 
@@ -201,5 +194,5 @@ if (import.meta.env.DEV) {
 
   // Make it available globally for debugging
   (window as any).relayMonitor = relayResponseMonitor;
-  console.log('[RelayMonitor] 🔧 Monitor available globally as window.relayMonitor');
+  devLog('[RelayMonitor] 🔧 Monitor available globally as window.relayMonitor');
 }

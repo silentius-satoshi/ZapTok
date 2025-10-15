@@ -28,3 +28,13 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Documentation and configuration folders
+api/
+scripts/
+.github/
+.vscode/
+
+# Configuration files
+vercel.json
+stack.json

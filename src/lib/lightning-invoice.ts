@@ -1,47 +1,70 @@
 import { decode } from 'light-bolt11-decoder';
-import QRCode from 'qrcode';
 
-export interface LightningInvoiceData {
-  amount: number; // in sats
-  description: string;
-  expiry: number; // timestamp
-  created: number; // timestamp
-  paymentHash: string;
-  isExpired: boolean;
-  timeUntilExpiry: string;
+export interface DecodedInvoice {
+  paymentRequest: string;
+  amount?: number; // in sats
+  description?: string;
+  paymentHash?: string;
+  expiry?: number;
+  timestamp?: number;
+  destination?: string;
+  isExpired?: boolean;
+  created?: number; // alias for timestamp
 }
 
-/**
- * Decode and parse a Lightning invoice
- */
-export function decodeLightningInvoice(invoice: string): LightningInvoiceData | null {
+export function decodeLightningInvoice(invoice: string): DecodedInvoice | null {
   try {
     const decoded = decode(invoice);
 
-    const amountSection = decoded.sections.find(s => s.name === 'amount');
-    const descriptionSection = decoded.sections.find(s => s.name === 'description');
-    const expirySection = decoded.sections.find(s => s.name === 'expiry');
-    const timestampSection = decoded.sections.find(s => s.name === 'timestamp');
-    const paymentHashSection = decoded.sections.find(s => s.name === 'payment_hash');
+    // Extract amount in sats (convert from msats if present)
+    const amountSection = decoded.sections.find((s: any) => s.name === 'amount');
+    const amount = amountSection && 'value' in amountSection && typeof amountSection.value === 'string'
+      ? Math.floor(parseInt(amountSection.value) / 1000)
+      : undefined;
 
-    const amount = parseInt(amountSection?.value || '0') / 1000; // Convert millisats to sats
-    const description = decodeURI(descriptionSection?.value || '');
-    const expiry = (expirySection?.value as number) || 3600; // Default 1 hour
-    const created = (timestampSection?.value as number) || Math.floor(Date.now() / 1000);
-    const paymentHash = paymentHashSection?.value as string || '';
+    // Extract description
+    const descSection = decoded.sections.find((s: any) => s.name === 'description');
+    const description = descSection && 'value' in descSection && typeof descSection.value === 'string'
+      ? descSection.value
+      : undefined;
 
-    const expiryTime = created + expiry;
-    const now = Math.floor(Date.now() / 1000);
-    const isExpired = now > expiryTime;
+    // Extract payment hash
+    const hashSection = decoded.sections.find((s: any) => s.name === 'payment_hash');
+    const paymentHash = hashSection && 'value' in hashSection && typeof hashSection.value === 'string'
+      ? hashSection.value
+      : undefined;
+
+    // Extract expiry
+    const expirySection = decoded.sections.find((s: any) => s.name === 'expiry');
+    const expiry = expirySection && 'value' in expirySection && typeof expirySection.value === 'string'
+      ? parseInt(expirySection.value)
+      : undefined;
+
+    // Extract timestamp
+    const timestampSection = decoded.sections.find((s: any) => s.name === 'timestamp');
+    const timestamp = timestampSection && 'value' in timestampSection && typeof timestampSection.value === 'string'
+      ? parseInt(timestampSection.value)
+      : undefined;
+
+    // Extract destination
+    const destinationSection = decoded.sections.find((s: any) => s.name === 'destination');
+    const destination = destinationSection && 'value' in destinationSection && typeof destinationSection.value === 'string'
+      ? destinationSection.value
+      : undefined;
+
+    // Check if expired
+    const isExpired = timestamp && expiry ? (Date.now() / 1000) > (timestamp + expiry) : false;
 
     return {
+      paymentRequest: invoice,
       amount,
       description,
-      expiry: expiryTime,
-      created,
       paymentHash,
+      expiry,
+      timestamp,
+      destination,
       isExpired,
-      timeUntilExpiry: getTimeUntilExpiry(expiryTime),
+      created: timestamp,
     };
   } catch (error) {
     console.error('Failed to decode Lightning invoice:', error);
@@ -49,63 +72,42 @@ export function decodeLightningInvoice(invoice: string): LightningInvoiceData | 
   }
 }
 
-/**
- * Get human-readable time until expiry
- */
-function getTimeUntilExpiry(expiryTimestamp: number): string {
-  const now = Math.floor(Date.now() / 1000);
-  const timeLeft = expiryTimestamp - now;
-
-  if (timeLeft <= 0) {
-    return 'Expired';
+export function validateLightningInvoice(invoice: string): { valid: boolean; error?: string } {
+  if (!invoice) {
+    return { valid: false, error: 'Invoice is required' };
   }
 
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-
-  if (minutes > 60) {
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return `${hours}h ${remainingMinutes}m`;
+  if (!invoice.toLowerCase().startsWith('lnbc') && !invoice.toLowerCase().startsWith('lntb')) {
+    return { valid: false, error: 'Invalid Lightning invoice format' };
   }
 
-  if (minutes > 0) {
-    return `${minutes}m ${seconds}s`;
+  const decoded = decodeLightningInvoice(invoice);
+  if (!decoded) {
+    return { valid: false, error: 'Failed to decode Lightning invoice' };
   }
 
-  return `${seconds}s`;
+  // Check if invoice is expired
+  if (decoded.timestamp && decoded.expiry) {
+    const expiryTime = (decoded.timestamp + decoded.expiry) * 1000;
+    if (Date.now() > expiryTime) {
+      return { valid: false, error: 'Invoice has expired' };
+    }
+  }
+
+  return { valid: true };
 }
 
-/**
- * Format amount with proper thousands separators
- */
-export function formatSats(amount: number): string {
-  return amount.toLocaleString();
-}
+export function formatInvoiceAmount(amount?: number): string {
+  if (!amount) return 'Amount not specified';
 
-/**
- * Generate QR code data URL for Lightning invoice
- */
-export async function generateInvoiceQR(invoice: string): Promise<string> {
-  try {
-    return await QRCode.toDataURL(invoice, {
-      errorCorrectionLevel: 'M',
-      width: 200,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
-    });
-  } catch (error) {
-    console.error('Failed to generate QR code:', error);
-    // Fallback SVG placeholder
-    return `data:image/svg+xml,${encodeURIComponent(`
-      <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
-        <rect width="200" height="200" fill="white"/>
-        <text x="100" y="100" text-anchor="middle" fill="black" font-size="12">QR Code</text>
-        <text x="100" y="120" text-anchor="middle" fill="gray" font-size="8">Invoice: ${invoice.slice(0, 20)}...</text>
-      </svg>
-    `)}`;
+  if (amount >= 100000000) {
+    return `${(amount / 100000000).toFixed(8)} BTC`;
+  } else if (amount >= 1000) {
+    return `${(amount / 1000).toFixed(3)} k sats`;
+  } else {
+    return `${amount.toLocaleString()} sats`;
   }
 }
+
+// Type alias
+export type LightningInvoiceData = DecodedInvoice;

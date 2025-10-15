@@ -3,6 +3,8 @@
  * Only active in development mode
  */
 
+import { bundleLog } from './logBundler';
+
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 type LogCategory = 'relay' | 'cashu' | 'route' | 'wallet' | 'general';
 
@@ -18,15 +20,29 @@ class DevLogger {
   private logs: LogEntry[] = [];
   private categories: Set<LogCategory> = new Set();
   private maxLogs = 100;
+  private throttleMap: Map<string, number> = new Map();
+  private throttleTime = 3000; // 3 seconds
 
   // Category colors for console styling
   private categoryColors: Record<LogCategory, string> = {
     relay: '#4CAF50',    // Green
-    cashu: '#FF9800',    // Orange  
+    cashu: '#FF9800',    // Orange
     route: '#2196F3',    // Blue
     wallet: '#9C27B0',   // Purple
     general: '#757575'   // Gray
   };
+
+  private shouldThrottle(key: string): boolean {
+    const now = Date.now();
+    const lastLog = this.throttleMap.get(key);
+
+    if (!lastLog || now - lastLog > this.throttleTime) {
+      this.throttleMap.set(key, now);
+      return false;
+    }
+
+    return true;
+  }
 
   // Level colors and icons
   private levelStyles: Record<LogLevel, { color: string; icon: string }> = {
@@ -36,10 +52,18 @@ class DevLogger {
     debug: { color: '#9E9E9E', icon: '🐛' }
   };
 
-  private isEnabled = import.meta.env.DEV;
-
   log(category: LogCategory, level: LogLevel, message: string, data?: any) {
-    if (!this.isEnabled) return;
+    if (!import.meta.env.DEV) return;
+
+    // Throttle noisy relay logs
+    if (category === 'relay' && (
+      message.includes('Using optimal relays') ||
+      message.includes('existing state') ||
+      message.includes('Still connecting')
+    )) {
+      const throttleKey = `${category}-${message.slice(0, 20)}`;
+      if (this.shouldThrottle(throttleKey)) return;
+    }
 
     const entry: LogEntry = {
       category,
@@ -64,6 +88,14 @@ class DevLogger {
   }
 
   private printEntry(entry: LogEntry) {
+    // Use bundling for high-frequency relay logs
+    if (entry.category === 'relay' && entry.level === 'debug') {
+      const bundleKey = `${entry.category}-${entry.level}`;
+      bundleLog(bundleKey, `${entry.message}${entry.data ? ` (${JSON.stringify(entry.data)})` : ''}`);
+      return;
+    }
+
+    // Regular logging for important messages
     const categoryColor = this.categoryColors[entry.category];
     const levelStyle = this.levelStyles[entry.level];
 
@@ -116,7 +148,7 @@ class DevLogger {
 
   // Print summary of recent activity
   printSummary() {
-    if (!this.isEnabled) return;
+    if (!import.meta.env.DEV) return;
 
     const bundled = this.getBundledLogs();
     console.group('📊 Development Log Summary');
@@ -129,11 +161,11 @@ class DevLogger {
           `color: ${categoryColor}; font-weight: bold;`,
           'color: #666;'
         );
-        
+
         logs.slice(-5).forEach(log => {
           console.log(`${this.levelStyles[log.level].icon} ${log.message}`, log.data || '');
         });
-        
+
         console.groupEnd();
       }
     }

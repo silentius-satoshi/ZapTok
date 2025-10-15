@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,6 +12,7 @@ import ExtensionLogin from './ExtensionLogin';
 import zapTokLogo from '/images/ZapTok-v3.png';
 import PrivateKeyLogin from './PrivateKeyLogin';
 import BunkerLogin from './BunkerLogin';
+import { devLog, devError } from '@/lib/devConsole';
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -31,19 +33,34 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     }
   }, [user, isOpen, onClose]);
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Store original overflow
+      const originalOverflow = document.body.style.overflow;
+      // Prevent scrolling
+      document.body.style.overflow = 'hidden';
+      
+      return () => {
+        // Restore original overflow
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
+
   const handleExtensionLogin = async () => {
     setIsLocked(true);
     try {
       if (!('nostr' in window)) {
         throw new Error('Nostr extension not found. Please install a NIP-07 extension.');
       }
-      console.log('Starting extension login process...');
+      devLog('Starting extension login process...');
       await login.extension();
-      console.log('Extension login successful, closing modal');
+      devLog('Extension login successful, closing modal');
       // Defer the modal close to avoid state update during render warning
       setTimeout(() => onClose(), 0);
     } catch (error) {
-      console.error('Extension login failed:', error);
+      devError('Extension login failed:', error);
       toast({
         title: "Login Failed",
         description: error instanceof Error ? error.message : "Failed to connect to extension",
@@ -77,14 +94,14 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     setIsLocked(true);
     try {
       // Try the new nostr-tools implementation first
-      console.log('🔧 Attempting bunker login with nostr-tools implementation...');
+      devLog('🔧 Attempting bunker login with nostr-tools implementation...');
       await login.bunkerNostrTools(bunkerUrl);
-      console.log('✅ nostr-tools bunker login successful!');
+      devLog('✅ nostr-tools bunker login successful!');
       // Defer the modal close to avoid state update during render warning
       setTimeout(() => onClose(), 0);
       return;
     } catch (nostrToolsError) {
-      console.log('❌ nostr-tools bunker login failed, falling back to Nostrify...', nostrToolsError);
+      devLog('❌ nostr-tools bunker login failed, falling back to Nostrify...', nostrToolsError);
 
       // Fallback to the original Nostrify implementation
       try {
@@ -92,7 +109,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
         // Defer the modal close to avoid state update during render warning
         setTimeout(() => onClose(), 0);
       } catch (error) {
-        console.error('Bunker login fallback also failed:', error);
+        devError('Bunker login fallback also failed:', error);
 
         // Don't show error toast for confirmation URLs since BunkerLogin handles the flow
         if (!(error instanceof Error && error.message.startsWith('https://'))) {
@@ -112,13 +129,28 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" style={{ zIndex: 99999, backgroundColor: 'black' }}>
-      <div className="absolute inset-0" style={{ backgroundColor: 'black', zIndex: -1 }} />
+  // Prevent scroll propagation to underlying content
+  const handleWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+  };
 
-      <div className="w-full max-w-md my-8 relative z-10">
-        <Card className="bg-transparent backdrop-blur-sm border-none relative">
-          <CardHeader className="text-center">
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation();
+  };
+
+  if (!isOpen) return null;
+
+  const modalContent = (
+    <div 
+      className="fixed inset-0 bg-black flex items-center justify-center p-4 overflow-y-auto scrollbar-hide" 
+      style={{ zIndex: 99999 }}
+      onWheel={handleWheel}
+      onTouchMove={handleTouchMove}
+    >
+      <div className="w-full max-w-md my-auto relative z-10">
+        <Card className="bg-gray-900 border-gray-800">
+          {/* Header - Scrolls with content */}
+          <CardHeader className="text-center pb-4 pt-6">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <img
                 src={zapTokLogo}
@@ -147,9 +179,10 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-6">
+          {/* Content - Everything scrolls together */}
+          <CardContent className="space-y-6 pt-6">
             <Tabs defaultValue={('nostr' in window) ? 'extension' : 'key'} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-3 mb-4">
                 <TabsTrigger value="extension">Extension</TabsTrigger>
                 <TabsTrigger value="key">Private Key</TabsTrigger>
                 <TabsTrigger value="bunker">Bunker</TabsTrigger>
@@ -169,11 +202,18 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
               </TabsContent>
 
               <TabsContent value="bunker" className="space-y-4">
-                <BunkerLogin login={handleBunkerLogin} isLocked={isLocked} />
+                <BunkerLogin 
+                  login={handleBunkerLogin} 
+                  isLocked={isLocked}
+                  onLoginSuccess={() => {
+                    devLog('🎉 Bunker login succeeded, closing modal...');
+                    setTimeout(() => onClose(), 0);
+                  }}
+                />
               </TabsContent>
             </Tabs>
 
-            <div className="text-center">
+            <div className="text-center pb-4">
               <Button
                 variant="link"
                 onClick={onClose}
@@ -188,4 +228,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       </div>
     </div>
   );
+
+  // Render modal in a portal at document root to escape stacking contexts
+  return createPortal(modalContent, document.body);
 }

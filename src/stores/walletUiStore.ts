@@ -1,56 +1,79 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface WalletUiState {
+interface WalletUiStore {
   expandedCards: {
+    wallet: boolean;
     token: boolean;
+    history: boolean;
     lightning: boolean;
     nutzap: boolean;
-    history: boolean;
     mints: boolean;
     cashuRelay: boolean;
   };
-  toggleCardExpansion: (cardKey: keyof WalletUiState['expandedCards']) => void;
-  setCardExpansion: (cardKey: keyof WalletUiState['expandedCards'], isExpanded: boolean) => void;
-  showWallet: boolean;
-  setShowWallet: (show: boolean) => void;
+  isExpanded: boolean;
   balanceAnimation: boolean;
-  setBalanceAnimation: (animate: boolean) => void;
+  // Methods
+  toggleCard: (cardName: keyof WalletUiStore['expandedCards']) => void;
+  toggleCardExpansion: (cardName: keyof WalletUiStore['expandedCards']) => void;
+  toggleExpanded: (cardName?: keyof WalletUiStore['expandedCards'] | 'main') => void;
+  setCardExpanded: (cardName: keyof WalletUiStore['expandedCards'], expanded: boolean) => void;
+  setBalanceAnimation: (value: boolean) => void;
 }
 
-export const useWalletUiStore = create<WalletUiState>()(
+export const useWalletUiStore = create<WalletUiStore>()(
   persist(
-    (set) => ({
-      // All cards collapsed by default
+    (set, get) => ({
       expandedCards: {
+        wallet: true,
         token: false,
-        lightning: true,
-        nutzap: false,
         history: true,
+        lightning: false,
+        nutzap: false,
         mints: true,
         cashuRelay: false,
       },
-      showWallet: false,
       balanceAnimation: false,
-      toggleCardExpansion: (cardKey) =>
-        set((state) => ({
-          expandedCards: {
-            ...state.expandedCards,
-            [cardKey]: !state.expandedCards[cardKey],
-          },
-        })),
-      setCardExpansion: (cardKey, isExpanded) =>
-        set((state) => ({
-          expandedCards: {
-            ...state.expandedCards,
-            [cardKey]: isExpanded,
-          },
-        })),
-      setShowWallet: (show) => set({ showWallet: show }),
-      setBalanceAnimation: (animate) => set({ balanceAnimation: animate }),
+      get isExpanded() {
+        return get().expandedCards.history;
+      },
+      toggleCard: (cardName) => set(state => ({
+        expandedCards: {
+          ...state.expandedCards,
+          [cardName]: !state.expandedCards[cardName]
+        }
+      })),
+      toggleCardExpansion: (cardName) => set(state => ({
+        expandedCards: {
+          ...state.expandedCards,
+          [cardName]: !state.expandedCards[cardName]
+        }
+      })),
+      toggleExpanded: (cardName = 'history') => {
+        if (cardName === 'main') {
+          set(state => ({
+            expandedCards: {
+              ...state.expandedCards,
+              wallet: !state.expandedCards.wallet
+            }
+          }));
+        } else {
+          set(state => ({
+            expandedCards: {
+              ...state.expandedCards,
+              [cardName]: !state.expandedCards[cardName]
+            }
+          }));
+        }
+      },
+      setCardExpanded: (cardName, expanded) => set(state => ({
+        expandedCards: {
+          ...state.expandedCards,
+          [cardName]: expanded
+        }
+      })),
+      setBalanceAnimation: (value) => set({ balanceAnimation: value }),
     }),
-    {
-      name: 'wallet-ui-state',
-    }
+    { name: 'wallet-ui' }
   )
 );

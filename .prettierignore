@@ -1,0 +1,38 @@
+# Dependencies
+node_modules
+package-lock.json
+
+# Build outputs
+dist
+build
+.vite
+*.min.js
+*.min.css
+
+# Cache
+.cache
+.prettier-cache
+.eslintcache
+
+# Test coverage
+coverage
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Generated files
+*.log
+*.tsbuildinfo
+
+# Documentation build artifacts
+docs/.vitepress/cache
+docs/.vitepress/dist
+
+# Public assets (don't format)
+public/docs/**
+public/sw.js
+
+# Config files that should stay formatted as-is
+vercel.json

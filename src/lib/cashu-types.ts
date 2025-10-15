@@ -27,6 +27,9 @@ export interface NutInfo {
   [key: string]: unknown;
   "4": Nut4Info;
   "5": Nut5Info;
+  "10"?: Nut10Info;
+  "11"?: Nut11Info;
+  "12"?: Nut12Info;
 }
 
 export interface Nut4Info {
@@ -51,6 +54,18 @@ export interface MintMethodInfo {
   unit: string;
   min_amount?: number;
   max_amount?: number;
+}
+
+export interface Nut10Info {
+  supported: boolean;
+}
+
+export interface Nut11Info {
+  supported: boolean;
+}
+
+export interface Nut12Info {
+  supported: boolean;
 }
 
 export interface CashuToken {

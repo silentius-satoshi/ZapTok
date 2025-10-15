@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
 import { useCashuStore } from '@/stores/cashuStore';
-import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
+import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ interface ManualRecoveryModalProps {
   onClose: () => void;
 }
 
+// NOTE: This is a custom ZapTok feature - not part of official cashu-wallet implementation
 export function ManualRecoveryModal({ isOpen, onClose }: ManualRecoveryModalProps) {
   const { user } = useCurrentUser();
   const [paymentHash, setPaymentHash] = useState('');
@@ -33,7 +34,7 @@ export function ManualRecoveryModal({ isOpen, onClose }: ManualRecoveryModalProp
   const { updateProofs } = useCashuWallet();
   const { createHistory } = useCashuHistory();
   const cashuStore = useCashuStore();
-  const transactionHistoryStore = useUserTransactionHistoryStore(user?.pubkey);
+  const transactionHistoryStore = useTransactionHistoryStore();
 
   const resetForm = () => {
     setPaymentHash('');
@@ -87,34 +88,34 @@ export function ManualRecoveryModal({ isOpen, onClose }: ManualRecoveryModalProp
 
       if (result && result.length > 0) {
         const totalAmount = result.reduce((sum: number, proof: any) => sum + proof.amount, 0);
-        
+
         // Update wallet with recovered proofs
-        await updateProofs({ 
-          mintUrl: activeMintUrl, 
-          proofsToAdd: result, 
-          proofsToRemove: [] 
+        await updateProofs({
+          mintUrl: activeMintUrl,
+          proofsToAdd: result,
+          proofsToRemove: []
         });
 
         // Create history entry
-        await createHistory({
+        createHistory.mutate({
           amount: totalAmount.toString(),
           direction: 'in',
         });
 
         // Remove any pending transaction with this payment hash
         const pendingTxs = transactionHistoryStore.getPendingTransactions();
-        const matchingPending = pendingTxs.find(tx => 
+        const matchingPending = pendingTxs.find(tx =>
           tx.paymentRequest && tx.paymentRequest.includes(paymentHash.slice(0, 8))
         );
         if (matchingPending) {
           transactionHistoryStore.removePendingTransaction(matchingPending.id);
         }
 
-        setResult({ 
-          type: 'success', 
-          message: `Successfully recovered ${totalAmount} sats! The tokens have been added to your wallet.` 
+        setResult({
+          type: 'success',
+          message: `Successfully recovered ${totalAmount} sats! The tokens have been added to your wallet.`
         });
-        
+
         // Auto-close after success
         setTimeout(() => {
           handleClose();
@@ -124,9 +125,9 @@ export function ManualRecoveryModal({ isOpen, onClose }: ManualRecoveryModalProp
       }
     } catch (error: any) {
       console.error('Manual recovery failed:', error);
-      setResult({ 
-        type: 'error', 
-        message: error.message || 'Recovery failed - please check your payment details' 
+      setResult({
+        type: 'error',
+        message: error.message || 'Recovery failed - please check your payment details'
       });
     } finally {
       setIsRecovering(false);

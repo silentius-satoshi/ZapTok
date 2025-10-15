@@ -1,166 +1,120 @@
-import * as secp256k1 from '@noble/secp256k1';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import { sha256 } from '@noble/hashes/sha256';
+import { Buffer } from 'buffer';
+import { getPublicKey } from 'nostr-tools';
+import { hexToBytes } from '@noble/hashes/utils';
 
 /**
- * P2PK (Pay-to-Public-Key) utilities for Cashu
- * Used for locking ecash to specific public keys (e.g., in nutzaps)
+ * Create P2PK public key from private key using secp256k1
+ * This follows the Cashu P2PK specification
+ * Returns the natural compressed public key (starts with '02' or '03')
+ * For NIP-61 nutzaps, use deriveP2PKPubkey() which enforces '02' prefix
  */
+export function createP2PKKeypairFromPrivateKey(privateKey: string): string {
+  try {
+    // Remove any '0x' prefix if present
+    const cleanPrivkey = privateKey.startsWith('0x') ? privateKey.slice(2) : privateKey;
 
-export interface P2PKSecret {
-  privateKey: string;
-  pubkey: string;
-}
+    // Validate private key length (should be 64 hex characters = 32 bytes)
+    if (cleanPrivkey.length !== 64) {
+      throw new Error(`Invalid private key length: ${cleanPrivkey.length}, expected 64`);
+    }
 
-/**
- * Generate a new P2PK keypair
- */
-export function generateP2PKSecret(): P2PKSecret {
-  const privateKey = secp256k1.utils.randomPrivateKey();
-  const pubkey = secp256k1.getPublicKey(privateKey, true);
+    // Convert to bytes and get the secp256k1 public key
+    const pubkeyBytes = getPublicKey(hexToBytes(cleanPrivkey));
 
-  return {
-    privateKey: bytesToHex(privateKey),
-    pubkey: bytesToHex(pubkey)
-  };
-}
-
-/**
- * Create P2PK secret from existing private key
- */
-export function createP2PKSecretFromPrivateKey(privateKeyHex: string): P2PKSecret {
-  const privateKey = hexToBytes(privateKeyHex);
-  const pubkey = secp256k1.getPublicKey(privateKey, true);
-
-  return {
-    privateKey: privateKeyHex,
-    pubkey: bytesToHex(pubkey)
-  };
-}
-
-/**
- * Create P2PK secret for locking to a specific recipient
- * This generates the secret that locks ecash to the recipient's pubkey
- */
-export function createP2PKSecret(recipientPubkey?: string): [string, P2PKSecret] {
-  if (recipientPubkey) {
-    // Create a deterministic secret for this recipient
-    // In practice, this would use proper key derivation
-    const recipientBytes = hexToBytes(recipientPubkey);
-    const hash = sha256(recipientBytes);
-    const secret = bytesToHex(hash);
-
-    return [
-      secret,
-      {
-        privateKey: secret,
-        pubkey: recipientPubkey
-      }
-    ];
-  } else {
-    // Generate a random secret
-    const p2pkSecret = generateP2PKSecret();
-    return [p2pkSecret.privateKey, p2pkSecret];
+    // Return compressed public key with '02' or '03' prefix (33 bytes total)
+    return pubkeyBytes;
+  } catch (error) {
+    console.error('Error creating P2PK keypair:', error);
+    throw new Error('Failed to create P2PK keypair from private key');
   }
 }
 
 /**
- * Derive public key from private key
+ * Derive P2PK public key specifically for Cashu operations
+ * Ensures compatibility with Cashu P2PK witness requirements
+ * ENFORCES NIP-61 requirement: "Clients MUST prefix the public key they P2PK-lock with '02'"
  */
-export function getPublicKeyFromPrivate(privateKeyHex: string): string {
-  const privateKey = hexToBytes(privateKeyHex);
-  const pubkey = secp256k1.getPublicKey(privateKey, true);
-  return bytesToHex(pubkey);
+export function deriveP2PKPubkey(privateKey: string): string {
+  const pubkey = createP2PKKeypairFromPrivateKey(privateKey);
+
+  // NIP-61 COMPLIANCE: All nutzap P2PK pubkeys MUST start with '02'
+  // If the natural compressed pubkey starts with '03', we need to convert it
+  if (pubkey.startsWith('03')) {
+    // Convert '03' prefix to '02' - this changes the y-coordinate representation
+    // but represents the same point on the secp256k1 curve
+    return '02' + pubkey.slice(2);
+  }
+
+  // If pubkey already starts with '02', return as-is
+  if (pubkey.startsWith('02')) {
+    return pubkey;
+  }
+
+  // Fallback: if somehow we get an uncompressed key or invalid format
+  // Force '02' prefix (this should not happen with getPublicKey from nostr-tools)
+  if (pubkey.length === 64) {
+    return '02' + pubkey;
+  }
+
+  throw new Error(`Invalid public key format: ${pubkey.slice(0, 10)}... (length: ${pubkey.length})`);
 }
 
 /**
- * Sign data with P2PK private key
+ * Validate that a private key can create witnesses for the given P2PK pubkey
+ * Accounts for NIP-61 "02" prefix requirement conversion
  */
-export function signWithP2PK(data: string, privateKeyHex: string): string {
-  const privateKey = hexToBytes(privateKeyHex);
-  const dataBytes = new TextEncoder().encode(data);
-  const signature = secp256k1.sign(sha256(dataBytes), privateKey);
-  return bytesToHex(signature.toCompactRawBytes());
-}
-
-/**
- * Verify P2PK signature
- */
-export function verifyP2PKSignature(
-  data: string,
-  signature: string,
-  pubkeyHex: string
-): boolean {
+export function validateP2PKKeypair(privateKey: string, p2pkPubkey: string): boolean {
   try {
-    const pubkey = hexToBytes(pubkeyHex);
-    const sig = hexToBytes(signature);
-    const dataBytes = new TextEncoder().encode(data);
+    const derivedPubkey = deriveP2PKPubkey(privateKey);
+    
+    // Direct match check
+    const directMatch = derivedPubkey === p2pkPubkey;
+    
+    // Also check if the natural key (before "02" conversion) would match
+    // This handles cases where p2pkPubkey might be the natural "03" key
+    const naturalPubkey = createP2PKKeypairFromPrivateKey(privateKey);
+    const naturalMatch = naturalPubkey === p2pkPubkey;
+    
+    const matches = directMatch || naturalMatch;
 
-    return secp256k1.verify(sig, sha256(dataBytes), pubkey);
-  } catch {
+    return matches;
+  } catch (error) {
+    console.error('🔐 [P2PK Validation Error]', error);
     return false;
   }
 }
 
 /**
- * Create P2PK witness data for unlocking
+ * Debug version of P2PK validation with detailed console logging
+ * Use this when you need to see detailed validation information
  */
-export function createP2PKWitness(privateKeyHex: string, challenge?: string): string {
-  const data = challenge || 'unlock';
-  const signature = signWithP2PK(data, privateKeyHex);
-  const pubkey = getPublicKeyFromPrivate(privateKeyHex);
-
-  // P2PK witness format: signature + pubkey
-  return JSON.stringify({
-    signature,
-    pubkey
-  });
-}
-
-/**
- * Validate P2PK pubkey format
- */
-export function isValidP2PKPubkey(pubkeyHex: string): boolean {
+export function validateP2PKKeypairWithLogging(privateKey: string, p2pkPubkey: string): boolean {
   try {
-    const pubkeyBytes = hexToBytes(pubkeyHex);
-    return pubkeyBytes.length === 33 && (pubkeyBytes[0] === 0x02 || pubkeyBytes[0] === 0x03);
-  } catch {
+    const derivedPubkey = deriveP2PKPubkey(privateKey);
+    
+    // Direct match check
+    const directMatch = derivedPubkey === p2pkPubkey;
+    
+    // Also check if the natural key (before "02" conversion) would match
+    // This handles cases where p2pkPubkey might be the natural "03" key
+    const naturalPubkey = createP2PKKeypairFromPrivateKey(privateKey);
+    const naturalMatch = naturalPubkey === p2pkPubkey;
+    
+    const matches = directMatch || naturalMatch;
+
+    console.log('🔐 [P2PK Validation - Debug Mode]', {
+      privateKey: privateKey ? 'present' : 'missing',
+      p2pkPubkey,
+      derivedPubkey: derivedPubkey,
+      naturalPubkey: naturalPubkey,
+      directMatch,
+      naturalMatch,
+      finalResult: matches
+    });
+
+    return matches;
+  } catch (error) {
+    console.error('🔐 [P2PK Validation Error]', error);
     return false;
-  }
-}
-
-/**
- * Convert between compressed and uncompressed pubkey formats
- */
-export function compressPublicKey(pubkeyHex: string): string {
-  const pubkeyBytes = hexToBytes(pubkeyHex);
-
-  if (pubkeyBytes.length === 33) {
-    // Already compressed
-    return pubkeyHex;
-  } else if (pubkeyBytes.length === 65) {
-    // Uncompressed, convert to compressed
-    const x = pubkeyBytes.slice(1, 33);
-    const y = pubkeyBytes.slice(33, 65);
-    const prefix = y[31] % 2 === 0 ? 0x02 : 0x03;
-    return bytesToHex(new Uint8Array([prefix, ...x]));
-  } else {
-    throw new Error('Invalid pubkey length');
-  }
-}
-
-/**
- * Generate P2PK secret for wallet creation
- * This creates a wallet-specific P2PK key for receiving nutzaps
- */
-export function generateWalletP2PKSecret(walletName?: string): P2PKSecret {
-  if (walletName) {
-    // Derive deterministic key from wallet name
-    const nameBytes = new TextEncoder().encode(walletName);
-    const hash = sha256(nameBytes);
-    return createP2PKSecretFromPrivateKey(bytesToHex(hash));
-  } else {
-    // Generate random key
-    return generateP2PKSecret();
   }
 }

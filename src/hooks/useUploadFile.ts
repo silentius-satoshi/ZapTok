@@ -1,18 +1,21 @@
 import { useMutation } from "@tanstack/react-query";
 import { CustomBlossomUploader } from "@/lib/blossomUploader";
-import { finalizeEvent } from "nostr-tools";
 
 import { useCurrentUser } from "./useCurrentUser";
 import { useAppContext } from "./useAppContext";
+// NIP-B7 imports kept for future use - currently dormant
+// import { useBlossomServerList } from "./useBlossomServerList";
 
 export function useUploadFile() {
   const { user } = useCurrentUser();
   const { config } = useAppContext();
+  // const { serverList } = useBlossomServerList(); // Disabled for now
 
   return useMutation({
-    mutationFn: async (file: File, options?: { onProgress?: (progress: number) => void }) => {
+    mutationFn: async (variables: { file: File; onProgress?: (progress: number) => void }) => {
+      const { file, onProgress } = variables;
       console.log('useUploadFile: Starting upload mutation');
-      
+
       if (!user) {
         console.error('useUploadFile: No user available');
         throw new Error('Must be logged in to upload files');
@@ -24,9 +27,17 @@ export function useUploadFile() {
       }
 
       console.log('useUploadFile: User and signer available, creating uploader');
-      console.log('useUploadFile: Signer methods:', Object.keys(user.signer));
-      console.log('useUploadFile: Signer signEvent type:', typeof user.signer.signEvent);
-      console.log('useUploadFile: Blossom servers:', config.blossomServers);
+
+      // HYBRID APPROACH: Use reliable hardcoded servers for now
+      // Future: Enable NIP-B7 server selection when stable
+      // const uploaderServers = serverList?.servers?.length
+      //   ? serverList.servers
+      //   : config.blossomServers;
+
+      // For now: Use reliable servers that work
+      const uploaderServers = undefined; // Let CustomBlossomUploader use its defaults
+
+      console.log('useUploadFile: Using reliable server defaults (primal.net + stacker.news)');
 
       // Validate that signEvent method is available
       if (!user.signer.signEvent || typeof user.signer.signEvent !== 'function') {
@@ -35,39 +46,32 @@ export function useUploadFile() {
         throw new Error('Invalid signer: signEvent method not available. Please ensure you are logged in with a Nostr extension or valid key.');
       }
 
-      // Create a nostr-tools compatible signer adapter for Blossom
+      // Create a simplified signer adapter for Blossom
       const blossomSigner = {
         signEvent: async (event: any) => {
-          console.log('blossomSigner: Using nostr-tools to sign event for Blossom');
-          
-          // Check if window.nostr (browser extension) is available
+          console.log('blossomSigner: Signing event for Blossom upload');
+
+          // Prefer browser extension if available
           if (typeof window !== 'undefined' && window.nostr && window.nostr.signEvent) {
-            console.log('blossomSigner: Using browser extension directly');
+            console.log('blossomSigner: Using browser extension');
             return await window.nostr.signEvent(event);
           }
-          
-          // Fallback to user.signer.signEvent but with error handling
-          try {
-            console.log('blossomSigner: Falling back to user.signer.signEvent');
-            return await user.signer.signEvent(event);
-          } catch (error) {
-            console.error('blossomSigner: Both extension and user.signer failed:', error);
-            throw new Error('Unable to sign event: browser extension and user signer both failed');
-          }
+
+          // Fallback to user signer
+          console.log('blossomSigner: Using user.signer.signEvent');
+          return await user.signer.signEvent(event);
         }
       };
 
       const uploader = new CustomBlossomUploader({
-        servers: config.blossomServers,
-        signer: blossomSigner, // Use our browser extension adapter
-        onProgress: options?.onProgress,
-        // You can extend this to include membership tier from user profile
-        // membershipTier: user.membershipTier,
+        servers: uploaderServers, // undefined = use reliable defaults
+        signer: blossomSigner,
+        onProgress: onProgress,
       });
 
-      console.log('useUploadFile: Starting file upload via CustomBlossomUploader');
+      console.log('useUploadFile: Starting upload with simplified, reliable approach');
       const tags = await uploader.upload(file);
-      console.log('useUploadFile: Upload completed, tags:', tags);
+      console.log('useUploadFile: Upload completed successfully, tags:', tags);
       return tags;
     },
   });

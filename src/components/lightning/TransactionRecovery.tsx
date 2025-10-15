@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle2, Search, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCashuStore } from '@/stores/cashuStore';
-import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
+import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
 import { mintTokensFromPaidInvoice } from '@/lib/cashuLightning';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuHistory } from '@/hooks/useCashuHistory';
@@ -17,6 +17,7 @@ interface TransactionRecoveryProps {
   className?: string;
 }
 
+// NOTE: This is a custom ZapTok feature - not part of official cashu-wallet implementation
 export function TransactionRecovery({ className }: TransactionRecoveryProps) {
   const { user } = useCurrentUser();
   const [paymentHash, setPaymentHash] = useState('');
@@ -30,7 +31,7 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
   } | null>(null);
 
   const cashuStore = useCashuStore();
-  const transactionHistoryStore = useUserTransactionHistoryStore(user?.pubkey);
+  const transactionHistoryStore = useTransactionHistoryStore();
   const { updateProofs } = useCashuWallet();
   const { createHistory } = useCashuHistory();
 
@@ -67,8 +68,8 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
           try {
             // Attempt to mint tokens for this pending transaction
             const proofs = await mintTokensFromPaidInvoice(
-              tx.mintUrl, 
-              tx.quoteId, 
+              tx.mintUrl,
+              tx.quoteId,
               parseInt(tx.amount),
               1 // Only check once, don't poll
             );
@@ -82,14 +83,14 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
               });
 
               // Create history entry
-              await createHistory({
+              createHistory.mutate({
                 direction: 'in',
                 amount: tx.amount,
               });
 
               // Remove from pending
               transactionHistoryStore.removePendingTransaction(tx.id);
-              
+
               recoveredCount++;
             }
           } catch (error) {
@@ -141,13 +142,13 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
 
     try {
       const activeMint = cashuStore.activeMintUrl || 'https://mint.chorus.community';
-      
+
       // If quote ID is provided, try to recover directly
       if (quoteId.trim()) {
         try {
           const proofs = await mintTokensFromPaidInvoice(
-            activeMint, 
-            quoteId.trim(), 
+            activeMint,
+            quoteId.trim(),
             parseInt(amount) || 100,
             1 // Only check once
           );
@@ -159,7 +160,7 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
               proofsToRemove: [],
             });
 
-            await createHistory({
+            createHistory.mutate({
               direction: 'in',
               amount: (parseInt(amount) || 100).toString(),
             });
@@ -177,10 +178,10 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
       }
 
       // Try to find matching quotes in stored mint quotes
-      const mintQuotes = cashuStore.mintQuotes;
+      const mintQuotes = cashuStore.getMintQuotes(activeMint);
       let foundQuote = false;
 
-      for (const [quoteKey, quote] of mintQuotes.entries()) {
+      for (const [quoteKey, quote] of Object.entries(mintQuotes)) {
         if (quote.request) {
           try {
             // Check if this quote corresponds to our payment
@@ -189,12 +190,12 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
             await wallet.loadMint();
 
             const updatedQuote = await wallet.checkMintQuote(quote.quote);
-            
+
             if (updatedQuote.state === 'PAID') {
               // This quote has been paid, try to mint tokens
               const proofs = await mintTokensFromPaidInvoice(
-                activeMint, 
-                quote.quote, 
+                activeMint,
+                quote.quote,
                 quote.amount,
                 1
               );
@@ -206,7 +207,7 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
                   proofsToRemove: [],
                 });
 
-                await createHistory({
+                createHistory.mutate({
                   direction: 'in',
                   amount: quote.amount.toString(),
                 });
@@ -263,7 +264,7 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
           <p className="text-sm text-muted-foreground">
             Check for pending transactions that may have been paid while the app was closed.
           </p>
-          <Button 
+          <Button
             onClick={checkPendingTransactions}
             disabled={isChecking}
             className="w-full"
@@ -283,7 +284,7 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
           <p className="text-sm text-muted-foreground mb-4">
             Use payment details from your Lightning wallet (e.g., Alby) to recover a specific transaction.
           </p>
-          
+
           <div className="space-y-4">
             <div>
               <Label htmlFor="paymentHash">Payment Hash (Required)</Label>
@@ -327,7 +328,7 @@ export function TransactionRecovery({ className }: TransactionRecoveryProps) {
               </div>
             </div>
 
-            <Button 
+            <Button
               onClick={recoverWithPaymentDetails}
               disabled={isChecking || !paymentHash.trim()}
               className="w-full"

@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { SpendingHistoryEntry } from '@/lib/cashu';
+import { bundleLog } from '@/lib/logBundler';
+
+// ⚠️ DEPRECATED: This store is deprecated in favor of the official cashu-wallet pattern
+// Use @/stores/transactionHistoryStore instead
+// This file is kept for backwards compatibility during migration
 
 // Define a pending transaction interface for lightning invoices
 export interface PendingTransaction {
@@ -51,9 +56,13 @@ interface TransactionHistoryStore {
 const userTransactionHistoryStores = new Map<string, any>();
 
 /**
- * Hook to get the user-specific transaction history store
+ * @deprecated Use useTransactionHistoryStore from @/stores/transactionHistoryStore instead
+ * This hook is kept for backwards compatibility during migration.
+ * The new official cashu-wallet pattern uses a global transaction store.
  */
 export function useUserTransactionHistoryStore(userPubkey?: string) {
+  console.warn('⚠️ useUserTransactionHistoryStore is deprecated. Use useTransactionHistoryStore instead.');
+
   if (!userPubkey) {
     // Return empty store for logged-out users
     return {
@@ -183,9 +192,9 @@ function getUserTransactionHistoryStore(userPubkey: string) {
 
   // Cache the store
   userTransactionHistoryStores.set(userPubkey, userStore);
-  
+
   if (import.meta.env.DEV) {
-    console.log(`📊 Created user-specific transaction history store for ${userPubkey.slice(0, 8)}...`);
+    bundleLog('userTransactionHistory', `📊 Created user-specific transaction history store for ${userPubkey.slice(0, 8)}...`);
   }
 
   return userStore;

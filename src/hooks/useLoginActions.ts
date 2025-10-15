@@ -2,6 +2,7 @@ import { useNostr } from '@nostrify/react';
 import { NLogin, useNostrLogin } from '@nostrify/react/login';
 import { useAuthState } from './useAuthState';
 import { useNostrToolsBunkerLogin } from './useNostrToolsBunkerLogin';
+import { devLog, devError } from '@/lib/devConsole';
 
 // NOTE: This file should not be edited except for adding new login methods.
 
@@ -47,7 +48,43 @@ export function useLoginActions() {
       const login = logins[0];
       if (login) {
         markManualLogout(); // Mark that this was a manual logout
+        
+        // Clear Welshman bunker sessions from localStorage to prevent auto-restoration
+        try {
+          localStorage.removeItem('bunkerSessions');
+          localStorage.removeItem('lastBunkerPubkey');
+          devLog('🗑️ Cleared Welshman bunker sessions from localStorage');
+        } catch (error) {
+          devError('Failed to clear Welshman bunker sessions:', error);
+        }
+        
+        // If this was a bunker login, track it as manually removed and clean up storage
+        if (login.type === 'x-bunker-nostr-tools' || (login as any).method === 'bunker') {
+          try {
+            // Track this session as manually removed to prevent auto-restoration
+            const removedSessions = JSON.parse(sessionStorage.getItem('removed-bunker-sessions') || '[]');
+            if (!removedSessions.includes(login.pubkey)) {
+              removedSessions.push(login.pubkey);
+              sessionStorage.setItem('removed-bunker-sessions', JSON.stringify(removedSessions));
+            }
+            
+            // Remove the localStorage data to prevent restoration
+            const storageKey = `bunker-${login.pubkey}`;
+            localStorage.removeItem(storageKey);
+            devLog('🗑️ Removed bunker session storage for:', login.pubkey?.substring(0, 16) + '...');
+          } catch (error) {
+            devError('Failed to remove bunker session storage:', error);
+          }
+        }
+        
         removeLogin(login.id);
+        
+        // Ensure no user is automatically selected after logout
+        // This prevents switching to another stored account
+        if (logins.length <= 1) {
+          // If this was the last/only login, clear the active login
+          setLogin('');
+        }
       }
     }
   };

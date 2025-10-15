@@ -1,0 +1,58 @@
+# ZapTok - Third Party Notices
+
+ZapTok is licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
+
+This project incorporates components from the following open source projects:
+
+## Dependencies
+
+This project uses npm packages under their respective licenses. For complete license 
+information, see each package's license file in node_modules/ or on npm.
+
+### Core Nostr Protocol Libraries
+- **@nostrify/nostrify** - MIT License - https://gitlab.com/soapbox-pub/nostrify
+- **@nostrify/react** - MIT License - https://gitlab.com/soapbox-pub/nostrify
+- **@welshman/app** - MIT License - https://github.com/coracle-social/welshman
+- **@welshman/signer** - MIT License - https://github.com/coracle-social/welshman
+- **@welshman/util** - MIT License - https://github.com/coracle-social/welshman
+- **nostr-tools** - MIT License - https://github.com/nbd-wtf/nostr-tools
+
+### Cashu & Lightning Libraries
+- **@cashu/cashu-ts** - MIT License - https://github.com/cashubtc/cashu-ts
+- **@cashu/crypto** - MIT License - https://github.com/cashubtc/cashu-ts
+- **@getalby/bitcoin-connect-react** - MIT License - https://github.com/getAlby/bitcoin-connect
+- **@getalby/lightning-tools** - MIT License - https://github.com/getAlby/lightning-tools
+
+### UI Component Libraries
+- **@radix-ui/*** - MIT License - https://www.radix-ui.com/
+- **shadcn/ui patterns** - MIT License - https://ui.shadcn.com/
+
+### Build Tools & Utilities
+- **React** - MIT License - https://react.dev/
+- **Vite** - MIT License - https://vitejs.dev/
+- **TailwindCSS** - MIT License - https://tailwindcss.com/
+- **TypeScript** - Apache-2.0 License - https://www.typescriptlang.org/
+
+### Other Dependencies
+See package.json for a complete list of dependencies and their respective licenses.
+
+---
+
+All third-party dependencies remain under their original licenses.
+
+**ZapTok's original source code is licensed under AGPL-3.0-or-later.**
+
+Copyright (C) 2025 silentius-satoshi
+
+This program is free software: you can redistribute it and/or modify it under 
+the terms of the GNU Affero General Public License as published by the Free 
+Software Foundation, either version 3 of the License, or (at your option) any 
+later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT 
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more 
+details.
+
+You should have received a copy of the GNU Affero General Public License along 
+with this program. If not, see <https://www.gnu.org/licenses/>.

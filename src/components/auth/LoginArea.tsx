@@ -11,37 +11,65 @@ import { useLoggedInAccounts } from '@/hooks/useLoggedInAccounts';
 import { DropdownList } from './DropdownList';
 import { useWallet } from '@/hooks/useWallet';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
-import { useUserCashuStore } from '@/stores/userCashuStore';
+import { useCashuWallet } from '@/hooks/useCashuWallet';
+import { useCashuStore } from '@/stores/cashuStore';
+import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { cn } from '@/lib/utils';
+import { bundleLog } from '@/lib/logBundler';
+import { devLog } from '@/lib/devConsole';
+// import FeedButton from '@/components/FeedButton'; // Disabled until feed switching is fully implemented
 
 export interface LoginAreaProps {
   className?: string;
+  showBrowseWithoutLogin?: boolean;
+  browseButtonText?: string;
+  onBrowseClick?: () => void;
+  hideFeedButton?: boolean;
+  onLoginClick?: () => void;
+  disableInternalModal?: boolean; // Don't open internal modal, only call onLoginClick
 }
 
-export function LoginArea({ className }: LoginAreaProps) {
+export function LoginArea({ 
+  className, 
+  showBrowseWithoutLogin = false,
+  browseButtonText = "Browse Videos", 
+  onBrowseClick,
+  hideFeedButton = false,
+  onLoginClick,
+  disableInternalModal = false
+}: LoginAreaProps) {
   const { currentUser } = useLoggedInAccounts();
   const { walletInfo, isConnected, getBalance, provider, userHasLightningAccess } = useWallet();
   const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
-  const cashuStore = useUserCashuStore(currentUser?.pubkey);
+
+  // Get global store for comparison
+  const globalCashuStore = useCashuStore();
+
+  // Use global currency store instead of local state
+  const { showSats, toggleCurrency } = useCurrencyDisplayStore();
+
+  // Use modern Cashu hooks following Chorus patterns
+  const { totalBalance: cashuBalance } = useCashuWallet();
+
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [addAccountDialogOpen, setAddAccountDialogOpen] = useState(false);
-  const [currency, setCurrency] = useState<'BTC' | 'USD'>('BTC');
   const navigate = useNavigate();
 
-  // Reset currency state when user changes to ensure UI updates
+  // Remove the old currency state and reset effect since we're using global store now
+
+  // Early initialization of user Cashu store to ensure nutzaps work immediately
   useEffect(() => {
-    if (currentUser) {
-      // Force currency toggle to re-evaluate by resetting to BTC
-      setCurrency('BTC');
+    if (currentUser?.pubkey) {
+      console.log("Login area initializing for user:", currentUser.pubkey);
+
+      // Use modern initialization following Chorus patterns
+      // The useCashuWallet hook handles wallet initialization automatically
+      console.log("Wallet initialization handled by modern hooks");
     }
   }, [currentUser?.pubkey]);
 
-  // Bundle balance logging to reduce console noise
-  const balanceLogRef = useRef({
-    lastLogTime: 0,
-    callCount: 0,
-    lastBalance: 0,
-  });
+  // Track balance state changes to reduce console spam
+  const balanceLogRef = useRef<string>('');
 
   // Function to refresh wallet balance
   const refreshBalance = useCallback(async () => {
@@ -62,14 +90,38 @@ export function LoginArea({ className }: LoginAreaProps) {
   }, [isConnected, provider, refreshBalance]);
 
   const formatBalance = useCallback(() => {
-    // Only include Lightning balance if user has Lightning access
+    // Get balances from both sources
     const lightningBalance = userHasLightningAccess ? (walletInfo?.balance || 0) : 0;
-    const cashuBalance = cashuStore?.wallets
-      ? cashuStore.wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0)
-      : 0;
+
+    // Use reactive Cashu balance directly
+    const globalCashuBalance = globalCashuStore?.getTotalBalance?.() || 0;
+
+    // Calculate total balance as Lightning + Cashu
     const totalBalance = lightningBalance + cashuBalance;
 
-    if (currency === 'BTC') {
+    // Only log when values actually change to reduce console spam
+    const currentState = JSON.stringify({
+      userHasLightningAccess,
+      lightningBalance,
+      cashuBalance,
+      totalBalance
+    });
+
+    if (balanceLogRef.current !== currentState) {
+      balanceLogRef.current = currentState;
+
+      // Only show detailed debug when there's a significant change or mismatch
+      if (cashuBalance !== globalCashuBalance) {
+        console.log('💰 Balance Calculation Debug');
+        console.log('Lightning Balance:', lightningBalance, 'sats');
+        console.log('User Cashu Balance:', cashuBalance, 'sats');
+        console.log('Global Cashu Balance (reference):', globalCashuBalance, 'sats');
+        console.log('Combined Total Balance:', totalBalance, 'sats');
+        console.log('Balance Difference (User vs Global Cashu):', cashuBalance - globalCashuBalance, 'sats');
+      }
+    }
+
+    if (showSats) {
       return `${totalBalance.toLocaleString()} sats`;
     } else {
       // Use the existing useBitcoinPrice hook utilities
@@ -80,18 +132,7 @@ export function LoginArea({ className }: LoginAreaProps) {
         return `${totalBalance.toLocaleString()} sats (price loading...)`;
       }
     }
-  }, [walletInfo?.balance, cashuStore?.wallets, currency, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
-
-  // Lightning wallet button - Enhanced with better styling
-  const LightningWalletButton = () => (
-    <button
-      className='group flex items-center justify-center p-2.5 rounded-lg bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200'
-      onClick={() => navigate('/wallet')}
-      title="Lightning Wallet"
-    >
-      <Zap className='w-3.5 h-3.5 text-yellow-400 group-hover:text-yellow-300 transition-colors duration-200' />
-    </button>
-  );
+  }, [walletInfo?.balance, cashuBalance, globalCashuStore, showSats, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
 
   // Determine if currency toggle should be shown - Always show for logged-in users
   const shouldShowCurrencyToggle = useMemo(() => {
@@ -104,17 +145,23 @@ export function LoginArea({ className }: LoginAreaProps) {
     <button
       className='group flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gray-800/30 hover:bg-gray-700/40 transition-all duration-200 whitespace-nowrap min-w-fit'
       onClick={() => {
-        const newCurrency = currency === 'BTC' ? 'USD' : 'BTC';
-        setCurrency(newCurrency);
+        toggleCurrency();
         if (import.meta.env.DEV) {
-          console.log(`💱 Currency switched to: ${newCurrency}`);
+          devLog(`💱 Currency switched to: ${showSats ? 'USD' : 'BTC'}`);
         }
       }}
-      title={`Switch to ${currency === 'BTC' ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`}
+      title={`Switch to ${showSats ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`}
     >
-      {currency === 'BTC' ? (
+      {showSats ? (
         <>
-          <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
+          <div className="flex items-center gap-0.5">
+            <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
+            <img 
+              src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+              alt="Cashu" 
+              className="w-3 h-3"
+            />
+          </div>
           <span className='text-orange-200 font-medium text-xs group-hover:text-orange-100 transition-colors duration-200'>
             {formatBalance().replace(' sats', '')} sats
           </span>
@@ -132,28 +179,59 @@ export function LoginArea({ className }: LoginAreaProps) {
   );
 
   return (
-    <div className={cn("inline-flex items-center justify-start min-w-0", className)}>
-      {currentUser ? (
-        <div className="flex items-center gap-2">
-          {/* Lightning Wallet Button */}
-          <LightningWalletButton />
+    <div className={cn("inline-flex items-center justify-start min-w-0 max-w-full", className)}>
+      {/* Feed Selection Button - Disabled until feed switching is fully implemented */}
+      {/* {!hideFeedButton && <FeedButton />} */}
 
+      {currentUser ? (
+        <div className="flex items-center gap-2 ml-2 min-w-0">
           {/* Currency Toggle Button - show based on computed logic */}
           {shouldShowCurrencyToggle && <CurrencyToggleButton />}
 
           {/* Account Switcher */}
-          <div className="flex-shrink-0">
-            <DropdownList onAddAccountClick={() => setAddAccountDialogOpen(true)} />
+          <div className="flex-shrink-0 min-w-0">
+            <DropdownList onAddAccountClick={() => {
+              // Account switching temporarily disabled due to wallet isolation bug
+              console.log('Add account disabled due to wallet isolation bug');
+            }} />
           </div>
         </div>
       ) : (
-        <Button
-          onClick={() => setLoginModalOpen(true)}
-          className='flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground w-full font-medium transition-all hover:bg-primary/90 animate-scale-in'
-        >
-          <User className='w-4 h-4' />
-          <span className='truncate'>Log in</span>
-        </Button>
+        <div className="flex flex-col gap-2 w-full ml-2">
+          <Button
+            onClick={() => {
+              if (disableInternalModal) {
+                // Only call parent callback, don't open internal modal
+                onLoginClick?.();
+              } else if (onLoginClick) {
+                // Call parent callback first
+                onLoginClick();
+                // Delay modal open to ensure parent closes first
+                setTimeout(() => {
+                  setLoginModalOpen(true);
+                }, 100);
+              } else {
+                // No parent callback, open immediately
+                setLoginModalOpen(true);
+              }
+            }}
+            className='flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground w-full font-medium transition-all hover:bg-primary/90 animate-scale-in'
+          >
+            <User className='w-4 h-4' />
+            <span className='truncate'>Log in</span>
+          </Button>
+          
+          {/* Browse without login option */}
+          {showBrowseWithoutLogin && onBrowseClick && (
+            <Button
+              onClick={onBrowseClick}
+              variant="outline"
+              className='flex items-center gap-2 px-4 py-2 rounded-full w-full font-medium transition-all hover:bg-accent/50'
+            >
+              <span className='truncate'>{browseButtonText}</span>
+            </Button>
+          )}
+        </div>
       )}
 
       <LoginModal

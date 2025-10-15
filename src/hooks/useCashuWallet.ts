@@ -1,23 +1,16 @@
 import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNostrConnection } from '@/components/NostrProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CASHU_EVENT_KINDS, CashuToken, activateMint, defaultMints } from '@/lib/cashu';
-import { NostrEvent, getPublicKey, generateSecretKey } from 'nostr-tools';
-import { useCashuStore, Nip60TokenEvent, CashuWalletStruct } from '@/stores/cashuStore';
-import { useCashuRelayStore } from '@/stores/cashuRelayStore';
+import { CASHU_EVENT_KINDS, CashuWalletStruct, CashuToken, activateMint, updateMintKeys, defaultMints } from '@/lib/cashu';
+import { NostrEvent, getPublicKey } from 'nostr-tools';
+import { useCashuStore, Nip60TokenEvent } from '@/stores/cashuStore';
 import { Proof } from '@cashu/cashu-ts';
 import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
 import { NSchema as n } from '@nostrify/nostrify';
 import { z } from 'zod';
-import { useAppContext } from '@/hooks/useAppContext';
-
-interface WalletData {
-  privkey: string;
-  mints: string[];
-}
 import { useNutzaps } from '@/hooks/useNutzaps';
 import { hexToBytes } from '@noble/hashes/utils';
+import { deriveP2PKPubkey } from '@/lib/p2pk';
 
 /**
  * Hook to fetch and manage the user's Cashu wallet
@@ -25,144 +18,88 @@ import { hexToBytes } from '@noble/hashes/utils';
 export function useCashuWallet() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const { isAnyRelayConnected } = useNostrConnection();
   const queryClient = useQueryClient();
   const cashuStore = useCashuStore();
-  const cashuRelayStore = useCashuRelayStore();
   const { createNutzapInfo } = useNutzaps();
-  const { config } = useAppContext();
 
-  // Check if Cashu operations should run in the current context
-  const shouldRunCashuOperations = config.relayContext === 'all' || 
-    config.relayContext === 'wallet' || 
-    config.relayContext === 'cashu-only' || 
-    config.relayContext === 'settings-cashu';
+  // Subscribe to balance changes for reactive updates
+  const currentBalance = useCashuStore((state) => state.getTotalBalance());
 
   // Fetch wallet information (kind 17375)
   const walletQuery = useQuery({
-    queryKey: ['cashu', 'wallet', user?.pubkey, cashuRelayStore.activeRelay],
+    queryKey: ['cashu', 'wallet', user?.pubkey],
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not logged in');
 
-      // Add timeout to prevent hanging
-      const timeoutSignal = AbortSignal.timeout(15000); // 15 second timeout
-      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+      const events = await nostr.query([
+        { kinds: [CASHU_EVENT_KINDS.WALLET], authors: [user.pubkey], limit: 1 }
+      ], { signal });
 
-      // Enhanced wallet detection: check for both wallet events AND history events
-      const queryFilter = { 
-        kinds: [CASHU_EVENT_KINDS.WALLET, CASHU_EVENT_KINDS.HISTORY], 
-        authors: [user.pubkey], 
-        limit: 10 
-      };
-      const queryOptions = { 
-        signal: combinedSignal,
-        relays: [cashuRelayStore.activeRelay]
-      };
-
-      const events = await nostr.query([queryFilter], queryOptions);
-
-      // Check if we have either wallet events or history events
-      const walletEvents = events.filter(e => e.kind === CASHU_EVENT_KINDS.WALLET);
-      const historyEvents = events.filter(e => e.kind === CASHU_EVENT_KINDS.HISTORY);
-
-      // If we have history events but no wallet events, return null to trigger UI flow
-      if (walletEvents.length === 0 && historyEvents.length > 0) {
-        // Return null so the UI can detect this condition and show the "Recreate Wallet Configuration" flow
+      if (events.length === 0) {
         return null;
       }
 
-      if (walletEvents.length === 0) {
-        return null;
-      }
+      const event = events[0];
 
-      const event = walletEvents[0];
-
-      // Decrypt wallet content
-      if (!user.signer.nip44) {
-        throw new Error('Cashu wallet requires NIP-44 encryption support. Please ensure your Nostr extension has ENCRYPT and DECRYPT permissions enabled, or try reconnecting with a compatible extension like Alby.');
-      }
-
-      const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
-      const data = n.json().pipe(z.string().array().array()).parse(decrypted);
-
-      const privkey = data.find(([key]) => key === 'privkey')?.[1];
-
-      if (!privkey) {
-        throw new Error('Private key not found in wallet data');
-      }
-
-      const walletData: WalletData = {
-        privkey,
-        mints: data
-          .filter(([key]) => key === 'mint')
-          .map(([, mint]) => mint)
-      };
-
-      // if the default mint is not in the wallet, add it
-      for (const mint of defaultMints) {
-        if (!walletData.mints.includes(mint)) {
-          walletData.mints.push(mint);
-        }
-      }
-
-      // remove trailing slashes from mints
-      walletData.mints = walletData.mints.map(mint => mint.replace(/\/$/, ''));
-      // reduce mints to unique values
-      walletData.mints = [...new Set(walletData.mints)];
-
-      // fetch the mint info and keysets for each mint
       try {
+        // Decrypt wallet content
+        if (!user.signer.nip44) {
+          throw new Error('NIP-44 encryption not supported by your signer');
+        }
+
+        const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
+        const data = n.json().pipe(z.string().array().array()).parse(decrypted);
+
+        const privkey = data.find(([key]) => key === 'privkey')?.[1];
+
+        if (!privkey) {
+          throw new Error('Private key not found in wallet data');
+        }
+
+        const walletData: CashuWalletStruct = {
+          privkey,
+          mints: data
+            .filter(([key]) => key === 'mint')
+            .map(([, mint]) => mint)
+        };
+
+        // if the default mint is not in the wallet, add it
+        for (const mint of defaultMints) {
+          if (!walletData.mints.includes(mint)) {
+            walletData.mints.push(mint);
+          }
+        }
+
+        // remove trailing slashes from mints
+        walletData.mints = walletData.mints.map(mint => mint.replace(/\/$/, ''));
+        // reduce mints to unique values
+        walletData.mints = [...new Set(walletData.mints)];
+
+        // fetch the mint info and keysets for each mint
         await Promise.all(walletData.mints.map(async (mint) => {
           const { mintInfo, keysets } = await activateMint(mint);
-          
           cashuStore.addMint(mint);
           cashuStore.setMintInfo(mint, mintInfo);
-          
-          // The keysets object has a 'keysets' property that contains the actual keysets array
-          const actualKeysets = (keysets as any).keysets || [];
-          
-          cashuStore.setKeysets(mint, actualKeysets);
+          cashuStore.setKeysets(mint, keysets);
+          const { keys } = await updateMintKeys(mint, keysets);
+          cashuStore.setKeys(mint, keys);
         }));
+
+        cashuStore.setPrivkey(walletData.privkey);
+
+        // call getNip60TokensQuery
+        await getNip60TokensQuery.refetch();
+        return {
+          id: event.id,
+          wallet: walletData,
+          createdAt: event.created_at
+        };
       } catch (error) {
-        console.error('useCashuWallet: Error activating mints:', error);
-        throw error;
+        console.error('Failed to decrypt wallet data:', error);
+        return null;
       }
-
-      cashuStore.setPrivkey(walletData.privkey);
-
-      // Create a complete wallet structure for the store
-      const walletForStore: CashuWalletStruct = {
-        id: event.id, // Use the event ID as wallet ID
-        name: 'Cashu Wallet',
-        unit: 'sat',
-        mints: walletData.mints,
-        balance: 0, // Will be calculated when proofs are added
-        proofs: [],
-        lastUpdated: Date.now(),
-        event: event,
-        privkey: walletData.privkey
-      };
-
-      cashuStore.addWallet(walletForStore);
-
-      // if no active mint is set, set the first mint as active
-      if (!cashuStore.getActiveMintUrl()) {
-        cashuStore.setActiveMintUrl(walletData.mints[0]);
-      }
-
-      return {
-        id: event.id,
-        wallet: walletData,
-        createdAt: event.created_at
-      };
     },
-    enabled: !!user && isAnyRelayConnected && shouldRunCashuOperations,
-    staleTime: 30 * 60 * 1000, // Consider data stale after 30 minutes
-    gcTime: 60 * 60 * 1000, // Keep in cache for 1 hour
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnReconnect: false, // Don't refetch on reconnect
-    refetchInterval: false, // Disable automatic refetching
-    retry: 1, // Only retry once on failure
+    enabled: !!user
   });
 
   // Create or update wallet
@@ -170,7 +107,7 @@ export function useCashuWallet() {
     mutationFn: async (walletData: CashuWalletStruct) => {
       if (!user) throw new Error('User not logged in');
       if (!user.signer.nip44) {
-        throw new Error('Cashu wallet creation requires NIP-44 encryption support. Please ensure your Nostr extension has ENCRYPT and DECRYPT permissions enabled.');
+        throw new Error('NIP-44 encryption not supported by your signer');
       }
 
       // remove trailing slashes from mints
@@ -202,15 +139,13 @@ export function useCashuWallet() {
 
       // Also create or update the nutzap informational event
       try {
-        if (walletData.privkey) {
-          await createNutzapInfo({
-            mintOverrides: walletData.mints.map(mint => ({
-              url: mint,
-              units: ['sat']
-            })),
-            p2pkPubkey: "02" + getPublicKey(hexToBytes(walletData.privkey))
-          });
-        }
+        await createNutzapInfo({
+          mintOverrides: walletData.mints.map(mint => ({
+            url: mint,
+            units: ['sat']
+          })),
+          p2pkPubkey: deriveP2PKPubkey(walletData.privkey)
+        });
       } catch (error) {
         console.error('Failed to create nutzap informational event:', error);
         // Continue even if nutzap info creation fails
@@ -221,20 +156,19 @@ export function useCashuWallet() {
       return event;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cashu', 'wallet', user?.pubkey, cashuRelayStore.activeRelay] });
+      queryClient.invalidateQueries({ queryKey: ['cashu', 'wallet', user?.pubkey] });
       queryClient.invalidateQueries({ queryKey: ['nutzap', 'info', user?.pubkey] });
     }
   });
 
   // Fetch token events (kind 7375)
   const getNip60TokensQuery = useQuery({
-    queryKey: ['cashu', 'tokens', user?.pubkey, cashuRelayStore.activeRelay],
+    queryKey: ['cashu', 'tokens', user?.pubkey],
     queryFn: async ({ signal }) => {
       if (!user) throw new Error('User not logged in');
-
-      // Add timeout to prevent hanging
-      const timeoutSignal = AbortSignal.timeout(15000); // 15 second timeout
-      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+      if (!user.signer.nip44) {
+        throw new Error('NIP-44 encryption not supported by your signer');
+      }
 
       // Get the last stored timestamp for the TOKEN event kind
       const lastTimestamp = getLastEventTimestamp(user.pubkey, CASHU_EVENT_KINDS.TOKEN);
@@ -251,9 +185,17 @@ export function useCashuWallet() {
         Object.assign(filter, { since: lastTimestamp + 1 });
       }
 
-      const events = await nostr.query([filter], { 
-        signal: combinedSignal,
-        relays: [cashuRelayStore.activeRelay]
+      const events = await nostr.query([filter], { signal });
+
+      console.debug(`Retrieved ${events.length} token events for decryption`, {
+        userPubkey: user.pubkey,
+        eventIds: events.map(e => e.id),
+        eventSample: events.slice(0, 2).map(e => ({
+          id: e.id,
+          contentLength: e.content?.length || 0,
+          contentEmpty: !e.content || e.content.trim() === '',
+          created_at: e.created_at
+        }))
       });
 
       if (events.length === 0) {
@@ -264,11 +206,149 @@ export function useCashuWallet() {
 
       for (const event of events) {
         try {
+          // Validate event content before decryption
+          if (!event.content || event.content.trim() === '') {
+            console.warn(`Skipping token event ${event.id}: empty content`);
+            continue;
+          }
+
           if (!user.signer.nip44) {
             throw new Error('NIP-44 encryption not supported by your signer');
           }
 
-          const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
+          // Debug: Log event and signer details
+          console.debug(`Attempting to decrypt token event ${event.id}`, {
+            contentLength: event.content.length,
+            contentPreview: event.content.substring(0, 50) + '...',
+            signerType: user.signer?.constructor?.name,
+            hasNip44: !!user.signer.nip44,
+            userPubkey: user.pubkey,
+            nip44Methods: user.signer.nip44 ? Object.keys(user.signer.nip44) : 'no nip44'
+          });
+
+          // Decrypt content with enhanced error handling
+          let decrypted;
+          try {
+          console.debug(`Calling decrypt with params:`, {
+            recipientPubkey: user.pubkey,
+            contentType: typeof event.content,
+            contentLength: event.content.length,
+            isValidBase64: /^[A-Za-z0-9+/]*={0,2}$/.test(event.content),
+            contentSample: event.content.substring(0, 50) + '...',
+            eventId: event.id,
+            eventKind: event.kind,
+            eventAuthor: event.pubkey,
+            currentUser: user.pubkey,
+            isSelfEncrypted: event.pubkey === user.pubkey,
+            decryptMethodExists: typeof user.signer.nip44.decrypt,
+            signerMethods: Object.getOwnPropertyNames(user.signer.nip44)
+          });            // Log the exact function call before making it
+            console.debug(`About to call:`, `user.signer.nip44.decrypt("${user.pubkey}", "${event.content.substring(0, 20)}...")`);
+
+          // Try the decryption with additional error checking
+          const decryptResult = await user.signer.nip44.decrypt(user.pubkey, event.content);
+
+          console.debug(`Raw decrypt result:`, {
+            result: decryptResult,
+            type: typeof decryptResult,
+            isUndefined: decryptResult === undefined,
+            isNull: decryptResult === null,
+            isEmptyString: decryptResult === '',
+            length: decryptResult?.length,
+            constructor: decryptResult?.constructor?.name
+          });
+
+          // Check if result is valid before assigning
+          if (decryptResult === undefined || decryptResult === null) {
+            console.debug(`Primary decrypt failed, trying nostr-tools fallback...`);
+
+            // Try using nostr-tools nip44 directly as fallback
+            try {
+              const { nip44 } = await import('nostr-tools');
+
+              // For nsec signers, try to get private key if available
+              let fallbackResult: string | null = null;
+
+              if ((user.signer as any).getPrivateKey) {
+                try {
+                  const privateKey = await (user.signer as any).getPrivateKey();
+                  fallbackResult = nip44.decrypt(event.content, privateKey);
+                } catch (privKeyError) {
+                  console.debug(`Private key access failed:`, privKeyError);
+                }
+              }
+
+              console.debug(`Nostr-tools fallback result:`, {
+                result: fallbackResult,
+                type: typeof fallbackResult,
+                isValid: typeof fallbackResult === 'string' && fallbackResult.length > 0
+              });
+
+              if (typeof fallbackResult === 'string' && fallbackResult.length > 0) {
+                decrypted = fallbackResult;
+                console.debug(`✅ Nostr-tools fallback successful for event ${event.id}`);
+              } else {
+                throw new Error(`Nostr-tools fallback also returned invalid result: ${fallbackResult}`);
+              }
+            } catch (fallbackError) {
+              console.debug(`Nostr-tools fallback failed:`, fallbackError);
+
+              // Final attempt: try alternative parameter order for self-encrypted events
+              if (event.pubkey === user.pubkey) {
+                console.debug(`Final attempt: alternative parameter order for self-encrypted event...`);
+                try {
+                  const finalResult = await user.signer.nip44.decrypt(event.pubkey, event.content);
+                  if (typeof finalResult === 'string' && finalResult.length > 0) {
+                    decrypted = finalResult;
+                    console.debug(`✅ Alternative parameter order successful for event ${event.id}`);
+                  } else {
+                    throw new Error(`All decryption attempts failed. Library may be incompatible.`);
+                  }
+                } catch (finalError) {
+                  throw new Error(`All decryption methods failed: Primary=${decryptResult}, Fallback=${fallbackError.message}, Final=${finalError.message}`);
+                }
+              } else {
+                throw new Error(`Primary decrypt returned ${decryptResult}, nostr-tools fallback failed: ${fallbackError.message}`);
+              }
+            }
+          } else {
+            decrypted = decryptResult;
+          }            console.debug(`Decrypt result:`, {
+              resultType: typeof decrypted,
+              resultValue: decrypted,
+              isNull: decrypted === null,
+              isUndefined: decrypted === undefined,
+              length: decrypted?.length
+            });
+          } catch (decryptError) {
+            console.error(`Raw decryption error for token event ${event.id}:`, {
+              error: decryptError,
+              errorMessage: decryptError.message,
+              errorStack: decryptError.stack,
+              signerInfo: {
+                hasNip44: !!user.signer.nip44,
+                nip44Type: typeof user.signer.nip44,
+                methods: user.signer.nip44 ? Object.getOwnPropertyNames(user.signer.nip44) : 'none'
+              }
+            });
+            throw decryptError;
+          }
+
+          // Validate decryption result
+          if (!decrypted || typeof decrypted !== 'string') {
+            console.warn(`Skipping token event ${event.id}: decryption returned invalid result:`, {
+              decrypted,
+              type: typeof decrypted,
+              length: decrypted?.length
+            });
+            continue;
+          }
+
+          console.debug(`Successfully decrypted token event ${event.id}`, {
+            decryptedLength: decrypted.length,
+            decryptedPreview: decrypted.substring(0, 100) + '...'
+          });
+
           const tokenData = JSON.parse(decrypted) as CashuToken;
 
           nip60TokenEvents.push({
@@ -276,11 +356,8 @@ export function useCashuWallet() {
             token: tokenData,
             createdAt: event.created_at
           });
-          
           // add proofs to store
-          if (tokenData.proofs && tokenData.proofs.length > 0) {
-            cashuStore.addProofs(tokenData.proofs, event.id);
-          }
+          cashuStore.addProofs(tokenData.proofs, event.id);
 
         } catch (error) {
           console.error('Failed to decrypt token data:', error);
@@ -289,13 +366,7 @@ export function useCashuWallet() {
 
       return nip60TokenEvents;
     },
-    enabled: !!user && isAnyRelayConnected && shouldRunCashuOperations,
-    staleTime: 30 * 60 * 1000, // Consider data stale after 30 minutes
-    gcTime: 60 * 60 * 1000, // Keep in cache for 1 hour  
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnReconnect: false, // Don't refetch on reconnect
-    refetchInterval: false, // Disable automatic refetching
-    retry: 1, // Only retry once on failure
+    enabled: !!user
   });
 
   const updateProofsMutation = useMutation({
@@ -342,15 +413,8 @@ export function useCashuWallet() {
           created_at: Math.floor(Date.now() / 1000)
         });
 
-        // add proofs to store
-        cashuStore.addProofs(newProofs, newTokenEvent?.id || '');
-
         // publish token event
-        try {
-          await nostr.event(newTokenEvent);
-        } catch (error) {
-          console.error('Failed to publish token event:', error);
-        }
+        await nostr.event(newTokenEvent);
 
         // update local event IDs on all newProofs
         newProofs.forEach(proof => {
@@ -370,10 +434,6 @@ export function useCashuWallet() {
           created_at: Math.floor(Date.now() / 1000)
         });
 
-        // remove proofs from store
-        const proofsToRemoveFiltered = proofsToRemove.filter(proof => !newProofs.map(p => p.secret).includes(proof.secret));
-        cashuStore.removeProofs(proofsToRemoveFiltered);
-
         // publish deletion event
         try {
           await nostr.event(deletionEvent);
@@ -382,23 +442,55 @@ export function useCashuWallet() {
         }
       }
 
+      // remove proofs from store
+      const proofsToRemoveFiltered = proofsToRemove.filter(proof => !newProofs.includes(proof));
+      cashuStore.removeProofs(proofsToRemoveFiltered);
+
+      // add proofs to store
+      cashuStore.addProofs(newProofs, eventToReturn?.id || '');
+
       return eventToReturn;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cashu', 'tokens', user?.pubkey, cashuRelayStore.activeRelay] });
+      queryClient.invalidateQueries({ queryKey: ['cashu', 'tokens', user?.pubkey] });
     }
   });
+
+  // Helper function to get total balance
+  const getTotalBalanceHelper = () => {
+    return currentBalance;
+  };
 
   return {
     wallet: walletQuery.data?.wallet,
     walletId: walletQuery.data?.id,
     tokens: getNip60TokensQuery.data || [],
-    isLoading: walletQuery.isLoading || getNip60TokensQuery.isLoading,
-    isWalletLoading: walletQuery.isLoading,
-    isTokensLoading: getNip60TokensQuery.isLoading,
+    isLoading: walletQuery.isPending || getNip60TokensQuery.isPending,
+    createWallet: createWalletMutation.mutate,
+    createWalletAsync: createWalletMutation.mutateAsync,
+    updateProofs: updateProofsMutation.mutateAsync,
+    getTotalBalance: getTotalBalanceHelper,
+    totalBalance: currentBalance, // Reactive balance value
+
+    // Legacy compatibility properties
+    mints: walletQuery.data?.wallet?.mints || [],
+    addMint: (mintUrl: string) => {
+      const currentWallet = walletQuery.data?.wallet;
+      if (currentWallet && !currentWallet.mints.includes(mintUrl)) {
+        createWalletMutation.mutate({
+          ...currentWallet,
+          mints: [...currentWallet.mints, mintUrl]
+        });
+      }
+    },
+    setActiveMintUrl: (mintUrl: string) => {
+      cashuStore.setActiveMintUrl(mintUrl);
+    },
+
+    // Additional legacy properties for lightning components
+    isWalletLoading: walletQuery.isPending,
+    isTokensLoading: getNip60TokensQuery.isPending,
     walletError: walletQuery.error,
     tokensError: getNip60TokensQuery.error,
-    createWallet: createWalletMutation.mutate,
-    updateProofs: updateProofsMutation.mutateAsync,
   };
 }

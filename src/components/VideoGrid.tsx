@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import { useBookmarkVideo } from '@/hooks/useBookmarks';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { VideoEvent } from '@/lib/validateVideoEvent';
 
 interface VideoGridProps {
@@ -14,12 +15,14 @@ interface VideoGridProps {
   emptyMessage?: string;
   allowRemove?: boolean; // New prop to enable bookmark removal
   showVerificationBadge?: boolean; // New prop to control NIP-05 badge display
+  onVideoClick?: (index: number) => void; // Optional custom click handler
 }
 
-export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false, showVerificationBadge = true }: VideoGridProps) {
+export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false, showVerificationBadge = true, onVideoClick }: VideoGridProps) {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { mutate: bookmarkVideo, isPending: isRemovingBookmark } = useBookmarkVideo();
+  const isMobile = useIsMobile();
 
   const handleRemoveBookmark = (video: VideoEvent, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent video card click
@@ -30,8 +33,14 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
   };
 
   const handleVideoClick = (index: number) => {
-    setCurrentVideoIndex(index);
-    setIsModalOpen(true);
+    if (onVideoClick) {
+      // Use custom click handler if provided
+      onVideoClick(index);
+    } else {
+      // Otherwise use internal modal
+      setCurrentVideoIndex(index);
+      setIsModalOpen(true);
+    }
   };
 
   const handleModalClose = () => {
@@ -39,10 +48,15 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
   };
 
   if (isLoading) {
+    // TikTok-style compact loading grid - 3 columns on mobile
+    const gridCols = isMobile ? 'grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
+    const skeletonCount = isMobile ? 9 : 6;
+    const itemHeight = isMobile ? 'h-[200px]' : 'aspect-[9/16]';
+
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i} className="aspect-[9/16] overflow-hidden">
+      <div className={`grid ${gridCols} gap-2`}>
+        {Array.from({ length: skeletonCount }).map((_, i) => (
+          <Card key={i} className={`w-full ${itemHeight} overflow-hidden`}>
             <CardContent className="p-0 h-full">
               <Skeleton className="w-full h-full" />
             </CardContent>
@@ -70,27 +84,41 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto scrollbar-hide">
+      {/* Enhanced mobile PWA grid layout - TikTok-style compact grid */}
+      <div className={`grid gap-2 ${
+        isMobile
+          ? 'grid-cols-3 auto-rows-auto' // Mobile PWA: 3 columns like TikTok
+          : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 max-h-[600px]' // Desktop: responsive columns
+      } ${isMobile ? '' : 'overflow-y-auto scrollbar-hide'}`}>
         {videos.map((video, index) => (
           <div
             key={video.id}
-            className="relative aspect-[9/16] cursor-pointer rounded-lg overflow-hidden hover:scale-105 transition-transform duration-200 group"
+            className={`relative w-full cursor-pointer rounded-lg overflow-hidden transition-all duration-200 group ${
+              isMobile
+                ? 'h-[200px] active:scale-95' // Mobile: Fixed height, compact like TikTok
+                : 'aspect-[9/16] hover:scale-105' // Desktop: aspect ratio with hover effect
+            }`}
             onClick={() => handleVideoClick(index)}
           >
             <VideoCard
               event={video}
-              isActive={index === currentVideoIndex}
+              isActive={false} // Grid videos should never auto-play, only in modal/viewer
               onNext={() => setCurrentVideoIndex(Math.min(index + 1, videos.length - 1))}
               onPrevious={() => setCurrentVideoIndex(Math.max(index - 1, 0))}
               showVerificationBadge={showVerificationBadge}
+              gridMode={true} // Show zap analytics instead of username/description/date
             />
 
-            {/* Remove bookmark button */}
+            {/* Enhanced remove bookmark button for mobile */}
             {allowRemove && (
               <Button
                 variant="destructive"
                 size="sm"
-                className="absolute top-2 right-2 h-6 w-6 p-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+                className={`absolute top-2 right-2 h-6 w-6 p-0 rounded-full transition-opacity duration-200 z-10 ${
+                  isMobile
+                    ? 'opacity-80 hover:opacity-100' // Mobile: always visible but subtle
+                    : 'opacity-0 group-hover:opacity-100' // Desktop: show on hover
+                }`}
                 onClick={(e) => handleRemoveBookmark(video, e)}
                 disabled={isRemovingBookmark}
               >
@@ -101,6 +129,7 @@ export function VideoGrid({ videos, isLoading, emptyMessage, allowRemove = false
         ))}
       </div>
 
+      {/* Enhanced VideoModal for mobile PWA fullscreen experience */}
       <VideoModal
         isOpen={isModalOpen}
         onClose={handleModalClose}

@@ -47,8 +47,7 @@ export function useNostrToolsOnboarding() {
       'wss://relay.damus.io',
       'wss://relay.primal.net',
       'wss://relay.nostr.band',
-      'wss://relay.chorus.community',
-      'wss://ditto.pub/relay'
+      'wss://relay.chorus.community'
     ];
 
     try {
@@ -60,7 +59,7 @@ export function useNostrToolsOnboarding() {
         name: displayName.trim(),
         ...(about && { about: about.trim() }),
         ...(pictureUrl && { picture: pictureUrl }),
-        nip05: `${displayName.toLowerCase().replace(/\s+/g, '')}@zaptok.app`
+        // Note: Users can add their own NIP-05 identifier later in profile settings
       };
 
       const profileEvent = finalizeEvent({

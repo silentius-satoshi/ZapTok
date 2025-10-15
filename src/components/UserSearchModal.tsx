@@ -137,7 +137,7 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
         <div className="flex-shrink-0 relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Enter npub or pubkey..."
+            placeholder="Search by name, username, or enter npub/pubkey..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
@@ -148,8 +148,14 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
           {!debouncedQuery ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Search className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                Enter a npub or pubkey to search for users
+              <p className="text-muted-foreground font-medium mb-2">
+                Search for Nostr users
+              </p>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Enter a name, username, NIP-05 address, npub, or pubkey to find users
+              </p>
+              <p className="text-xs text-muted-foreground/60 mt-4">
+                💡 Tip: Local search is instant and works offline
               </p>
             </div>
           ) : isLoading ? (
@@ -172,8 +178,11 @@ export function UserSearchModal({ open, onOpenChange }: UserSearchModalProps) {
           ) : results.length === 0 && debouncedQuery ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Users className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                No user found with that identifier
+              <p className="text-muted-foreground font-medium mb-2">
+                No users found
+              </p>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Try searching by a different name or username
               </p>
             </div>
           ) : (

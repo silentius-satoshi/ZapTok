@@ -12,12 +12,12 @@ import { genUserName } from '@/lib/genUserName';
 import { EditProfileForm } from '@/components/EditProfileForm';
 import { FollowingListModal } from '@/components/FollowingListModal';
 import { QRModal } from '@/components/QRModal';
+import { LogoutWarningModal } from '@/components/LogoutWarningModal';
 import { User, Edit, LogOut, Users, QrCode, Zap } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
-import { useLoginActions } from '@/hooks/useLoginActions';
+import { useLogoutWithWarning } from '@/hooks/useLogoutWithWarning';
 import { useToast } from '@/hooks/useToast';
 import { getLightningAddress } from '@/lib/lightning';
-import { QuickZap } from '@/components/QuickZap';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -33,12 +33,11 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
   const author = useAuthor(targetPubkey);
   const following = useFollowing(targetPubkey);
   const metadata = author.data?.metadata;
-  const login = useLoginActions();
+  const { logout, confirmLogout, cancelLogout, showWarning } = useLogoutWithWarning();
   const { toast } = useToast();
   const [showEditForm, setShowEditForm] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
-  const [showQuickZap, setShowQuickZap] = useState(false);
 
   if (!targetPubkey) return null;
 
@@ -50,8 +49,7 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
   const nip05 = metadata?.nip05;
 
   const handleLogout = () => {
-    login.logout();
-    onClose();
+    logout();
   };
 
   const handleEditProfile = () => {
@@ -100,8 +98,12 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
       return;
     }
 
-    // Open QuickZap modal instead of CustomZap
-    setShowQuickZap(true);
+    // Placeholder for zap functionality
+    toast({
+      title: "Zap Feature Coming Soon",
+      description: "Lightning zap functionality is currently being updated. Stay tuned!",
+      variant: "default",
+    });
   };
 
   if (showEditForm && isCurrentUser) {
@@ -289,11 +291,14 @@ export function ProfileModal({ isOpen, onClose, pubkey }: ProfileModalProps) {
         displayName={displayName}
       />
 
-      {/* Quick Zap Modal */}
-      <QuickZap
-        isOpen={showQuickZap}
-        onClose={() => setShowQuickZap(false)}
-        recipientPubkey={targetPubkey}
+      {/* Logout Warning Modal */}
+      <LogoutWarningModal
+        isOpen={showWarning}
+        onClose={cancelLogout}
+        onConfirmLogout={() => {
+          confirmLogout();
+          onClose();
+        }}
       />
     </>
   );

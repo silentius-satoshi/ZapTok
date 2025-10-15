@@ -5,9 +5,10 @@ import { useContextualRelays } from "@/hooks/useContextualRelays";
 import { useEffect } from "react";
 import { logRoute } from "@/lib/devLogger";
 import NostrProvider from "@/components/NostrProvider";
-import { CachingProvider } from "@/components/CachingProvider";
+import { CurrentRelaysProvider } from "@/providers/CurrentRelaysProvider";
+import { FavoriteRelaysProvider } from "@/providers/FavoriteRelaysProvider";
+import { FeedProvider } from "@/providers/FeedProvider";
 import { WalletProvider } from "@/contexts/WalletContext";
-import { UnifiedWalletProvider } from "@/contexts/UnifiedWalletContext";
 import { VideoPlaybackProvider } from "@/contexts/VideoPlaybackContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WalletLoader } from "@/components/WalletLoader";
@@ -18,12 +19,20 @@ import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Global from "./pages/Global";
 import Discover from "./pages/Discover";
+import Hashtag from "./pages/Hashtag";
 import Notifications from "./pages/Notifications";
 import { Settings } from "./pages/Settings";
 import { LightningWallet } from "./pages/LightningWallet";
+import { CashuWallet } from "./pages/CashuWallet";
+import { BitcoinConnectWallet } from "./pages/BitcoinConnectWallet";
 import { Stream } from "./components/stream/Stream";
 import { NostrEntity } from "./pages/NostrEntity";
 import About from "./pages/About";
+import { FAQ } from "./pages/FAQ";
+import { ProModePage } from "./pages/ProModePage";
+import DonationPage from "./pages/DonationPage";
+import { ReadOnlyModeDemo } from "@/components/ReadOnlyModeDemo";
+import TestPost from "./pages/TestPost";
 import NotFound from "./pages/NotFound";
 
 function RouteHandler() {
@@ -49,16 +58,26 @@ function RouteHandler() {
 
   return (
     <Routes>
-      <Route path="/" element={<Index />} />
-      <Route path="/discover" element={<Discover />} />
+      <Route path="/" element={<Global />} />
+      <Route path="/following" element={<Index />} />
+      {/* Hide Discover page from production */}
+      {!import.meta.env.PROD && <Route path="/discover" element={<Discover />} />}
+      <Route path="/t/:tag" element={<Hashtag />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/profile/:pubkey" element={<Profile />} />
       <Route path="/global" element={<Global />} />
       <Route path="/notifications" element={<Notifications />} />
       <Route path="/settings" element={<Settings />} />
+      <Route path="/donate" element={<DonationPage />} />
       <Route path="/about" element={<About />} />
+      <Route path="/faq" element={<FAQ />} />
       <Route path="/wallet" element={<LightningWallet />} />
+      <Route path="/cashu-wallet" element={<CashuWallet />} />
+      <Route path="/bitcoin-connect-wallet" element={<BitcoinConnectWallet />} />
       <Route path="/stream" element={<Stream />} />
+      <Route path="/pro" element={<ProModePage />} />
+      <Route path="/read-only-demo" element={<ReadOnlyModeDemo />} />
+      <Route path="/test-post" element={<TestPost />} />
       {/* Nostr entity handler - must be after specific routes */}
       <Route path="/:nip19Id" element={<NostrEntity />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
@@ -77,20 +96,22 @@ export function AppRouter() {
     >
       <ScrollToTop />
       <NostrProvider>
-        <CachingProvider>
-          <WalletProvider>
-            <UnifiedWalletProvider>
-              <VideoPlaybackProvider>
-                <TooltipProvider>
-                  <WalletLoader />
-                  <Toaster />
-                  <Sonner />
-                  <RouteHandler />
-                </TooltipProvider>
-              </VideoPlaybackProvider>
-            </UnifiedWalletProvider>
-          </WalletProvider>
-        </CachingProvider>
+        <CurrentRelaysProvider>
+          <FavoriteRelaysProvider>
+            <FeedProvider>
+              <WalletProvider>
+                <VideoPlaybackProvider>
+                  <TooltipProvider>
+                    <WalletLoader />
+                    <Toaster />
+                    <Sonner />
+                    <RouteHandler />
+                  </TooltipProvider>
+                </VideoPlaybackProvider>
+              </WalletProvider>
+            </FeedProvider>
+          </FavoriteRelaysProvider>
+        </CurrentRelaysProvider>
       </NostrProvider>
     </HashRouter>
   );

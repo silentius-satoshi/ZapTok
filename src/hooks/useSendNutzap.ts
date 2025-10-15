@@ -2,7 +2,6 @@ import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS } from '@/lib/cashu';
-
 import { Proof } from '@cashu/cashu-ts';
 import { useNutzapStore, NutzapInformationalEvent } from '@/stores/nutzapStore';
 import { useCashuStore } from '@/stores/cashuStore';
@@ -35,9 +34,10 @@ export function useVerifyMintCompatibility() {
       return compatibleMint;
     }
 
-    // No compatible mint found
+    // If no compatible mint found, throw an error
     throw new Error(
-      `Recipient does not accept tokens from mint: ${activeMintUrl}`
+      `No compatible mint found. Recipient accepts: ${recipientMints.join(', ')}. ` +
+      `You have: ${cashuStore.mints.map(m => m.url).join(', ')}`
     );
   };
 
@@ -45,7 +45,7 @@ export function useVerifyMintCompatibility() {
 }
 
 /**
- * Hook to fetch a recipient's nutzap information
+ * Hook to fetch a recipient's nutzap information (mutation-based like Chorus)
  */
 export function useFetchNutzapInfo() {
   const { nostr } = useNostr();
@@ -113,7 +113,7 @@ export function useFetchNutzapInfo() {
 }
 
 /**
- * Hook to create and send nutzap events
+ * Hook to send nutzaps using Chorus's exact external token creation pattern
  */
 export function useSendNutzap() {
   const { nostr } = useNostr();
@@ -121,7 +121,6 @@ export function useSendNutzap() {
   const { verifyMintCompatibility } = useVerifyMintCompatibility();
   const queryClient = useQueryClient();
 
-  // Mutation to create and send a nutzap event
   const sendNutzapMutation = useMutation({
     mutationFn: async ({
       recipientInfo,
@@ -136,13 +135,13 @@ export function useSendNutzap() {
       comment?: string;
       proofs: Proof[];
       mintUrl: string;
-      eventId?: string; // Event being nutzapped (optional)
-      relayHint?: string; // Hint for relay where the event can be found
-      tags?: string[][]; // Additional tags (for group nutzaps)
+      eventId?: string;
+      relayHint?: string;
+      tags?: string[][];
     }) => {
       if (!user) throw new Error('User not logged in');
 
-      // Verify mint compatibility and get the compatible mint URL
+      // Verify mint compatibility and get compatible mint URL
       const compatibleMintUrl = verifyMintCompatibility(recipientInfo);
 
       // If mintUrl is different from compatibleMintUrl, we should use the compatible one
@@ -179,7 +178,7 @@ export function useSendNutzap() {
         created_at: Math.floor(Date.now() / 1000)
       });
 
-      // Publish the event to the recipient's relays
+      // Publish the event
       await nostr.event(event);
 
       // Invalidate relevant queries
@@ -194,21 +193,21 @@ export function useSendNutzap() {
         queryKey: ['nutzap', 'received', recipientInfo.event.pubkey]
       });
 
-      // Check if this is a group nutzap and invalidate group queries
-      const groupTag = additionalTags.find(tag => tag[0] === 'a');
-      if (groupTag && groupTag[1]) {
-        const groupId = groupTag[1];
-        queryClient.invalidateQueries({ queryKey: ['nutzaps', 'group', groupId] });
+      // Check if this is a user nutzap and invalidate user queries
+      const userTag = additionalTags.find(tag => tag[0] === 'p');
+      if (userTag && userTag[1]) {
+        const userId = userTag[1];
+        queryClient.invalidateQueries({ queryKey: ['nutzaps', 'user', userId] });
       }
 
       // Invalidate sender's wallet queries to update balance
       queryClient.invalidateQueries({ queryKey: ['cashu', 'tokens', user.pubkey] });
       queryClient.invalidateQueries({ queryKey: ['cashu', 'wallet', user.pubkey] });
 
-      // Return the event
       return {
         event,
-        recipientInfo
+        recipientInfo,
+        proofs
       };
     }
   });

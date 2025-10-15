@@ -1,13 +1,16 @@
 import { type NLoginType, NUser, useNostrLogin } from '@nostrify/react/login';
 import { useNostr } from '@nostrify/react';
 import { useCallback, useMemo, useEffect, useRef } from 'react';
+import { devWarn } from '@/lib/devConsole';
 
 import { useAuthor } from './useAuthor.ts';
+import { NostrToolsSigner } from './useNostrToolsBridge.ts';
+import { ReadOnlySigner, useReadOnlyMode } from './useReadOnlySigner.ts';
 
 export function useCurrentUser() {
   const { nostr } = useNostr();
   const { logins, removeLogin } = useNostrLogin();
-  
+
   // Track invalid logins that need to be removed
   const invalidLoginsRef = useRef<Set<string>>(new Set());
 
@@ -23,7 +26,7 @@ export function useCurrentUser() {
         // Check if we have the required properties - handle both old and new formats
         const bunkerUrl = customLogin.bunkerUrl || customLogin.data?.bunkerUrl;
         if (!bunkerUrl || !customLogin.pubkey) {
-          console.warn('⚠️  Invalid x-bunker-nostr-tools login detected:', {
+          devWarn('⚠️  Invalid x-bunker-nostr-tools login detected:', {
             id: login.id,
             hasBunkerUrl: !!bunkerUrl,
             hasPubkey: !!customLogin.pubkey,
@@ -35,31 +38,30 @@ export function useCurrentUser() {
           invalidLoginsRef.current.add(login.id);
           return null; // Return null instead of throwing to prevent render loops
         }
-        
+
         // If we have a working signer, create a simple user object
         // The new login format already contains a working Nostrify-compatible signer
         if (customLogin.signer && customLogin.pubkey) {
+          // ✅ Use cached signer instead of creating new one every render
+          // Check if we already have a cached bridged signer
+          if (!customLogin._cachedBridgedSigner) {
+            // Only create new NostrToolsSigner if not cached
+            customLogin._cachedBridgedSigner = new NostrToolsSigner(customLogin.signer.bunkerSigner, customLogin.pubkey);
+          }
+
           return {
             pubkey: customLogin.pubkey,
-            signer: customLogin.signer,
-            // Add the minimal NUser interface methods
-            async signEvent(event: any) {
-              return await customLogin.signer.signEvent(event);
-            },
-            async encrypt(pubkey: string, plaintext: string) {
-              return await customLogin.signer.nip04Encrypt(pubkey, plaintext);  
-            },
-            async decrypt(pubkey: string, ciphertext: string) {
-              return await customLogin.signer.nip04Decrypt(pubkey, ciphertext);
-            }
+            signer: customLogin._cachedBridgedSigner,
+            // Remove wrapper methods - let the signer handle everything directly
+            // This ensures consistency with extension/nsec signers that use user.signer.signEvent
           } as any; // Cast to NUser-compatible type
         }
-        
+
         // Fallback: Parse the bunker URL to extract components for NLoginBunker (for old format)
         const bunkerUrlObj = new URL(bunkerUrl);
         const bunkerPubkey = bunkerUrlObj.pathname.slice(2); // Remove '//' prefix
         const relays = bunkerUrlObj.searchParams.getAll('relay');
-        
+
         // Create proper NLoginBunker structure
         const enhancedLogin = {
           type: 'bunker' as const,
@@ -112,13 +114,57 @@ export function useCurrentUser() {
 
   const user = users[0] as NUser | undefined;
   const author = useAuthor(user?.pubkey);
+  const { isReadOnlyUser } = useReadOnlyMode();
+
+  // Determine user capabilities based on signer type
+  const userCapabilities = useMemo(() => {
+    if (!user) {
+      return {
+        canSign: false,
+        canRead: true,
+        isReadOnly: true,
+        isAuthenticated: false,
+        requiresLogin: true
+      };
+    }
+
+    const isReadOnly = isReadOnlyUser(user.signer);
+    
+    return {
+      canSign: !isReadOnly,
+      canRead: true, 
+      isReadOnly,
+      isAuthenticated: !isReadOnly,
+      requiresLogin: isReadOnly
+    };
+  }, [user, isReadOnlyUser]);
+
+  // Enhanced checkLogin function that prompts for authentication when needed
+  const checkLogin = useCallback((callback?: () => void | Promise<void>) => {
+    if (userCapabilities.canSign && callback) {
+      // User is fully authenticated, execute callback
+      return Promise.resolve(callback());
+    }
+    
+    // User needs to login - this would trigger login modal
+    // For now, throw error with helpful message
+    const action = callback ? 'perform this action' : 'access this feature';
+    throw new Error(`Login required to ${action}. Please sign in to unlock full ZapTok features.`);
+  }, [userCapabilities.canSign]);
 
   // Memoize the return object to prevent unnecessary re-renders
   const result = useMemo(() => ({
     user,
     users,
     ...author.data,
-  }), [user, users, author.data]);
+    // Add read-only mode information
+    canSign: userCapabilities.canSign,
+    canRead: userCapabilities.canRead,
+    isReadOnly: userCapabilities.isReadOnly,
+    isAuthenticated: userCapabilities.isAuthenticated,
+    requiresLogin: userCapabilities.requiresLogin,
+    checkLogin,
+  }), [user, users, author.data, userCapabilities, checkLogin]);
 
   // Debug logging - only in development and throttled
   useMemo(() => {

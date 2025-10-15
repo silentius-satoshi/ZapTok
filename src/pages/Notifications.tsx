@@ -5,6 +5,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { useSeoMeta } from '@unhead/react';
 import {
   Settings,
   ArrowLeft,
@@ -17,6 +18,7 @@ import {
 import NotificationItem from '@/components/NotificationItem';
 import { Navigation } from '@/components/Navigation';
 import { LogoHeader } from '@/components/LogoHeader';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { truncateNumber, truncateName, formatRelativeTime } from '@/lib/notificationUtils';
 
 export default function Notifications() {
@@ -24,6 +26,12 @@ export default function Notifications() {
   const { data: notifications = [], isLoading } = useNotifications();
   const [selectedTab, setSelectedTab] = useState('all');
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+
+  useSeoMeta({
+    title: 'Notifications - ZapTok',
+    description: 'View your latest notifications including zaps, comments, reposts, and follows on ZapTok.',
+  });
 
   // Redirect to home if user is not logged in
   if (!user) {
@@ -66,7 +74,7 @@ export default function Notifications() {
   }, [notifications]);
 
   const handleBack = () => {
-    navigate(-1); // Go back to previous page
+    navigate('/'); // Go back to home page
   };
 
   const handleSettingsClick = () => {
@@ -139,13 +147,15 @@ export default function Notifications() {
   if (isLoading) {
     return (
       <div className="flex h-screen bg-black">
-        {/* Left Navigation Column */}
-        <div className="w-80 border-r border-gray-800 bg-black flex flex-col">
-          <LogoHeader />
-          <div className="flex-1">
-            <Navigation />
+        {/* Left Navigation Column - Hidden on Mobile */}
+        {!isMobile && (
+          <div className="w-80 border-r border-gray-800 bg-black flex flex-col">
+            <LogoHeader />
+            <div className="flex-1">
+              <Navigation />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Middle Content Column */}
         <div className="flex-1 border-r border-gray-800 bg-black">
@@ -170,33 +180,37 @@ export default function Notifications() {
           </div>
         </div>
 
-        {/* Right Summary Column */}
-        <div className="w-96 bg-black p-8">
-          <Skeleton className="h-8 w-32 mb-6" />
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-4 w-full" />
-            ))}
+        {/* Right Summary Column - Hidden on Mobile */}
+        {!isMobile && (
+          <div className="w-96 bg-black p-8">
+            <Skeleton className="h-8 w-32 mb-6" />
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-4 w-full" />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-black">
-      {/* Left Navigation Column */}
-      <div className="w-80 border-r border-gray-800 bg-black flex flex-col">
-        <LogoHeader />
-        <div className="flex-1">
-          <Navigation />
+    <div className={`flex h-screen bg-black ${isMobile ? 'overflow-x-hidden' : ''}`}>
+      {/* Left Navigation Column - Hidden on Mobile */}
+      {!isMobile && (
+        <div className="w-80 border-r border-gray-800 bg-black flex flex-col">
+          <LogoHeader />
+          <div className="flex-1">
+            <Navigation />
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Middle Notifications Column */}
-      <div className="flex-1 border-r border-gray-800 bg-black">
+      {/* Middle Notifications Column - Full Width on Mobile */}
+      <div className={`flex-1 bg-black ${!isMobile ? 'border-r border-gray-800' : ''} ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
         {/* Header */}
-        <div className="px-6 py-5">
+        <div className={`py-5 ${isMobile ? 'px-4' : 'px-6'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button
@@ -230,7 +244,7 @@ export default function Notifications() {
         {/* Content */}
         <div className="overflow-y-auto scrollbar-hide" style={{ height: 'calc(100vh - 97px)' }}>
           <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-            <div className="px-6 py-0 border-b border-gray-800">
+            <div className={`py-0 border-b border-gray-800 ${isMobile ? 'px-0' : 'px-6'}`}>
               <div className="relative flex w-full bg-black">
                 {/* Sliding underline */}
                 <div
@@ -243,7 +257,7 @@ export default function Notifications() {
 
                 <button
                   onClick={() => setSelectedTab('all')}
-                  className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
+                  className={`flex-1 ${isMobile ? 'px-2 py-4 text-xs' : 'px-4 py-4 text-sm'} font-medium transition-colors ${
                     selectedTab === 'all'
                       ? 'text-white'
                       : 'text-gray-400 hover:text-gray-300'
@@ -253,7 +267,7 @@ export default function Notifications() {
                 </button>
                 <button
                   onClick={() => setSelectedTab('zaps')}
-                  className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
+                  className={`flex-1 ${isMobile ? 'px-2 py-4 text-xs' : 'px-4 py-4 text-sm'} font-medium transition-colors ${
                     selectedTab === 'zaps'
                       ? 'text-white'
                       : 'text-gray-400 hover:text-gray-300'
@@ -263,7 +277,7 @@ export default function Notifications() {
                 </button>
                 <button
                   onClick={() => setSelectedTab('mentions')}
-                  className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
+                  className={`flex-1 ${isMobile ? 'px-2 py-4 text-xs' : 'px-4 py-4 text-sm'} font-medium transition-colors ${
                     selectedTab === 'mentions'
                       ? 'text-white'
                       : 'text-gray-400 hover:text-gray-300'
@@ -273,7 +287,7 @@ export default function Notifications() {
                 </button>
                 <button
                   onClick={() => setSelectedTab('reposts')}
-                  className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
+                  className={`flex-1 ${isMobile ? 'px-2 py-4 text-xs' : 'px-4 py-4 text-sm'} font-medium transition-colors ${
                     selectedTab === 'reposts'
                       ? 'text-white'
                       : 'text-gray-400 hover:text-gray-300'
@@ -283,7 +297,7 @@ export default function Notifications() {
                 </button>
                 <button
                   onClick={() => setSelectedTab('follows')}
-                  className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
+                  className={`flex-1 ${isMobile ? 'px-2 py-4 text-xs' : 'px-4 py-4 text-sm'} font-medium transition-colors ${
                     selectedTab === 'follows'
                       ? 'text-white'
                       : 'text-gray-400 hover:text-gray-300'
@@ -295,7 +309,7 @@ export default function Notifications() {
             </div>
 
             <TabsContent value={selectedTab} className="m-0">
-              <div className="px-6">
+              <div className={`${isMobile ? 'px-4' : 'px-6'}`}>
                 {filteredNotifications.length === 0 ? (
                   <div className="py-16 text-center text-gray-400">
                     <p className="text-lg mb-2">No notifications to show</p>
@@ -327,96 +341,98 @@ export default function Notifications() {
         </div>
       </div>
 
-      {/* Right Summary Column */}
-      <div className="w-96 bg-black p-8">
-        <div className="space-y-8">
-          {/* Summary Section */}
-          <div>
-            <h3 className="text-2xl font-semibold mb-6 text-white">SUMMARY</h3>
-            <div className="space-y-3">
-              <p className="text-white text-lg">{notifications.length} total notification{notifications.length !== 1 ? 's' : ''}</p>
+      {/* Right Summary Column - Hidden on Mobile */}
+      {!isMobile && (
+        <div className="w-96 bg-black p-8">
+          <div className="space-y-8">
+            {/* Summary Section */}
+            <div>
+              <h3 className="text-2xl font-semibold mb-6 text-white">SUMMARY</h3>
+              <div className="space-y-3">
+                <p className="text-white text-lg">{notifications.length} total notification{notifications.length !== 1 ? 's' : ''}</p>
+              </div>
             </div>
-          </div>
 
-          {/* Activity Categories */}
-          <div className="space-y-6">
-            {notificationStats.zaps.count > 0 && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Zap className="w-5 h-5 text-yellow-400" />
-                  <span className="text-gray-300">{truncateNumber(notificationStats.zaps.count)} zap{notificationStats.zaps.count !== 1 ? 's' : ''}</span>
+            {/* Activity Categories */}
+            <div className="space-y-6">
+              {notificationStats.zaps.count > 0 && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Zap className="w-5 h-5 text-yellow-400" />
+                    <span className="text-gray-300">{truncateNumber(notificationStats.zaps.count)} zap{notificationStats.zaps.count !== 1 ? 's' : ''}</span>
+                  </div>
+                  {notificationStats.zaps.totalSats > 0 && (
+                    <span className="text-orange-400 text-sm">⚡{truncateNumber(notificationStats.zaps.totalSats)}</span>
+                  )}
                 </div>
-                {notificationStats.zaps.totalSats > 0 && (
-                  <span className="text-orange-400 text-sm">⚡{truncateNumber(notificationStats.zaps.totalSats)}</span>
+              )}
+
+              {notificationStats.mentions > 0 && (
+                <div className="flex items-center gap-3">
+                  <AtSign className="w-5 h-5 text-cyan-400" />
+                  <span className="text-gray-300">{truncateNumber(notificationStats.mentions)} mention{notificationStats.mentions !== 1 ? 's' : ''}</span>
+                </div>
+              )}
+
+              {notificationStats.reposts > 0 && (
+                <div className="flex items-center gap-3">
+                  <Repeat className="w-5 h-5 text-green-400" />
+                  <span className="text-gray-300">{truncateNumber(notificationStats.reposts)} repost{notificationStats.reposts !== 1 ? 's' : ''}</span>
+                </div>
+              )}
+
+              {(notificationStats.follows.gained + notificationStats.follows.lost) > 0 && (
+                <div className="flex items-center gap-3">
+                  <UserPlus className="w-5 h-5 text-blue-400" />
+                  <span className="text-gray-300">{truncateNumber(notificationStats.follows.gained + notificationStats.follows.lost)} follow{(notificationStats.follows.gained + notificationStats.follows.lost) !== 1 ? 's' : ''}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Recent Activity Section - Last 24 Hours */}
+            <div>
+              <h3 className="text-2xl font-semibold mb-6 text-white">Recent Activity</h3>
+              <div className="space-y-4">
+                {recentNotifications.slice(0, 5).map((notification, index) => {
+                  const timeAgo = formatRelativeTime(notification.createdAt);
+                  const userName = notification.users?.[0]?.name || 'Unknown User';
+                  const displayName = truncateName(userName, 15);
+
+                  // Get icon based on notification type
+                  const getNotificationIcon = () => {
+                    if (notification.type.includes('ZAPPED')) return <Zap className="w-3 h-3 text-yellow-400" />;
+                    if (notification.type.includes('REPOSTED')) return <Repeat className="w-3 h-3 text-green-400" />;
+                    if (notification.type.includes('REPLIED')) return <MessageCircle className="w-3 h-3 text-blue-400" />;
+                    if (notification.type.includes('FOLLOWED')) return <UserPlus className="w-3 h-3 text-blue-400" />;
+                    if (notification.type.includes('MENTIONED')) return <AtSign className="w-3 h-3 text-cyan-400" />;
+                    return <div className="w-3 h-3 rounded-full bg-purple-500" />;
+                  };
+
+                  return (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className="mt-1 flex-shrink-0">
+                        {getNotificationIcon()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-gray-300 text-sm truncate">
+                          {displayName}
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                          {timeAgo}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {recentNotifications.length === 0 && (
+                  <p className="text-gray-500 text-sm">No activity in the last 24 hours</p>
                 )}
               </div>
-            )}
-
-            {notificationStats.mentions > 0 && (
-              <div className="flex items-center gap-3">
-                <AtSign className="w-5 h-5 text-cyan-400" />
-                <span className="text-gray-300">{truncateNumber(notificationStats.mentions)} mention{notificationStats.mentions !== 1 ? 's' : ''}</span>
-              </div>
-            )}
-
-            {notificationStats.reposts > 0 && (
-              <div className="flex items-center gap-3">
-                <Repeat className="w-5 h-5 text-green-400" />
-                <span className="text-gray-300">{truncateNumber(notificationStats.reposts)} repost{notificationStats.reposts !== 1 ? 's' : ''}</span>
-              </div>
-            )}
-
-            {(notificationStats.follows.gained + notificationStats.follows.lost) > 0 && (
-              <div className="flex items-center gap-3">
-                <UserPlus className="w-5 h-5 text-blue-400" />
-                <span className="text-gray-300">{truncateNumber(notificationStats.follows.gained + notificationStats.follows.lost)} follow{(notificationStats.follows.gained + notificationStats.follows.lost) !== 1 ? 's' : ''}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Recent Activity Section - Last 24 Hours */}
-          <div>
-            <h3 className="text-2xl font-semibold mb-6 text-white">Recent Activity</h3>
-            <div className="space-y-4">
-              {recentNotifications.slice(0, 5).map((notification, index) => {
-                const timeAgo = formatRelativeTime(notification.createdAt);
-                const userName = notification.users?.[0]?.name || 'Unknown User';
-                const displayName = truncateName(userName, 15);
-
-                // Get icon based on notification type
-                const getNotificationIcon = () => {
-                  if (notification.type.includes('ZAPPED')) return <Zap className="w-3 h-3 text-yellow-400" />;
-                  if (notification.type.includes('REPOSTED')) return <Repeat className="w-3 h-3 text-green-400" />;
-                  if (notification.type.includes('REPLIED')) return <MessageCircle className="w-3 h-3 text-blue-400" />;
-                  if (notification.type.includes('FOLLOWED')) return <UserPlus className="w-3 h-3 text-blue-400" />;
-                  if (notification.type.includes('MENTIONED')) return <AtSign className="w-3 h-3 text-cyan-400" />;
-                  return <div className="w-3 h-3 rounded-full bg-purple-500" />;
-                };
-
-                return (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="mt-1 flex-shrink-0">
-                      {getNotificationIcon()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-gray-300 text-sm truncate">
-                        {displayName}
-                      </p>
-                      <p className="text-gray-500 text-xs">
-                        {timeAgo}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {recentNotifications.length === 0 && (
-                <p className="text-gray-500 text-sm">No activity in the last 24 hours</p>
-              )}
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

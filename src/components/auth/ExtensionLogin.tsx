@@ -38,7 +38,7 @@ const ExtensionLogin = ({ hasExtension, loginWithExtension, isLocked, isPWA }: E
             <span>Connect with Extension:</span>
           </h4>
           <p className="text-xs text-gray-300 leading-relaxed">
-            Login with one click using a NIP-07 compatible browser extension like Alby or nos2x to securely connect without sharing your keys
+            Login with one click using a NIP-07 compatible browser extension like Alby, nos2x, or Amber to securely connect without sharing your keys
           </p>
         </div>
         
@@ -61,11 +61,11 @@ const ExtensionLogin = ({ hasExtension, loginWithExtension, isLocked, isPWA }: E
         <h4 className="text-sm font-semibold text-blue-300">No Extension Detected</h4>
       </div>
       <p className="text-xs text-blue-200 leading-relaxed mb-3">
-        Install a Nostr browser extension like Alby or nos2x for easier login.
+        Install a Nostr browser extension like Alby, nos2x, or Amber for easier login.
       </p>
       {isPWA && (
         <p className="text-xs text-yellow-200 leading-relaxed mb-3">
-          💡 Tip: Extensions work best when accessing NextBlock through your regular browser instead of the PWA.
+          💡 Tip: Extensions work best when accessing ZapTok through your regular browser. For PWA, use bunker:// connection with Amber instead.
         </p>
       )}
       <Button 

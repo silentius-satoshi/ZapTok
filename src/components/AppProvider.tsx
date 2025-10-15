@@ -4,7 +4,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { AppContext, type AppConfig, type AppContextType, type Theme } from '@/contexts/AppContext';
 import type { ZapOption } from '@/types/zap';
 import { defaultZap, defaultZapOptions } from '@/types/zap';
-import { primalBlossom } from '@/lib/blossomUtils';
+import { DEFAULT_BLOSSOM_SERVERS } from '@/lib/blossomUtils';
 
 interface AppProviderProps {
   children: ReactNode;
@@ -71,7 +71,7 @@ export function AppProvider(props: AppProviderProps) {
             defaultZap,
             availableZapOptions: defaultZapOptions,
             relayContext: 'all',
-            blossomServers: [primalBlossom],
+            blossomServers: DEFAULT_BLOSSOM_SERVERS,
           };
         }
 

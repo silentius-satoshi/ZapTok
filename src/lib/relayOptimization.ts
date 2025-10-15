@@ -26,7 +26,6 @@ export const relayCategories: RelayCategory = {
   feed: [
     'wss://relay.damus.io',         // Great for social content
     'wss://relay.primal.net',       // Excellent media support
-    'wss://ditto.pub/relay',        // Good for video content
   ],
   general: [
     'wss://relay.nostr.band',       // Works well for both
@@ -58,7 +57,7 @@ export function getOptimalRelays(
     }
     
     case 'wallet': {
-      // Legacy: For wallet operations, use only Cashu relay (same as cashu-only)
+      // For wallet operations, use only Cashu relay (same as cashu-only)
       return ['wss://relay.chorus.community'];
     }
       

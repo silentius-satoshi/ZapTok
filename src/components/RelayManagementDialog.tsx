@@ -56,12 +56,6 @@ export function RelayManagementDialog({
       description: 'Web client with caching features',
       reason: 'Good for finding cached events'
     },
-    { 
-      url: 'wss://ditto.pub/relay', 
-      name: 'Ditto', 
-      description: 'Decentralized social platform relay',
-      reason: 'Good coverage for social events'
-    },
   ];
 
   const currentRelays = config.relayUrls || [];

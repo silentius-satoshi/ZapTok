@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { SignInModal } from './SignInModal';
 import CreateAccountModal from './CreateAccountModal';
 import { PWAInstallModal } from '@/components/PWAInstallModal';
 import { usePWA } from '@/hooks/usePWA';
-import { Monitor, Download } from 'lucide-react';
+import { Monitor, Download, X } from 'lucide-react';
 import zapTokLogo from '/images/ZapTok-v3.png';
 
 interface LoginModalProps {
@@ -31,6 +32,21 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     }
   }, [user, onClose]);
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Store original overflow
+      const originalOverflow = document.body.style.overflow;
+      // Prevent scrolling
+      document.body.style.overflow = 'hidden';
+      
+      return () => {
+        // Restore original overflow
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
+
   // Check if we're in a PWA environment
   const isPWA = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
 
@@ -42,80 +58,97 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   if (!isOpen) return null;
 
-  // Original full-screen layout for initial login
-  return (
+  // Prevent scroll propagation to underlying content
+  const handleWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation();
+  };
+
+  if (!isOpen) return null;
+
+  // Use proper modal overlay instead of full-screen takeover
+  // Render in a portal to escape any parent stacking contexts
+  const modalContent = (
     <>
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-orange-900/20" />
+      {/* Modal Backdrop - prevents all interactions with underlying content */}
+      <div 
+        className="fixed inset-0 z-[9999] bg-black bg-opacity-100 flex items-center justify-center p-4"
+        onWheel={handleWheel}
+        onTouchMove={handleTouchMove}
+        style={{ margin: 0, padding: '1rem' }}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-10"
+        >
+          <X className="w-6 h-6" />
+        </button>
 
-        <div className="relative z-10 text-center">
-          <div className="flex items-center justify-center space-x-4 mb-8">
-            <img
-              src={zapTokLogo}
-              alt="ZapTok"
-              className="w-16 h-16 rounded-2xl shadow-lg border border-gray-700/50"
-            />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">
-              ZapTok
-            </h1>
-          </div>
+        {/* Modal Content */}
+        <div className="relative bg-gray-900 rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto border border-gray-800">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-orange-900/20 rounded-2xl" />
 
-          <p className="text-gray-300 mb-8 text-lg">
-            Connect your Nostr identity to create value + earn sats
-          </p>
+          <div className="relative z-10 text-center">
+            <div className="flex items-center justify-center space-x-4 mb-8">
+              <img
+                src={zapTokLogo}
+                alt="ZapTok"
+                className="w-16 h-16 rounded-2xl shadow-lg border border-gray-700/50"
+              />
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">
+                ZapTok
+              </h1>
+            </div>
 
-          {/* Get Started Button */}
-          <div className="space-y-4 mb-8">
-            <button
-              onClick={() => setShowCreateAccountModal(true)}
-              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-8 py-3 rounded-lg text-lg font-medium transition-all transform hover:scale-105"
-            >
-              Get Started
-            </button>
-          </div>
+            <p className="text-gray-300 mb-8 text-lg">
+              Connect your Nostr identity to create value + earn sats
+            </p>
 
-          <div className="flex items-center justify-center space-x-2">
-            <span className="text-gray-300 text-lg">Have a Nostr account?</span>
-            <button
-              onClick={() => setShowSignInModal(true)}
-              className="text-purple-400 hover:text-purple-300 text-lg font-medium transition-colors"
-            >
-              Sign in
-            </button>
-          </div>
-
-          {/* PWA Install Section - show when not in standalone mode for better discoverability */}
-          {!isStandalone && (
-            <div className="mt-8 p-6 bg-gray-800/20 backdrop-blur-sm rounded-2xl border border-gray-600/30">
-              <div className="flex items-center justify-center space-x-3 mb-3">
-                <Monitor className="h-6 w-6 text-gray-400" />
-                <h3 className="text-xl font-medium text-white">Get the App</h3>
-              </div>
-              <p className="text-gray-400 text-base mb-6 text-center">
-                Install ZapTok for the best experience
-              </p>
+            {/* Get Started Button */}
+            <div className="space-y-4 mb-8">
               <button
-                onClick={() => setShowInstallModal(true)}
-                disabled={isInstalling}
-                className="w-full flex items-center justify-center space-x-2 bg-gray-700/40 hover:bg-gray-600/50 border border-gray-500/40 text-white px-6 py-4 rounded-xl transition-all font-medium text-base"
+                onClick={() => setShowCreateAccountModal(true)}
+                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-8 py-3 rounded-lg text-lg font-medium transition-all transform hover:scale-105"
               >
-                <Download className="h-5 w-5" />
-                <span>{isInstalling ? 'Installing...' : 'Install App'}</span>
+                Get Started
               </button>
             </div>
-          )}
-        </div>
 
-        {/* Credit at the bottom */}
-        <div className="absolute bottom-6 text-center">
-          <a
-            href="https://soapbox.pub/mkstack/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-gray-300 hover:text-gray-100 transition-colors font-medium"
-          >
-            vibed by MKStack
-          </a>
+            <div className="flex items-center justify-center space-x-2">
+              <span className="text-gray-300 text-lg">Have a Nostr account?</span>
+              <button
+                onClick={() => setShowSignInModal(true)}
+                className="text-purple-400 hover:text-purple-300 text-lg font-medium transition-colors"
+              >
+                Sign in
+              </button>
+            </div>
+
+            {/* PWA Install Section - show when not in standalone mode for better discoverability */}
+            {!isStandalone && (
+              <div className="mt-8 p-6 bg-gray-800/20 backdrop-blur-sm rounded-2xl border border-gray-600/30">
+                <div className="flex items-center justify-center space-x-3 mb-3">
+                  <Monitor className="h-6 w-6 text-gray-400" />
+                  <h3 className="text-xl font-medium text-white">Get the App</h3>
+                </div>
+                <p className="text-gray-400 text-base mb-6 text-center">
+                  Install ZapTok for the best experience
+                </p>
+                <button
+                  onClick={() => setShowInstallModal(true)}
+                  disabled={isInstalling}
+                  className="w-full flex items-center justify-center space-x-2 bg-gray-700/40 hover:bg-gray-600/50 border border-gray-500/40 text-white px-6 py-4 rounded-xl transition-all font-medium text-base"
+                >
+                  <Download className="h-5 w-5" />
+                  <span>{isInstalling ? 'Installing...' : 'Install App'}</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -142,4 +175,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       />
     </>
   );
+
+  // Render modal in a portal at document root to escape stacking contexts
+  return createPortal(modalContent, document.body);
 }

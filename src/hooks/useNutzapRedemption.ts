@@ -1,4 +1,4 @@
-import { useNostr } from '@nostrify/react';
+import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CASHU_EVENT_KINDS } from '@/lib/cashu';
@@ -92,9 +92,6 @@ export function useNutzapRedemption() {
 
   return {
     createRedemption: createRedemptionMutation.mutate,
-    isCreatingRedemption: createRedemptionMutation.isPending,
-    // Backward compatibility aliases
-    redeemNutzap: createRedemptionMutation.mutate,
-    isRedeeming: createRedemptionMutation.isPending,
+    isCreatingRedemption: createRedemptionMutation.isPending
   };
 }

@@ -4,10 +4,14 @@ import { Navigation } from '@/components/Navigation';
 import { LogoHeader } from '@/components/LogoHeader';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useSettingsLogic } from '@/hooks/useSettingsLogic';
+import { useWallet } from '@/hooks/useWallet';
+import { useNavigate } from 'react-router-dom';
+import { useSeoMeta } from '@unhead/react';
+import { useNostrConnection } from '@/components/NostrProvider';
 import {
   settingsSections,
   getSettingSectionById,
-  ConnectedWalletsSettings,
+  CashuWalletSettings,
   NetworkSettings,
   KeysSettings,
   GenericSettings
@@ -15,6 +19,15 @@ import {
 
 export function Settings() {
   const { config } = useAppContext();
+  const { isBunkerSigner } = useWallet();
+  const { activeRelays, connectionState, userRelayList } = useNostrConnection();
+  const navigate = useNavigate();
+
+  useSeoMeta({
+    title: 'Settings - ZapTok',
+    description: 'Configure your ZapTok account settings, privacy preferences, and network options.',
+  });
+
   const {
     selectedSection,
     setSelectedSection,
@@ -27,36 +40,60 @@ export function Settings() {
     knownRelays,
     setKnownRelays,
     isConnected,
-    handleBitcoinConnect,
-    handleDisconnect,
-    handleNostrWalletConnect
+    handleNostrWalletConnect,
+    handleTestConnection
   } = useSettingsLogic();
 
-  // Mock additional relays for display if less than 2 active
+  // Display user's configured relays from NIP-65 relay list
   const getDisplayRelays = () => {
-    const activeRelays = config.relayUrls;
-    const placeholderCount = Math.max(0, Math.max(2, config.relayUrls.length) - activeRelays.length);
+    let displayRelays: string[] = [];
+    
+    // Use user's NIP-65 relay list if available
+    if (userRelayList && (userRelayList.read.length > 0 || userRelayList.write.length > 0)) {
+      // Combine read and write relays, removing duplicates
+      const allUserRelays = new Set([...userRelayList.read, ...userRelayList.write]);
+      displayRelays = Array.from(allUserRelays);
+    } else if (activeRelays.length > 0) {
+      // Fallback to active relays if no user relay list
+      displayRelays = activeRelays;
+    }
+    
+    const placeholderCount = Math.max(0, Math.max(2, displayRelays.length) - displayRelays.length);
     const placeholders = Array.from({ length: placeholderCount }, (_, i) => ({
       name: `relay${i + 1}.example.com`,
       url: `wss://relay${i + 1}.example.com/`,
       status: 'placeholder' as const
     }));
 
-    return [...activeRelays.map(url => ({
-      name: url.replace(/^wss?:\/\//, ''),
-      url,
-      status: 'active' as const
-    })), ...placeholders];
+    return [...displayRelays.map(url => {
+      const isConnected = connectionState[url] === 'connected';
+      const isConnecting = connectionState[url] === 'connecting';
+      
+      return {
+        name: url.replace(/^wss?:\/\//, ''),
+        url,
+        // Show as 'active' if we have connection state showing connected, otherwise 'inactive'
+        status: (isConnected ? 'active' : isConnecting ? 'connecting' : 'inactive') as 'active' | 'connecting' | 'inactive' | 'placeholder'
+      };
+    }), ...placeholders];
   };
 
   const renderSettingsContent = () => {
     if (!selectedSection) {
+      // Filter out cashu-wallet section for bunker signers
+      const availableSections = settingsSections.filter(section => {
+        if (section.id === 'cashu-wallet' && isBunkerSigner) {
+          return false;
+        }
+        return true;
+      });
+
       return (
         <div className="space-y-0">
-          {settingsSections.map((section, index) => (
+          {availableSections.map((section, index) => (
             <button
               key={section.id}
-              onClick={() => setSelectedSection(section.id)}
+              onClick={() => navigate(`/settings?section=${section.id}`)}
               className={`w-full flex items-center justify-between h-16 px-6 rounded-none border-b border-gray-800 hover:bg-gray-800/50 transition-colors text-left ${
                 index === 0 ? 'border-t border-gray-800' : ''
               }`}
@@ -77,31 +114,19 @@ export function Settings() {
     const { component: Component } = sectionConfig;
 
     // Handle sections that require props
-    if (selectedSection === 'connected-wallets') {
+    if (selectedSection === 'cashu-wallet') {
+      // Redirect bunker signers away from cashu-wallet section
+      if (isBunkerSigner) {
+        navigate('/settings');
+        return <GenericSettings sectionId={selectedSection} title="Access Denied" />;
+      }
       return (
-        <ConnectedWalletsSettings
-          isConnecting={isConnecting}
-          onBitcoinConnect={handleBitcoinConnect}
-          onNostrWalletConnect={handleNostrWalletConnect}
-          isConnected={isConnected}
-          onDisconnect={handleDisconnect}
-        />
+        <CashuWalletSettings />
       );
     }
 
     if (selectedSection === 'network') {
-      return (
-        <NetworkSettings
-          customRelay={customRelay}
-          setCustomRelay={setCustomRelay}
-          showCustomInput={showCustomInput}
-          setShowCustomInput={setShowCustomInput}
-          knownRelays={knownRelays}
-          setKnownRelays={setKnownRelays}
-          isConnecting={isConnecting}
-          setIsConnecting={setIsConnecting}
-        />
-      );
+      return <NetworkSettings />;
     }
 
     if (selectedSection === 'keys') {
@@ -119,14 +144,24 @@ export function Settings() {
   const renderSettingsHeader = () => {
     if (!selectedSection) {
       return (
-        <h1 className="text-3xl font-normal text-white">
-          settings
-        </h1>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="p-2 text-gray-400 hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-3xl font-normal text-white">
+            settings
+          </h1>
+        </div>
       );
     }
 
     const sectionConfig = getSettingSectionById(selectedSection);
-    const sectionTitle = selectedSection === 'connected-wallets' ? 'connected wallets' :
+    const sectionTitle = selectedSection === 'cashu-wallet' ? 'cashu wallet' :
                         selectedSection === 'network' ? 'network' :
                         selectedSection === 'keys' ? 'keys' :
                         selectedSection === 'media-uploads' ? 'media uploads' :
@@ -137,14 +172,14 @@ export function Settings() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setSelectedSection(null)}
+          onClick={() => navigate('/settings')}
           className="p-2 text-gray-400 hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-3xl font-normal text-white">
           <button
-            onClick={() => setSelectedSection(null)}
+            onClick={() => navigate('/settings')}
             className="hover:underline hover:text-gray-300 transition-colors"
           >
             settings
@@ -157,8 +192,8 @@ export function Settings() {
 
   return (
     <div className="flex h-screen bg-black">
-      {/* Left Navigation Column */}
-      <div className="w-80 border-r border-gray-800 bg-black flex flex-col">
+      {/* Left Navigation Column - Hidden on mobile */}
+      <div className="hidden md:flex w-80 border-r border-gray-800 bg-black flex-col">
         {/* Logo at top of sidebar */}
         <LogoHeader />
 
@@ -168,21 +203,21 @@ export function Settings() {
         </div>
       </div>
 
-      {/* Middle Settings Column */}
-      <div className="flex-1 border-r border-gray-800 bg-black">
+  {/* Middle Settings Column - Full width on mobile */}
+  <div className="flex-1 md:border-r border-gray-800 bg-black pt-4 md:pt-0 pb-16 md:pb-0 min-w-0">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-800">
+        <div className="px-4 md:px-6 py-5 border-b border-gray-800">
           {renderSettingsHeader()}
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto scrollbar-hide" style={{ height: 'calc(100vh - 97px)' }}>
+        <div className="overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ height: 'calc(100vh - 97px - 4rem)' }}>
           {renderSettingsContent()}
         </div>
       </div>
 
-      {/* Right Relay Column */}
-      <div className="w-96 bg-black p-8">
+      {/* Right Relay Column - Hidden on mobile */}
+      <div className="hidden md:block w-96 bg-black p-8">
         <div className="space-y-10">
           {/* Relays Section */}
           <div>
@@ -192,6 +227,7 @@ export function Settings() {
                 <div key={index} className="flex items-center gap-4 text-lg">
                   <div className={`w-3 h-3 rounded-full ${
                     relay.status === 'active' ? 'bg-green-500' :
+                    relay.status === 'connecting' ? 'bg-yellow-500 animate-pulse' :
                     relay.status === 'placeholder' ? 'bg-gray-500' : 'bg-red-500'
                   }`} />
                   <span className={`truncate ${
@@ -201,17 +237,6 @@ export function Settings() {
                   </span>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Caching Services Section */}
-          <div>
-            <h3 className="text-2xl font-semibold mb-6 text-white">Caching Services</h3>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 text-lg">
-                <div className="w-3 h-3 rounded-full bg-gray-500" />
-                <span className="truncate text-gray-500">No caching services</span>
-              </div>
             </div>
           </div>
         </div>

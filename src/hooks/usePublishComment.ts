@@ -1,6 +1,7 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useAppContext } from '@/hooks/useAppContext';
+import { videoCommentsService } from '@/services/videoComments.service';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface PublishCommentParams {
@@ -16,7 +17,6 @@ interface PublishCommentParams {
 export function usePublishComment() {
   const { mutate: createEvent } = useNostrPublish();
   const { config } = useAppContext();
-  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ content, videoEvent, parentComment }: PublishCommentParams) => {
@@ -60,11 +60,10 @@ export function usePublishComment() {
             tags,
           },
           {
-            onSuccess: () => {
-              // Invalidate comments cache to show the new comment
-              queryClient.invalidateQueries({
-                queryKey: ['video-comments', videoEvent.id],
-              });
+            onSuccess: async () => {
+              // Clear cache and refetch comments to show the new comment immediately
+              videoCommentsService.clearCache(videoEvent.id);
+              await videoCommentsService.getComments(videoEvent.id);
               resolve();
             },
             onError: (error) => {

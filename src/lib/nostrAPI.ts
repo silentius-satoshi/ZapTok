@@ -97,7 +97,29 @@ export const decrypt44 = async (pubkey: string, ciphertext: string): Promise<str
 // WebLN functions
 export const enableWebLn = async (): Promise<void> => {
   if (window.webln) {
-    await window.webln.enable();
+    // Check if Bitcoin Connect is active and use its provider directly
+    const bitcoinConnectActive = (window as any).__bitcoinConnectActive;
+    const bitcoinConnectWebLN = (window as any).__bitcoinConnectWebLN;
+    console.log('[nostrAPI] Checking Bitcoin Connect status:', bitcoinConnectActive);
+    
+    if (bitcoinConnectActive) {
+      console.log('[nostrAPI] Bitcoin Connect is active, enabling its provider directly');
+      // For Bitcoin Connect, we need to enable its provider directly to avoid extension conflicts
+      if (bitcoinConnectWebLN) {
+        await bitcoinConnectWebLN.enable();
+      } else {
+        await window.webln.enable();
+      }
+    } else {
+      // For browser extensions, check if previously rejected to avoid conflicts
+      const isAlbyRejected = (window.webln as any).__albyRejected;
+      if (!isAlbyRejected) {
+        console.log('[nostrAPI] Calling webln.enable() for browser extension');
+        await window.webln.enable();
+      } else {
+        console.log('[nostrAPI] Skipping webln.enable() - browser extension previously rejected');
+      }
+    }
   } else {
     throw new Error('WebLN not available');
   }

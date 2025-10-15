@@ -1,122 +1,21 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
+import { useNostr } from '@/hooks/useNostr';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNostrConnection } from '@/components/NostrProvider';
-import { CASHU_EVENT_KINDS, SpendingHistoryEntry as CashuSpendingHistoryEntry } from '@/lib/cashu';
-import { useUserTransactionHistoryStore } from '@/stores/userTransactionHistoryStore';
-import { useCashuRelayStore } from '@/stores/cashuRelayStore';
-import type { NostrEvent } from 'nostr-tools';
-import { useEffect, useRef } from 'react';
-
-// Local interface for older usage
-export interface SpendingHistoryEntry {
-  direction: 'in' | 'out';
-  amount: string;
-  timestamp?: number;
-}
-
-export interface SpendingHistoryEntry {
-  direction: 'in' | 'out';
-  amount: string;
-  timestamp?: number;
-}
-
-export interface CashuTransaction {
-  id: string;
-  type: 'mint' | 'melt' | 'send' | 'receive' | 'nutzap_send' | 'nutzap_receive';
-  amount: number;
-  mintUrl: string;
-  timestamp: number;
-  status: 'pending' | 'completed' | 'failed';
-  description?: string;
-  counterparty?: string; // pubkey for nutzaps
-  originalEvent?: NostrEvent;
-}
-
-interface CreateHistoryArgs {
-  direction: 'in' | 'out';
-  amount: string; // sats
-  createdTokens?: string[];    // token event ids created (encrypted markers: created)
-  destroyedTokens?: string[];  // token event ids destroyed (encrypted markers: destroyed)
-  redeemedTokens?: string[];   // token event ids redeemed (unencrypted tags: redeemed)
-}
-
-interface UseCashuHistoryResult {
-  history: (CashuSpendingHistoryEntry & { id: string })[];
-  isLoading: boolean;
-  error: Error | null;
-  refetch: () => void;
-  createHistory: (args: CreateHistoryArgs) => Promise<NostrEvent>;
-  isCreating: boolean;
-  fetchedNewCount: number;
-}
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CASHU_EVENT_KINDS, SpendingHistoryEntry } from '@/lib/cashu';
+import { getLastEventTimestamp } from '@/lib/nostrTimestamps';
+import { useTransactionHistoryStore } from '@/stores/transactionHistoryStore';
+import { NostrEvent } from 'nostr-tools';
 
 /**
- * Hook to fetch and manage Cashu transaction history
+ * Hook to fetch and manage the user's Cashu spending history
  */
-const QUERY_DEBOUNCE_MS = 400;
-const FETCH_TIMEOUT_MS = 1500;
-
-function loadProcessedIds(pubkey: string) {
-  try {
-    const raw = sessionStorage.getItem(`cashu_history_ids:${pubkey}`);
-    return raw ? new Set<string>(JSON.parse(raw)) : new Set<string>();
-  } catch {
-    return new Set<string>();
-  }
-}
-
-function persistProcessedIds(pubkey: string, setIds: Set<string>) {
-  try {
-    sessionStorage.setItem(
-      `cashu_history_ids:${pubkey}`,
-      JSON.stringify(Array.from(setIds))
-    );
-  } catch {
-    /* ignore */
-  }
-}
-
-export function useCashuHistory(): UseCashuHistoryResult {
+export function useCashuHistory() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const { isAnyRelayConnected } = useNostrConnection();
-  const historyStore = useUserTransactionHistoryStore(user?.pubkey);
-  const cashuRelayStore = useCashuRelayStore();
   const queryClient = useQueryClient();
-  const processedIdsRef = useRef<Set<string>>(new Set());
-  const lastContextChangeRef = useRef<number>(Date.now());
-  const lastStableStartRef = useRef<number>(0);
+  const transactionHistoryStore = useTransactionHistoryStore();
 
-  // Load previously processed IDs when user changes
-  useEffect(() => {
-    if (user?.pubkey) {
-      // Clear processed IDs to force a fresh load for account switching
-      processedIdsRef.current = new Set<string>();
-      // Remove the sessionStorage entry to start fresh
-      try {
-        sessionStorage.removeItem(`cashu_history_ids:${user.pubkey}`);
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [user?.pubkey]);
-
-  // Track relay context stabilization
-  useEffect(() => {
-    if (!isAnyRelayConnected) return;
-    lastContextChangeRef.current = Date.now();
-  }, [isAnyRelayConnected]);
-
-  const waitForStableContext = () => {
-    if (!isAnyRelayConnected) {
-      return false;
-    }
-    const msSince = Date.now() - lastContextChangeRef.current;
-    const isStable = msSince >= QUERY_DEBOUNCE_MS;
-    return isStable;
-  };
-
+  // Create spending history event
   const createHistoryMutation = useMutation({
     mutationFn: async ({
       direction,
@@ -124,193 +23,299 @@ export function useCashuHistory(): UseCashuHistoryResult {
       createdTokens = [],
       destroyedTokens = [],
       redeemedTokens = []
-    }: CreateHistoryArgs) => {
-      if (!user) throw new Error('User not authenticated');
-      if (!user.signer.nip44) throw new Error('Cashu history requires NIP-44 encryption support. Please ensure your Nostr extension has ENCRYPT and DECRYPT permissions enabled.');
+    }: {
+      direction: 'in' | 'out';
+      amount: string;
+      createdTokens?: string[];
+      destroyedTokens?: string[];
+      redeemedTokens?: string[];
+    }) => {
+      if (!user) throw new Error('User not logged in');
+      if (!user.signer.nip44) {
+        throw new Error('NIP-44 encryption not supported by your signer');
+      }
 
-      // Build encrypted content data (array form for forward compatibility)
-      const contentData: Array<string[]> = [
+      // Prepare content data
+      const contentData = [
         ['direction', direction],
         ['amount', amount],
         ...createdTokens.map(id => ['e', id, '', 'created']),
         ...destroyedTokens.map(id => ['e', id, '', 'destroyed'])
       ];
 
-      const encrypted = await user.signer.nip44.encrypt(user.pubkey, JSON.stringify(contentData));
+      // Encrypt content
+      const content = await user.signer.nip44.encrypt(
+        user.pubkey,
+        JSON.stringify(contentData)
+      );
 
+      // Create history event with unencrypted redeemed tags
       const event = await user.signer.signEvent({
         kind: CASHU_EVENT_KINDS.HISTORY,
-        content: encrypted,
+        content,
         tags: redeemedTokens.map(id => ['e', id, '', 'redeemed']),
         created_at: Math.floor(Date.now() / 1000)
       });
 
-      await nostr.event(event, { relays: [cashuRelayStore.activeRelay] });
+      // Publish event
+      await nostr.event(event);
 
-      // Optimistic add (store timestamp in seconds like chorus)
-      historyStore.addHistoryEntries([
-        {
-          id: event.id,
-          direction,
-          amount,
-          timestamp: event.created_at,
-          createdTokens,
-            destroyedTokens,
-            redeemedTokens
-        } as any
-      ]);
-      processedIdsRef.current.add(event.id);
-      if (user?.pubkey) persistProcessedIds(user.pubkey, processedIdsRef.current);
+      // Add to transaction history store
+      const historyEntry: SpendingHistoryEntry & { id: string } = {
+        id: event.id,
+        direction,
+        amount,
+        timestamp: event.created_at,
+        createdTokens,
+        destroyedTokens,
+        redeemedTokens
+      };
+      transactionHistoryStore.addHistoryEntry(historyEntry);
+
       return event;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cashu', 'history', user?.pubkey, cashuRelayStore.activeRelay] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cashu', 'history', user?.pubkey] });
+    }
   });
 
-  const isStableContext = waitForStableContext();
-
-  const {
-    data: fetchedNewCount = 0,
-    isLoading,
-    error,
-    refetch
-  } = useQuery<number>({
-    queryKey: ['cashu', 'history', user?.pubkey, cashuRelayStore.activeRelay],
-    enabled: !!user && isStableContext,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    refetchOnMount: true, // Enable refetch on mount for account switching
-    retry: 1,
-    notifyOnChangeProps: ['status', 'data', 'error'],
+  const historyQuery = useQuery({
+    queryKey: ['cashu', 'history', user?.pubkey],
     queryFn: async ({ signal }) => {
-      if (!user) throw new Error('User not authenticated');
-
-      const now = Date.now();
-      if (now - lastStableStartRef.current < QUERY_DEBOUNCE_MS) {
-        return 0;
+      if (!user) throw new Error('User not logged in');
+      if (!user.signer.nip44) {
+        throw new Error('NIP-44 encryption not supported by your signer');
       }
-      lastStableStartRef.current = now;
 
-      // Timeout wrapper
-      const abortController = new AbortController();
-      const timeout = setTimeout(() => abortController.abort(), FETCH_TIMEOUT_MS);
-      const combinedSignal = (AbortSignal as any).any
-        ? (AbortSignal as any).any([signal, abortController.signal])
-        : abortController.signal;
+      // Get the last stored timestamp for the HISTORY event kind
+      const lastTimestamp = getLastEventTimestamp(user.pubkey, CASHU_EVENT_KINDS.HISTORY);
 
-      // Fetch only HISTORY events (chorus parity)
-      let historyEvents: NostrEvent[] = [];
-      try {
-        historyEvents = await nostr.query([
-          { kinds: [CASHU_EVENT_KINDS.HISTORY], authors: [user.pubkey], limit: 100 }
-        ], { signal: combinedSignal, relays: [cashuRelayStore.activeRelay] });
-      } catch (e: any) {
-        if (e?.name === 'AbortError') {
-          clearTimeout(timeout);
-          return 0;
-        }
-        clearTimeout(timeout);
-        throw e;
+      // Create the filter with 'since' if a timestamp exists
+      const filter = {
+        kinds: [CASHU_EVENT_KINDS.HISTORY],
+        authors: [user.pubkey],
+        limit: 100
+      };
+
+      // Add the 'since' property if we have a previous timestamp
+      if (lastTimestamp) {
+        Object.assign(filter, { since: lastTimestamp });
       }
-      clearTimeout(timeout);
 
-      const batch: (CashuSpendingHistoryEntry & { id: string })[] = [];
+      const events = await nostr.query([filter], { signal });
 
-      for (const event of historyEvents) {
-        if (processedIdsRef.current.has(event.id)) {
-          continue;
-        }
+      console.debug(`Retrieved ${events.length} history events for decryption`, {
+        userPubkey: user.pubkey,
+        eventIds: events.map(e => e.id),
+        eventSample: events.slice(0, 2).map(e => ({
+          id: e.id,
+          contentLength: e.content?.length || 0,
+          contentEmpty: !e.content || e.content.trim() === '',
+          created_at: e.created_at
+        }))
+      });
 
+      if (events.length === 0) {
+        return [];
+      }
+
+      const history: (SpendingHistoryEntry & { id: string })[] = [];
+
+      for (const event of events) {
         try {
-          if (!user.signer.nip44) {
+          // Validate event content before decryption
+          if (!event.content || event.content.trim() === '') {
+            console.warn(`Skipping event ${event.id}: empty content`);
             continue;
           }
 
-          const decrypted = await user.signer.nip44.decrypt(user.pubkey, event.content);
+          // Debug: Log event and signer details
+          console.debug(`Attempting to decrypt history event ${event.id}`, {
+            contentLength: event.content.length,
+            contentPreview: event.content.substring(0, 50) + '...',
+            signerType: user.signer?.constructor?.name,
+            hasNip44: !!user.signer.nip44,
+            userPubkey: user.pubkey,
+            nip44Methods: user.signer.nip44 ? Object.keys(user.signer.nip44) : 'no nip44'
+          });
+
+          // Decrypt content with enhanced error handling
+          let decrypted;
+          try {
+          console.debug(`Calling decrypt with params:`, {
+            recipientPubkey: user.pubkey,
+            contentType: typeof event.content,
+            contentLength: event.content.length,
+            isValidBase64: /^[A-Za-z0-9+/]*={0,2}$/.test(event.content),
+            contentSample: event.content.substring(0, 50) + '...',
+            eventId: event.id,
+            eventKind: event.kind,
+            eventAuthor: event.pubkey,
+            currentUser: user.pubkey,
+            isSelfEncrypted: event.pubkey === user.pubkey,
+            decryptMethodExists: typeof user.signer.nip44.decrypt,
+            signerMethods: Object.getOwnPropertyNames(user.signer.nip44)
+          });            // Log the exact function call before making it
+            console.debug(`About to call:`, `user.signer.nip44.decrypt("${user.pubkey}", "${event.content.substring(0, 20)}...")`);
+            
+          // Try the decryption with additional error checking
+          const decryptResult = await user.signer.nip44.decrypt(user.pubkey, event.content);
+          
+          console.debug(`Raw decrypt result:`, {
+            result: decryptResult,
+            type: typeof decryptResult,
+            isUndefined: decryptResult === undefined,
+            isNull: decryptResult === null,
+            isEmptyString: decryptResult === '',
+            length: decryptResult?.length,
+            constructor: decryptResult?.constructor?.name
+          });
+          
+          // Check if result is valid before assigning
+          if (decryptResult === undefined || decryptResult === null) {
+            console.debug(`Primary decrypt failed, trying nostr-tools fallback...`);
+            
+            // Try using nostr-tools nip44 directly as fallback
+            try {
+              const { nip44 } = await import('nostr-tools');
+              
+              // For nsec signers, try to get private key if available
+              let fallbackResult: string | null = null;
+              
+              if ((user.signer as any).getPrivateKey) {
+                try {
+                  const privateKey = await (user.signer as any).getPrivateKey();
+                  fallbackResult = nip44.decrypt(event.content, privateKey);
+                } catch (privKeyError) {
+                  console.debug(`Private key access failed:`, privKeyError);
+                }
+              }
+              
+              console.debug(`Nostr-tools fallback result:`, {
+                result: fallbackResult,
+                type: typeof fallbackResult,
+                isValid: typeof fallbackResult === 'string' && fallbackResult.length > 0
+              });
+              
+              if (typeof fallbackResult === 'string' && fallbackResult.length > 0) {
+                decrypted = fallbackResult;
+                console.debug(`✅ Nostr-tools fallback successful for event ${event.id}`);
+              } else {
+                throw new Error(`Nostr-tools fallback also returned invalid result: ${fallbackResult}`);
+              }
+            } catch (fallbackError) {
+              console.debug(`Nostr-tools fallback failed:`, fallbackError);
+              
+              // Final attempt: try alternative parameter order for self-encrypted events
+              if (event.pubkey === user.pubkey) {
+                console.debug(`Final attempt: alternative parameter order for self-encrypted event...`);
+                try {
+                  const finalResult = await user.signer.nip44.decrypt(event.pubkey, event.content);
+                  if (typeof finalResult === 'string' && finalResult.length > 0) {
+                    decrypted = finalResult;
+                    console.debug(`✅ Alternative parameter order successful for event ${event.id}`);
+                  } else {
+                    throw new Error(`All decryption attempts failed. Library may be incompatible.`);
+                  }
+                } catch (finalError) {
+                  throw new Error(`All decryption methods failed: Primary=${decryptResult}, Fallback=${fallbackError.message}, Final=${finalError.message}`);
+                }
+              } else {
+                throw new Error(`Primary decrypt returned ${decryptResult}, nostr-tools fallback failed: ${fallbackError.message}`);
+              }
+            }
+          } else {
+            decrypted = decryptResult;
+          }            console.debug(`Decrypt result:`, {
+              resultType: typeof decrypted,
+              resultValue: decrypted,
+              isNull: decrypted === null,
+              isUndefined: decrypted === undefined,
+              length: decrypted?.length
+            });
+          } catch (decryptError) {
+            console.error(`Raw decryption error for event ${event.id}:`, {
+              error: decryptError,
+              errorMessage: decryptError.message,
+              errorStack: decryptError.stack,
+              signerInfo: {
+                hasNip44: !!user.signer.nip44,
+                nip44Type: typeof user.signer.nip44,
+                methods: user.signer.nip44 ? Object.getOwnPropertyNames(user.signer.nip44) : 'none'
+              }
+            });
+            throw decryptError;
+          }
+          
+          // Validate decryption result
+          if (!decrypted || typeof decrypted !== 'string') {
+            console.warn(`Skipping event ${event.id}: decryption returned invalid result:`, { 
+              decrypted, 
+              type: typeof decrypted,
+              length: decrypted?.length 
+            });
+            continue;
+          }
+
+          console.debug(`Successfully decrypted history event ${event.id}`, {
+            decryptedLength: decrypted.length,
+            decryptedPreview: decrypted.substring(0, 100) + '...'
+          });
+
           const contentData = JSON.parse(decrypted) as Array<string[]>;
 
-          const entry: CashuSpendingHistoryEntry & { id: string } = {
+          // Extract data from content
+          const entry: SpendingHistoryEntry & { id: string } = {
             id: event.id,
-            direction: 'out',
+            direction: 'in',
             amount: '0',
-            timestamp: event.created_at, // seconds
+            timestamp: event.created_at,
             createdTokens: [],
             destroyedTokens: [],
             redeemedTokens: []
-          } as any;
+          };
 
+          // Process content data
           for (const item of contentData) {
-            const [k, v, , marker] = item;
-            if (k === 'direction') entry.direction = v as 'in' | 'out';
-            else if (k === 'amount') entry.amount = String(v);
-            else if (k === 'e' && marker === 'created') entry.createdTokens?.push(v);
-            else if (k === 'e' && marker === 'destroyed') entry.destroyedTokens?.push(v);
+            const [key, value] = item;
+            const marker = item.length >= 4 ? item[3] : undefined;
+
+            if (key === 'direction') {
+              entry.direction = value as 'in' | 'out';
+            } else if (key === 'amount') {
+              entry.amount = value;
+            } else if (key === 'e' && marker === 'created') {
+              entry.createdTokens?.push(value);
+            } else if (key === 'e' && marker === 'destroyed') {
+              entry.destroyedTokens?.push(value);
+            }
           }
 
-          // unencrypted redeemed tags
+          // Process unencrypted tags
           for (const tag of event.tags) {
             if (tag[0] === 'e' && tag[3] === 'redeemed') {
               entry.redeemedTokens?.push(tag[1]);
             }
           }
 
-          const amountNum = parseInt(entry.amount, 10) || 0;
+          history.push(entry);
 
-          if (amountNum <= 0) {
-            continue;
-          }
-
-          batch.push(entry);
-          processedIdsRef.current.add(event.id);
+          // Add to transaction history store
+          transactionHistoryStore.addHistoryEntry(entry);
         } catch (error) {
-          // ignore
+          console.error('Failed to decrypt history data:', error);
         }
       }
 
-      if (batch.length) {
-        historyStore.addHistoryEntries(batch as any);
-        if (user?.pubkey) persistProcessedIds(user.pubkey, processedIdsRef.current);
-      }
-
-      return batch.length;
+      // Sort by timestamp (newest first)
+      return history.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     },
-    select: (count) => count,
+    enabled: !!user && !!user.signer.nip44
   });
 
-  const history = historyStore.getHistoryEntries();
-
   return {
-    history,
-    isLoading,
-    error: (error as any) ?? null,
-    refetch,
-    createHistory: createHistoryMutation.mutateAsync,
-    isCreating: createHistoryMutation.isPending,
-    fetchedNewCount,
+    history: historyQuery.data || [],
+    isLoading: historyQuery.isLoading,
+    createHistory: createHistoryMutation
   };
-}
-
-/**
- * Hook to get transaction statistics
- */
-export function useCashuStats() {
-  const { history } = useCashuHistory();
-
-  const stats = {
-    totalSent: history
-      .filter(t => t.direction === 'out')
-      .reduce((sum, t) => sum + (parseInt(t.amount, 10) || 0), 0),
-
-    totalReceived: history
-      .filter(t => t.direction === 'in')
-      .reduce((sum, t) => sum + (parseInt(t.amount, 10) || 0), 0),
-
-    totalMinted: 0,
-    totalMelted: 0,
-    transactionCount: history.length,
-    recentTransactions: history.slice(0, 5),
-  };
-
-  return stats;
 }

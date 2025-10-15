@@ -1,31 +1,77 @@
 import type { NostrMetadata } from '@nostrify/nostrify';
+import { Invoice } from '@getalby/lightning-tools';
+import {
+  makeZapPayment,
+  getPaymentSuggestion,
+  testLightningAddress,
+  needsVercelProxy
+} from './lightning-proxy';
 
 /**
- * Utility function to make CORS-safe requests
+ * Get amount from Lightning invoice (following Jumble's pattern)
+ */
+export function getAmountFromInvoice(invoice: string): number {
+  try {
+    const _invoice = new Invoice({ pr: invoice });
+    return _invoice.satoshi;
+  } catch (error) {
+    // Silently return 0 for invalid invoices - these are filtered out in the hooks
+    // Only log in development if needed for debugging
+    if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_INVOICES) {
+      console.warn('Failed to parse invoice:', error);
+    }
+    return 0;
+  }
+}
+
+/**
+ * Format amount for display (following Jumble's pattern)
+ */
+export function formatAmount(amount: number) {
+  if (amount < 1000) return amount.toString();
+  if (amount < 1000000) return `${Math.round(amount / 100) / 10}k`;
+  return `${Math.round(amount / 100000) / 10}M`;
+}
+
+/**
+ * Get Lightning address from profile (following Jumble's pattern)
+ */
+export function getLightningAddressFromProfile(profile: any) {
+  if (!profile) return null;
+
+  // Check for Lightning address or LNURL
+  if (profile.lud16) return profile.lud16;
+  if (profile.lud06) return profile.lud06;
+  if (profile.lightningAddress) return profile.lightningAddress;
+
+  return null;
+}
+
+/**
+ * Main payment function exports
+ */
+export { makeZapPayment, getPaymentSuggestion, testLightningAddress, needsVercelProxy };
+
+/**
+ * CORS-aware fetch using proxy system
  */
 export async function corsAwareFetch(url: string, options?: RequestInit): Promise<Response> {
+  // If this is a Lightning address URL, suggest using the new system
+  if (url.includes('/.well-known/lnurlp/')) {
+    throw new Error('Please use the new Lightning proxy system via makeZapPayment() function');
+  }
+
   try {
-    // Try direct request first
     const response = await fetch(url, options);
     return response;
   } catch (error) {
-    // If it fails due to CORS, provide helpful error
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-    if (import.meta.env.DEV) {
-      console.log('❌ CORS request failed for:', url);
-    }
-      
-      // Check if this is a known problematic provider
-      if (url.includes('primal.net')) {
-        throw new Error('Primal Lightning addresses are not compatible with browser-based payments. Please ask the recipient to add a Lightning address from Alby (@getalby.com), Stacker News (@stacker.news), or ZBD (@zbd.gg) to their Nostr profile for zaps to work.');
+      if (import.meta.env.DEV) {
+        console.log('❌ CORS request failed for:', url);
       }
-      
-      if (url.includes('walletofsatoshi.com')) {
-        throw new Error('Wallet of Satoshi addresses are not compatible with browser-based payments. Please ask the recipient to add a Lightning address from Alby (@getalby.com), Stacker News (@stacker.news), or ZBD (@zbd.gg) to their Nostr profile for zaps to work.');
-      }
-      
-      // Generic CORS error
-      throw new Error('This Lightning address provider does not support browser payments. Please ask the recipient to use a browser-compatible Lightning address provider like Alby, Stacker News, or ZBD.');
+
+      // Provide helpful migration message
+      throw new Error('CORS error. For Lightning payments, please use the new makeZapPayment() function which handles CORS automatically.');
     }
     throw error;
   }
@@ -90,12 +136,12 @@ export async function getLNURLPayEndpoint(lightningAddress: string): Promise<str
     if (import.meta.env.DEV) {
       console.log('🌐 Converting Lightning address:', { username, domain });
     }
-      
+
       const wellKnownUrl = `https://${domain}/.well-known/lnurlp/${username}`;
     if (import.meta.env.DEV) {
       console.log('📡 Fetching from:', wellKnownUrl);
     }
-      
+
       // Use CORS-aware fetch to handle potential CORS issues
       const response = await corsAwareFetch(wellKnownUrl, {
         headers: {
@@ -103,17 +149,17 @@ export async function getLNURLPayEndpoint(lightningAddress: string): Promise<str
           'Content-Type': 'application/json',
         }
       });
-      
+
       if (!response.ok) {
         console.error('❌ Failed to fetch LNURL-pay info:', response.status, response.statusText);
         throw new Error(`Failed to fetch LNURL-pay endpoint: ${response.status} ${response.statusText}`);
       }
-      
+
       const data = await response.json();
     if (import.meta.env.DEV) {
       console.log('📊 LNURL-pay response:', data);
     }
-      
+
       // Return the callback URL which is the actual payment endpoint
       if (data.callback) {
       if (import.meta.env.DEV) {

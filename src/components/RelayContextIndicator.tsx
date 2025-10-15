@@ -90,8 +90,8 @@ export function RelayContextIndicator({ className, showDescription = false }: Re
         // Show active Cashu relay with click functionality for cashu-only context
         <Badge 
           variant="outline" 
-          className="bg-green-500/20 text-green-400 border-green-500/30 text-xs font-medium cursor-pointer hover:bg-green-500/30 transition-colors"
-          onClick={() => navigate('/settings?section=connected-wallets')}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary cursor-pointer"
+          onClick={() => navigate('/settings?section=cashu-wallet')}
         >
           <Wifi className="h-3 w-3 mr-1" />
           {cashuRelayStore.getActiveRelayName()}

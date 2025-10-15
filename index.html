@@ -2,21 +2,43 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>ZapTok - Nostr Video Platform</title>
+    <title>ZapTok</title>
     <meta name="description" content="Discover and share videos on the decentralized Nostr network.">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark light" />
+
+    <!-- PWA and Mobile App Capabilities -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ZapTok">
+    <meta name="application-name" content="ZapTok">
+    <meta name="msapplication-TileColor" content="#000000">
+    <meta name="msapplication-config" content="none">
+
+    <!-- Open Graph and Social Media -->
     <meta property="og:type" content="website">
-    <meta property="og:title" content="ZapTok - Nostr Video Platform">
+    <meta property="og:title" content="ZapTok">
     <meta property="og:description" content="Discover and share videos on the decentralized Nostr network.">
-    <meta http-equiv="content-security-policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self' https:; font-src 'self'; base-uri 'self'; manifest-src 'self'; connect-src 'self' blob: https: wss:; img-src 'self' data: blob: https:; media-src 'self' blob: https:">
-    
-    <!-- Favicon and PWA Icons -->
+    <meta property="og:site_name" content="ZapTok">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="ZapTok">
+    <meta name="twitter:description" content="Discover and share videos on the decentralized Nostr network.">
+
+    <!-- Security Policy -->
+    <meta http-equiv="content-security-policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; frame-src 'self' https:; font-src 'self'; base-uri 'self'; manifest-src 'self'; connect-src 'self' blob: https: wss:; img-src 'self' data: blob: https:; media-src 'self' blob: https:">
+
+    <!-- Favicon and Icons (Enhanced for Mobile) -->
     <link rel="icon" type="image/png" sizes="32x32" href="/images/icon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/images/icon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/images/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/images/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/images/icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="128x128" href="/images/icon-128x128.png">
     <link rel="shortcut icon" href="/images/icon-32x32.png">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="ZapTok">
+    
+    <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.webmanifest">
   </head>
   <body>

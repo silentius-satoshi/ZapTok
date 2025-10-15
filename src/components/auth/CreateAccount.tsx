@@ -352,7 +352,7 @@ const CreateAccount = ({ onClose, onBack }: CreateAccountProps) => {
             type="text"
             value={nip05}
             onChange={(e) => setNip05(e.target.value)}
-            placeholder={`${accountName.toLowerCase().replace(/\s+/g, '')}@zaptok.app`}
+            placeholder="your-name@your-domain.com"
             className="bg-gray-800 border-gray-600 text-white"
           />
         </div>
