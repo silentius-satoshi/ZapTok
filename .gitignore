@@ -10,9 +10,13 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dev-dist
 *.local
+.env
 
 # Editor directories and files
+.vscode/*
+!.vscode/extensions.json
 .idea
 .DS_Store
 *.suo
@@ -21,20 +25,4 @@ dist-ssr
 *.sln
 *.sw?
 
-# Vercel
 .vercel
-
-# Secrets
-.env
-.env.*
-!.env.example
-
-# Documentation and configuration folders
-api/
-scripts/
-.github/
-.vscode/
-
-# Configuration files
-vercel.json
-stack.json
