@@ -509,7 +509,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       )}
 
       {/* Video Progress Bar - At the very bottom, below description */}
-      {!isYouTube && workingUrl && (
+      {!isYouTube && workingUrl && !gridMode && (
         <VideoProgressBar
           videoRef={videoRef}
           isPaused={userPaused || !isPlaying}

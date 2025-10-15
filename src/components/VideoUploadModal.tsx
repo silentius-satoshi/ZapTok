@@ -212,8 +212,6 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   // Cleanup when modal closes
   useEffect(() => {
     if (!isOpen) {
-      console.log('Modal closing - cleaning up camera and recording state');
-      
       // Stop camera stream
       if (stream) {
         stream.getTracks().forEach(track => {

@@ -60,11 +60,8 @@ export function LoginArea({
   // Early initialization of user Cashu store to ensure nutzaps work immediately
   useEffect(() => {
     if (currentUser?.pubkey) {
-      console.log("Login area initializing for user:", currentUser.pubkey);
-
       // Use modern initialization following Chorus patterns
       // The useCashuWallet hook handles wallet initialization automatically
-      console.log("Wallet initialization handled by modern hooks");
     }
   }, [currentUser?.pubkey]);
 
