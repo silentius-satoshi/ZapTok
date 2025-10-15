@@ -17,10 +17,13 @@ const getGitHash = () => {
 
 const getAppVersion = () => {
   try {
-    return JSON.stringify(packageJson.version);
+    // Get the latest Git tag (e.g., "v0.1.0")
+    const tag = execSync('git describe --tags --abbrev=0').toString().trim();
+    return JSON.stringify(tag);
   } catch (error) {
-    console.warn('Failed to retrieve app version:', error);
-    return '"unknown"';
+    // If no tags exist yet, fall back to "dev"
+    console.warn('No Git tags found, using "dev" as version');
+    return '"dev"';
   }
 };
 
