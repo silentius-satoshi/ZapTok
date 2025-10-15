@@ -16,6 +16,7 @@ import { devError, devLog } from '@/lib/devConsole';
 import { isYouTubeUrl } from '@/lib/youtubeEmbed';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { VideoZapAnalytics } from '@/components/VideoZapAnalytics';
+import { VideoProgressBar } from '@/components/VideoProgressBar';
 
 interface VideoCardProps {
   event: NostrEvent & {
@@ -40,11 +41,16 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const [isPlaying, setIsPlaying] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubbingTime, setScrubbingTime] = useState(0);
   const videoRef = useVideoRegistration(); // Use the video registration hook
   const navigate = useNavigate();
   const author = useAuthor(event.pubkey);
   const isMobile = useIsMobile();
   const { isStandalone, isInstalled } = usePWA();
+  
+  // Track if this video has been activated before to avoid resetting position on pause/unpause
+  const hasBeenActivatedRef = useRef(false);
 
   // Phase 6.4: Cache thumbnails for grid mode
   const { cachedUrl: cachedThumbnail } = useThumbnailCache(event.thumbnail, gridMode);
@@ -76,6 +82,15 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
 
   const authorMetadata = author.data?.metadata;
   const displayName = authorMetadata?.name || authorMetadata?.display_name || genUserName(event.pubkey);
+
+  // Format time as MM:SS for video duration
+  const formatTime = (seconds: number): string => {
+    if (!isFinite(seconds) || seconds < 0) return '00:00';
+    
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Format timestamp relative to now
   const formatTimeAgo = (timestamp: number) => {
@@ -125,6 +140,28 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isMobile, isStandalone, isInstalled, isActive, userPaused, videoRef]);
+
+  // Update scrubbing time in real-time during scrubbing
+  useEffect(() => {
+    if (!isScrubbing || !videoRef.current) return;
+
+    const updateScrubbingTime = () => {
+      if (videoRef.current) {
+        setScrubbingTime(videoRef.current.currentTime);
+      }
+    };
+
+    // Update immediately
+    updateScrubbingTime();
+
+    // Update during timeupdate events while scrubbing
+    const videoElement = videoRef.current;
+    videoElement.addEventListener('timeupdate', updateScrubbingTime);
+
+    return () => {
+      videoElement.removeEventListener('timeupdate', updateScrubbingTime);
+    };
+  }, [isScrubbing, videoRef]);
 
   // Bundle video card debugging logs
   const videoDebugRef = useRef({
@@ -187,9 +224,14 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     videoElement.addEventListener('loadstart', handleLoadStart);
 
     if (isActive) {
-      // When video becomes active, reset to beginning and auto-play if user hasn't manually paused
-      videoElement.currentTime = 0; // Reset video to beginning
-      videoElement.muted = false; // Unmute the active video for audio playback
+      // Reset to beginning only when first becoming active (not on pause/unpause)
+      if (!hasBeenActivatedRef.current) {
+        videoElement.currentTime = 0;
+        hasBeenActivatedRef.current = true;
+      }
+      
+      // Unmute the active video for audio playback
+      videoElement.muted = false;
 
       if (!userPaused) {
         // Enhanced PWA mobile autoplay strategy
@@ -240,6 +282,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       videoElement.muted = true; // Mute inactive videos
       setIsPlaying(false);
       setUserPaused(false);
+      hasBeenActivatedRef.current = false; // Reset so video starts from beginning next time it's viewed
     }
 
     return () => {
@@ -366,16 +409,25 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         </div>
       )}
 
+      {/* Large Timestamp Overlay - Shows during scrubbing, positioned bottom center above description */}
+      {isScrubbing && videoRef.current && (
+        <div className={`absolute left-0 right-0 flex justify-center pointer-events-none ${isYouTube ? 'bottom-24' : 'bottom-24'}`}>
+          <div className="text-white text-5xl font-bold tracking-wider drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+            {formatTime(scrubbingTime)} / {formatTime(videoRef.current.duration)}
+          </div>
+        </div>
+      )}
+
       {/* Video Description - Bottom Left (Higher for YouTube to avoid player controls) */}
-      {/* In grid mode, show zap analytics instead of username/description/date */}
+      {/* Hidden during scrubbing, or in grid mode show zap analytics instead */}
       {gridMode ? (
-        <div className="absolute bottom-4 left-4 text-white z-10">
+        <div className={`absolute bottom-4 left-4 text-white z-10 transition-opacity duration-200 ${isScrubbing ? 'opacity-0' : 'opacity-100'}`}>
           <VideoZapAnalytics videoId={event.id} />
         </div>
       ) : (
-        <div className={`absolute left-4 right-20 text-white z-10 ${isYouTube ? 'bottom-20' : 'bottom-4'}`}>
+        <div className={`absolute left-4 right-20 text-white z-10 transition-opacity duration-200 ${isYouTube ? 'bottom-20' : 'bottom-4'} ${isScrubbing ? 'opacity-0' : 'opacity-100'}`}>
           <div className="space-y-1">
-            {/* Username - Always visible */}
+            {/* Username - Always visible (except during scrubbing) */}
             <div className="flex items-center gap-2">
               <button
                 className="font-bold text-white truncate hover:text-blue-300 transition-colors cursor-pointer"
@@ -454,6 +506,16 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             )}
           </div>
         </div>
+      )}
+
+      {/* Video Progress Bar - At the very bottom, below description */}
+      {!isYouTube && workingUrl && (
+        <VideoProgressBar
+          videoRef={videoRef}
+          isPaused={userPaused || !isPlaying}
+          onScrubbingChange={setIsScrubbing}
+          className="absolute bottom-2 left-0 right-0 z-20"
+        />
       )}
     </div>
   );

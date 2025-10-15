@@ -289,6 +289,14 @@
     border-radius: 50% !important;
   }
 
+  /* Preserve progress bar styling - must come after general rules */
+  .mobile-video-item .absolute.bottom-2,
+  .mobile-video-item .absolute.bottom-2 > *,
+  .mobile-video-item .absolute.bottom-2 > * > *,
+  .mobile-video-item .absolute.bottom-2 [class*="rounded"] {
+    border-radius: 9999px !important;
+  }
+
   /* Ensure the actual video fills fully */
   .mobile-video-item video {
     height: 100% !important;
