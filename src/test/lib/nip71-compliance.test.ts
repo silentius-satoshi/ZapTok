@@ -219,7 +219,7 @@ describe('NIP-71 Video Event Compliance', () => {
 
     // Direct file and platform URLs
     const directUrls = [
-      'https://blossom.band/hash123',
+      'https://blossom.band/hash123.mp4', // Blossom URLs need video extension
       'https://satellite.earth/video.mp4',
       'https://m.primal.net/video.webm',
     ];

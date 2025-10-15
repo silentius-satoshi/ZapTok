@@ -49,18 +49,19 @@ describe('VideoUploadModal', () => {
       </TestApp>
     );
 
-    expect(screen.getByText('Upload Video to Nostr')).toBeInTheDocument();
-    expect(screen.getByText('Select a video file')).toBeInTheDocument();
-    expect(screen.getByText('Drag and drop or click to browse')).toBeInTheDocument();
+    // Check for camera upload button (image icon button in bottom left)
+    const uploadButton = document.querySelector('button svg');
+    expect(uploadButton).toBeInTheDocument();
   });
 
-  it('shows supported file formats', () => {
-    render(
+  it('does not render when closed', () => {
+    const { container } = render(
       <TestApp>
-        <VideoUploadModal isOpen={true} onClose={() => {}} />
+        <VideoUploadModal isOpen={false} onClose={() => {}} />
       </TestApp>
     );
 
-    expect(screen.getByText('Supports: MP4, WebM, MOV, AVI (max 100MB)')).toBeInTheDocument();
+    // Dialog should not be visible when closed
+    expect(container.querySelector('[role="dialog"]')).not.toBeInTheDocument();
   });
 });

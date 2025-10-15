@@ -43,6 +43,48 @@ global.ResizeObserver = vi.fn().mockImplementation((_callback) => ({
   disconnect: vi.fn(),
 }));
 
+// Mock IndexedDB
+const indexedDBMock = {
+  open: vi.fn().mockImplementation(() => {
+    const request = {
+      result: null as any,
+      error: null,
+      onsuccess: null as ((event: any) => void) | null,
+      onerror: null as ((event: any) => void) | null,
+      onupgradeneeded: null as ((event: any) => void) | null,
+    };
+    
+    setTimeout(() => {
+      const db = {
+        createObjectStore: vi.fn(),
+        transaction: vi.fn().mockReturnValue({
+          objectStore: vi.fn().mockReturnValue({
+            add: vi.fn(),
+            put: vi.fn(),
+            get: vi.fn(),
+            delete: vi.fn(),
+            clear: vi.fn(),
+            openCursor: vi.fn(),
+          }),
+        }),
+        close: vi.fn(),
+      };
+      request.result = db;
+      if (request.onsuccess) {
+        request.onsuccess({ target: request });
+      }
+    }, 0);
+    
+    return request;
+  }),
+  deleteDatabase: vi.fn(),
+};
+
+Object.defineProperty(global, 'indexedDB', {
+  writable: true,
+  value: indexedDBMock,
+});
+
 // Mock HTMLMediaElement methods
 Object.defineProperty(HTMLVideoElement.prototype, 'play', {
   writable: true,

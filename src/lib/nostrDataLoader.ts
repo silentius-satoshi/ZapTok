@@ -38,7 +38,7 @@ export function createEventDataLoader(
 
           const sub = pool.subscribeMany(
             relays,
-            [{ ids: Array.from(eventIds) }] as Filter[],
+            [{ ids: Array.from(eventIds) }],
             {
               onevent(event) {
                 // Deduplicate by ID
@@ -111,7 +111,7 @@ export function createProfileDataLoader(
 
           const sub = pool.subscribeMany(
             relays,
-            [{ kinds: [0], authors: Array.from(pubkeys) }] as Filter[],
+            [{ kinds: [0], authors: Array.from(pubkeys) }],
             {
               onevent(event) {
                 // Only keep the latest profile per pubkey
@@ -187,7 +187,7 @@ export function createRelayListDataLoader(
 
           const sub = pool.subscribeMany(
             relays,
-            [{ kinds: [10002], authors: Array.from(pubkeys) }] as Filter[],
+            [{ kinds: [10002], authors: Array.from(pubkeys) }],
             {
               onevent(event) {
                 // Only keep the latest relay list per pubkey
@@ -265,7 +265,7 @@ export function createContactListDataLoader(
 
           const sub = pool.subscribeMany(
             relays,
-            [{ kinds: [3], authors: Array.from(pubkeys) }] as Filter[],
+            [{ kinds: [3], authors: Array.from(pubkeys) }],
             {
               onevent(event) {
                 // Only keep the latest contact list per pubkey

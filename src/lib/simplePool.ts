@@ -75,6 +75,9 @@ export async function fetchEvents(
     const events: NostrToolsEvent[] = [];
     const uniqueRelays = Array.from(new Set(relays));
     
+    // Normalize filter to array
+    const filters: Filter[] = Array.isArray(filter) ? filter : [filter];
+    
     // Handle abort signal
     if (signal?.aborted) {
       reject(new DOMException('Query aborted', 'AbortError'));
@@ -83,7 +86,7 @@ export async function fetchEvents(
     
     const sub = simplePool.subscribeMany(
       uniqueRelays,
-      Array.isArray(filter) ? filter : [filter],
+      filters,
       {
         onevent: (evt: NostrToolsEvent) => {
           onevent?.(evt);

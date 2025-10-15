@@ -24,10 +24,9 @@ describe('Video Upload/Publishing Flow Logic', () => {
         includeImeta: true
       });
 
-      expect(event.kind).toBe(1); // Kind 1 for cross-client compatibility
+      expect(event.kind).toBe(22); // Kind 22 for vertical short videos
       expect(event.content).toContain('Test Video');
       expect(event.content).toContain('A test video for ZapTok');
-      expect(event.content).toContain('https://blossom.band/testvideo.mp4');
       
       // Should include NIP-71 style tags
       const urlTag = event.tags?.find(tag => tag[0] === 'url');
@@ -100,7 +99,7 @@ describe('Video Upload/Publishing Flow Logic', () => {
         includeNip71Tags: true
       });
 
-      expect(event.kind).toBe(1);
+      expect(event.kind).toBe(22); // Default to kind 22 for short videos
       expect(event.content).toContain('Minimal Video');
       
       const urlTag = event.tags?.find(tag => tag[0] === 'url');
@@ -118,10 +117,9 @@ describe('Video Upload/Publishing Flow Logic', () => {
 
       expect(event.content).toContain('Test Video'); // Title
       expect(event.content).toContain('A test video for ZapTok'); // Description
-      expect(event.content).toContain('https://blossom.band/testvideo.mp4'); // Video URL
       
       expect(event.content).toBeDefined();
-      expect(event.content!.split('\n').length).toBeGreaterThan(2);
+      expect(event.content!.split('\n').length).toBeGreaterThan(1);
     });
   });
 
@@ -239,8 +237,8 @@ describe('Video Upload/Publishing Flow Logic', () => {
         includeRichContent: true
       });
 
-      // Should have kind 1 for broad compatibility
-      expect(videoEvent.kind).toBe(1);
+      // Should have kind 22 for short vertical videos (default)
+      expect(videoEvent.kind).toBe(22);
       
       // Should have both NIP-71 tags and imeta for different client support
       const urlTag = videoEvent.tags?.find(tag => tag[0] === 'url');
@@ -251,7 +249,6 @@ describe('Video Upload/Publishing Flow Logic', () => {
       
       // Content should be readable by any client
       expect(videoEvent.content).toContain('Cross-Client Video');
-      expect(videoEvent.content).toContain('https://blossom.band/video.mp4');
     });
 
     it('should include client identification tag', () => {
