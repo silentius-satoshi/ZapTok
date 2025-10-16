@@ -732,82 +732,53 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               )}
             </div>
 
-            {/* Duration Display - Top Center */}
-            {isRecording && (
+            {/* Duration Display - Top Center (only during recording) */}
+            {isRecording && !recordedBlob && (
               <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 px-4 py-2 rounded-full bg-red-600 text-white font-mono text-sm flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-white animate-pulse" />
-                {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
+                {Math.floor(recordingDuration / 60).toString().padStart(2, '0')}:{(recordingDuration % 60).toString().padStart(2, '0')}
               </div>
             )}
 
-            {/* Bottom Controls */}
-            <div className="absolute bottom-0 left-0 right-0 z-40 pb-8 pt-12 bg-gradient-to-t from-black/80 to-transparent">
-              <div className="flex items-center justify-between px-6">
-                {/* Upload File Button - Bottom Left */}
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full bg-gray-800/70 hover:bg-gray-700 text-white h-14 w-14"
-                >
-                  <ImageIcon className="h-6 w-6" />
-                </Button>
-
-                {/* Center Record/Pause Button */}
-                <div className="flex flex-col items-center gap-2">
-                  {recordedBlob ? (
-                    // Show "Next" button after recording
-                    <Button
-                      onClick={handleUseRecording}
-                      size="lg"
-                      className="rounded-full h-20 w-20 bg-gradient-to-r from-purple-600 to-orange-600 hover:from-purple-700 hover:to-orange-700"
-                    >
-                      <CheckCircle2 className="h-8 w-8" />
-                    </Button>
-                  ) : (
-                    <button
-                      onClick={handleRecordPauseClick}
-                      className="relative h-20 w-20 rounded-full border-4 border-white flex items-center justify-center bg-transparent hover:bg-white/10 transition-all"
-                    >
-                      {isRecording && !isPaused ? (
-                        <div className="w-12 h-12 bg-white" />
-                      ) : (
-                        <div className="w-16 h-16 rounded-full bg-red-600" />
-                      )}
-                    </button>
-                  )}
-                  
-                  {/* Recording control buttons */}
-                  {isRecording && !recordedBlob && (
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleStopRecording}
-                        variant="ghost"
-                        size="sm"
-                        className="text-white hover:bg-white/20"
-                      >
-                        <CheckCircle2 className="h-4 w-4 mr-1" />
-                        Done
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Re-record after recording is done */}
-                  {recordedBlob && (
+            {/* Bottom Controls - Minimal iOS-style */}
+            <div className="absolute bottom-0 left-0 right-0 z-40 pb-8 pt-12">
+              <div className="flex items-center justify-center">
+                {recordedBlob ? (
+                  // After recording: Show Next button
+                  <div className="flex gap-4">
                     <Button
                       onClick={handleReRecord}
                       variant="ghost"
-                      size="sm"
+                      size="lg"
                       className="text-white hover:bg-white/20"
                     >
-                      <RotateCcw className="h-4 w-4 mr-1" />
+                      <RotateCcw className="h-5 w-5 mr-2" />
                       Re-record
                     </Button>
-                  )}
-                </div>
-
-                {/* Right side placeholder for symmetry */}
-                <div className="h-14 w-14" />
+                    <Button
+                      onClick={handleUseRecording}
+                      size="lg"
+                      className="bg-white text-black hover:bg-gray-200"
+                    >
+                      Next
+                      <CheckCircle2 className="h-5 w-5 ml-2" />
+                    </Button>
+                  </div>
+                ) : (
+                  // During camera preview or recording: Simple record button
+                  <button
+                    onClick={handleRecordPauseClick}
+                    className="relative h-20 w-20 rounded-full border-4 border-white flex items-center justify-center bg-transparent transition-all"
+                  >
+                    {isRecording ? (
+                      // Square stop button when recording
+                      <div className="w-8 h-8 bg-red-600 rounded-sm" />
+                    ) : (
+                      // Red circle for start recording
+                      <div className="w-16 h-16 rounded-full bg-red-600" />
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
