@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X, RefreshCw, Trash2, Download, Volume2, VolumeX } from 'lucide-react';
+import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X, RefreshCw, Trash2, Download, Volume2, VolumeX, Settings, Circle, Grid3x3, Sparkles } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
@@ -36,6 +36,13 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const { mutate: createEvent } = useNostrPublish();
   const { toast } = useToast();
 
+  // Recording quality settings - defined before useRecordVideo
+  type VideoQuality = 'high' | 'main' | 'baseline';
+  const [videoQuality, setVideoQuality] = useState<VideoQuality>('main'); // Default to Main profile
+  const [showQualitySettings, setShowQualitySettings] = useState(false);
+  const [flashEnabled, setFlashEnabled] = useState(false);
+  const [flashSupported, setFlashSupported] = useState(false);
+
   // Recording state from useRecordVideo hook
   const {
     isRecording,
@@ -53,7 +60,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     resetRecording,
     createFile,
     switchCamera,
-  } = useRecordVideo();
+  } = useRecordVideo({ quality: videoQuality });
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoMetadata, setVideoMetadata] = useState<VideoMetadata>({
@@ -269,6 +276,36 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     }
   }, [stream]);
 
+  // Check flash support and apply flash state
+  useEffect(() => {
+    if (!stream) {
+      setFlashSupported(false);
+      return;
+    }
+
+    const videoTrack = stream.getVideoTracks()[0];
+    if (!videoTrack) {
+      setFlashSupported(false);
+      return;
+    }
+
+    // Check if torch (flash) is supported
+    const capabilities = videoTrack.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean };
+    const supported = capabilities && 'torch' in capabilities;
+    setFlashSupported(!!supported);
+
+    // Apply flash state if supported
+    if (supported) {
+      videoTrack.applyConstraints({
+        // @ts-expect-error - torch is not in standard TypeScript types yet
+        advanced: [{ torch: flashEnabled }]
+      }).catch((err) => {
+        console.error('Failed to toggle flash:', err);
+        // Silently fail - some devices report support but don't actually support it
+      });
+    }
+  }, [stream, flashEnabled]);
+
   // Track recording processing state
   useEffect(() => {
     // When recording stops but blob isn't ready yet, show loading
@@ -294,6 +331,25 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       });
     }
   }, [recordedBlob, uploadStep]);
+
+  // Create and manage blob URL for recorded video
+  useEffect(() => {
+    if (recordedBlob) {
+      // Create blob URL once when recording is complete
+      const blobUrl = URL.createObjectURL(recordedBlob);
+      setPreviewUrl(blobUrl);
+      
+      // Cleanup blob URL when component unmounts or blob changes
+      return () => {
+        if (blobUrl) {
+          URL.revokeObjectURL(blobUrl);
+        }
+      };
+    } else {
+      // Clear preview URL when no blob
+      setPreviewUrl(null);
+    }
+  }, [recordedBlob]);
 
   // Load video metadata when entering preview screen
   useEffect(() => {
@@ -897,6 +953,22 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         hideClose
         className="p-0 gap-0 border-0 bg-transparent max-w-none w-full h-full md:max-w-2xl md:h-[90vh] overflow-hidden"
       >
+        {/* Hidden accessibility elements for screen readers */}
+        <DialogTitle className="sr-only">
+          {uploadStep === 'camera' ? 'Record Video' : 
+           uploadStep === 'preview' ? 'Preview Video' : 
+           uploadStep === 'metadata' ? 'Add Video Details' : 
+           uploadStep === 'uploading' ? 'Uploading Video' : 
+           'Upload Complete'}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          {uploadStep === 'camera' ? 'Record a video using your camera' : 
+           uploadStep === 'preview' ? 'Preview your recorded video before publishing' : 
+           uploadStep === 'metadata' ? 'Enter title, description, and hashtags for your video' : 
+           uploadStep === 'uploading' ? 'Your video is being uploaded to the server' : 
+           'Your video has been successfully uploaded'}
+        </DialogDescription>
+
         {/* Camera View - Matches VideoCard dimensions exactly */}
         {uploadStep === 'camera' && (
           <div className="relative w-full h-full bg-black md:rounded-3xl md:border-2 md:border-gray-800 overflow-hidden md:shadow-2xl">
@@ -908,16 +980,111 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               <X className="h-6 w-6 text-white" />
             </button>
 
-            {/* Flip Camera Button - Top Right (show when camera is active, hide when video is recorded) */}
+            {/* Settings Button - Top Right (show when camera is active, hide when video is recorded) */}
             {!recordedBlob && (
               <button
-                onClick={switchCamera}
+                onClick={() => setShowQualitySettings(!showQualitySettings)}
                 disabled={isRecording}
                 className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title={facingMode === 'user' ? 'Switch to back camera' : 'Switch to front camera'}
+                title="Camera settings"
               >
-                <RefreshCw className="h-6 w-6 text-white" />
+                <Settings className="h-6 w-6 text-white" />
               </button>
+            )}
+
+            {/* Camera Settings Panel - iPhone Style */}
+            {showQualitySettings && !recordedBlob && (
+              <div className="absolute inset-0 z-40 bg-black/95 backdrop-blur-xl flex items-center justify-center">
+                <div className="w-full max-w-sm px-8">
+                  {/* Close Settings Button */}
+                  <button
+                    onClick={() => setShowQualitySettings(false)}
+                    className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                  >
+                    <X className="h-6 w-6 text-white" />
+                  </button>
+
+                  {/* Settings Grid - 3 buttons layout */}
+                  <div className="grid grid-cols-3 gap-6 mb-8">
+                    {/* Flash */}
+                    <div className="flex flex-col items-center gap-3">
+                      <button
+                        onClick={() => setFlashEnabled(!flashEnabled)}
+                        disabled={!flashSupported || isRecording}
+                        className={`w-20 h-20 rounded-full flex items-center justify-center transition-colors ${
+                          flashSupported 
+                            ? flashEnabled 
+                              ? 'bg-yellow-500/90' 
+                              : 'bg-white/10 hover:bg-white/20'
+                            : 'bg-white/10 opacity-50 cursor-not-allowed'
+                        }`}
+                        title={flashSupported ? 'Toggle flash' : 'Flash not supported on this device'}
+                      >
+                        <Zap className={`h-8 w-8 ${flashEnabled ? 'text-white' : 'text-white'}`} strokeWidth={1.5} />
+                      </button>
+                      <span className={`text-white text-xs font-medium ${!flashSupported ? 'opacity-50' : ''}`}>
+                        FLASH
+                      </span>
+                    </div>
+
+                    {/* Live (disabled for now) */}
+                    <div className="flex flex-col items-center gap-3">
+                      <button
+                        disabled
+                        className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center opacity-50 cursor-not-allowed"
+                      >
+                        <Circle className="h-8 w-8 text-white" strokeWidth={1.5} />
+                      </button>
+                      <span className="text-white text-xs font-medium opacity-50">LIVE</span>
+                    </div>
+
+                    {/* Recording Quality - Active Button */}
+                    <div className="flex flex-col items-center gap-3">
+                      <button
+                        onClick={() => {
+                          // Cycle through quality options
+                          const qualities: Array<'high' | 'main' | 'baseline'> = ['high', 'main', 'baseline'];
+                          const currentIndex = qualities.indexOf(videoQuality);
+                          const nextIndex = (currentIndex + 1) % qualities.length;
+                          setVideoQuality(qualities[nextIndex]);
+                        }}
+                        disabled={isRecording}
+                        className={`w-20 h-20 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 ${
+                          videoQuality === 'high' 
+                            ? 'bg-yellow-500/90' 
+                            : videoQuality === 'main'
+                            ? 'bg-blue-500/90'
+                            : 'bg-green-500/90'
+                        }`}
+                      >
+                        <div className="text-center">
+                          <Video className="h-6 w-6 text-white mx-auto mb-1" strokeWidth={2} />
+                          <div className="text-[10px] font-bold text-white leading-tight">
+                            {videoQuality === 'high' ? 'HIGH' : videoQuality === 'main' ? 'MAIN' : 'BASE'}
+                          </div>
+                        </div>
+                      </button>
+                      <span className="text-white text-xs font-medium leading-tight">
+                        RECORDING<br />QUALITY
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quality Description */}
+                  <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
+                    <div className="text-white text-sm font-medium mb-1">
+                      {videoQuality === 'high' && 'High Quality'}
+                      {videoQuality === 'main' && 'Main Quality (Default)'}
+                      {videoQuality === 'baseline' && 'Baseline Quality'}
+                    </div>
+                    <div className="text-white/70 text-xs">
+                      {videoQuality === 'high' && 'H.264 High Profile - Best quality, works on newest devices'}
+                      {videoQuality === 'main' && 'H.264 Main Profile - Better compression, works on modern devices'}
+                      {videoQuality === 'baseline' && 'H.264 Baseline Profile - Maximum compatibility, works on all devices'}
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Camera Preview or Recorded Video Playback */}
@@ -927,7 +1094,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                 <video
                   key="recorded-video"
                   ref={videoRef}
-                  src={URL.createObjectURL(recordedBlob)}
+                  src={previewUrl || ''}
                   className="w-full h-full object-cover"
                   playsInline
                   loop
@@ -974,6 +1141,18 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
             {/* Bottom Controls - Minimal iOS-style */}
             <div className="absolute bottom-0 left-0 right-0 z-40 pb-8 pt-12">
+              {/* Flip Camera Button - Bottom Right */}
+              {!recordedBlob && !isRecordingProcessing && (
+                <button
+                  onClick={switchCamera}
+                  disabled={isRecording}
+                  className="absolute bottom-8 right-6 p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={facingMode === 'user' ? 'Switch to back camera' : 'Switch to front camera'}
+                >
+                  <RefreshCw className="h-6 w-6 text-white" />
+                </button>
+              )}
+
               <div className="relative flex items-center justify-center">
                 {isRecordingProcessing ? (
                   // Processing recorded video
@@ -1086,7 +1265,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               <video
                 key={`preview-${recordedBlob.size}`}
                 ref={videoRef}
-                src={URL.createObjectURL(recordedBlob)}
+                src={previewUrl || ''}
                 className="w-full h-full object-cover"
                 playsInline
                 muted={isPreviewMuted}

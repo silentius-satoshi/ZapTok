@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
+export type VideoQuality = 'high' | 'main' | 'baseline';
+
 interface UseRecordVideoReturn {
   // State
   isRecording: boolean;
@@ -21,7 +23,12 @@ interface UseRecordVideoReturn {
   switchCamera: () => Promise<void>;
 }
 
-export function useRecordVideo(): UseRecordVideoReturn {
+interface UseRecordVideoOptions {
+  quality?: VideoQuality;
+}
+
+export function useRecordVideo(options: UseRecordVideoOptions = {}): UseRecordVideoReturn {
+  const { quality = 'main' } = options;
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
@@ -85,22 +92,44 @@ export function useRecordVideo(): UseRecordVideoReturn {
     }
 
     try {
-      // Determine the best MIME type for the browser
+      // Determine the best MIME type for the browser based on quality setting
       // Priority: H.264 MP4 (most compatible) > WebM VP9 > WebM VP8 > WebM (generic)
       let mimeType = '';
       
       // Try H.264 MP4 first (most compatible - works on iOS, Android, Desktop)
-      const h264Types = [
-        'video/mp4;codecs=avc1.42E01E,mp4a.40.2', // H.264 Baseline + AAC
-        'video/mp4;codecs=avc1.4D401E,mp4a.40.2', // H.264 Main + AAC
-        'video/mp4;codecs=avc1,mp4a.40.2',        // H.264 generic + AAC
-        'video/mp4',                               // MP4 generic
-      ];
+      // Select codec based on quality setting
+      const h264Types: string[] = [];
+      
+      if (quality === 'high') {
+        // H.264 High Profile - Best quality, newest devices
+        h264Types.push(
+          'video/mp4;codecs=avc1.64001F,mp4a.40.2', // H.264 High Profile Level 3.1 + AAC
+          'video/mp4;codecs=avc1.640028,mp4a.40.2', // H.264 High Profile Level 4.0 + AAC
+          'video/mp4;codecs=avc1,mp4a.40.2',        // H.264 generic + AAC
+          'video/mp4'                                // MP4 generic
+        );
+      } else if (quality === 'main') {
+        // H.264 Main Profile - Better compression, modern devices
+        h264Types.push(
+          'video/mp4;codecs=avc1.4D401E,mp4a.40.2', // H.264 Main Profile Level 3.0 + AAC
+          'video/mp4;codecs=avc1.4D4028,mp4a.40.2', // H.264 Main Profile Level 4.0 + AAC
+          'video/mp4;codecs=avc1,mp4a.40.2',        // H.264 generic + AAC
+          'video/mp4'                                // MP4 generic
+        );
+      } else {
+        // H.264 Baseline Profile - Maximum compatibility, all devices
+        h264Types.push(
+          'video/mp4;codecs=avc1.42E01E,mp4a.40.2', // H.264 Baseline Level 3.0 + AAC
+          'video/mp4;codecs=avc1.42001E,mp4a.40.2', // H.264 Baseline Level 3.0 + AAC (alternative)
+          'video/mp4;codecs=avc1,mp4a.40.2',        // H.264 generic + AAC
+          'video/mp4'                                // MP4 generic
+        );
+      }
       
       for (const type of h264Types) {
         if (MediaRecorder.isTypeSupported(type)) {
           mimeType = type;
-          console.log('Using H.264 MP4 format:', type);
+          console.log(`Using H.264 MP4 format (${quality} quality):`, type);
           break;
         }
       }
@@ -194,7 +223,7 @@ export function useRecordVideo(): UseRecordVideoReturn {
       console.error('Failed to start recording:', err);
       setError('Failed to start recording. Please try again.');
     }
-  }, [stream]);
+  }, [stream, quality]);
 
   // Stop recording
   const stopRecording = useCallback(() => {
