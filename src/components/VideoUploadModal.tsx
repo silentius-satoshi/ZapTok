@@ -294,6 +294,29 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     }
   }, [recordedBlob, uploadStep]);
 
+  // Load video metadata when entering preview screen
+  useEffect(() => {
+    if (uploadStep === 'preview' && videoRef.current && recordedBlob) {
+      // Force load metadata
+      videoRef.current.load();
+      
+      // Set duration once metadata is loaded
+      const handleMetadata = () => {
+        if (videoRef.current && !isNaN(videoRef.current.duration)) {
+          setPreviewDuration(videoRef.current.duration);
+        }
+      };
+      
+      videoRef.current.addEventListener('loadedmetadata', handleMetadata);
+      
+      return () => {
+        if (videoRef.current) {
+          videoRef.current.removeEventListener('loadedmetadata', handleMetadata);
+        }
+      };
+    }
+  }, [uploadStep, recordedBlob]);
+
   // Handle recorded video
   const handleUseRecording = useCallback(() => {
     if (!recordedBlob) return;
@@ -960,6 +983,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                 onTimeUpdate={handlePreviewTimeUpdate}
                 onLoadedMetadata={handlePreviewLoadedMetadata}
                 playsInline
+                preload="metadata"
                 loop
               />
 
@@ -973,8 +997,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               )}
             </div>
 
-            {/* Progress Bar - Bottom */}
-            <div className="absolute bottom-20 left-0 right-0 z-40">
+            {/* Progress Bar - Middle area above action buttons */}
+            <div className="absolute bottom-32 left-0 right-0 z-40">
               <div className="px-4">
                 {/* Time Display */}
                 <div className="flex justify-between text-white text-xs mb-2 px-2">
