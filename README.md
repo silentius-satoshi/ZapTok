@@ -342,18 +342,22 @@ Help us continue building and improving ZapTok. Your support enables us to maint
 
 <div align="center">
 
-<table style="border: none; border-collapse: collapse;">
-<tr>
-<td align="center" style="border: none; padding: 0;">
-<img src="./public/images/qr-npub.png" alt="Nostr Profile QR Code" width="200" height="200" style="display: block;"/>
-<br/>
+<table style="border: 0;">
+<tr style="border: 0;">
+<td align="center" style="border: 0; background: transparent;">
+
+<img src="./public/images/qr-npub.png" alt="Nostr Profile QR Code" width="250" height="250"/>
+
 <em>Follow us on</em> <strong><a href="https://njump.me/npub187ffdcqg4k56x2x3wmtlu6wkawuzm5k5wvzj980p0uvx3ek6tg7svrdkx8">nostr</a></strong>
+
 </td>
-<td width="40" style="border: none;"></td>
-<td align="center" style="border: none; padding: 0;">
-<img src="./public/images/qr-lightning.png" alt="Lightning Address QR Code" width="200" height="200" style="display: block;"/>
-<br/>
-<em>Zap to show your support for ZapTok development:</em> <strong>zaptok@strike.me</strong>
+<td width="80" style="border: 0; background: transparent;"></td>
+<td align="center" style="border: 0; background: transparent;">
+
+<img src="./public/images/qr-lightning.png" alt="Lightning Address QR Code" width="250" height="250"/>
+
+<em>Zap to show your support for ZapTok development:</em><br/><strong>zaptok@strike.me</strong>
+
 </td>
 </tr>
 </table>
