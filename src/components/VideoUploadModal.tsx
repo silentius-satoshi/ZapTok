@@ -270,11 +270,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const handleUseRecording = useCallback(() => {
     if (!recordedBlob) return;
     
-    const file = createFile(`recording-${Date.now()}.webm`);
-    if (file) {
-      processFile(file);
-    }
-  }, [recordedBlob, createFile, processFile]);
+    // Go to preview screen instead of directly processing
+    setUploadStep('preview');
+  }, [recordedBlob]);
 
   // Handle re-record - fully reset and restart camera
   const handleReRecord = useCallback(async () => {
@@ -316,8 +314,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
   const handleStopRecording = useCallback(() => {
     stopRecording();
-    // Switch to preview screen after stopping
-    setUploadStep('preview');
+    // Don't auto-navigate - let user choose Next or Re-record
   }, [stopRecording]);
 
   // Preview video controls
