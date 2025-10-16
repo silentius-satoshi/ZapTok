@@ -71,6 +71,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const [retryInfo, setRetryInfo] = useState<string>('');
   const [currentServer, setCurrentServer] = useState<string>('');
   const [uploadAttempts, setUploadAttempts] = useState<{server: string, attempt: number, error?: string}[]>([]);
+  const [isRecordingProcessing, setIsRecordingProcessing] = useState(false);
 
   // Preview playback state
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
@@ -266,6 +267,26 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     }
   }, [stream]);
 
+  // Track recording processing state
+  useEffect(() => {
+    // When recording stops but blob isn't ready yet, show loading
+    if (!isRecording && !recordedBlob && isRecordingProcessing) {
+      // Still processing
+    } else if (!isRecording && recordedBlob) {
+      // Processing complete
+      setIsRecordingProcessing(false);
+    }
+  }, [isRecording, recordedBlob, isRecordingProcessing]);
+
+  // Auto-play recorded video when it's ready
+  useEffect(() => {
+    if (recordedBlob && videoRef.current && uploadStep === 'camera') {
+      videoRef.current.play().catch((err) => {
+        console.log('Auto-play blocked:', err);
+      });
+    }
+  }, [recordedBlob, uploadStep]);
+
   // Handle recorded video
   const handleUseRecording = useCallback(() => {
     if (!recordedBlob) return;
@@ -277,6 +298,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   // Handle re-record - fully reset and restart camera
   const handleReRecord = useCallback(async () => {
     console.log('Re-record: Resetting recording state...');
+    
+    // Reset processing state
+    setIsRecordingProcessing(false);
     
     // First, reset the recording state (clears recordedBlob)
     resetRecording();
@@ -314,6 +338,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
   const handleStopRecording = useCallback(() => {
     stopRecording();
+    setIsRecordingProcessing(true);
     // Don't auto-navigate - let user choose Next or Re-record
   }, [stopRecording]);
 
@@ -767,15 +792,18 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               {recordedBlob ? (
                 // Playback after recording
                 <video
+                  key="recorded-video"
                   ref={videoRef}
                   src={URL.createObjectURL(recordedBlob)}
-                  controls
                   className="w-full h-full object-cover"
-                  autoPlay
+                  playsInline
+                  loop
+                  muted={false}
                 />
               ) : (
                 // Live camera preview - mirrored for front-facing camera only
                 <video
+                  key="camera-preview"
                   ref={cameraPreviewRef}
                   autoPlay
                   playsInline
@@ -814,7 +842,13 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             {/* Bottom Controls - Minimal iOS-style */}
             <div className="absolute bottom-0 left-0 right-0 z-40 pb-8 pt-12">
               <div className="flex items-center justify-center">
-                {recordedBlob ? (
+                {isRecordingProcessing ? (
+                  // Processing recorded video
+                  <div className="text-white text-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"></div>
+                    <p className="text-sm">Processing video...</p>
+                  </div>
+                ) : recordedBlob ? (
                   // After recording: Show Next button
                   <div className="flex gap-4">
                     <Button
