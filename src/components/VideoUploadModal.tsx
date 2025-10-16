@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X, RefreshCw, Trash2, Download, Volume2, VolumeX, Settings, Circle, Grid3x3, Sparkles } from 'lucide-react';
+import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X, RefreshCw, Trash2, Download, Volume2, VolumeX, Settings, Circle, Grid3x3, Sparkles, ZapOff } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
@@ -35,6 +36,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Recording quality settings - defined before useRecordVideo
   type VideoQuality = 'high' | 'main' | 'baseline';
@@ -290,12 +292,17 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     }
 
     // Check if torch (flash) is supported
+    // Note: Front-facing cameras typically don't support hardware torch
     const capabilities = videoTrack.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean };
-    const supported = capabilities && 'torch' in capabilities;
+    const hasTorchCapability = capabilities && 'torch' in capabilities;
+    
+    // Front cameras on mobile devices (facingMode === 'user') typically don't have hardware flash
+    // Only rear cameras (facingMode === 'environment') support torch
+    const supported = hasTorchCapability && facingMode === 'environment';
     setFlashSupported(!!supported);
 
     // Apply flash state if supported
-    if (supported) {
+    if (supported && flashEnabled) {
       // iOS Safari requires different constraint format
       const constraints: any = {
         advanced: [{ torch: flashEnabled }]
@@ -315,7 +322,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
           // Silently fail - some devices report support but don't actually support it
         });
     }
-  }, [stream, flashEnabled]);
+  }, [stream, flashEnabled, facingMode]);
 
   // Track recording processing state
   useEffect(() => {
@@ -993,14 +1000,32 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
             {/* Settings Button - Top Right (show when camera is active, hide when video is recorded) */}
             {!recordedBlob && (
-              <button
-                onClick={() => setShowQualitySettings(!showQualitySettings)}
-                disabled={isRecording}
-                className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Camera settings"
-              >
-                <Settings className="h-6 w-6 text-white" />
-              </button>
+              <>
+                {/* Flash Toggle Button - Only show for rear camera */}
+                {flashSupported && facingMode === 'environment' && (
+                  <button
+                    onClick={() => setFlashEnabled(!flashEnabled)}
+                    disabled={isRecording}
+                    className="absolute top-4 right-16 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={flashEnabled ? 'Turn off flash' : 'Turn on flash'}
+                  >
+                    {flashEnabled ? (
+                      <Zap className="h-6 w-6 text-yellow-400 fill-yellow-400" />
+                    ) : (
+                      <ZapOff className="h-6 w-6 text-white" />
+                    )}
+                  </button>
+                )}
+                
+                <button
+                  onClick={() => setShowQualitySettings(!showQualitySettings)}
+                  disabled={isRecording}
+                  className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Camera settings"
+                >
+                  <Settings className="h-6 w-6 text-white" />
+                </button>
+              </>
             )}
 
             {/* Camera Settings Panel - iPhone Style */}
@@ -1038,15 +1063,20 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                       </span>
                     </div>
 
-                    {/* Live (disabled for now) */}
+                    {/* Live - Navigate to stream page */}
                     <div className="flex flex-col items-center gap-3">
                       <button
-                        disabled
-                        className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center opacity-50 cursor-not-allowed"
+                        onClick={() => {
+                          handleClose();
+                          navigate('/stream');
+                        }}
+                        disabled={isRecording}
+                        className="w-20 h-20 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Go to Live Stream"
                       >
                         <Circle className="h-8 w-8 text-white" strokeWidth={1.5} />
                       </button>
-                      <span className="text-white text-xs font-medium opacity-50">LIVE</span>
+                      <span className="text-white text-xs font-medium">LIVE</span>
                     </div>
 
                     {/* Recording Quality - Active Button */}
@@ -1101,12 +1131,13 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             {/* Camera Preview or Recorded Video Playback */}
             <div className="w-full h-full flex items-center justify-center">
               {recordedBlob ? (
-                // Playback after recording
+                // Playback after recording - mirrored if recorded with front camera
                 <video
                   key="recorded-video"
                   ref={videoRef}
                   src={previewUrl || ''}
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                  style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
                   playsInline
                   loop
                   muted={false}
@@ -1152,8 +1183,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
             {/* Bottom Controls - Minimal iOS-style */}
             <div className="absolute bottom-0 left-0 right-0 z-40 pb-8 pt-12">
-              {/* Flip Camera Button - Bottom Right */}
-              {!recordedBlob && !isRecordingProcessing && (
+              {/* Flip Camera Button - Bottom Right (hidden during paused state and when recorded) */}
+              {!recordedBlob && !isRecordingProcessing && !isPaused && (
                 <button
                   onClick={switchCamera}
                   disabled={isRecording}
@@ -1277,7 +1308,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                 key={`preview-${recordedBlob.size}`}
                 ref={videoRef}
                 src={previewUrl || ''}
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
                 playsInline
                 muted={isPreviewMuted}
                 loop
