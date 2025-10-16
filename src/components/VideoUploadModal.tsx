@@ -296,23 +296,67 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
   // Load video metadata when entering preview screen
   useEffect(() => {
+    console.log('useEffect triggered - uploadStep:', uploadStep, 'videoRef.current:', !!videoRef.current, 'recordedBlob:', !!recordedBlob);
+    
     if (uploadStep === 'preview' && videoRef.current && recordedBlob) {
-      // Force load metadata
-      videoRef.current.load();
+      console.log('Preview screen: Loading video metadata');
+      console.log('Blob size:', recordedBlob.size);
+      console.log('Blob type:', recordedBlob.type);
+      
+      const video = videoRef.current;
       
       // Set duration once metadata is loaded
       const handleMetadata = () => {
-        if (videoRef.current && !isNaN(videoRef.current.duration)) {
-          setPreviewDuration(videoRef.current.duration);
+        console.log('Metadata loaded - Duration:', video.duration);
+        console.log('Is duration finite?', isFinite(video.duration));
+        if (isFinite(video.duration) && video.duration > 0) {
+          setPreviewDuration(video.duration);
+        } else {
+          console.warn('Duration is Infinity, will track via playback');
         }
       };
       
-      videoRef.current.addEventListener('loadedmetadata', handleMetadata);
+      const handleDurationChange = () => {
+        console.log('Duration changed - New duration:', video.duration);
+        if (isFinite(video.duration) && video.duration > 0) {
+          setPreviewDuration(video.duration);
+        }
+      };
+      
+      const handleEnded = () => {
+        console.log('Video ended - Final currentTime:', video.currentTime);
+        // When video ends, use currentTime as duration
+        if (!isFinite(previewDuration) && video.currentTime > 0) {
+          setPreviewDuration(video.currentTime);
+        }
+      };
+      
+      const handleError = (e: Event) => {
+        console.error('Video error:', e);
+        console.error('Video error code:', video.error?.code);
+        console.error('Video error message:', video.error?.message);
+      };
+      
+      const handleCanPlay = () => {
+        console.log('Video can play - readyState:', video.readyState);
+        console.log('Video duration at canplay:', video.duration);
+      };
+      
+      video.addEventListener('loadedmetadata', handleMetadata);
+      video.addEventListener('durationchange', handleDurationChange);
+      video.addEventListener('ended', handleEnded);
+      video.addEventListener('error', handleError);
+      video.addEventListener('canplay', handleCanPlay);
+      
+      // Force load metadata
+      video.load();
       
       return () => {
-        if (videoRef.current) {
-          videoRef.current.removeEventListener('loadedmetadata', handleMetadata);
-        }
+        video.removeEventListener('loadedmetadata', handleMetadata);
+        video.removeEventListener('durationchange', handleDurationChange);
+        video.removeEventListener('ended', handleEnded);
+        video.removeEventListener('error', handleError);
+        video.removeEventListener('canplay', handleCanPlay);
       };
     }
   }, [uploadStep, recordedBlob]);
@@ -379,33 +423,68 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
   // Preview video controls
   const handlePreviewPlayPause = useCallback(() => {
-    if (!videoRef.current) return;
+    console.log('handlePreviewPlayPause clicked');
+    if (!videoRef.current) {
+      console.log('videoRef.current is null');
+      return;
+    }
+    
+    console.log('Current playing state:', isPreviewPlaying);
+    console.log('Video paused?', videoRef.current.paused);
     
     if (isPreviewPlaying) {
+      console.log('Pausing video');
       videoRef.current.pause();
     } else {
-      videoRef.current.play();
+      console.log('Playing video');
+      videoRef.current.play().then(() => {
+        console.log('Video started playing successfully');
+      }).catch((err) => {
+        console.error('Failed to play video:', err);
+      });
     }
   }, [isPreviewPlaying]);
 
   const handlePreviewTimeUpdate = useCallback(() => {
     if (videoRef.current) {
-      setPreviewCurrentTime(videoRef.current.currentTime);
+      const currentTime = videoRef.current.currentTime;
+      console.log('Time update:', currentTime);
+      setPreviewCurrentTime(currentTime);
+      
+      // If duration is still Infinity, try to get it from currentTime when video ends
+      if (!isFinite(previewDuration) && currentTime > 0) {
+        // Update duration as video plays (for streaming/infinite duration videos)
+        if (currentTime > previewDuration || !isFinite(previewDuration)) {
+          console.log('Updating duration to:', currentTime);
+          setPreviewDuration(currentTime);
+        }
+      }
     }
-  }, []);
+  }, [previewDuration]);
 
   const handlePreviewLoadedMetadata = useCallback(() => {
-    if (videoRef.current && !isNaN(videoRef.current.duration)) {
-      setPreviewDuration(videoRef.current.duration);
+    console.log('handlePreviewLoadedMetadata called');
+    if (videoRef.current) {
+      const duration = videoRef.current.duration;
+      console.log('Video duration from callback:', duration);
+      console.log('Is duration finite?', isFinite(duration));
+      
+      if (isFinite(duration) && duration > 0) {
+        setPreviewDuration(duration);
+      } else {
+        console.warn('Duration is Infinity or invalid, will track via playback');
+        // Duration is Infinity - this is common with WebM from MediaRecorder
+        // We'll track duration as the video plays
+      }
     }
   }, []);
 
   const handlePreviewSeek = useCallback((newTime: number) => {
-    if (videoRef.current) {
+    if (videoRef.current && isFinite(newTime) && isFinite(previewDuration)) {
       videoRef.current.currentTime = newTime;
       setPreviewCurrentTime(newTime);
     }
-  }, []);
+  }, [previewDuration]);
 
   const handleDeleteRecording = useCallback(() => {
     resetRecording();
@@ -970,68 +1049,23 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               <X className="h-6 w-6 text-white" />
             </button>
 
-            {/* Video Preview */}
-            <div className="w-full h-full flex items-center justify-center">
+            {/* Video Preview - Simple thumbnail */}
+            <div className="w-full h-full flex items-center justify-center bg-gray-900">
               <video
                 key={`preview-${recordedBlob.size}`}
                 ref={videoRef}
                 src={URL.createObjectURL(recordedBlob)}
-                className="w-full h-full object-cover cursor-pointer"
-                onClick={handlePreviewPlayPause}
-                onPlay={() => setIsPreviewPlaying(true)}
-                onPause={() => setIsPreviewPlaying(false)}
-                onTimeUpdate={handlePreviewTimeUpdate}
-                onLoadedMetadata={handlePreviewLoadedMetadata}
+                className="w-full h-full object-cover"
                 playsInline
-                preload="metadata"
+                muted
                 loop
+                autoPlay
               />
-
-              {/* Play/Pause Overlay */}
-              {!isPreviewPlaying && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="bg-black/50 rounded-full p-6">
-                    <Play className="h-16 w-16 text-white" fill="white" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Progress Bar - Middle area above action buttons */}
-            <div className="absolute bottom-32 left-0 right-0 z-40">
-              <div className="px-4">
-                {/* Time Display */}
-                <div className="flex justify-between text-white text-xs mb-2 px-2">
-                  <span>
-                    {isNaN(previewCurrentTime) ? '0:00' : `${Math.floor(previewCurrentTime / 60)}:${Math.floor(previewCurrentTime % 60).toString().padStart(2, '0')}`}
-                  </span>
-                  <span>
-                    {isNaN(previewDuration) ? '0:00' : `${Math.floor(previewDuration / 60)}:${Math.floor(previewDuration % 60).toString().padStart(2, '0')}`}
-                  </span>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="relative h-1 bg-gray-600 rounded-full cursor-pointer"
-                  onClick={(e) => {
-                    if (isNaN(previewDuration) || previewDuration === 0) return;
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const percentage = x / rect.width;
-                    handlePreviewSeek(percentage * previewDuration);
-                  }}
-                >
-                  <div 
-                    className="absolute top-0 left-0 h-full bg-white rounded-full"
-                    style={{ width: isNaN(previewDuration) || previewDuration === 0 ? '0%' : `${(previewCurrentTime / previewDuration) * 100}%` }}
-                  />
-                  {/* Draggable handle */}
-                  <div 
-                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg"
-                    style={{ 
-                      left: isNaN(previewDuration) || previewDuration === 0 ? '0%' : `${(previewCurrentTime / previewDuration) * 100}%`, 
-                      transform: 'translate(-50%, -50%)' 
-                    }}
-                  />
+              
+              {/* Info overlay */}
+              <div className="absolute top-20 left-0 right-0 z-40 flex justify-center pointer-events-none">
+                <div className="bg-black/70 backdrop-blur-sm px-4 py-2 rounded-full">
+                  <p className="text-white text-sm">Recording ready to publish</p>
                 </div>
               </div>
             </div>

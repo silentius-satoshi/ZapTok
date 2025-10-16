@@ -112,15 +112,26 @@ export function useRecordVideo(): UseRecordVideoReturn {
 
       // Handle recording stop
       mediaRecorder.onstop = () => {
+        console.log('MediaRecorder stopped, creating blob from', chunksRef.current.length, 'chunks');
         const blob = new Blob(chunksRef.current, { type: mimeType });
+        console.log('Created blob:', blob.size, 'bytes, type:', blob.type);
         setRecordedBlob(blob);
         setIsRecording(false);
         setIsPaused(false);
+        
+        // Clear chunks after creating blob
+        chunksRef.current = [];
         
         // Stop timer
         if (timerRef.current) {
           clearInterval(timerRef.current);
           timerRef.current = null;
+        }
+        
+        // Now it's safe to stop the stream tracks
+        if (stream) {
+          console.log('Stopping stream tracks after blob creation');
+          stream.getTracks().forEach(track => track.stop());
         }
       };
 
@@ -155,14 +166,17 @@ export function useRecordVideo(): UseRecordVideoReturn {
   // Stop recording
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      // Request all pending data before stopping
+      if (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused') {
+        mediaRecorderRef.current.requestData();
+      }
+      
       mediaRecorderRef.current.stop();
       
-      // Stop all tracks in the stream
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      // DON'T stop tracks immediately - let onstop handler finish first
+      // The tracks will be stopped when we reset recording or close the modal
     }
-  }, [stream]);
+  }, []);
 
   // Pause recording
   const pauseRecording = useCallback(() => {
