@@ -301,8 +301,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     const supported = hasTorchCapability && facingMode === 'environment';
     setFlashSupported(!!supported);
 
-    // Apply flash state if supported
-    if (supported && flashEnabled) {
+    // Apply flash state if supported (both ON and OFF states)
+    if (supported) {
       // iOS Safari requires different constraint format
       const constraints: any = {
         advanced: [{ torch: flashEnabled }]
