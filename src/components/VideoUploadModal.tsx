@@ -45,6 +45,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     stream,
     duration: recordingDuration,
     facingMode,
+    initializeCamera,
     startRecording,
     stopRecording,
     pauseRecording,
@@ -239,8 +240,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       
       // Small delay to ensure cleanup has completed
       const timer = setTimeout(() => {
-        startRecording().catch((err) => {
-          console.error('Failed to start camera:', err);
+        initializeCamera().catch((err) => {
+          console.error('Failed to initialize camera:', err);
           toast({
             title: 'Camera Error',
             description: 'Unable to access camera. Please check permissions.',
@@ -251,7 +252,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       
       return () => clearTimeout(timer);
     }
-  }, [isOpen, uploadStep, selectedFile, recordedBlob, startRecording, toast]);
+  }, [isOpen, uploadStep, selectedFile, recordedBlob, initializeCamera, toast]);
 
   // Attach stream to camera preview video element
   useEffect(() => {
@@ -280,9 +281,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     // Wait a moment for state to clear
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    // Then start a fresh recording
+    // Then restart the camera (don't start recording automatically)
     try {
-      await startRecording();
+      await initializeCamera();
       console.log('Re-record: Camera restarted successfully');
     } catch (err) {
       console.error('Re-record: Failed to restart camera:', err);
@@ -292,13 +293,13 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         variant: 'destructive',
       });
     }
-  }, [resetRecording, startRecording, toast]);
+  }, [resetRecording, initializeCamera, toast]);
 
   // Handle record/pause button click
   const handleRecordPauseClick = useCallback(() => {
     if (!isRecording && !recordedBlob) {
       // Start recording (camera already initialized)
-      return; // Camera auto-starts, no action needed
+      startRecording();
     } else if (isRecording && !isPaused) {
       // Pause recording
       pauseRecording();
@@ -306,7 +307,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       // Resume recording
       resumeRecording();
     }
-  }, [isRecording, isPaused, recordedBlob, pauseRecording, resumeRecording]);
+  }, [isRecording, isPaused, recordedBlob, startRecording, pauseRecording, resumeRecording]);
 
   const handleStopRecording = useCallback(() => {
     stopRecording();
@@ -680,11 +681,12 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               <X className="h-6 w-6 text-white" />
             </button>
 
-            {/* Flip Camera Button - Top Right (only show when camera is active and not recording) */}
-            {!recordedBlob && !isRecording && (
+            {/* Flip Camera Button - Top Right (show when camera is active, hide when video is recorded) */}
+            {!recordedBlob && (
               <button
                 onClick={switchCamera}
-                className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+                disabled={isRecording}
+                className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={facingMode === 'user' ? 'Switch to back camera' : 'Switch to front camera'}
               >
                 <RefreshCw className="h-6 w-6 text-white" />

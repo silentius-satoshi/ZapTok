@@ -11,7 +11,8 @@ interface UseRecordVideoReturn {
   facingMode: 'user' | 'environment'; // Current camera facing mode
   
   // Actions
-  startRecording: (constraints?: MediaStreamConstraints) => Promise<void>;
+  initializeCamera: (constraints?: MediaStreamConstraints) => Promise<void>;
+  startRecording: () => void;
   stopRecording: () => void;
   pauseRecording: () => void;
   resumeRecording: () => void;
@@ -35,8 +36,8 @@ export function useRecordVideo(): UseRecordVideoReturn {
   const startTimeRef = useRef<number>(0);
   const pausedDurationRef = useRef<number>(0);
 
-  // Start recording with camera access
-  const startRecording = useCallback(async (constraints?: MediaStreamConstraints) => {
+  // Initialize camera without starting recording
+  const initializeCamera = useCallback(async (constraints?: MediaStreamConstraints) => {
     try {
       setError(null);
       
@@ -57,6 +58,33 @@ export function useRecordVideo(): UseRecordVideoReturn {
       
       setStream(mediaStream);
 
+    } catch (err) {
+      console.error('Failed to initialize camera:', err);
+      
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError') {
+          setError('Camera permission denied. Please allow camera access to record.');
+        } else if (err.name === 'NotFoundError') {
+          setError('No camera found. Please connect a camera to record video.');
+        } else if (err.name === 'NotReadableError') {
+          setError('Camera is already in use by another application.');
+        } else {
+          setError('Failed to access camera: ' + err.message);
+        }
+      } else {
+        setError('Failed to access camera. Please check your browser settings.');
+      }
+    }
+  }, [facingMode]);
+
+  // Start recording (camera must already be initialized)
+  const startRecording = useCallback(() => {
+    if (!stream) {
+      setError('Camera not initialized. Please try again.');
+      return;
+    }
+
+    try {
       // Determine the best MIME type for the browser
       let mimeType = 'video/webm;codecs=vp9,opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
@@ -70,7 +98,7 @@ export function useRecordVideo(): UseRecordVideoReturn {
       }
 
       // Create MediaRecorder
-      const mediaRecorder = new MediaRecorder(mediaStream, {
+      const mediaRecorder = new MediaRecorder(stream, {
         mimeType,
         videoBitsPerSecond: 2500000, // 2.5 Mbps for good quality
       });
@@ -120,22 +148,9 @@ export function useRecordVideo(): UseRecordVideoReturn {
 
     } catch (err) {
       console.error('Failed to start recording:', err);
-      
-      if (err instanceof Error) {
-        if (err.name === 'NotAllowedError') {
-          setError('Camera permission denied. Please allow camera access to record.');
-        } else if (err.name === 'NotFoundError') {
-          setError('No camera found. Please connect a camera to record video.');
-        } else if (err.name === 'NotReadableError') {
-          setError('Camera is already in use by another application.');
-        } else {
-          setError('Failed to access camera: ' + err.message);
-        }
-      } else {
-        setError('Failed to access camera. Please check your browser settings.');
-      }
+      setError('Failed to start recording. Please try again.');
     }
-  }, []);
+  }, [stream]);
 
   // Stop recording
   const stopRecording = useCallback(() => {
@@ -286,6 +301,7 @@ export function useRecordVideo(): UseRecordVideoReturn {
     stream,
     duration,
     facingMode,
+    initializeCamera,
     startRecording,
     stopRecording,
     pauseRecording,
