@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X, RefreshCw, Trash2, Download } from 'lucide-react';
+import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X, RefreshCw, Trash2, Download, Volume2, VolumeX } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
@@ -78,6 +78,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
   const [previewDuration, setPreviewDuration] = useState(0);
+  const [isPreviewMuted, setIsPreviewMuted] = useState(true); // Start muted for autoplay
 
   // No longer using old upload hooks - hybrid Blossom service handles all uploads
   const [compressionProgress, setCompressionProgress] = useState(0);
@@ -492,15 +493,24 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     setPreviewCurrentTime(0);
     setPreviewDuration(0);
     setIsPreviewPlaying(false);
+    setIsPreviewMuted(true); // Reset to muted
   }, [resetRecording]);
 
   const handleDownloadRecording = useCallback(() => {
     if (!recordedBlob) return;
     
+    // Determine file extension based on MIME type
+    let extension = '.webm';
+    if (recordedBlob.type.includes('mp4')) {
+      extension = '.mp4';
+    } else if (recordedBlob.type.includes('webm')) {
+      extension = '.webm';
+    }
+    
     const url = URL.createObjectURL(recordedBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `zaptok-recording-${Date.now()}.webm`;
+    a.download = `zaptok-recording-${Date.now()}${extension}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -512,10 +522,19 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     });
   }, [recordedBlob, toast]);
 
+  const handleToggleMute = useCallback(() => {
+    if (videoRef.current) {
+      const newMutedState = !isPreviewMuted;
+      videoRef.current.muted = newMutedState;
+      setIsPreviewMuted(newMutedState);
+    }
+  }, [isPreviewMuted]);
+
   const handlePublishToNostr = useCallback(() => {
     if (!recordedBlob) return;
     
-    const file = createFile(`recording-${Date.now()}.webm`);
+    // createFile will automatically use the correct extension based on blob type
+    const file = createFile();
     if (file) {
       processFile(file);
     }
@@ -1049,6 +1068,19 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               <X className="h-6 w-6 text-white" />
             </button>
 
+            {/* Mute/Unmute Button - Top Right */}
+            <button
+              onClick={handleToggleMute}
+              className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+              title={isPreviewMuted ? 'Unmute audio' : 'Mute audio'}
+            >
+              {isPreviewMuted ? (
+                <VolumeX className="h-6 w-6 text-white" />
+              ) : (
+                <Volume2 className="h-6 w-6 text-white" />
+              )}
+            </button>
+
             {/* Video Preview - Simple thumbnail */}
             <div className="w-full h-full flex items-center justify-center bg-gray-900">
               <video
@@ -1057,7 +1089,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                 src={URL.createObjectURL(recordedBlob)}
                 className="w-full h-full object-cover"
                 playsInline
-                muted
+                muted={isPreviewMuted}
                 loop
                 autoPlay
               />

@@ -86,15 +86,48 @@ export function useRecordVideo(): UseRecordVideoReturn {
 
     try {
       // Determine the best MIME type for the browser
-      let mimeType = 'video/webm;codecs=vp9,opus';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm;codecs=vp8,opus';
+      // Priority: H.264 MP4 (most compatible) > WebM VP9 > WebM VP8 > WebM (generic)
+      let mimeType = '';
+      
+      // Try H.264 MP4 first (most compatible - works on iOS, Android, Desktop)
+      const h264Types = [
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2', // H.264 Baseline + AAC
+        'video/mp4;codecs=avc1.4D401E,mp4a.40.2', // H.264 Main + AAC
+        'video/mp4;codecs=avc1,mp4a.40.2',        // H.264 generic + AAC
+        'video/mp4',                               // MP4 generic
+      ];
+      
+      for (const type of h264Types) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          console.log('Using H.264 MP4 format:', type);
+          break;
+        }
       }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm';
+      
+      // Fallback to WebM if H.264 not supported (Firefox)
+      if (!mimeType) {
+        const webmTypes = [
+          'video/webm;codecs=vp9,opus',  // VP9 + Opus
+          'video/webm;codecs=vp8,opus',  // VP8 + Opus
+          'video/webm;codecs=vp9',       // VP9 only
+          'video/webm;codecs=vp8',       // VP8 only
+          'video/webm',                  // WebM generic
+        ];
+        
+        for (const type of webmTypes) {
+          if (MediaRecorder.isTypeSupported(type)) {
+            mimeType = type;
+            console.log('Using WebM format:', type);
+            break;
+          }
+        }
       }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/mp4'; // Fallback for Safari
+      
+      // Last resort fallback
+      if (!mimeType) {
+        mimeType = 'video/webm'; // Should work on most browsers
+        console.warn('No preferred format supported, using generic WebM');
       }
 
       // Create MediaRecorder
@@ -244,9 +277,17 @@ export function useRecordVideo(): UseRecordVideoReturn {
       return null;
     }
 
+    // Determine file extension based on MIME type
+    let extension = '.webm'; // default
+    if (recordedBlob.type.includes('mp4')) {
+      extension = '.mp4';
+    } else if (recordedBlob.type.includes('webm')) {
+      extension = '.webm';
+    }
+
     // Generate filename with timestamp if not provided
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const name = filename || `recorded-video-${timestamp}.webm`;
+    const name = filename || `recorded-video-${timestamp}${extension}`;
     
     return new File([recordedBlob], name, { 
       type: recordedBlob.type,
