@@ -296,13 +296,24 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
     // Apply flash state if supported
     if (supported) {
-      videoTrack.applyConstraints({
-        // @ts-expect-error - torch is not in standard TypeScript types yet
+      // iOS Safari requires different constraint format
+      const constraints: any = {
         advanced: [{ torch: flashEnabled }]
-      }).catch((err) => {
-        console.error('Failed to toggle flash:', err);
-        // Silently fail - some devices report support but don't actually support it
-      });
+      };
+      
+      // Try both constraint formats for maximum compatibility
+      videoTrack.applyConstraints(constraints)
+        .catch(() => {
+          // Fallback: try direct torch property (some browsers)
+          return videoTrack.applyConstraints({ 
+            // @ts-expect-error - torch may be a top-level property on some devices
+            torch: flashEnabled 
+          });
+        })
+        .catch((err) => {
+          console.error('Failed to toggle flash:', err);
+          // Silently fail - some devices report support but don't actually support it
+        });
     }
   }, [stream, flashEnabled]);
 
@@ -1146,7 +1157,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                 <button
                   onClick={switchCamera}
                   disabled={isRecording}
-                  className="absolute bottom-8 right-6 p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="absolute bottom-8 right-6 p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-50"
                   title={facingMode === 'user' ? 'Switch to back camera' : 'Switch to front camera'}
                 >
                   <RefreshCw className="h-6 w-6 text-white" />
