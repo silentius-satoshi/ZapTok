@@ -8,6 +8,7 @@ interface UseRecordVideoReturn {
   error: string | null;
   stream: MediaStream | null;
   duration: number; // recording duration in seconds
+  facingMode: 'user' | 'environment'; // Current camera facing mode
   
   // Actions
   startRecording: (constraints?: MediaStreamConstraints) => Promise<void>;
@@ -16,6 +17,7 @@ interface UseRecordVideoReturn {
   resumeRecording: () => void;
   resetRecording: () => void;
   createFile: (filename?: string) => File | null;
+  switchCamera: () => Promise<void>;
 }
 
 export function useRecordVideo(): UseRecordVideoReturn {
@@ -25,6 +27,7 @@ export function useRecordVideo(): UseRecordVideoReturn {
   const [error, setError] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [duration, setDuration] = useState(0);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -42,7 +45,7 @@ export function useRecordVideo(): UseRecordVideoReturn {
         video: {
           width: { ideal: 1920 },
           height: { ideal: 1080 },
-          facingMode: 'user', // Front camera by default
+          facingMode: facingMode, // Use current facing mode state
         },
         audio: true,
       };
@@ -222,6 +225,47 @@ export function useRecordVideo(): UseRecordVideoReturn {
     });
   }, [recordedBlob]);
 
+  // Switch between front and back camera
+  const switchCamera = useCallback(async () => {
+    // Can't switch camera while recording
+    if (isRecording) {
+      return;
+    }
+
+    // Stop current stream if it exists
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+
+    // Toggle facing mode
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newFacingMode);
+
+    // Restart stream with new facing mode
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          facingMode: newFacingMode,
+        },
+        audio: false, // Don't need audio for preview
+      });
+      
+      setStream(mediaStream);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to switch camera:', err);
+      
+      if (err instanceof Error) {
+        setError('Failed to switch camera: ' + err.message);
+      } else {
+        setError('Failed to switch camera.');
+      }
+    }
+  }, [isRecording, stream, facingMode]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -241,11 +285,13 @@ export function useRecordVideo(): UseRecordVideoReturn {
     error,
     stream,
     duration,
+    facingMode,
     startRecording,
     stopRecording,
     pauseRecording,
     resumeRecording,
     resetRecording,
     createFile,
+    switchCamera,
   };
 }

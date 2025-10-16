@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X } from 'lucide-react';
+import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X, RefreshCw } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
@@ -44,12 +44,14 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     error: recordingError,
     stream,
     duration: recordingDuration,
+    facingMode,
     startRecording,
     stopRecording,
     pauseRecording,
     resumeRecording,
     resetRecording,
     createFile,
+    switchCamera,
   } = useRecordVideo();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -678,6 +680,17 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               <X className="h-6 w-6 text-white" />
             </button>
 
+            {/* Flip Camera Button - Top Right (only show when camera is active and not recording) */}
+            {!recordedBlob && !isRecording && (
+              <button
+                onClick={switchCamera}
+                className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+                title={facingMode === 'user' ? 'Switch to back camera' : 'Switch to front camera'}
+              >
+                <RefreshCw className="h-6 w-6 text-white" />
+              </button>
+            )}
+
             {/* Camera Preview or Recorded Video Playback */}
             <div className="w-full h-full flex items-center justify-center">
               {recordedBlob ? (
@@ -690,14 +703,14 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                   autoPlay
                 />
               ) : (
-                // Live camera preview - mirrored for front-facing camera
+                // Live camera preview - mirrored for front-facing camera only
                 <video
                   ref={cameraPreviewRef}
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover scale-x-[-1]"
-                  style={{ transform: 'scaleX(-1)' }}
+                  className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                  style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
                 />
               )}
 
