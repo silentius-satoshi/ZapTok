@@ -840,32 +840,39 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             )}
 
             {/* Bottom Controls - Minimal iOS-style */}
+            {/* Bottom Controls - Minimal iOS-style */}
             <div className="absolute bottom-0 left-0 right-0 z-40 pb-8 pt-12">
-              <div className="flex items-center justify-between px-6">
-                {/* Left side - Re-record button (only when recorded) */}
-                {recordedBlob && !isRecordingProcessing && (
-                  <Button
-                    onClick={handleReRecord}
-                    variant="ghost"
-                    size="lg"
-                    className="text-white hover:bg-white/20"
-                  >
-                    <RotateCcw className="h-5 w-5 mr-2" />
-                    Re-record
-                  </Button>
-                )}
-                {!recordedBlob && <div className="w-24" />} {/* Spacer */}
-
-                {/* Center - Record button or loading */}
-                <div className="flex items-center justify-center flex-1">
-                  {isRecordingProcessing ? (
-                    // Processing recorded video
-                    <div className="text-white text-center">
-                      <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"></div>
-                      <p className="text-sm">Processing video...</p>
-                    </div>
-                  ) : !recordedBlob ? (
-                    // During camera preview or recording: Simple record button
+              <div className="flex items-center justify-center">
+                {isRecordingProcessing ? (
+                  // Processing recorded video
+                  <div className="text-white text-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"></div>
+                    <p className="text-sm">Processing video...</p>
+                  </div>
+                ) : recordedBlob ? (
+                  // After recording: Show Next button
+                  <div className="flex gap-4">
+                    <Button
+                      onClick={handleReRecord}
+                      variant="ghost"
+                      size="lg"
+                      className="text-white hover:bg-white/20"
+                    >
+                      <RotateCcw className="h-5 w-5 mr-2" />
+                      Re-record
+                    </Button>
+                    <Button
+                      onClick={handleUseRecording}
+                      size="lg"
+                      className="bg-white text-black hover:bg-gray-200"
+                    >
+                      Next
+                      <CheckCircle2 className="h-5 w-5 ml-2" />
+                    </Button>
+                  </div>
+                ) : (
+                  // During camera preview or recording: Simple record button with optional preview
+                  <div className="flex items-center gap-6">
                     <button
                       onClick={handleRecordPauseClick}
                       className="relative h-20 w-20 rounded-full border-4 border-white flex items-center justify-center bg-transparent transition-all"
@@ -881,21 +888,18 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                         <div className="w-16 h-16 rounded-full bg-red-600" />
                       )}
                     </button>
-                  ) : null}
-                </div>
 
-                {/* Right side - Preview button (only when paused or recording can be stopped) */}
-                {isRecording && (
-                  <Button
-                    onClick={handleStopRecording}
-                    size="lg"
-                    className="bg-gradient-to-r from-purple-600 to-orange-600 hover:from-purple-700 hover:to-orange-700 text-white"
-                  >
-                    Preview
-                    <Play className="h-5 w-5 ml-2" />
-                  </Button>
+                    {/* Preview button (only when paused) */}
+                    {isPaused && (
+                      <button
+                        onClick={handleStopRecording}
+                        className="text-white text-lg font-medium hover:text-gray-300 transition-colors"
+                      >
+                        Preview
+                      </button>
+                    )}
+                  </div>
                 )}
-                {!isRecording && !recordedBlob && <div className="w-24" />} {/* Spacer */}
               </div>
             </div>
 
@@ -924,6 +928,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             {/* Video Preview */}
             <div className="w-full h-full flex items-center justify-center">
               <video
+                key={`preview-${recordedBlob.size}`}
                 ref={videoRef}
                 src={URL.createObjectURL(recordedBlob)}
                 className="w-full h-full object-cover cursor-pointer"
@@ -932,6 +937,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                 onPause={() => setIsPreviewPlaying(false)}
                 onTimeUpdate={handlePreviewTimeUpdate}
                 onLoadedMetadata={handlePreviewLoadedMetadata}
+                playsInline
                 loop
               />
 
