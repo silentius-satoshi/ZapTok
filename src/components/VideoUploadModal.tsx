@@ -72,6 +72,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const [currentServer, setCurrentServer] = useState<string>('');
   const [uploadAttempts, setUploadAttempts] = useState<{server: string, attempt: number, error?: string}[]>([]);
   const [isRecordingProcessing, setIsRecordingProcessing] = useState(false);
+  const [shouldAutoNavigateToPreview, setShouldAutoNavigateToPreview] = useState(false);
 
   // Preview playback state
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
@@ -275,8 +276,14 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     } else if (!isRecording && recordedBlob) {
       // Processing complete
       setIsRecordingProcessing(false);
+      
+      // If Preview button was clicked, auto-navigate to preview screen
+      if (shouldAutoNavigateToPreview) {
+        setUploadStep('preview');
+        setShouldAutoNavigateToPreview(false);
+      }
     }
-  }, [isRecording, recordedBlob, isRecordingProcessing]);
+  }, [isRecording, recordedBlob, isRecordingProcessing, shouldAutoNavigateToPreview]);
 
   // Auto-play recorded video when it's ready
   useEffect(() => {
@@ -339,7 +346,12 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const handleStopRecording = useCallback(() => {
     stopRecording();
     setIsRecordingProcessing(true);
-    // Don't auto-navigate - let user choose Next or Re-record
+  }, [stopRecording]);
+
+  const handlePreviewClick = useCallback(() => {
+    stopRecording();
+    setIsRecordingProcessing(true);
+    setShouldAutoNavigateToPreview(true);
   }, [stopRecording]);
 
   // Preview video controls
@@ -360,7 +372,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   }, []);
 
   const handlePreviewLoadedMetadata = useCallback(() => {
-    if (videoRef.current) {
+    if (videoRef.current && !isNaN(videoRef.current.duration)) {
       setPreviewDuration(videoRef.current.duration);
     }
   }, []);
@@ -840,9 +852,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             )}
 
             {/* Bottom Controls - Minimal iOS-style */}
-            {/* Bottom Controls - Minimal iOS-style */}
             <div className="absolute bottom-0 left-0 right-0 z-40 pb-8 pt-12">
-              <div className="flex items-center justify-center">
+              <div className="relative flex items-center justify-center">
                 {isRecordingProcessing ? (
                   // Processing recorded video
                   <div className="text-white text-center">
@@ -871,8 +882,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                     </Button>
                   </div>
                 ) : (
-                  // During camera preview or recording: Simple record button with optional preview
-                  <div className="flex items-center gap-6">
+                  // During camera preview or recording: Record button centered, Preview button to the right
+                  <>
+                    {/* Centered record button */}
                     <button
                       onClick={handleRecordPauseClick}
                       className="relative h-20 w-20 rounded-full border-4 border-white flex items-center justify-center bg-transparent transition-all"
@@ -889,16 +901,26 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                       )}
                     </button>
 
-                    {/* Preview button (only when paused) */}
+                    {/* Re-record button (only when paused) - positioned to the left */}
                     {isPaused && (
                       <button
-                        onClick={handleStopRecording}
-                        className="text-white text-lg font-medium hover:text-gray-300 transition-colors"
+                        onClick={handleReRecord}
+                        className="absolute left-8 text-white text-lg font-medium hover:text-gray-300 transition-colors"
+                      >
+                        Re-record
+                      </button>
+                    )}
+
+                    {/* Preview button (only when paused) - positioned to the right */}
+                    {isPaused && (
+                      <button
+                        onClick={handlePreviewClick}
+                        className="absolute right-8 text-white text-lg font-medium hover:text-gray-300 transition-colors"
                       >
                         Preview
                       </button>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -952,17 +974,22 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
             </div>
 
             {/* Progress Bar - Bottom */}
-            <div className="absolute bottom-0 left-0 right-0 z-40 pb-24">
+            <div className="absolute bottom-20 left-0 right-0 z-40">
               <div className="px-4">
                 {/* Time Display */}
                 <div className="flex justify-between text-white text-xs mb-2 px-2">
-                  <span>{Math.floor(previewCurrentTime / 60)}:{Math.floor(previewCurrentTime % 60).toString().padStart(2, '0')}</span>
-                  <span>{Math.floor(previewDuration / 60)}:{Math.floor(previewDuration % 60).toString().padStart(2, '0')}</span>
+                  <span>
+                    {isNaN(previewCurrentTime) ? '0:00' : `${Math.floor(previewCurrentTime / 60)}:${Math.floor(previewCurrentTime % 60).toString().padStart(2, '0')}`}
+                  </span>
+                  <span>
+                    {isNaN(previewDuration) ? '0:00' : `${Math.floor(previewDuration / 60)}:${Math.floor(previewDuration % 60).toString().padStart(2, '0')}`}
+                  </span>
                 </div>
 
                 {/* Progress Bar */}
                 <div className="relative h-1 bg-gray-600 rounded-full cursor-pointer"
                   onClick={(e) => {
+                    if (isNaN(previewDuration) || previewDuration === 0) return;
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = e.clientX - rect.left;
                     const percentage = x / rect.width;
@@ -971,18 +998,23 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                 >
                   <div 
                     className="absolute top-0 left-0 h-full bg-white rounded-full"
-                    style={{ width: `${(previewCurrentTime / previewDuration) * 100}%` }}
+                    style={{ width: isNaN(previewDuration) || previewDuration === 0 ? '0%' : `${(previewCurrentTime / previewDuration) * 100}%` }}
                   />
                   {/* Draggable handle */}
                   <div 
                     className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg"
-                    style={{ left: `${(previewCurrentTime / previewDuration) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                    style={{ 
+                      left: isNaN(previewDuration) || previewDuration === 0 ? '0%' : `${(previewCurrentTime / previewDuration) * 100}%`, 
+                      transform: 'translate(-50%, -50%)' 
+                    }}
                   />
                 </div>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between px-6 mt-6">
+            {/* Action Buttons - Bottom */}
+            <div className="absolute bottom-0 left-0 right-0 z-40 pb-6">
+              <div className="flex items-center justify-between px-6">
                 {/* Delete Button - Bottom Left */}
                 <button
                   onClick={handleDeleteRecording}
