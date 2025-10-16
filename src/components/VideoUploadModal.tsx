@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X, RefreshCw } from 'lucide-react';
+import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X, RefreshCw, Trash2, Download } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
@@ -67,10 +67,15 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [uploadStep, setUploadStep] = useState<'camera' | 'metadata' | 'uploading' | 'complete'>('camera');
+  const [uploadStep, setUploadStep] = useState<'camera' | 'preview' | 'metadata' | 'uploading' | 'complete'>('camera');
   const [retryInfo, setRetryInfo] = useState<string>('');
   const [currentServer, setCurrentServer] = useState<string>('');
   const [uploadAttempts, setUploadAttempts] = useState<{server: string, attempt: number, error?: string}[]>([]);
+
+  // Preview playback state
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
+  const [previewDuration, setPreviewDuration] = useState(0);
 
   // No longer using old upload hooks - hybrid Blossom service handles all uploads
   const [compressionProgress, setCompressionProgress] = useState(0);
@@ -311,7 +316,74 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
   const handleStopRecording = useCallback(() => {
     stopRecording();
+    // Switch to preview screen after stopping
+    setUploadStep('preview');
   }, [stopRecording]);
+
+  // Preview video controls
+  const handlePreviewPlayPause = useCallback(() => {
+    if (!videoRef.current) return;
+    
+    if (isPreviewPlaying) {
+      videoRef.current.pause();
+    } else {
+      videoRef.current.play();
+    }
+  }, [isPreviewPlaying]);
+
+  const handlePreviewTimeUpdate = useCallback(() => {
+    if (videoRef.current) {
+      setPreviewCurrentTime(videoRef.current.currentTime);
+    }
+  }, []);
+
+  const handlePreviewLoadedMetadata = useCallback(() => {
+    if (videoRef.current) {
+      setPreviewDuration(videoRef.current.duration);
+    }
+  }, []);
+
+  const handlePreviewSeek = useCallback((newTime: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = newTime;
+      setPreviewCurrentTime(newTime);
+    }
+  }, []);
+
+  const handleDeleteRecording = useCallback(() => {
+    resetRecording();
+    setUploadStep('camera');
+    setPreviewCurrentTime(0);
+    setPreviewDuration(0);
+    setIsPreviewPlaying(false);
+  }, [resetRecording]);
+
+  const handleDownloadRecording = useCallback(() => {
+    if (!recordedBlob) return;
+    
+    const url = URL.createObjectURL(recordedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `zaptok-recording-${Date.now()}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: 'Video Downloaded',
+      description: 'Your recording has been saved to your device.',
+    });
+  }, [recordedBlob, toast]);
+
+  const handlePublishToNostr = useCallback(() => {
+    if (!recordedBlob) return;
+    
+    const file = createFile(`recording-${Date.now()}.webm`);
+    if (file) {
+      processFile(file);
+    }
+  }, [recordedBlob, createFile, processFile]);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -792,6 +864,104 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               onChange={handleFileSelect}
               className="hidden"
             />
+          </div>
+        )}
+
+        {/* Preview Screen - After recording finishes */}
+        {uploadStep === 'preview' && recordedBlob && (
+          <div className="relative w-full h-full bg-black md:rounded-3xl md:border-2 md:border-gray-800 overflow-hidden md:shadow-2xl">
+            {/* Close Button */}
+            <button
+              onClick={handleClose}
+              className="absolute top-4 left-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+            >
+              <X className="h-6 w-6 text-white" />
+            </button>
+
+            {/* Video Preview */}
+            <div className="w-full h-full flex items-center justify-center">
+              <video
+                ref={videoRef}
+                src={URL.createObjectURL(recordedBlob)}
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={handlePreviewPlayPause}
+                onPlay={() => setIsPreviewPlaying(true)}
+                onPause={() => setIsPreviewPlaying(false)}
+                onTimeUpdate={handlePreviewTimeUpdate}
+                onLoadedMetadata={handlePreviewLoadedMetadata}
+                loop
+              />
+
+              {/* Play/Pause Overlay */}
+              {!isPreviewPlaying && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="bg-black/50 rounded-full p-6">
+                    <Play className="h-16 w-16 text-white" fill="white" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Bar - Bottom */}
+            <div className="absolute bottom-0 left-0 right-0 z-40 pb-24">
+              <div className="px-4">
+                {/* Time Display */}
+                <div className="flex justify-between text-white text-xs mb-2 px-2">
+                  <span>{Math.floor(previewCurrentTime / 60)}:{Math.floor(previewCurrentTime % 60).toString().padStart(2, '0')}</span>
+                  <span>{Math.floor(previewDuration / 60)}:{Math.floor(previewDuration % 60).toString().padStart(2, '0')}</span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="relative h-1 bg-gray-600 rounded-full cursor-pointer"
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const percentage = x / rect.width;
+                    handlePreviewSeek(percentage * previewDuration);
+                  }}
+                >
+                  <div 
+                    className="absolute top-0 left-0 h-full bg-white rounded-full"
+                    style={{ width: `${(previewCurrentTime / previewDuration) * 100}%` }}
+                  />
+                  {/* Draggable handle */}
+                  <div 
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg"
+                    style={{ left: `${(previewCurrentTime / previewDuration) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between px-6 mt-6">
+                {/* Delete Button - Bottom Left */}
+                <button
+                  onClick={handleDeleteRecording}
+                  className="p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+                  title="Delete recording"
+                >
+                  <Trash2 className="h-6 w-6 text-white" />
+                </button>
+
+                {/* Publish Button - Bottom Center */}
+                <Button
+                  onClick={handlePublishToNostr}
+                  size="lg"
+                  className="bg-gradient-to-r from-purple-600 to-orange-600 hover:from-purple-700 hover:to-orange-700 text-white px-8"
+                >
+                  Publish to Nostr
+                </Button>
+
+                {/* Download Button - Bottom Right */}
+                <button
+                  onClick={handleDownloadRecording}
+                  className="p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+                  title="Download recording"
+                >
+                  <Download className="h-6 w-6 text-white" />
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
