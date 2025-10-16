@@ -16,7 +16,7 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 
 ### **Video Features**
 - **Short-Form Video Sharing**: TikTok-style infinite scroll with snap-to-video behavior
-- **Video Upload**: Drag-and-drop upload with support for MP4, WebM, and MOV formats
+- **Video Upload**: Drag-and-drop upload & native camera recording with support for MP4, WebM, and MOV formats
 - **Decentralized Storage**: Blossom protocol integration for censorship-resistant hosting
 - **Advanced Performance**: Auto-loading, background prefetching, smooth playback caching
 - **Video Compression**: Client-side optimization for mobile data efficiency
@@ -27,7 +27,6 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 - **Cashu Nutzaps**: Private peer-to-peer eCash tips with enhanced anonymity (NIP-60, NIP-61)
 - **Zero fees toward ZapTok on your earnings**: Creators keep 100% of earnings, payments direct to your wallet
 - **Wallet Connect**: Lightning wallet integration via Nostr Wallet Connect (NIP-47)
-- **Bitcoin Conversion**: Withdraw to on-chain via Boltz, Strike, or Bitcoin Well
 
 ### **Privacy & Security**
 - **No Data Harvesting**: Private viewing with no tracking or behavior profiling
@@ -60,21 +59,18 @@ We deliver censorship-resistant content sharing with lightning-fast Bitcoin tips
 - **Full PWA Support**: Installable on mobile and desktop
 - **Offline Capabilities**: Video caching and background playback
 - **Push Notifications**: Real-time alerts for Lightning payments
-- **Service Worker**: Background sync for failed transactions
+- **Service Worker**: Background sync for real-time updates
 - **Native App Feel**: Seamless mobile experience
 
 ### **Nostr Integration**
 - **Multi-Relay Support**: Connect to multiple relays for redundancy
 - **Video Events**: Native video content format (NIP-71)
 - **Bech32 Addresses**: Full NIP-19 identifier support
-- **Content Discovery**: Hashtag following and search capabilities
 
 ### **Coming Next**
-- **Threaded Comments UI**: Rich comment display and interactions
 - **Private Messages**: Encrypted direct messaging (NIP-17)
 - **Live Streaming**: Real-time video broadcasting (NIP-53)
 - **Creator Tools**: Zap goals, supporter badges, and subscriber perks
-- **Long-Form Content**: Article and blog post support (NIP-23)
 - **Video Playlists**: Curated collections and watch later functionality
 - **Content Moderation**: User-controlled muting and filtering options
 
