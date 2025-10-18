@@ -224,7 +224,7 @@ export function MobileNavigation() {
   }
 
   const navItems: NavItem[] = [
-    { id: 'discover', icon: Search, label: 'Discover', path: '/discover' },
+    // { id: 'discover', icon: Search, label: 'Discover', path: '/discover' }, // Hidden for future troubleshooting
     { id: 'search-users', icon: UserPlus, label: 'Search Users', action: 'searchUsers' },
     { id: 'about', icon: Info, label: 'About ZapTok', path: '/about' },
     { id: 'faq', icon: HelpCircle, label: 'FAQ', path: '/faq' },

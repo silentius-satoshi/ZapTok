@@ -26,6 +26,17 @@ import { useNostrLogin } from '@nostrify/react/login';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
 import { useAppContext } from '@/hooks/useAppContext';
+import { useToast } from '@/hooks/useToast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface VideoActionButtonsProps {
   event: NostrEvent;
@@ -55,8 +66,11 @@ export function VideoActionButtons({
   const { config } = useAppContext();
   const { logins } = useNostrLogin();
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   const [showQRModal, setShowQRModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showRepostDialog, setShowRepostDialog] = useState(false);
+  const [showUnfollowDialog, setShowUnfollowDialog] = useState(false);
   const reactions = useVideoReactions(event.id);
   const commentsData = useVideoComments(event.id);
   const repostsData = useVideoReposts(event.id);
@@ -118,6 +132,22 @@ export function VideoActionButtons({
       bookmarkVideo({
         eventId: event.id,
         isCurrentlyBookmarked: isCurrentlyBookmarked,
+      }, {
+        onSuccess: () => {
+          toast({
+            title: isCurrentlyBookmarked ? 'Bookmark Removed' : 'Video Bookmarked',
+            description: isCurrentlyBookmarked 
+              ? 'The video has been removed from your bookmarks.' 
+              : 'The video has been saved to your bookmarks.',
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: 'Bookmark Failed',
+            description: error instanceof Error ? error.message : 'Failed to update bookmark.',
+            variant: 'destructive',
+          });
+        },
       });
     }, {
       loginMessage: 'Login required to bookmark videos'
@@ -126,24 +156,74 @@ export function VideoActionButtons({
 
   const handleRepost = () => {
     withLoginCheck(() => {
-      createRepost({
-        event: event,
-      });
+      // Show confirmation dialog instead of immediately reposting
+      setShowRepostDialog(true);
     }, {
       loginMessage: 'Login required to repost videos'
     });
   };
 
+  const confirmRepost = () => {
+    createRepost(
+      { event },
+      {
+        onSuccess: () => {
+          toast({
+            title: 'Video Reposted',
+            description: 'The video has been reposted to your profile.',
+          });
+          setShowRepostDialog(false);
+        },
+        onError: (error) => {
+          toast({
+            title: 'Repost Failed',
+            description: error instanceof Error ? error.message : 'Failed to repost the video.',
+            variant: 'destructive',
+          });
+          setShowRepostDialog(false);
+        },
+      }
+    );
+  };
+
   const handleFollow = onFollow || (() => {
     withLoginCheck(() => {
-      followUser({
-        pubkeyToFollow: event.pubkey,
-        isCurrentlyFollowing: isCurrentlyFollowing,
-      });
+      // If currently following, show confirmation dialog
+      if (isCurrentlyFollowing) {
+        setShowUnfollowDialog(true);
+      } else {
+        // Follow immediately without dialog
+        confirmFollow();
+      }
     }, {
       loginMessage: 'Login required to follow users'
     });
   });
+
+  const confirmFollow = () => {
+    followUser({
+      pubkeyToFollow: event.pubkey,
+      isCurrentlyFollowing: isCurrentlyFollowing,
+    }, {
+      onSuccess: () => {
+        toast({
+          title: isCurrentlyFollowing ? 'Unfollowed' : 'Following',
+          description: isCurrentlyFollowing 
+            ? `You have unfollowed ${authorDisplayName}.`
+            : `You are now following ${authorDisplayName}.`,
+        });
+        setShowUnfollowDialog(false);
+      },
+      onError: (error) => {
+        toast({
+          title: 'Action Failed',
+          description: error instanceof Error ? error.message : 'Failed to update following status.',
+          variant: 'destructive',
+        });
+        setShowUnfollowDialog(false);
+      },
+    });
+  };
 
   const handleShare = onShare || (() => {
     setShowShareModal(true);
@@ -355,6 +435,42 @@ export function VideoActionButtons({
         event={event}
         onQRCodeClick={() => setShowQRModal(true)}
       />
+
+      {/* Repost Confirmation Dialog */}
+      <AlertDialog open={showRepostDialog} onOpenChange={setShowRepostDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Repost Video?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will share {authorDisplayName}'s video to your profile. Your followers will see this video in their feed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRepost} disabled={isRepostPending}>
+              {isRepostPending ? 'Reposting...' : 'Repost'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unfollow Confirmation Dialog */}
+      <AlertDialog open={showUnfollowDialog} onOpenChange={setShowUnfollowDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unfollow {authorDisplayName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Their videos will no longer appear in your Following feed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmFollow} disabled={isFollowPending}>
+              {isFollowPending ? 'Unfollowing...' : 'Unfollow'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
