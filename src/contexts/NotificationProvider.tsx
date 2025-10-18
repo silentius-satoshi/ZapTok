@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useSimplePool } from '@/hooks/useSimplePool';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useUserTrust } from '@/providers/UserTrustProvider';
 import { NostrEvent } from '@nostrify/nostrify';
 import type { Filter } from '@nostr/tools';
 import { KINDS } from '@/lib/nostr-kinds';
@@ -39,6 +40,7 @@ interface NotificationContextValue {
   isInitialLoad: boolean;
   markAsRead: (notificationId: string) => void;
   markAllAsRead: () => void;
+  updateLastSeenTimestamp: () => void;
   unreadCount: number;
 }
 
@@ -197,6 +199,7 @@ const createPushNotificationPayload = (notification: Notification): Notification
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { simplePool, simplePoolRelays } = useSimplePool();
   const { user } = useCurrentUser();
+  const { isUserTrusted, hideUntrustedNotifications } = useUserTrust();
   
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -213,6 +216,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     if (!user) return {};
     const storageKey = `notifications:${user.pubkey}`;
     return JSON.parse(localStorage.getItem(storageKey) || '{}');
+  }, [user]);
+
+  // Get last seen timestamp to prevent notification spam from old events
+  const getLastSeenTimestamp = useCallback((): number => {
+    if (!user) return Math.floor(Date.now() / 1000);
+    
+    const storageKey = `notifications:lastSeen:${user.pubkey}`;
+    const stored = localStorage.getItem(storageKey);
+    
+    if (stored) {
+      return parseInt(stored, 10);
+    }
+    
+    // First time user: Set to current time to avoid historical notification spam
+    const now = Math.floor(Date.now() / 1000);
+    localStorage.setItem(storageKey, now.toString());
+    console.log('[Notifications] First login detected - setting baseline to current time');
+    return now;
+  }, [user]);
+
+  // Update last seen timestamp
+  const updateLastSeenTimestamp = useCallback(() => {
+    if (!user) return;
+    
+    const storageKey = `notifications:lastSeen:${user.pubkey}`;
+    const now = Math.floor(Date.now() / 1000);
+    localStorage.setItem(storageKey, now.toString());
   }, [user]);
 
   // Mark notification as read
@@ -246,6 +276,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // Calculate unread count
   const unreadCount = notifications.filter(n => !n.read).length;
+  
+  // Filter notifications based on Web of Trust settings
+  const filteredNotifications = useMemo(() => {
+    if (!hideUntrustedNotifications) return notifications;
+    
+    return notifications.filter(notification => {
+      // Always show notifications without a pubkey
+      if (!notification.pubkey) return true;
+      
+      // Filter based on trust
+      return isUserTrusted(notification.pubkey);
+    });
+  }, [notifications, hideUntrustedNotifications, isUserTrusted]);
 
   // Memoize relay list to prevent unnecessary re-subscriptions
   const relayList = useMemo(() => 
@@ -257,6 +300,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!user) {
       setNotifications([]);
+      setIsConnected(false);
+      setIsInitialLoad(true);
+      return;
+    }
+
+    // Don't start subscription until relays are configured
+    const limitedRelays = relayList.split(',').filter(Boolean);
+    if (limitedRelays.length === 0) {
+      console.log('[Notifications] Waiting for relays to be configured...');
       setIsConnected(false);
       setIsInitialLoad(true);
       return;
@@ -307,14 +359,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         ];
 
         const readNotifications = getReadNotifications();
+        const lastSeenTimestamp = getLastSeenTimestamp();
         let eosCount = 0;
         const expectedEosCount = limitedRelays.length;
 
+        // Only fetch events since last seen to prevent notification spam from old events
         const filter: Filter = {
           kinds,
           '#p': [user.pubkey],
+          since: lastSeenTimestamp,
           limit: 100
         };
+        
+        console.log('[Notifications] Fetching events since', new Date(lastSeenTimestamp * 1000).toISOString());
 
         // Finish initial load after timeout even if not all relays respond
         eoseTimeoutRef.current = setTimeout(() => {
@@ -424,14 +481,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         subCloserRef.current = null;
       }
     };
-  }, [user?.pubkey, simplePool, relayList, getReadNotifications]);
+  }, [user?.pubkey, simplePool, relayList, getReadNotifications, getLastSeenTimestamp]);
 
   const value: NotificationContextValue = {
-    notifications,
+    notifications: filteredNotifications,
     isConnected,
     isInitialLoad,
     markAsRead,
     markAllAsRead,
+    updateLastSeenTimestamp,
     unreadCount
   };
 

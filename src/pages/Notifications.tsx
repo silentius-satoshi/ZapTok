@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useNotificationContext } from '@/contexts/NotificationProvider';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +25,7 @@ import { truncateNumber, truncateName, formatRelativeTime } from '@/lib/notifica
 export default function Notifications() {
   const { user } = useCurrentUser();
   const { data: notifications = [], isLoading } = useNotifications();
+  const { updateLastSeenTimestamp } = useNotificationContext();
   const [selectedTab, setSelectedTab] = useState('all');
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -32,6 +34,14 @@ export default function Notifications() {
     title: 'Notifications - ZapTok',
     description: 'View your latest notifications including zaps, comments, reposts, and follows on ZapTok.',
   });
+
+  // Update last seen timestamp when user views the notifications page
+  useEffect(() => {
+    if (user) {
+      updateLastSeenTimestamp();
+      console.log('[Notifications Page] Updated last seen timestamp');
+    }
+  }, [user, updateLastSeenTimestamp]);
 
   // Redirect to home if user is not logged in
   if (!user) {

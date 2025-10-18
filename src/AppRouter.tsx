@@ -9,6 +9,7 @@ import { NotificationProvider } from "@/contexts/NotificationProvider";
 import { CurrentRelaysProvider } from "@/providers/CurrentRelaysProvider";
 import { FavoriteRelaysProvider } from "@/providers/FavoriteRelaysProvider";
 import { FeedProvider } from "@/providers/FeedProvider";
+import { UserTrustProvider } from "@/providers/UserTrustProvider";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { VideoPlaybackProvider } from "@/contexts/VideoPlaybackContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -97,24 +98,26 @@ export function AppRouter() {
     >
       <ScrollToTop />
       <NostrProvider>
-        <NotificationProvider>
-          <CurrentRelaysProvider>
-            <FavoriteRelaysProvider>
-              <FeedProvider>
-                <WalletProvider>
-                  <VideoPlaybackProvider>
-                    <TooltipProvider>
-                      <WalletLoader />
-                      <Toaster />
-                      <Sonner />
-                      <RouteHandler />
-                    </TooltipProvider>
-                  </VideoPlaybackProvider>
-                </WalletProvider>
-              </FeedProvider>
-            </FavoriteRelaysProvider>
-          </CurrentRelaysProvider>
-        </NotificationProvider>
+        <UserTrustProvider>
+          <NotificationProvider>
+            <CurrentRelaysProvider>
+              <FavoriteRelaysProvider>
+                <FeedProvider>
+                  <WalletProvider>
+                    <VideoPlaybackProvider>
+                      <TooltipProvider>
+                        <WalletLoader />
+                        <Toaster />
+                        <Sonner />
+                        <RouteHandler />
+                      </TooltipProvider>
+                    </VideoPlaybackProvider>
+                  </WalletProvider>
+                </FeedProvider>
+              </FavoriteRelaysProvider>
+            </CurrentRelaysProvider>
+          </NotificationProvider>
+        </UserTrustProvider>
       </NostrProvider>
     </HashRouter>
   );
