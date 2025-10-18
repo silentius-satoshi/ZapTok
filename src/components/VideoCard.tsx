@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play } from 'lucide-react';
+import { Play, Volume2, VolumeX } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useVideoRegistration } from '@/hooks/useVideoRegistration';
@@ -40,6 +40,7 @@ interface VideoCardProps {
 export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious, onVideoUnavailable, showVerificationBadge = true, shouldPreload = false, gridMode = false }: VideoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubbingTime, setScrubbingTime] = useState(0);
@@ -236,6 +237,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         
         // Always start muted for reliable autoplay across all platforms
         videoElement.muted = true;
+        setIsMuted(true); // Sync state
         
         const playPromise = videoElement.play();
 
@@ -245,13 +247,21 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
               bundleLog('videoAutoPlay', `✅ Muted autoplay successful${isPWAMobile ? ' (PWA Mobile)' : ''}`);
               setIsPlaying(true);
 
-              // Try to unmute after successful muted autoplay
-              setTimeout(() => {
-                if (!userPaused && isActive && videoElement) {
-                  videoElement.muted = false;
-                  bundleLog('videoAutoPlay', '🔊 Attempting to unmute after autoplay');
-                }
-              }, 100);
+              // Only try to auto-unmute on mobile PWA where it works reliably
+              // Desktop browsers block auto-unmute due to stricter autoplay policies
+              if (isPWAMobile) {
+                setTimeout(() => {
+                  if (!userPaused && isActive && videoElement) {
+                    videoElement.volume = 1.0; // Ensure full volume
+                    videoElement.muted = false;
+                    setIsMuted(false); // Sync state
+                    bundleLog('videoAutoPlay', '🔊 Auto-unmuting after autoplay (PWA Mobile)');
+                  }
+                }, 100);
+              } else {
+                // Desktop: Keep muted, user must click volume button
+                bundleLog('videoAutoPlay', '🔇 Desktop autoplay started muted (click volume button to unmute)');
+              }
             })
             .catch((error) => {
               bundleLog('videoAutoPlayErrors', `❌ Autoplay failed: ${error.message}${isPWAMobile ? ' (PWA Mobile)' : ''}`);
@@ -261,12 +271,15 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         }
       }
     } else {
-      // When video becomes inactive, always pause, mute, and reset user pause state
+      // When video becomes inactive, aggressively silence it to prevent audio bleeding
       videoElement.pause();
       videoElement.muted = true; // Mute inactive videos
+      videoElement.volume = 0; // Set volume to 0 for extra safety
+      setIsMuted(true); // Sync state
       setIsPlaying(false);
       setUserPaused(false);
       hasBeenActivatedRef.current = false; // Reset so video starts from beginning next time it's viewed
+      bundleLog('audioControl', '🔇 Video deactivated: muted and volume set to 0');
     }
 
     return () => {
@@ -285,7 +298,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     if (videoElement.paused) {
       // When manually playing, ensure audio is enabled for active video
       if (isActive) {
-        videoElement.muted = false;
+        videoElement.muted = isMuted; // Use state instead of forcing unmute
 
         // For PWA mobile, additional interaction tracking
         if (isPWAMobile) {
@@ -303,6 +316,29 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       setIsPlaying(false);
       setUserPaused(true);
     }
+  };
+
+  const handleToggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering video play/pause
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    // Only allow unmuting if this video is active
+    if (!isActive) {
+      bundleLog('audioControl', '⚠️ Cannot unmute inactive video');
+      return;
+    }
+
+    const newMutedState = !isMuted;
+    
+    // When unmuting, ensure volume is at full
+    if (!newMutedState) {
+      videoElement.volume = 1.0;
+    }
+    
+    videoElement.muted = newMutedState;
+    setIsMuted(newMutedState);
+    bundleLog('audioControl', `🔊 Volume button clicked: ${newMutedState ? 'Muted' : 'Unmuted'}`);
   };
 
   const handleVideoPlay = () => {
@@ -342,7 +378,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             loop
             playsInline
             autoPlay={isActive}
-            muted={!isActive} // Mute inactive videos, unmute active video
+            muted={isMuted} // Use state for mute control
             preload={isActive || shouldPreload || (gridMode && isMobile) ? "auto" : "metadata"} // Force auto preload for mobile grid to show poster
             webkit-playsinline="true" // iOS Safari compatibility
             x5-video-player-type="h5" // WeChat browser optimization
@@ -383,6 +419,21 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             <Play className="w-16 h-16 text-white drop-shadow-lg" fill="white" />
           </div>
         </div>
+      )}
+
+      {/* Volume Button - Top Right Corner */}
+      {!gridMode && workingUrl && !isYouTube && (
+        <button
+          onClick={handleToggleMute}
+          className="absolute top-4 right-4 z-20 rounded-full bg-black/50 hover:bg-black/70 p-3 text-white backdrop-blur-sm transition-colors"
+          aria-label={isMuted ? 'Unmute' : 'Mute'}
+        >
+          {isMuted ? (
+            <VolumeX className="w-5 h-5" />
+          ) : (
+            <Volume2 className="w-5 h-5" />
+          )}
+        </button>
       )}
 
       {/* Large Timestamp Overlay - Shows during scrubbing, positioned bottom center above description */}

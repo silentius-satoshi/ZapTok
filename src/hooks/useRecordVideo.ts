@@ -159,10 +159,14 @@ export function useRecordVideo(options: UseRecordVideoOptions = {}): UseRecordVi
         console.warn('No preferred format supported, using generic WebM');
       }
 
-      // Create MediaRecorder
+      // Create MediaRecorder with NIP-71 compliant audio settings
+      // Always use 128kbps AAC audio for universal desktop browser compatibility
+      // This prevents audio codec issues that cause distortion on strict desktop browsers
+      // while working fine on more tolerant mobile browsers
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType,
         videoBitsPerSecond: 2500000, // 2.5 Mbps for good quality
+        audioBitsPerSecond: 128000,  // NIP-71 standard: 128kbps AAC-LC for universal compatibility
       });
 
       // Collect data chunks

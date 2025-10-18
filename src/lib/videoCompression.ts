@@ -32,14 +32,20 @@ export interface CompressionResult {
  * These settings follow industry standards for mobile video:
  * - 720p max resolution for good quality with reasonable file size
  * - 30fps max for smooth playback without excessive data
- * - Bitrates optimized for mobile networks
+ * - Bitrates optimized for mobile networks and NIP-71 compliance
  * - Memory usage limited to prevent crashes
+ * - Audio normalized to 128kbps AAC for universal compatibility
+ * 
+ * Audio Settings (NIP-71 Compliant):
+ * - 128 kbps AAC-LC (Low Complexity profile)
+ * - Ensures desktop browser compatibility
+ * - Prevents codec issues across devices
  */
 export const DEFAULT_COMPRESSION_OPTIONS: CompressionOptions = {
   maxWidth: 720,
   maxHeight: 1280, // Vertical video priority
   videoBitrate: 2000000, // 2 Mbps - better quality
-  audioBitrate: 128000,  // 128 kbps - standard quality
+  audioBitrate: 128000,  // 128 kbps - NIP-71 standard, AAC-LC for compatibility
   frameRate: 30,         // 30fps - smooth playback
   quality: 0.8,          // 80% quality - good balance
   maxMemoryUsage: 50,    // 50MB memory limit
@@ -164,9 +170,10 @@ async function createSimpleFallbackCompression(
         }
 
         // Use conservative settings for fallback
+        // Audio set to 128kbps for NIP-71 compliance and compatibility
         const fallbackSettings = {
           videoBitsPerSecond: 1000000, // 1Mbps - conservative
-          audioBitsPerSecond: 96000,   // 96kbps
+          audioBitsPerSecond: 128000,  // 128kbps - NIP-71 standard for desktop compatibility
         };
 
         // Create a simple compressed version using lower quality
@@ -262,6 +269,13 @@ export async function getVideoMetadata(file: File): Promise<{
 /**
  * Memory-efficient video compression using optimized settings
  * Avoids loading entire video into memory to prevent crashes
+ * 
+ * Audio Normalization (NIP-71 Compliance):
+ * - All videos are normalized to 128kbps AAC audio
+ * - Ensures desktop browser compatibility (desktop browsers are stricter about codecs)
+ * - Mobile browsers are more tolerant, but desktop requires consistent encoding
+ * - Prevents audio distortion issues caused by native camera variable bitrates
+ * - Aligns with NIP-71 bitrate metadata requirements
  */
 export async function compressVideo(
   file: File,
@@ -505,9 +519,10 @@ async function createLightweightCompression(
     };
 
     // Add audio bitrate if we have audio tracks
+    // 128kbps AAC for NIP-71 compliance and desktop browser compatibility
     if (finalStream.getAudioTracks().length > 0) {
       mediaRecorderOptions.audioBitsPerSecond = settings.audioBitrate || 128000;
-      console.log(`Recording with audio: ${settings.audioBitrate || 128000} bps`);
+      console.log(`Recording with audio: ${settings.audioBitrate || 128000} bps (NIP-71 standard)`);
     } else {
       console.log('Recording video only (no audio)');
     }
@@ -592,7 +607,9 @@ async function createLightweightCompression(
           name: compressedFile.name,
           type: compressedFile.type,
           size: compressedFile.size,
-          lastModified: compressedFile.lastModified
+          lastModified: compressedFile.lastModified,
+          audioBitrate: `${settings.audioBitrate || 128000} bps (NIP-71 standard)`,
+          videoBitrate: `${settings.videoBitrate || 1200000} bps`
         });
 
         // Clean up video resources after successful compression

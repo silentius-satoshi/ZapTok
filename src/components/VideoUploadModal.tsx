@@ -843,11 +843,16 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         duration: videoMetadata.duration,
         size: videoSize,
         type: videoType,
+        // Calculate average bitrate (bits per second) from file size and duration
+        // bitrate = (file_size_in_bytes * 8) / duration_in_seconds
+        bitrate: videoMetadata.duration > 0 ? Math.round((videoSize * 8) / videoMetadata.duration) : undefined,
         // Extract dimensions if available from Blossom tags
         width: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[0] ?
                parseInt(videoTags.find(tag => tag[0] === 'dim')![1].split('x')[0]) : undefined,
         height: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[1] ?
                 parseInt(videoTags.find(tag => tag[0] === 'dim')![1].split('x')[1]) : undefined,
+        // Use current timestamp as first publication time
+        publishedAt: Math.floor(Date.now() / 1000),
       };
 
       // Parse custom hashtags (remove # if user included it, split by comma, trim whitespace)
@@ -886,7 +891,20 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         videoHash: videoHash
       });
 
-      createEvent(videoEvent);
+      // Publish event and wait for completion
+      // Using Promise wrapper to properly handle the async mutation
+      await new Promise<void>((resolve, reject) => {
+        createEvent(videoEvent, {
+          onSuccess: () => {
+            console.log('✅ Video event published successfully to Nostr');
+            resolve();
+          },
+          onError: (error) => {
+            console.error('❌ Failed to publish video event:', error);
+            reject(error);
+          }
+        });
+      });
 
       setUploadProgress(100);
       setUploadStep('complete');
