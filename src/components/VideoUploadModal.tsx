@@ -786,12 +786,12 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         console.log('Video compression not needed or not supported');
       }
 
-      // Upload video using hybrid Blossom approach (SDK + XHR fallback)
-      console.log('🚀 [VideoUpload] Starting hybrid Blossom upload (SDK + XHR fallback)...');
+      // Upload video using Blossom protocol
+      console.log('🚀 [VideoUpload] Starting Blossom upload...');
       setUploadProgress(50);
-      setRetryInfo('Uploading with hybrid Blossom protocol...');
+      setRetryInfo('Uploading to Blossom servers...');
 
-      // Use hybrid Blossom upload service as primary method
+      // Use Blossom upload service as primary method
       const signerAny = user.signer as any;
       const isBunkerSigner = signerAny?.bunkerSigner;
       const effectiveSigner = isBunkerSigner || user.signer;
@@ -824,8 +824,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
       setUploadProgress(80);
 
-      // Create hybrid video event for cross-client compatibility
-      console.log('Creating hybrid Nostr event for cross-client compatibility...');
+      // Create NIP-71 video event (kind 21 or 22)
+      console.log('Creating NIP-71 video event...');
 
       // Extract video data from upload tags
       const videoUrl = videoTags.find(tag => tag[0] === 'url')?.[1] || '';
@@ -1585,7 +1585,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                   <p>• {compressionResult ? '✓' : '•'} Video compression {compressionResult ? 'completed' : 'skipped'}</p>
                   <p>• Uploading to Blossom servers...</p>
                   <p>• Generating thumbnail...</p>
-                  <p>• Creating hybrid Nostr event...</p>
+                  <p>• Creating NIP-71 video event...</p>
                   <p>• Publishing to relays...</p>
                 </div>
               </>
