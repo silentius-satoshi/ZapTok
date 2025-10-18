@@ -31,48 +31,34 @@ export function useOptimizedGlobalVideoFeed() {
     queryFn: async ({ pageParam, signal }) => {
       const startTime = performance.now();
       
-      // Phase 6.3: Try IndexedDB cache first (offline-first pattern)
+      // Phase 6.3: IndexedDB cache for instant load, but ALWAYS fetch fresh data
+      // This ensures new videos appear immediately after upload
+      const cachedVideos: VideoEvent[] = [];
+      
       if (!pageParam) {
-        const cachedVideos = await indexedDBService.getRecentVideoEvents(30);
-        if (cachedVideos.length > 0) {
+        const cached = await indexedDBService.getRecentVideoEvents(30);
+        if (cached.length > 0) {
           const duration = performance.now() - startTime;
-          bundleLog('videoCache', `✅ Cache HIT: Loaded ${cachedVideos.length} videos from IndexedDB (${duration.toFixed(1)}ms)`);
+          bundleLog('videoCache', `✅ Cache available: ${cached.length} videos from IndexedDB (${duration.toFixed(1)}ms)`);
           
           // Validate and convert to VideoEvent format
-          const validatedCached: VideoEvent[] = [];
           const seenUrls = new Set<string>();
           
-          for (const event of cachedVideos) {
+          for (const event of cached) {
             const videoEvent = validateVideoEvent(event);
             if (videoEvent && videoEvent.videoUrl) {
               const normalizedUrl = normalizeVideoUrl(videoEvent.videoUrl);
               if (!seenUrls.has(normalizedUrl)) {
                 seenUrls.add(normalizedUrl);
-                validatedCached.push(videoEvent);
+                cachedVideos.push(videoEvent);
               }
             }
           }
           
-          if (validatedCached.length > 0) {
-            bundleLog('videoCache', `✅ Returning ${validatedCached.length} cached videos (instant load)`);
-            
-            // Prefetch analytics for cached videos
-            const videoIds = validatedCached.map(v => v.id);
-            Promise.all([
-              videoCommentsService.prefetchComments(videoIds),
-              videoRepostsService.prefetchReposts(videoIds),
-              videoNutzapsService.prefetchNutzaps(videoIds),
-              videoReactionsService.prefetchReactions(videoIds),
-            ]).catch(error => {
-              logInfo('[GlobalFeed] Failed to prefetch analytics for cached videos:', error);
-            });
-            
-            // Return cached data immediately, background refresh will happen
-            return validatedCached;
-          }
+          bundleLog('videoCache', `📋 Cached ${cachedVideos.length} validated videos, continuing to fetch fresh data...`);
+        } else {
+          bundleLog('videoCache', '❌ Cache empty - fetching from network');
         }
-        
-        bundleLog('videoCache', '❌ Cache MISS - fetching from network');
       }
       
       bundleLog('globalVideoFetch', '🌍 Fetching global video content with rate limiting');
@@ -136,7 +122,29 @@ export function useOptimizedGlobalVideoFeed() {
       }
 
       // Sort by creation time (most recent first)
-      const videoEvents = validatedEvents.sort((a, b) => b.created_at - a.created_at);
+      let videoEvents = validatedEvents.sort((a, b) => b.created_at - a.created_at);
+
+      // Merge with cached videos (prioritize fresh data)
+      if (cachedVideos.length > 0 && !pageParam) {
+        const freshIds = new Set(videoEvents.map(v => v.id));
+        const freshUrls = new Set(videoEvents.map(v => v.videoUrl ? normalizeVideoUrl(v.videoUrl) : null).filter(Boolean));
+        
+        // Add cached videos that aren't in fresh results
+        for (const cached of cachedVideos) {
+          if (!freshIds.has(cached.id)) {
+            const cachedUrl = cached.videoUrl ? normalizeVideoUrl(cached.videoUrl) : null;
+            if (cachedUrl && !freshUrls.has(cachedUrl)) {
+              videoEvents.push(cached);
+              freshUrls.add(cachedUrl);
+            }
+          }
+        }
+        
+        // Re-sort after merging
+        videoEvents = videoEvents.sort((a, b) => b.created_at - a.created_at);
+        
+        bundleLog('videoCache', `🔄 Merged cached with fresh: ${videoEvents.length} total videos (${validatedEvents.length} fresh + ${videoEvents.length - validatedEvents.length} cached-only)`);
+      }
 
       if (videoEvents.length > 0) {
         cacheVideoMetadata(videoEvents);
@@ -191,7 +199,7 @@ export function useOptimizedGlobalVideoFeed() {
         const events = nostr.req([
           {
             kinds: [21, 22],
-            since: Math.floor(Date.now() / 1000), // Only future events
+            since: Math.floor(Date.now() / 1000) - 300, // Look back 5 minutes to catch recent uploads
           }
         ], { signal: abortController.signal });
 
@@ -268,11 +276,17 @@ export function useOptimizedGlobalVideoFeed() {
 
     bundleLog('globalVideoMerge', `🌍🔄 Merging ${newVideos.length} new videos into feed`);
 
-    // Trigger refetch to get fresh data
-    query.refetch();
-
-    // Clear new videos buffer
-    setNewVideos([]);
+    // Invalidate query cache to force a fresh fetch
+    // This ensures new videos are fetched and merged properly
+    query.refetch().then(() => {
+      bundleLog('globalVideoMerge', '🌍✅ Feed refetched successfully');
+      
+      // Clear new videos buffer after successful refetch
+      setNewVideos([]);
+    }).catch((error) => {
+      console.error('[globalVideoMerge] Failed to refetch feed:', error);
+      // Keep new videos buffer if refetch fails
+    });
   }, [newVideos.length, query]);
 
   return {
