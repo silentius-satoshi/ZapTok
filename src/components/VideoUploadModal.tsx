@@ -877,18 +877,29 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         includeImeta: true
       });
 
+      console.log('🔍 Video event after createVideoEvent:', {
+        tagCount: videoEvent.tags?.length,
+        hasPublishedAt: videoEvent.tags?.some(t => t[0] === 'published_at'),
+        tags: videoEvent.tags
+      });
+
       // Add any additional Blossom-specific tags from the upload
       const additionalTags = videoTags.filter(tag =>
         !['url', 'x', 'size', 'dim', 'm', 'thumb'].includes(tag[0])
       );
+      
+      console.log('🔍 Additional tags from Blossom:', additionalTags);
+      
       videoEvent.tags = [...(videoEvent.tags || []), ...additionalTags];
 
-      console.log('Publishing video event to Nostr...', {
+      console.log('🔍 Final video event before publishing:', {
         kind: videoEvent.kind,
         contentPreview: videoEvent.content?.substring(0, 50),
         tagCount: videoEvent.tags?.length,
+        hasPublishedAt: videoEvent.tags?.some(t => t[0] === 'published_at'),
         videoUrl: videoUrl,
-        videoHash: videoHash
+        videoHash: videoHash,
+        tags: videoEvent.tags
       });
 
       // Publish event and wait for completion
