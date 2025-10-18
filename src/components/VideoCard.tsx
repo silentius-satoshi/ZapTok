@@ -452,17 +452,17 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         </div>
       )}
 
-      {/* Volume Button - Top Right Corner */}
+      {/* Volume Button - Right Side (styled like action buttons) */}
       {!gridMode && workingUrl && !isYouTube && (
         <button
           onClick={handleToggleMute}
-          className="absolute top-4 right-4 z-20 rounded-full bg-black/50 hover:bg-black/70 p-3 text-white backdrop-blur-sm transition-colors"
+          className={`absolute ${isMobile ? 'bottom-[470px] right-4' : 'top-4 right-4'} z-20 group transition-all duration-200`}
           aria-label={isMuted ? 'Unmute' : 'Mute'}
         >
           {isMuted ? (
-            <VolumeX className="w-5 h-5" />
+            <VolumeX className="w-7 h-7 text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200" />
           ) : (
-            <Volume2 className="w-5 h-5" />
+            <Volume2 className="w-7 h-7 text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200" />
           )}
         </button>
       )}
