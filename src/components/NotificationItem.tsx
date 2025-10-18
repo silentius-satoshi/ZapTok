@@ -6,6 +6,8 @@ import { Zap, Heart, Repeat, MessageCircle, UserPlus, UserMinus, AtSign, Bell } 
 import NotificationAvatar from './NotificationAvatar';
 import { ReferencedPost } from './ReferencedPost';
 import { QuickReply } from './QuickReply';
+import { useNavigate } from 'react-router-dom';
+import { nip19 } from 'nostr-tools';
 import type { Notification, NotificationUser } from '@/hooks/useNotifications';
 
 interface NotificationItemProps {
@@ -48,6 +50,8 @@ const uniqueifyUsers = (users: NotificationUser[]) => {
 const avatarDisplayLimit = 6;
 
 const NotificationItem: React.FC<NotificationItemProps> = (props) => {
+  const navigate = useNavigate();
+  
   const sortedUsers = React.useMemo(() => {
     if (!props.users || props.users.length === 0) {
       return [];
@@ -96,6 +100,12 @@ const NotificationItem: React.FC<NotificationItemProps> = (props) => {
     return formatRelativeTime(props.notification.createdAt);
   };
 
+  // Navigate to user profile
+  const handleUserClick = (pubkey: string) => {
+    const npub = nip19.npubEncode(pubkey);
+    navigate(`/${npub}`);
+  };
+
   // Determine if this notification should show a quick reply button
   const shouldShowQuickReply = () => {
     if (!props.notification?.eventId) return false;
@@ -110,7 +120,7 @@ const NotificationItem: React.FC<NotificationItemProps> = (props) => {
   };
 
   return (
-    <div className="grid grid-cols-[44px_1fr_12px] py-3 px-0">
+    <div className="grid grid-cols-[44px_1fr_12px] py-3 px-0 min-w-0">
       {/* Icon/Avatar Column */}
       <div className="flex flex-col items-center justify-start py-1.5">
         <div className="w-6 h-6 flex items-center justify-center text-orange-400">
@@ -124,7 +134,7 @@ const NotificationItem: React.FC<NotificationItemProps> = (props) => {
       </div>
 
       {/* Content Column */}
-      <div className="flex flex-col">
+      <div className="flex flex-col min-w-0">
         <div className="flex items-center gap-1.5 min-h-9 flex-wrap w-4/5">
           {/* User Avatars */}
           <div className="flex gap-0.5">
@@ -138,11 +148,14 @@ const NotificationItem: React.FC<NotificationItemProps> = (props) => {
 
           {/* Description */}
           <div className="flex items-baseline">
-            <div className="flex items-center font-bold text-base text-foreground">
+            <button
+              onClick={() => handleUserClick(firstUser?.id)}
+              className="flex items-center font-bold text-base text-foreground hover:underline cursor-pointer"
+            >
               <span className="max-w-48 truncate">
                 {firstUserName}
               </span>
-            </div>
+            </button>
             <div className="font-normal text-base text-foreground ml-1">
               {getTypeDescription()}
             </div>
@@ -158,10 +171,9 @@ const NotificationItem: React.FC<NotificationItemProps> = (props) => {
 
         {/* Quick Reply */}
         {shouldShowQuickReply() && (
-          <div className="mt-2 flex justify-start w-full">
+          <div className="mt-2">
             <QuickReply 
               eventId={props.notification!.eventId!}
-              className="ml-0 w-full"
             />
           </div>
         )}
@@ -183,14 +195,23 @@ const NotificationItem: React.FC<NotificationItemProps> = (props) => {
 // Helper component for user avatars
 const UserAvatar: React.FC<{ user: NotificationUser }> = ({ user }) => {
   const { data: userData } = useAuthor(user.id);
+  const navigate = useNavigate();
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const npub = nip19.npubEncode(user.id);
+    navigate(`/${npub}`);
+  };
 
   return (
-    <Avatar className="w-9 h-9">
-      <AvatarImage src={userData?.metadata?.picture || user.picture} />
-      <AvatarFallback>
-        {(userData?.metadata?.name || user.name || user.id)?.charAt(0) || '?'}
-      </AvatarFallback>
-    </Avatar>
+    <button onClick={handleClick} className="cursor-pointer hover:opacity-80 transition-opacity">
+      <Avatar className="w-9 h-9">
+        <AvatarImage src={userData?.metadata?.picture || user.picture} />
+        <AvatarFallback>
+          {(userData?.metadata?.name || user.name || user.id)?.charAt(0) || '?'}
+        </AvatarFallback>
+      </Avatar>
+    </button>
   );
 };
 

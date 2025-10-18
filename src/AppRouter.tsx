@@ -5,6 +5,7 @@ import { useContextualRelays } from "@/hooks/useContextualRelays";
 import { useEffect } from "react";
 import { logRoute } from "@/lib/devLogger";
 import NostrProvider from "@/components/NostrProvider";
+import { NotificationProvider } from "@/contexts/NotificationProvider";
 import { CurrentRelaysProvider } from "@/providers/CurrentRelaysProvider";
 import { FavoriteRelaysProvider } from "@/providers/FavoriteRelaysProvider";
 import { FeedProvider } from "@/providers/FeedProvider";
@@ -96,22 +97,24 @@ export function AppRouter() {
     >
       <ScrollToTop />
       <NostrProvider>
-        <CurrentRelaysProvider>
-          <FavoriteRelaysProvider>
-            <FeedProvider>
-              <WalletProvider>
-                <VideoPlaybackProvider>
-                  <TooltipProvider>
-                    <WalletLoader />
-                    <Toaster />
-                    <Sonner />
-                    <RouteHandler />
-                  </TooltipProvider>
-                </VideoPlaybackProvider>
-              </WalletProvider>
-            </FeedProvider>
-          </FavoriteRelaysProvider>
-        </CurrentRelaysProvider>
+        <NotificationProvider>
+          <CurrentRelaysProvider>
+            <FavoriteRelaysProvider>
+              <FeedProvider>
+                <WalletProvider>
+                  <VideoPlaybackProvider>
+                    <TooltipProvider>
+                      <WalletLoader />
+                      <Toaster />
+                      <Sonner />
+                      <RouteHandler />
+                    </TooltipProvider>
+                  </VideoPlaybackProvider>
+                </WalletProvider>
+              </FeedProvider>
+            </FavoriteRelaysProvider>
+          </CurrentRelaysProvider>
+        </NotificationProvider>
       </NostrProvider>
     </HashRouter>
   );

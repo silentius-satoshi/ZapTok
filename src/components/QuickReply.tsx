@@ -77,7 +77,7 @@ export function QuickReply({ eventId, parentCommentId, className }: QuickReplyPr
   }
 
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full min-w-0">
       {/* Reply Button */}
       {!isOpen && (
         <Button
@@ -93,8 +93,8 @@ export function QuickReply({ eventId, parentCommentId, className }: QuickReplyPr
 
       {/* Reply Form */}
       {isOpen && (
-        <div className="mt-2 p-4 border rounded-lg bg-background w-full max-w-2xl">
-          <form onSubmit={handleSubmit}>
+        <div className="mt-2 p-4 border rounded-lg bg-background w-full min-w-0">
+          <form onSubmit={handleSubmit} className="min-w-0">
             <Textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}

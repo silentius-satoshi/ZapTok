@@ -208,7 +208,7 @@ export default function Notifications() {
       )}
 
       {/* Middle Notifications Column - Full Width on Mobile */}
-      <div className={`flex-1 bg-black ${!isMobile ? 'border-r border-gray-800' : ''} ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
+      <div className={`flex-1 bg-black ${!isMobile ? 'border-r border-gray-800' : ''} ${isMobile ? 'overflow-x-hidden' : ''} min-w-0`}>
         {/* Header */}
         <div className={`py-5 ${isMobile ? 'px-4' : 'px-6'}`}>
           <div className="flex items-center justify-between">
@@ -242,7 +242,7 @@ export default function Notifications() {
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto scrollbar-hide" style={{ height: 'calc(100vh - 97px)' }}>
+        <div className="overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ height: 'calc(100vh - 97px)' }}>
           <Tabs value={selectedTab} onValueChange={setSelectedTab}>
             <div className={`py-0 border-b border-gray-800 ${isMobile ? 'px-0' : 'px-6'}`}>
               <div className="relative flex w-full bg-black">
