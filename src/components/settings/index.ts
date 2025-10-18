@@ -17,6 +17,7 @@ export { DeveloperSettings } from './DeveloperSettings';
 export { KeysSettings } from './KeysSettings';
 export { CacheManagementSettings } from './CacheManagementSettings';
 export { PWAManagementSettings } from './PWAManagementSettings';
+export { PushNotificationsSettings } from './PushNotificationsSettings';
 
 // Settings Configuration
 export { 
