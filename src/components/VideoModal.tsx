@@ -32,9 +32,7 @@ export function VideoModal({
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const videoRef = useVideoRegistration();
-  const isMobile = useIsMobile();
-
-  // Minimum swipe distance (in px)
+  const isMobile = useIsMobile();  // Minimum swipe distance (in px)
   const minSwipeDistance = 50;
 
   const currentVideo = videos[currentIndex];
@@ -121,6 +119,13 @@ export function VideoModal({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, currentIndex, videos.length, onClose, onIndexChange]);
 
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsMuted(videoRef.current.muted);
+    }
+  };
+
   // Enhanced Mobile PWA Touch/Swipe Navigation
   const onTouchStart = (e: React.TouchEvent) => {
     if (!isMobile) return;
@@ -154,29 +159,15 @@ export function VideoModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-none w-screen h-screen p-0 bg-black border-none">
         <div className="relative w-full h-full flex items-center justify-center">
-          {/* Back Button */}
-          <Button
-            variant="ghost"
-            size={isMobile ? "default" : "sm"}
-            className={`absolute top-4 left-4 z-50 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm ${
-              isMobile ? 'h-12 w-12' : 'h-10 w-10'
-            }`}
-            onClick={onClose}
-          >
-            <ArrowLeft className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
-          </Button>
-
-          {/* Close Button */}
-          <Button
-            variant="ghost"
-            size={isMobile ? "default" : "sm"}
-            className={`absolute top-4 right-4 z-50 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm ${
-              isMobile ? 'h-12 w-12' : 'h-10 w-10'
-            }`}
-            onClick={onClose}
-          >
-            <X className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
-          </Button>
+          {/* Close Button - Top-left on mobile, top-right on desktop */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`absolute top-4 ${isMobile ? 'left-4' : 'right-4'} z-50 bg-black/50 hover:bg-black/70 text-white`}
+          onClick={onClose}
+        >
+          <X className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
+        </Button>
 
           {/* Navigation Buttons - Hidden on mobile for cleaner swipe experience */}
           {!isMobile && currentIndex > 0 && (
@@ -231,30 +222,22 @@ export function VideoModal({
             )}
           </div>
 
-          {/* Volume Control */}
-          <div className={`absolute z-50 ${isMobile ? 'top-4 right-4' : 'top-4 right-20'}`}>
-            <Button
-              variant="ghost"
-              size={isMobile ? "default" : "sm"}
-              className={`rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm ${
-                isMobile ? 'h-12 w-12' : 'h-10 w-10'
-              }`}
-              onClick={() => {
-                if (videoRef.current) {
-                  videoRef.current.muted = !videoRef.current.muted;
-                  setIsMuted(videoRef.current.muted);
-                }
-              }}
-            >
-              {isMuted ? (
-                <VolumeX className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
-              ) : (
-                <Volume2 className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
-              )}
-            </Button>
-          </div>
-
-          {/* Mobile Swipe Indicators */}
+          {/* Volume Control - Top-right on mobile/touch, top-right with offset on desktop */}
+        {/* Volume Control - Top-right on mobile, top-right with offset on desktop */}
+        <div className={`absolute top-4 ${isMobile ? 'right-4' : 'right-20'} z-50`}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="bg-black/50 hover:bg-black/70 text-white"
+            onClick={toggleMute}
+          >
+            {isMuted ? (
+              <VolumeX className="w-5 h-5" />
+            ) : (
+              <Volume2 className="w-5 h-5" />
+            )}
+          </Button>
+        </div>          {/* Mobile Swipe Indicators */}
           {isMobile && videos.length > 1 && (
             <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50">
               <div className="bg-black/40 backdrop-blur-sm rounded-full px-4 py-2 text-white text-xs">

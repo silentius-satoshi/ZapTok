@@ -380,11 +380,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     setIsPlaying(false);
   };
 
-  // Detect video orientation to choose appropriate object-fit
-  // Landscape videos (width > height) use object-contain to show full video
-  // Portrait/square videos use object-cover to fill the container
-  const isLandscape = event.width && event.height && event.width > event.height;
-  const objectFitClass = isLandscape ? 'object-contain' : 'object-cover';
+  // Always use object-contain to show the full video without cropping
+  // This prevents the zoomed-in/cropped appearance
+  const objectFitClass = 'object-contain';
 
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
