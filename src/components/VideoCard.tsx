@@ -195,7 +195,38 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     if (!videoElement) return;
 
     const handleError = (error: Event) => {
-      devError('Video error', { eventId: event.id, url: workingUrl, error });
+      const target = error.target as HTMLVideoElement;
+      const mediaError = target.error;
+      
+      let errorDetails = 'Unknown error';
+      if (mediaError) {
+        switch (mediaError.code) {
+          case MediaError.MEDIA_ERR_ABORTED:
+            errorDetails = 'MEDIA_ERR_ABORTED: Video loading aborted';
+            break;
+          case MediaError.MEDIA_ERR_NETWORK:
+            errorDetails = 'MEDIA_ERR_NETWORK: Network error while loading video';
+            break;
+          case MediaError.MEDIA_ERR_DECODE:
+            errorDetails = 'MEDIA_ERR_DECODE: Video decoding failed (corrupted or unsupported format)';
+            break;
+          case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorDetails = 'MEDIA_ERR_SRC_NOT_SUPPORTED: Video format not supported or file not found';
+            break;
+        }
+        errorDetails += ` (code: ${mediaError.code})`;
+        if (mediaError.message) {
+          errorDetails += ` - ${mediaError.message}`;
+        }
+      }
+      
+      devError('Video error', { 
+        eventId: event.id, 
+        url: workingUrl, 
+        errorCode: mediaError?.code,
+        errorDetails,
+        title: event.title 
+      });
     };
 
     const handleLoadedData = () => {
