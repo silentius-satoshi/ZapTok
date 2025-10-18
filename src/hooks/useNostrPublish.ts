@@ -1,5 +1,5 @@
 import { useNostr } from "@nostrify/react";
-import { useMutation, type UseMutationResult } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { bundleLog } from "@/lib/logBundler";
 import { devLog } from "@/lib/devConsole";
 
@@ -17,6 +17,7 @@ import type { NostrEvent } from "@nostrify/nostrify";
 export function useNostrPublish(): UseMutationResult<NostrEvent> {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (t: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>) => {
@@ -218,6 +219,12 @@ export function useNostrPublish(): UseMutationResult<NostrEvent> {
     },
     onSuccess: (data) => {
       bundleLog('relay-publish', `🎉 Event ${data.id.slice(0, 8)} published successfully (kind ${data.kind})`);
+
+      // Invalidate global video feed for video events (kind 21/22)
+      if (data.kind === 21 || data.kind === 22) {
+        bundleLog('relay-publish', `🔄 Refreshing global video feed for new video (kind ${data.kind})`);
+        queryClient.invalidateQueries({ queryKey: ['optimized-global-video-feed'] });
+      }
 
       // Additional verification suggestions
       if (data.kind === 3) {

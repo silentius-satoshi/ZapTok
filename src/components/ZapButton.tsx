@@ -92,7 +92,7 @@ export function ZapButton({
         // Create the proper recipient for the zap call
         const zapTarget = event || recipientPubkey;
 
-        await lightningService.zap(
+        const zapResult = await lightningService.zap(
           user!.pubkey,
           zapTarget,
           defaultZapSats,
@@ -100,6 +100,12 @@ export function ZapButton({
           nostr,
           user!
         );
+
+        // Check if payment was cancelled (returns null)
+        if (!zapResult) {
+          // Payment was cancelled, don't show success toast
+          return;
+        }
 
         // Refresh wallet balance after successful zap
         try {
@@ -156,7 +162,13 @@ export function ZapButton({
       // Create the proper recipient for the zap call
       const zapTarget = event || recipientPubkey;
 
-      await lightningService.zap(user.pubkey, zapTarget, amount, comment || '', nostr, user);
+      const zapResult = await lightningService.zap(user.pubkey, zapTarget, amount, comment || '', nostr, user);
+
+      // Check if payment was cancelled (returns null)
+      if (!zapResult) {
+        // Payment was cancelled, don't show success toast
+        return;
+      }
 
       // Refresh wallet balance after successful zap
       try {

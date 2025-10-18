@@ -12,11 +12,13 @@ export { NotificationsSettings } from './NotificationsSettings';
 export { NetworkSettings } from './NetworkSettings';
 export { AdvancedRelaySettings } from './AdvancedRelaySettings';
 export { ZapsSettings } from './ZapsSettings';
+export { WebOfTrustSettings } from './WebOfTrustSettings';
 export { GenericSettings } from './GenericSettings';
 export { DeveloperSettings } from './DeveloperSettings';
 export { KeysSettings } from './KeysSettings';
 export { CacheManagementSettings } from './CacheManagementSettings';
 export { PWAManagementSettings } from './PWAManagementSettings';
+export { PushNotificationsSettings } from './PushNotificationsSettings';
 
 // Settings Configuration
 export { 

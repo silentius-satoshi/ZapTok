@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { useCashuWallet } from "@/hooks/useCashuWallet";
 import { calculateBalance, formatBalance } from "@/lib/cashu";
 import { useBitcoinPrice, satsToUSD, formatUSD } from "@/hooks/useBitcoinPrice";
@@ -32,6 +33,12 @@ import { useCashuToken } from "@/hooks/useCashuToken";
 import { useCreateCashuWallet } from "@/hooks/useCreateCashuWallet";
 import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
 import { useWalletUiStore } from "@/stores/walletUiStore";
+import { usePWA } from "@/hooks/usePWA";
+import { CashuConsentModal } from "@/components/cashu-onboarding/CashuConsentModal";
+import { PWAInstallModal } from "@/components/cashu-onboarding/PWAInstallModal";
+import { SeedPhraseModal } from "@/components/cashu-onboarding/SeedPhraseModal";
+import { generateSecretKey } from "nostr-tools";
+import { bytesToHex } from "@noble/hashes/utils";
 
 export function CashuWalletCard() {
   const { user } = useCurrentUser();
@@ -42,12 +49,20 @@ export function CashuWalletCard() {
   const { showSats } = useCurrencyDisplayStore();
   const walletUiStore = useWalletUiStore();
   const isExpanded = walletUiStore.expandedCards.mints;
+  const { isStandalone } = usePWA();
   const [newMint, setNewMint] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [expandedMint, setExpandedMint] = useState<string | null>(null);
   const [flashingMints, setFlashingMints] = useState<Record<string, boolean>>(
     {}
   );
+
+  // Onboarding flow states
+  const [experimentalEnabled, setExperimentalEnabled] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [showPWAModal, setShowPWAModal] = useState(false);
+  const [showSeedPhraseModal, setShowSeedPhraseModal] = useState(false);
+  const [generatedSeedPhrase, setGeneratedSeedPhrase] = useState("");
 
   // Calculate total balance across all mints
   const balances = calculateBalance(cashuStore.proofs) as Record<string, number>;
@@ -204,6 +219,53 @@ export function CashuWalletCard() {
     return mintUrl.replace("https://", "");
   };
 
+  // Handle toggle switch change
+  const handleToggleExperimental = (checked: boolean) => {
+    setExperimentalEnabled(checked);
+    if (checked) {
+      setShowConsentModal(true);
+    }
+  };
+
+  // Handle consent modal next button
+  const handleConsentNext = () => {
+    setShowConsentModal(false);
+    // If PWA not installed, show PWA modal, otherwise show seed phrase
+    if (!isStandalone) {
+      setShowPWAModal(true);
+    } else {
+      // Generate seed phrase and show modal directly
+      const privkey = bytesToHex(generateSecretKey());
+      setGeneratedSeedPhrase(privkey);
+      setShowSeedPhraseModal(true);
+    }
+  };
+
+  // Handle PWA modal continue button
+  const handlePWAContinue = () => {
+    setShowPWAModal(false);
+    // Generate seed phrase and show modal
+    const privkey = bytesToHex(generateSecretKey());
+    setGeneratedSeedPhrase(privkey);
+    setShowSeedPhraseModal(true);
+  };
+
+  // Handle seed phrase modal complete button
+  const handleSeedPhraseComplete = () => {
+    setShowSeedPhraseModal(false);
+    // Create wallet with the generated private key
+    handleCreateNewWallet();
+  };
+
+  // Handle modal close (cancel)
+  const handleCloseModals = () => {
+    setShowConsentModal(false);
+    setShowPWAModal(false);
+    setShowSeedPhraseModal(false);
+    setGeneratedSeedPhrase("");
+    setExperimentalEnabled(false);
+  };
+
   if (isLoading || isCreatingWallet) {
     return (
       <Card>
@@ -219,27 +281,54 @@ export function CashuWalletCard() {
 
   if (!wallet) {
     return (
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Mints</CardTitle>
-            <CardDescription>You don't have a Cashu wallet yet</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={() => handleCreateNewWallet()} disabled={!user}>
-            Create Wallet
-          </Button>
+      <>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Mints</CardTitle>
+                <CardDescription>You don't have a Cashu wallet yet</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-orange-500">EXPERIMENTAL</span>
+                <Switch
+                  checked={experimentalEnabled}
+                  onCheckedChange={handleToggleExperimental}
+                  disabled={!user}
+                />
+              </div>
+            </div>
+          </CardHeader>
           {!user && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                You need to log in to create a wallet
-              </AlertDescription>
-            </Alert>
+            <CardContent>
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  You need to log in to create a wallet
+                </AlertDescription>
+              </Alert>
+            </CardContent>
           )}
-        </CardContent>
-      </Card>
+        </Card>
+
+        {/* Modals */}
+        <CashuConsentModal
+          open={showConsentModal}
+          onNext={handleConsentNext}
+          onClose={handleCloseModals}
+        />
+        <PWAInstallModal
+          open={showPWAModal}
+          onContinue={handlePWAContinue}
+          onClose={handleCloseModals}
+        />
+        <SeedPhraseModal
+          open={showSeedPhraseModal}
+          seedPhrase={generatedSeedPhrase}
+          onComplete={handleSeedPhraseComplete}
+          onClose={handleCloseModals}
+        />
+      </>
     );
   }
 

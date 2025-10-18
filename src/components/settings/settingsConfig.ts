@@ -8,6 +8,7 @@ import { CashuWalletSettings } from './CashuWalletSettings';
 import { NotificationsSettings } from './NotificationsSettings';
 import { NetworkSettings } from './NetworkSettings';
 import { ZapsSettings } from './ZapsSettings';
+import { WebOfTrustSettings } from './WebOfTrustSettings';
 import { GenericSettings } from './GenericSettings';
 import { ConsolidatedDeveloperSettings } from '../debug/ConsolidatedDeveloperSettings';
 import { KeysSettings } from './KeysSettings';
@@ -67,6 +68,12 @@ const allSettingsSections: SettingsSectionConfig[] = [
   },
 
   // Moderation Settings
+  {
+    id: 'web-of-trust',
+    title: 'Web of Trust',
+    component: WebOfTrustSettings,
+    category: 'moderation'
+  },
   {
     id: 'muted-content',
     title: 'Muted Content',

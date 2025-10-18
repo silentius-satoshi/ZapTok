@@ -52,9 +52,25 @@ export function VideoModal({
   // Auto-play when video changes or modal opens
   useEffect(() => {
     if (isOpen && videoRef.current && workingUrl) {
-      videoRef.current.play().catch(() => {
-        // Ignore play failures
-      });
+      const videoElement = videoRef.current;
+      
+      // Start muted for reliable autoplay
+      videoElement.muted = true;
+      setIsMuted(true);
+      
+      videoElement.play()
+        .then(() => {
+          // After successful muted autoplay, try to unmute
+          setTimeout(() => {
+            if (videoElement && isOpen) {
+              videoElement.muted = false;
+              setIsMuted(false);
+            }
+          }, 100);
+        })
+        .catch(() => {
+          // Ignore play failures
+        });
     }
   }, [isOpen, workingUrl, currentIndex, videoRef]);
 
@@ -195,7 +211,7 @@ export function VideoModal({
                 className="w-full h-full object-contain"
                 controls={!isMobile} // Hide controls on mobile for cleaner touch experience
                 loop
-                muted
+                muted={isMuted}
                 playsInline
                 autoPlay
                 onTouchStart={onTouchStart}

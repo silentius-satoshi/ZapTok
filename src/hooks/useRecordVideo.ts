@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
+export type VideoQuality = 'high' | 'main' | 'baseline';
+
 interface UseRecordVideoReturn {
   // State
   isRecording: boolean;
@@ -8,23 +10,32 @@ interface UseRecordVideoReturn {
   error: string | null;
   stream: MediaStream | null;
   duration: number; // recording duration in seconds
+  facingMode: 'user' | 'environment'; // Current camera facing mode
   
   // Actions
-  startRecording: (constraints?: MediaStreamConstraints) => Promise<void>;
+  initializeCamera: (constraints?: MediaStreamConstraints) => Promise<void>;
+  startRecording: () => void;
   stopRecording: () => void;
   pauseRecording: () => void;
   resumeRecording: () => void;
   resetRecording: () => void;
   createFile: (filename?: string) => File | null;
+  switchCamera: () => Promise<void>;
 }
 
-export function useRecordVideo(): UseRecordVideoReturn {
+interface UseRecordVideoOptions {
+  quality?: VideoQuality;
+}
+
+export function useRecordVideo(options: UseRecordVideoOptions = {}): UseRecordVideoReturn {
+  const { quality = 'main' } = options;
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [duration, setDuration] = useState(0);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -32,8 +43,8 @@ export function useRecordVideo(): UseRecordVideoReturn {
   const startTimeRef = useRef<number>(0);
   const pausedDurationRef = useRef<number>(0);
 
-  // Start recording with camera access
-  const startRecording = useCallback(async (constraints?: MediaStreamConstraints) => {
+  // Initialize camera without starting recording
+  const initializeCamera = useCallback(async (constraints?: MediaStreamConstraints) => {
     try {
       setError(null);
       
@@ -42,7 +53,7 @@ export function useRecordVideo(): UseRecordVideoReturn {
         video: {
           width: { ideal: 1920 },
           height: { ideal: 1080 },
-          facingMode: 'user', // Front camera by default
+          facingMode: facingMode, // Use current facing mode state
         },
         audio: true,
       };
@@ -54,22 +65,108 @@ export function useRecordVideo(): UseRecordVideoReturn {
       
       setStream(mediaStream);
 
-      // Determine the best MIME type for the browser
-      let mimeType = 'video/webm;codecs=vp9,opus';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm;codecs=vp8,opus';
+    } catch (err) {
+      console.error('Failed to initialize camera:', err);
+      
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError') {
+          setError('Camera permission denied. Please allow camera access to record.');
+        } else if (err.name === 'NotFoundError') {
+          setError('No camera found. Please connect a camera to record video.');
+        } else if (err.name === 'NotReadableError') {
+          setError('Camera is already in use by another application.');
+        } else {
+          setError('Failed to access camera: ' + err.message);
+        }
+      } else {
+        setError('Failed to access camera. Please check your browser settings.');
       }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm';
+    }
+  }, [facingMode]);
+
+  // Start recording (camera must already be initialized)
+  const startRecording = useCallback(() => {
+    if (!stream) {
+      setError('Camera not initialized. Please try again.');
+      return;
+    }
+
+    try {
+      // Determine the best MIME type for the browser based on quality setting
+      // Priority: H.264 MP4 (most compatible) > WebM VP9 > WebM VP8 > WebM (generic)
+      let mimeType = '';
+      
+      // Try H.264 MP4 first (most compatible - works on iOS, Android, Desktop)
+      // Select codec based on quality setting
+      const h264Types: string[] = [];
+      
+      if (quality === 'high') {
+        // H.264 High Profile - Best quality, newest devices
+        h264Types.push(
+          'video/mp4;codecs=avc1.64001F,mp4a.40.2', // H.264 High Profile Level 3.1 + AAC
+          'video/mp4;codecs=avc1.640028,mp4a.40.2', // H.264 High Profile Level 4.0 + AAC
+          'video/mp4;codecs=avc1,mp4a.40.2',        // H.264 generic + AAC
+          'video/mp4'                                // MP4 generic
+        );
+      } else if (quality === 'main') {
+        // H.264 Main Profile - Better compression, modern devices
+        h264Types.push(
+          'video/mp4;codecs=avc1.4D401E,mp4a.40.2', // H.264 Main Profile Level 3.0 + AAC
+          'video/mp4;codecs=avc1.4D4028,mp4a.40.2', // H.264 Main Profile Level 4.0 + AAC
+          'video/mp4;codecs=avc1,mp4a.40.2',        // H.264 generic + AAC
+          'video/mp4'                                // MP4 generic
+        );
+      } else {
+        // H.264 Baseline Profile - Maximum compatibility, all devices
+        h264Types.push(
+          'video/mp4;codecs=avc1.42E01E,mp4a.40.2', // H.264 Baseline Level 3.0 + AAC
+          'video/mp4;codecs=avc1.42001E,mp4a.40.2', // H.264 Baseline Level 3.0 + AAC (alternative)
+          'video/mp4;codecs=avc1,mp4a.40.2',        // H.264 generic + AAC
+          'video/mp4'                                // MP4 generic
+        );
       }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/mp4'; // Fallback for Safari
+      
+      for (const type of h264Types) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          console.log(`Using H.264 MP4 format (${quality} quality):`, type);
+          break;
+        }
+      }
+      
+      // Fallback to WebM if H.264 not supported (Firefox)
+      if (!mimeType) {
+        const webmTypes = [
+          'video/webm;codecs=vp9,opus',  // VP9 + Opus
+          'video/webm;codecs=vp8,opus',  // VP8 + Opus
+          'video/webm;codecs=vp9',       // VP9 only
+          'video/webm;codecs=vp8',       // VP8 only
+          'video/webm',                  // WebM generic
+        ];
+        
+        for (const type of webmTypes) {
+          if (MediaRecorder.isTypeSupported(type)) {
+            mimeType = type;
+            console.log('Using WebM format:', type);
+            break;
+          }
+        }
+      }
+      
+      // Last resort fallback
+      if (!mimeType) {
+        mimeType = 'video/webm'; // Should work on most browsers
+        console.warn('No preferred format supported, using generic WebM');
       }
 
-      // Create MediaRecorder
-      const mediaRecorder = new MediaRecorder(mediaStream, {
+      // Create MediaRecorder with NIP-71 compliant audio settings
+      // Always use 128kbps AAC audio for universal desktop browser compatibility
+      // This prevents audio codec issues that cause distortion on strict desktop browsers
+      // while working fine on more tolerant mobile browsers
+      const mediaRecorder = new MediaRecorder(stream, {
         mimeType,
         videoBitsPerSecond: 2500000, // 2.5 Mbps for good quality
+        audioBitsPerSecond: 128000,  // NIP-71 standard: 128kbps AAC-LC for universal compatibility
       });
 
       // Collect data chunks
@@ -81,15 +178,26 @@ export function useRecordVideo(): UseRecordVideoReturn {
 
       // Handle recording stop
       mediaRecorder.onstop = () => {
+        console.log('MediaRecorder stopped, creating blob from', chunksRef.current.length, 'chunks');
         const blob = new Blob(chunksRef.current, { type: mimeType });
+        console.log('Created blob:', blob.size, 'bytes, type:', blob.type);
         setRecordedBlob(blob);
         setIsRecording(false);
         setIsPaused(false);
+        
+        // Clear chunks after creating blob
+        chunksRef.current = [];
         
         // Stop timer
         if (timerRef.current) {
           clearInterval(timerRef.current);
           timerRef.current = null;
+        }
+        
+        // Now it's safe to stop the stream tracks
+        if (stream) {
+          console.log('Stopping stream tracks after blob creation');
+          stream.getTracks().forEach(track => track.stop());
         }
       };
 
@@ -117,34 +225,24 @@ export function useRecordVideo(): UseRecordVideoReturn {
 
     } catch (err) {
       console.error('Failed to start recording:', err);
-      
-      if (err instanceof Error) {
-        if (err.name === 'NotAllowedError') {
-          setError('Camera permission denied. Please allow camera access to record.');
-        } else if (err.name === 'NotFoundError') {
-          setError('No camera found. Please connect a camera to record video.');
-        } else if (err.name === 'NotReadableError') {
-          setError('Camera is already in use by another application.');
-        } else {
-          setError('Failed to access camera: ' + err.message);
-        }
-      } else {
-        setError('Failed to access camera. Please check your browser settings.');
-      }
+      setError('Failed to start recording. Please try again.');
     }
-  }, []);
+  }, [stream, quality]);
 
   // Stop recording
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      // Request all pending data before stopping
+      if (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused') {
+        mediaRecorderRef.current.requestData();
+      }
+      
       mediaRecorderRef.current.stop();
       
-      // Stop all tracks in the stream
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      // DON'T stop tracks immediately - let onstop handler finish first
+      // The tracks will be stopped when we reset recording or close the modal
     }
-  }, [stream]);
+  }, []);
 
   // Pause recording
   const pauseRecording = useCallback(() => {
@@ -212,15 +310,64 @@ export function useRecordVideo(): UseRecordVideoReturn {
       return null;
     }
 
+    // Determine file extension based on MIME type
+    let extension = '.webm'; // default
+    if (recordedBlob.type.includes('mp4')) {
+      extension = '.mp4';
+    } else if (recordedBlob.type.includes('webm')) {
+      extension = '.webm';
+    }
+
     // Generate filename with timestamp if not provided
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const name = filename || `recorded-video-${timestamp}.webm`;
+    const name = filename || `recorded-video-${timestamp}${extension}`;
     
     return new File([recordedBlob], name, { 
       type: recordedBlob.type,
       lastModified: Date.now(),
     });
   }, [recordedBlob]);
+
+  // Switch between front and back camera
+  const switchCamera = useCallback(async () => {
+    // Can't switch camera while recording
+    if (isRecording) {
+      return;
+    }
+
+    // Stop current stream if it exists
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+
+    // Toggle facing mode
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newFacingMode);
+
+    // Restart stream with new facing mode
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          facingMode: newFacingMode,
+        },
+        audio: false, // Don't need audio for preview
+      });
+      
+      setStream(mediaStream);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to switch camera:', err);
+      
+      if (err instanceof Error) {
+        setError('Failed to switch camera: ' + err.message);
+      } else {
+        setError('Failed to switch camera.');
+      }
+    }
+  }, [isRecording, stream, facingMode]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -241,11 +388,14 @@ export function useRecordVideo(): UseRecordVideoReturn {
     error,
     stream,
     duration,
+    facingMode,
+    initializeCamera,
     startRecording,
     stopRecording,
     pauseRecording,
     resumeRecording,
     resetRecording,
     createFile,
+    switchCamera,
   };
 }

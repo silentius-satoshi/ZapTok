@@ -1,3 +1,4 @@
+import { useNotificationContext, type Notification, type NotificationUser } from '@/contexts/NotificationProvider';
 import { useSimplePool } from '@/hooks/useSimplePool';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -6,30 +7,8 @@ import { NostrEvent } from '@nostrify/nostrify';
 import { KINDS } from '@/lib/nostr-kinds';
 import { relayRateLimiter } from '@/lib/relayRateLimiter';
 
-export interface Notification {
-  id: string;
-  type: 'NEW_USER_FOLLOWED_YOU' | 'USER_UNFOLLOWED_YOU' | 'YOUR_POST_WAS_ZAPPED' | 'YOUR_POST_WAS_REPOSTED' | 'YOUR_POST_WAS_REPLIED_TO' | 'YOU_WERE_MENTIONED_IN_POST' | 'YOUR_POST_WAS_MENTIONED_IN_POST' | 'POST_YOU_WERE_MENTIONED_IN_WAS_ZAPPED' | 'POST_YOU_WERE_MENTIONED_IN_WAS_REPOSTED' | 'POST_YOU_WERE_MENTIONED_IN_WAS_REPLIED_TO' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_ZAPPED' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_REPOSTED' | 'POST_YOUR_POST_WAS_MENTIONED_IN_WAS_REPLIED_TO' | 'YOUR_POST_WAS_HIGHLIGHTED' | 'YOUR_POST_WAS_BOOKMARKED' | 'YOUR_POST_HAD_REACTION' | 'YOUR_POST_WAS_APPROVED' | 'YOUR_POST_WAS_REMOVED' | 'GROUP_WAS_UPDATED' | 'REPORT_SUBMITTED' | 'MODERATION_ACTION';
-  message: string;
-  createdAt: number;
-  read: boolean;
-  eventId?: string;
-  groupId?: string;
-  users?: NotificationUser[];
-  pubkey?: string;
-  reportType?: string;
-  actionType?: string;
-  sats?: number;
-  iconInfo?: string;
-  iconTooltip?: string;
-}
-
-export interface NotificationUser {
-  id: string;
-  name?: string;
-  picture?: string;
-  followers_count: number;
-  verified?: boolean;
-}
+// Re-export types from NotificationProvider for backward compatibility
+export type { Notification, NotificationUser };
 
 export type NotificationGroup = 'all' | 'zaps' | 'likes' | 'reposts' | 'mentions' | 'follows' | 'replies';
 
@@ -43,13 +22,41 @@ const getCommunityId = (community: NostrEvent) => {
   return `${KINDS.GROUP}:${community.pubkey}:${dTag ? dTag[1] : ""}`;
 };
 
+/**
+ * useNotifications - Real-time notification system using WebSocket subscriptions
+ * 
+ * Now powered by NotificationProvider with live updates instead of polling.
+ * Notifications appear in real-time without requiring page refresh or manual refetch.
+ * 
+ * Features:
+ * - Real-time WebSocket subscriptions via SimplePool
+ * - Auto-reconnect with 5-second retry interval
+ * - Push notifications for new events
+ * - Read/unread state management
+ * - Connection status tracking
+ */
 export function useNotifications() {
+  const context = useNotificationContext();
+  
+  // Return in React Query format for backward compatibility
+  return {
+    data: context.notifications,
+    isLoading: context.isInitialLoad,
+    isConnected: context.isConnected,
+  };
+}
+
+/**
+ * Legacy query-based notification fetcher for moderation queries
+ * This is used separately for group moderation events which aren't part of the main real-time feed
+ */
+export function useNotificationsLegacy() {
   const { simplePool, simplePoolRelays } = useSimplePool();
   const { user } = useCurrentUser();
   const { data: userGroupsData } = useUserGroups();
 
   return useQuery({
-    queryKey: ['notifications', user?.pubkey],
+    queryKey: ['notifications-legacy', user?.pubkey],
     queryFn: async ({ signal }) => {
       if (!user) return [];
 
@@ -326,47 +333,16 @@ export function useNotifications() {
 }
 
 export function useMarkNotificationAsRead() {
-  const { user } = useCurrentUser();
-  const queryClient = useQueryClient();
-
-  return (notificationId: string) => {
-    if (!user) return;
-    
-    const storageKey = `notifications:${user.pubkey}`;
-    const readNotifications = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    
-    readNotifications[notificationId] = true;
-    localStorage.setItem(storageKey, JSON.stringify(readNotifications));
-    
-    // Invalidate the notifications query to trigger a refetch and update the badge
-    queryClient.invalidateQueries({ queryKey: ['notifications', user.pubkey] });
-  };
+  const context = useNotificationContext();
+  return context.markAsRead;
 }
 
 export function useMarkAllNotificationsAsRead() {
-  const { user } = useCurrentUser();
-  const queryClient = useQueryClient();
-  const { data: notifications = [] } = useNotifications();
-
-  return () => {
-    if (!user) return;
-    
-    const storageKey = `notifications:${user.pubkey}`;
-    const readNotifications = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    
-    // Mark all current notifications as read
-    for (const notification of notifications) {
-      readNotifications[notification.id] = true;
-    }
-    
-    localStorage.setItem(storageKey, JSON.stringify(readNotifications));
-    
-    // Invalidate the notifications query to trigger a refetch and update the badge
-    queryClient.invalidateQueries({ queryKey: ['notifications', user.pubkey] });
-  };
+  const context = useNotificationContext();
+  return context.markAllAsRead;
 }
 
 export function useUnreadNotificationsCount() {
-  const { data: notifications = [] } = useNotifications();
-  return notifications.filter(notification => !notification.read).length;
+  const context = useNotificationContext();
+  return context.unreadCount;
 }

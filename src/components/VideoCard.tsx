@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play } from 'lucide-react';
+import { Play, Volume2, VolumeX } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useVideoRegistration } from '@/hooks/useVideoRegistration';
@@ -40,6 +40,7 @@ interface VideoCardProps {
 export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious, onVideoUnavailable, showVerificationBadge = true, shouldPreload = false, gridMode = false }: VideoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubbingTime, setScrubbingTime] = useState(0);
@@ -194,7 +195,38 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     if (!videoElement) return;
 
     const handleError = (error: Event) => {
-      devError('Video error', { eventId: event.id, url: workingUrl, error });
+      const target = error.target as HTMLVideoElement;
+      const mediaError = target.error;
+      
+      let errorDetails = 'Unknown error';
+      if (mediaError) {
+        switch (mediaError.code) {
+          case MediaError.MEDIA_ERR_ABORTED:
+            errorDetails = 'MEDIA_ERR_ABORTED: Video loading aborted';
+            break;
+          case MediaError.MEDIA_ERR_NETWORK:
+            errorDetails = 'MEDIA_ERR_NETWORK: Network error while loading video';
+            break;
+          case MediaError.MEDIA_ERR_DECODE:
+            errorDetails = 'MEDIA_ERR_DECODE: Video decoding failed (corrupted or unsupported format)';
+            break;
+          case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorDetails = 'MEDIA_ERR_SRC_NOT_SUPPORTED: Video format not supported or file not found';
+            break;
+        }
+        errorDetails += ` (code: ${mediaError.code})`;
+        if (mediaError.message) {
+          errorDetails += ` - ${mediaError.message}`;
+        }
+      }
+      
+      devError('Video error', { 
+        eventId: event.id, 
+        url: workingUrl, 
+        errorCode: mediaError?.code,
+        errorDetails,
+        title: event.title 
+      });
     };
 
     const handleLoadedData = () => {
@@ -229,60 +261,56 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         videoElement.currentTime = 0;
         hasBeenActivatedRef.current = true;
       }
-      
-      // Unmute the active video for audio playback
-      videoElement.muted = false;
 
       if (!userPaused) {
         // Enhanced PWA mobile autoplay strategy
         const isPWAMobile = isMobile && (isStandalone || isInstalled);
+        
+        // Always start muted for reliable autoplay across all platforms
+        videoElement.muted = true;
+        setIsMuted(true); // Sync state
+        
         const playPromise = videoElement.play();
 
         if (playPromise !== undefined) {
           playPromise
             .then(() => {
-              // Autoplay with audio succeeded
-              bundleLog('videoAutoPlay', `✅ Video autoplay with audio successful${isPWAMobile ? ' (PWA Mobile)' : ''}`);
+              bundleLog('videoAutoPlay', `✅ Muted autoplay successful${isPWAMobile ? ' (PWA Mobile)' : ''}`);
               setIsPlaying(true);
+
+              // Only try to auto-unmute on mobile PWA where it works reliably
+              // Desktop browsers block auto-unmute due to stricter autoplay policies
+              if (isPWAMobile) {
+                setTimeout(() => {
+                  if (!userPaused && isActive && videoElement) {
+                    videoElement.volume = 1.0; // Ensure full volume
+                    videoElement.muted = false;
+                    setIsMuted(false); // Sync state
+                    bundleLog('videoAutoPlay', '🔊 Auto-unmuting after autoplay (PWA Mobile)');
+                  }
+                }, 100);
+              } else {
+                // Desktop: Keep muted, user must click volume button
+                bundleLog('videoAutoPlay', '🔇 Desktop autoplay started muted (click volume button to unmute)');
+              }
             })
             .catch((error) => {
-              // If autoplay with audio fails, try muted autoplay as fallback
-              bundleLog('videoAutoPlayErrors', `Audio autoplay failed, trying muted fallback: ${error.message}${isPWAMobile ? ' (PWA Mobile)' : ''}`);
-              videoElement.muted = true;
-
-              const mutedPlayPromise = videoElement.play();
-              if (mutedPlayPromise !== undefined) {
-                mutedPlayPromise
-                  .then(() => {
-                    bundleLog('videoAutoPlay', `✅ Muted autoplay successful${isPWAMobile ? ' (PWA Mobile)' : ''}`);
-                    setIsPlaying(true);
-
-                    // For PWA mobile, try to unmute after a short delay if user interacted
-                    if (isPWAMobile) {
-                      setTimeout(() => {
-                        if (!userPaused && isActive && videoElement) {
-                          videoElement.muted = false;
-                          bundleLog('videoAutoPlay', '🔊 PWA Mobile: Attempting to unmute after muted autoplay');
-                        }
-                      }, 1000);
-                    }
-                  })
-                  .catch((mutedError) => {
-                    bundleLog('videoAutoPlayErrors', `❌ Even muted autoplay failed: ${mutedError.message}${isPWAMobile ? ' (PWA Mobile)' : ''}`);
-                  });
-              }
+              bundleLog('videoAutoPlayErrors', `❌ Autoplay failed: ${error.message}${isPWAMobile ? ' (PWA Mobile)' : ''}`);
             });
         } else {
           setIsPlaying(true);
         }
       }
     } else {
-      // When video becomes inactive, always pause, mute, and reset user pause state
+      // When video becomes inactive, aggressively silence it to prevent audio bleeding
       videoElement.pause();
       videoElement.muted = true; // Mute inactive videos
+      videoElement.volume = 0; // Set volume to 0 for extra safety
+      setIsMuted(true); // Sync state
       setIsPlaying(false);
       setUserPaused(false);
       hasBeenActivatedRef.current = false; // Reset so video starts from beginning next time it's viewed
+      bundleLog('audioControl', '🔇 Video deactivated: muted and volume set to 0');
     }
 
     return () => {
@@ -301,7 +329,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     if (videoElement.paused) {
       // When manually playing, ensure audio is enabled for active video
       if (isActive) {
-        videoElement.muted = false;
+        videoElement.muted = isMuted; // Use state instead of forcing unmute
 
         // For PWA mobile, additional interaction tracking
         if (isPWAMobile) {
@@ -319,6 +347,29 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       setIsPlaying(false);
       setUserPaused(true);
     }
+  };
+
+  const handleToggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering video play/pause
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    // Only allow unmuting if this video is active
+    if (!isActive) {
+      bundleLog('audioControl', '⚠️ Cannot unmute inactive video');
+      return;
+    }
+
+    const newMutedState = !isMuted;
+    
+    // When unmuting, ensure volume is at full
+    if (!newMutedState) {
+      videoElement.volume = 1.0;
+    }
+    
+    videoElement.muted = newMutedState;
+    setIsMuted(newMutedState);
+    bundleLog('audioControl', `🔊 Volume button clicked: ${newMutedState ? 'Muted' : 'Unmuted'}`);
   };
 
   const handleVideoPlay = () => {
@@ -357,7 +408,8 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             className={`w-full h-full ${objectFitClass} cursor-pointer`}
             loop
             playsInline
-            muted={!isActive} // Mute inactive videos, unmute active video
+            autoPlay={isActive}
+            muted={isMuted} // Use state for mute control
             preload={isActive || shouldPreload || (gridMode && isMobile) ? "auto" : "metadata"} // Force auto preload for mobile grid to show poster
             webkit-playsinline="true" // iOS Safari compatibility
             x5-video-player-type="h5" // WeChat browser optimization
@@ -365,15 +417,6 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             onClick={handlePlayPause}
             onPlay={handleVideoPlay}
             onPause={handleVideoPause}
-            onTouchStart={(e) => {
-              // PWA mobile touch optimization
-              const isPWAMobile = isMobile && (isStandalone || isInstalled);
-              if (isPWAMobile) {
-                // Prevent default to avoid mobile browser interference
-                e.preventDefault();
-                bundleLog('mobilePWAInteraction', '👆 Touch interaction on video in PWA');
-              }
-            }}
           />
         )
       ) : isTestingUrls ? (
@@ -407,6 +450,21 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             <Play className="w-16 h-16 text-white drop-shadow-lg" fill="white" />
           </div>
         </div>
+      )}
+
+      {/* Volume Button - Right Side (styled like action buttons) */}
+      {!gridMode && workingUrl && !isYouTube && (
+        <button
+          onClick={handleToggleMute}
+          className={`absolute ${isMobile ? 'bottom-[470px] right-4' : 'top-4 right-4'} z-20 group transition-all duration-200`}
+          aria-label={isMuted ? 'Unmute' : 'Mute'}
+        >
+          {isMuted ? (
+            <VolumeX className="w-7 h-7 text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200" />
+          ) : (
+            <Volume2 className="w-7 h-7 text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200" />
+          )}
+        </button>
       )}
 
       {/* Large Timestamp Overlay - Shows during scrubbing, positioned bottom center above description */}

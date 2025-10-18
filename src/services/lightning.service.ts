@@ -161,30 +161,54 @@ class LightningService {
         }, 1000);
       } else {
         // Monitor Nostr for zap receipt
-        const filter: Filter = {
-          kinds: [kinds.Zap],
-          '#p': [recipient],
-          since: dayjs().subtract(1, 'minute').unix()
-        };
+        // Note: This fallback monitoring is best-effort only
+        try {
+          const filter: Filter = {
+            kinds: [kinds.Zap],
+            '#p': [recipient],
+            since: dayjs().subtract(1, 'minute').unix()
+          };
 
-        if (event) {
-          filter['#e'] = [event.id];
-        }
-
-        subCloser = nostr.subscribe(
-          senderRelayList.write.concat(BIG_RELAY_URLS).slice(0, 4),
-          filter,
-          {
-            onevent: (evt: NostrEvent) => {
-              const info = getZapInfoFromEvent(evt);
-              if (!info) return;
-
-              if (info.invoice === pr) {
-                setPaid({ preimage: info.preimage ?? '' });
-              }
-            }
+          if (event) {
+            filter['#e'] = [event.id];
           }
-        );
+
+          // Use Nostrify's req() API for subscription
+          const abortController = new AbortController();
+          const subscription = nostr.req(
+            [filter],
+            { signal: abortController.signal }
+          );
+
+          // Store closer to abort subscription when payment completes/cancels
+          subCloser = {
+            close: () => abortController.abort()
+          };
+
+          // Process zap receipt events
+          (async () => {
+            try {
+              for await (const msg of subscription) {
+                if (msg[0] === 'EVENT') {
+                  const evt = msg[2] as NostrEvent;
+                  const info = getZapInfoFromEvent(evt);
+                  if (!info) continue;
+
+                  if (info.invoice === pr) {
+                    setPaid({ preimage: info.preimage ?? '' });
+                    abortController.abort();
+                    break;
+                  }
+                }
+              }
+            } catch (err) {
+              // Subscription aborted or errored, ignore
+            }
+          })();
+        } catch (subscribeError) {
+          // Ignore subscription errors - payment monitoring will rely on invoice verification
+          console.warn('Failed to monitor Nostr for zap receipt:', subscribeError);
+        }
       }
     });
   }
@@ -304,6 +328,11 @@ class LightningService {
       }
 
       const res = await fetch(lnurl);
+      
+      if (!res.ok) {
+        throw new Error(`Lightning address server returned ${res.status}`);
+      }
+      
       const body = await res.json();
 
       if (body.allowsNostr && body.nostrPubkey) {
@@ -313,7 +342,8 @@ class LightningService {
         };
       }
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch zap endpoint:', err);
+      throw new Error('Unable to connect to Lightning address. Please check your internet connection.');
     }
 
     return null;

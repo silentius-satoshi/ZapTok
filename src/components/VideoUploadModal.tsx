@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X } from 'lucide-react';
+import { Upload, Play, Video, FileVideo, CheckCircle2, Zap, Pause, Image as ImageIcon, RotateCcw, X, RefreshCw, Trash2, Download, Volume2, VolumeX, Settings, Circle, Grid3x3, Sparkles, ZapOff } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
@@ -35,6 +36,14 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Recording quality settings - defined before useRecordVideo
+  type VideoQuality = 'high' | 'main' | 'baseline';
+  const [videoQuality, setVideoQuality] = useState<VideoQuality>('main'); // Default to Main profile
+  const [showQualitySettings, setShowQualitySettings] = useState(false);
+  const [flashEnabled, setFlashEnabled] = useState(false);
+  const [flashSupported, setFlashSupported] = useState(false);
 
   // Recording state from useRecordVideo hook
   const {
@@ -44,13 +53,16 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     error: recordingError,
     stream,
     duration: recordingDuration,
+    facingMode,
+    initializeCamera,
     startRecording,
     stopRecording,
     pauseRecording,
     resumeRecording,
     resetRecording,
     createFile,
-  } = useRecordVideo();
+    switchCamera,
+  } = useRecordVideo({ quality: videoQuality });
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoMetadata, setVideoMetadata] = useState<VideoMetadata>({
@@ -64,10 +76,18 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [uploadStep, setUploadStep] = useState<'camera' | 'metadata' | 'uploading' | 'complete'>('camera');
+  const [uploadStep, setUploadStep] = useState<'camera' | 'preview' | 'metadata' | 'uploading' | 'complete'>('camera');
   const [retryInfo, setRetryInfo] = useState<string>('');
   const [currentServer, setCurrentServer] = useState<string>('');
   const [uploadAttempts, setUploadAttempts] = useState<{server: string, attempt: number, error?: string}[]>([]);
+  const [isRecordingProcessing, setIsRecordingProcessing] = useState(false);
+  const [shouldAutoNavigateToPreview, setShouldAutoNavigateToPreview] = useState(false);
+
+  // Preview playback state
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
+  const [previewDuration, setPreviewDuration] = useState(0);
+  const [isPreviewMuted, setIsPreviewMuted] = useState(true); // Start muted for autoplay
 
   // No longer using old upload hooks - hybrid Blossom service handles all uploads
   const [compressionProgress, setCompressionProgress] = useState(0);
@@ -237,8 +257,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       
       // Small delay to ensure cleanup has completed
       const timer = setTimeout(() => {
-        startRecording().catch((err) => {
-          console.error('Failed to start camera:', err);
+        initializeCamera().catch((err) => {
+          console.error('Failed to initialize camera:', err);
           toast({
             title: 'Camera Error',
             description: 'Unable to access camera. Please check permissions.',
@@ -249,7 +269,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       
       return () => clearTimeout(timer);
     }
-  }, [isOpen, uploadStep, selectedFile, recordedBlob, startRecording, toast]);
+  }, [isOpen, uploadStep, selectedFile, recordedBlob, initializeCamera, toast]);
 
   // Attach stream to camera preview video element
   useEffect(() => {
@@ -258,19 +278,178 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     }
   }, [stream]);
 
+  // Check flash support and apply flash state
+  useEffect(() => {
+    if (!stream) {
+      setFlashSupported(false);
+      return;
+    }
+
+    const videoTrack = stream.getVideoTracks()[0];
+    if (!videoTrack) {
+      setFlashSupported(false);
+      return;
+    }
+
+    // Check if torch (flash) is supported
+    // Note: Front-facing cameras typically don't support hardware torch
+    const capabilities = videoTrack.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean };
+    const hasTorchCapability = capabilities && 'torch' in capabilities;
+    
+    // Front cameras on mobile devices (facingMode === 'user') typically don't have hardware flash
+    // Only rear cameras (facingMode === 'environment') support torch
+    const supported = hasTorchCapability && facingMode === 'environment';
+    setFlashSupported(!!supported);
+
+    // Apply flash state if supported (both ON and OFF states)
+    if (supported) {
+      // iOS Safari requires different constraint format
+      const constraints: any = {
+        advanced: [{ torch: flashEnabled }]
+      };
+      
+      // Try both constraint formats for maximum compatibility
+      videoTrack.applyConstraints(constraints)
+        .catch(() => {
+          // Fallback: try direct torch property (some browsers)
+          return videoTrack.applyConstraints({ 
+            // @ts-expect-error - torch may be a top-level property on some devices
+            torch: flashEnabled 
+          });
+        })
+        .catch((err) => {
+          console.error('Failed to toggle flash:', err);
+          // Silently fail - some devices report support but don't actually support it
+        });
+    }
+  }, [stream, flashEnabled, facingMode]);
+
+  // Track recording processing state
+  useEffect(() => {
+    // When recording stops but blob isn't ready yet, show loading
+    if (!isRecording && !recordedBlob && isRecordingProcessing) {
+      // Still processing
+    } else if (!isRecording && recordedBlob) {
+      // Processing complete
+      setIsRecordingProcessing(false);
+      
+      // If Preview button was clicked, auto-navigate to preview screen
+      if (shouldAutoNavigateToPreview) {
+        setUploadStep('preview');
+        setShouldAutoNavigateToPreview(false);
+      }
+    }
+  }, [isRecording, recordedBlob, isRecordingProcessing, shouldAutoNavigateToPreview]);
+
+  // Auto-play recorded video when it's ready
+  useEffect(() => {
+    if (recordedBlob && videoRef.current && uploadStep === 'camera') {
+      videoRef.current.play().catch((err) => {
+        console.log('Auto-play blocked:', err);
+      });
+    }
+  }, [recordedBlob, uploadStep]);
+
+  // Create and manage blob URL for recorded video
+  useEffect(() => {
+    if (recordedBlob) {
+      // Create blob URL once when recording is complete
+      const blobUrl = URL.createObjectURL(recordedBlob);
+      setPreviewUrl(blobUrl);
+      
+      // Cleanup blob URL when component unmounts or blob changes
+      return () => {
+        if (blobUrl) {
+          URL.revokeObjectURL(blobUrl);
+        }
+      };
+    } else {
+      // Clear preview URL when no blob
+      setPreviewUrl(null);
+    }
+  }, [recordedBlob]);
+
+  // Load video metadata when entering preview screen
+  useEffect(() => {
+    console.log('useEffect triggered - uploadStep:', uploadStep, 'videoRef.current:', !!videoRef.current, 'recordedBlob:', !!recordedBlob);
+    
+    if (uploadStep === 'preview' && videoRef.current && recordedBlob) {
+      console.log('Preview screen: Loading video metadata');
+      console.log('Blob size:', recordedBlob.size);
+      console.log('Blob type:', recordedBlob.type);
+      
+      const video = videoRef.current;
+      
+      // Set duration once metadata is loaded
+      const handleMetadata = () => {
+        console.log('Metadata loaded - Duration:', video.duration);
+        console.log('Is duration finite?', isFinite(video.duration));
+        if (isFinite(video.duration) && video.duration > 0) {
+          setPreviewDuration(video.duration);
+        } else {
+          console.warn('Duration is Infinity, will track via playback');
+        }
+      };
+      
+      const handleDurationChange = () => {
+        console.log('Duration changed - New duration:', video.duration);
+        if (isFinite(video.duration) && video.duration > 0) {
+          setPreviewDuration(video.duration);
+        }
+      };
+      
+      const handleEnded = () => {
+        console.log('Video ended - Final currentTime:', video.currentTime);
+        // When video ends, use currentTime as duration
+        if (!isFinite(previewDuration) && video.currentTime > 0) {
+          setPreviewDuration(video.currentTime);
+        }
+      };
+      
+      const handleError = (e: Event) => {
+        console.error('Video error:', e);
+        console.error('Video error code:', video.error?.code);
+        console.error('Video error message:', video.error?.message);
+      };
+      
+      const handleCanPlay = () => {
+        console.log('Video can play - readyState:', video.readyState);
+        console.log('Video duration at canplay:', video.duration);
+      };
+      
+      video.addEventListener('loadedmetadata', handleMetadata);
+      video.addEventListener('durationchange', handleDurationChange);
+      video.addEventListener('ended', handleEnded);
+      video.addEventListener('error', handleError);
+      video.addEventListener('canplay', handleCanPlay);
+      
+      // Force load metadata
+      video.load();
+      
+      return () => {
+        video.removeEventListener('loadedmetadata', handleMetadata);
+        video.removeEventListener('durationchange', handleDurationChange);
+        video.removeEventListener('ended', handleEnded);
+        video.removeEventListener('error', handleError);
+        video.removeEventListener('canplay', handleCanPlay);
+      };
+    }
+  }, [uploadStep, recordedBlob]);
+
   // Handle recorded video
   const handleUseRecording = useCallback(() => {
     if (!recordedBlob) return;
     
-    const file = createFile(`recording-${Date.now()}.webm`);
-    if (file) {
-      processFile(file);
-    }
-  }, [recordedBlob, createFile, processFile]);
+    // Go to preview screen instead of directly processing
+    setUploadStep('preview');
+  }, [recordedBlob]);
 
   // Handle re-record - fully reset and restart camera
   const handleReRecord = useCallback(async () => {
     console.log('Re-record: Resetting recording state...');
+    
+    // Reset processing state
+    setIsRecordingProcessing(false);
     
     // First, reset the recording state (clears recordedBlob)
     resetRecording();
@@ -278,9 +457,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     // Wait a moment for state to clear
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    // Then start a fresh recording
+    // Then restart the camera (don't start recording automatically)
     try {
-      await startRecording();
+      await initializeCamera();
       console.log('Re-record: Camera restarted successfully');
     } catch (err) {
       console.error('Re-record: Failed to restart camera:', err);
@@ -290,13 +469,13 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         variant: 'destructive',
       });
     }
-  }, [resetRecording, startRecording, toast]);
+  }, [resetRecording, initializeCamera, toast]);
 
   // Handle record/pause button click
   const handleRecordPauseClick = useCallback(() => {
     if (!isRecording && !recordedBlob) {
       // Start recording (camera already initialized)
-      return; // Camera auto-starts, no action needed
+      startRecording();
     } else if (isRecording && !isPaused) {
       // Pause recording
       pauseRecording();
@@ -304,11 +483,136 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       // Resume recording
       resumeRecording();
     }
-  }, [isRecording, isPaused, recordedBlob, pauseRecording, resumeRecording]);
+  }, [isRecording, isPaused, recordedBlob, startRecording, pauseRecording, resumeRecording]);
 
   const handleStopRecording = useCallback(() => {
     stopRecording();
+    setIsRecordingProcessing(true);
   }, [stopRecording]);
+
+  const handlePreviewClick = useCallback(() => {
+    stopRecording();
+    setIsRecordingProcessing(true);
+    setShouldAutoNavigateToPreview(true);
+  }, [stopRecording]);
+
+  // Preview video controls
+  const handlePreviewPlayPause = useCallback(() => {
+    console.log('handlePreviewPlayPause clicked');
+    if (!videoRef.current) {
+      console.log('videoRef.current is null');
+      return;
+    }
+    
+    console.log('Current playing state:', isPreviewPlaying);
+    console.log('Video paused?', videoRef.current.paused);
+    
+    if (isPreviewPlaying) {
+      console.log('Pausing video');
+      videoRef.current.pause();
+    } else {
+      console.log('Playing video');
+      videoRef.current.play().then(() => {
+        console.log('Video started playing successfully');
+      }).catch((err) => {
+        console.error('Failed to play video:', err);
+      });
+    }
+  }, [isPreviewPlaying]);
+
+  const handlePreviewTimeUpdate = useCallback(() => {
+    if (videoRef.current) {
+      const currentTime = videoRef.current.currentTime;
+      console.log('Time update:', currentTime);
+      setPreviewCurrentTime(currentTime);
+      
+      // If duration is still Infinity, try to get it from currentTime when video ends
+      if (!isFinite(previewDuration) && currentTime > 0) {
+        // Update duration as video plays (for streaming/infinite duration videos)
+        if (currentTime > previewDuration || !isFinite(previewDuration)) {
+          console.log('Updating duration to:', currentTime);
+          setPreviewDuration(currentTime);
+        }
+      }
+    }
+  }, [previewDuration]);
+
+  const handlePreviewLoadedMetadata = useCallback(() => {
+    console.log('handlePreviewLoadedMetadata called');
+    if (videoRef.current) {
+      const duration = videoRef.current.duration;
+      console.log('Video duration from callback:', duration);
+      console.log('Is duration finite?', isFinite(duration));
+      
+      if (isFinite(duration) && duration > 0) {
+        setPreviewDuration(duration);
+      } else {
+        console.warn('Duration is Infinity or invalid, will track via playback');
+        // Duration is Infinity - this is common with WebM from MediaRecorder
+        // We'll track duration as the video plays
+      }
+    }
+  }, []);
+
+  const handlePreviewSeek = useCallback((newTime: number) => {
+    if (videoRef.current && isFinite(newTime) && isFinite(previewDuration)) {
+      videoRef.current.currentTime = newTime;
+      setPreviewCurrentTime(newTime);
+    }
+  }, [previewDuration]);
+
+  const handleDeleteRecording = useCallback(() => {
+    resetRecording();
+    setUploadStep('camera');
+    setPreviewCurrentTime(0);
+    setPreviewDuration(0);
+    setIsPreviewPlaying(false);
+    setIsPreviewMuted(true); // Reset to muted
+  }, [resetRecording]);
+
+  const handleDownloadRecording = useCallback(() => {
+    if (!recordedBlob) return;
+    
+    // Determine file extension based on MIME type
+    let extension = '.webm';
+    if (recordedBlob.type.includes('mp4')) {
+      extension = '.mp4';
+    } else if (recordedBlob.type.includes('webm')) {
+      extension = '.webm';
+    }
+    
+    const url = URL.createObjectURL(recordedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `zaptok-recording-${Date.now()}${extension}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: 'Video Downloaded',
+      description: 'Your recording has been saved to your device.',
+    });
+  }, [recordedBlob, toast]);
+
+  const handleToggleMute = useCallback(() => {
+    if (videoRef.current) {
+      const newMutedState = !isPreviewMuted;
+      videoRef.current.muted = newMutedState;
+      setIsPreviewMuted(newMutedState);
+    }
+  }, [isPreviewMuted]);
+
+  const handlePublishToNostr = useCallback(() => {
+    if (!recordedBlob) return;
+    
+    // createFile will automatically use the correct extension based on blob type
+    const file = createFile();
+    if (file) {
+      processFile(file);
+    }
+  }, [recordedBlob, createFile, processFile]);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -482,12 +786,12 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         console.log('Video compression not needed or not supported');
       }
 
-      // Upload video using hybrid Blossom approach (SDK + XHR fallback)
-      console.log('🚀 [VideoUpload] Starting hybrid Blossom upload (SDK + XHR fallback)...');
+      // Upload video using Blossom protocol
+      console.log('🚀 [VideoUpload] Starting Blossom upload...');
       setUploadProgress(50);
-      setRetryInfo('Uploading with hybrid Blossom protocol...');
+      setRetryInfo('Uploading to Blossom servers...');
 
-      // Use hybrid Blossom upload service as primary method
+      // Use Blossom upload service as primary method
       const signerAny = user.signer as any;
       const isBunkerSigner = signerAny?.bunkerSigner;
       const effectiveSigner = isBunkerSigner || user.signer;
@@ -520,8 +824,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
       setUploadProgress(80);
 
-      // Create hybrid video event for cross-client compatibility
-      console.log('Creating hybrid Nostr event for cross-client compatibility...');
+      // Create NIP-71 video event (kind 21 or 22)
+      console.log('Creating NIP-71 video event...');
 
       // Extract video data from upload tags
       const videoUrl = videoTags.find(tag => tag[0] === 'url')?.[1] || '';
@@ -539,11 +843,16 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         duration: videoMetadata.duration,
         size: videoSize,
         type: videoType,
+        // Calculate average bitrate (bits per second) from file size and duration
+        // bitrate = (file_size_in_bytes * 8) / duration_in_seconds
+        bitrate: videoMetadata.duration > 0 ? Math.round((videoSize * 8) / videoMetadata.duration) : undefined,
         // Extract dimensions if available from Blossom tags
         width: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[0] ?
                parseInt(videoTags.find(tag => tag[0] === 'dim')![1].split('x')[0]) : undefined,
         height: videoTags.find(tag => tag[0] === 'dim')?.[1]?.split('x')[1] ?
                 parseInt(videoTags.find(tag => tag[0] === 'dim')![1].split('x')[1]) : undefined,
+        // Use current timestamp as first publication time
+        publishedAt: Math.floor(Date.now() / 1000),
       };
 
       // Parse custom hashtags (remove # if user included it, split by comma, trim whitespace)
@@ -568,21 +877,45 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         includeImeta: true
       });
 
+      console.log('🔍 Video event after createVideoEvent:', {
+        tagCount: videoEvent.tags?.length,
+        hasPublishedAt: videoEvent.tags?.some(t => t[0] === 'published_at'),
+        tags: videoEvent.tags
+      });
+
       // Add any additional Blossom-specific tags from the upload
       const additionalTags = videoTags.filter(tag =>
         !['url', 'x', 'size', 'dim', 'm', 'thumb'].includes(tag[0])
       );
+      
+      console.log('🔍 Additional tags from Blossom:', additionalTags);
+      
       videoEvent.tags = [...(videoEvent.tags || []), ...additionalTags];
 
-      console.log('Publishing video event to Nostr...', {
+      console.log('🔍 Final video event before publishing:', {
         kind: videoEvent.kind,
         contentPreview: videoEvent.content?.substring(0, 50),
         tagCount: videoEvent.tags?.length,
+        hasPublishedAt: videoEvent.tags?.some(t => t[0] === 'published_at'),
         videoUrl: videoUrl,
-        videoHash: videoHash
+        videoHash: videoHash,
+        tags: videoEvent.tags
       });
 
-      createEvent(videoEvent);
+      // Publish event and wait for completion
+      // Using Promise wrapper to properly handle the async mutation
+      await new Promise<void>((resolve, reject) => {
+        createEvent(videoEvent, {
+          onSuccess: () => {
+            console.log('✅ Video event published successfully to Nostr');
+            resolve();
+          },
+          onError: (error) => {
+            console.error('❌ Failed to publish video event:', error);
+            reject(error);
+          }
+        });
+      });
 
       setUploadProgress(100);
       setUploadStep('complete');
@@ -667,6 +1000,22 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
         hideClose
         className="p-0 gap-0 border-0 bg-transparent max-w-none w-full h-full md:max-w-2xl md:h-[90vh] overflow-hidden"
       >
+        {/* Hidden accessibility elements for screen readers */}
+        <DialogTitle className="sr-only">
+          {uploadStep === 'camera' ? 'Record Video' : 
+           uploadStep === 'preview' ? 'Preview Video' : 
+           uploadStep === 'metadata' ? 'Add Video Details' : 
+           uploadStep === 'uploading' ? 'Uploading Video' : 
+           'Upload Complete'}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          {uploadStep === 'camera' ? 'Record a video using your camera' : 
+           uploadStep === 'preview' ? 'Preview your recorded video before publishing' : 
+           uploadStep === 'metadata' ? 'Enter title, description, and hashtags for your video' : 
+           uploadStep === 'uploading' ? 'Your video is being uploaded to the server' : 
+           'Your video has been successfully uploaded'}
+        </DialogDescription>
+
         {/* Camera View - Matches VideoCard dimensions exactly */}
         {uploadStep === 'camera' && (
           <div className="relative w-full h-full bg-black md:rounded-3xl md:border-2 md:border-gray-800 overflow-hidden md:shadow-2xl">
@@ -678,26 +1027,160 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               <X className="h-6 w-6 text-white" />
             </button>
 
+            {/* Settings Button - Top Right (show when camera is active, hide when video is recorded) */}
+            {!recordedBlob && (
+              <>
+                {/* Flash Toggle Button - Only show for rear camera */}
+                {flashSupported && facingMode === 'environment' && (
+                  <button
+                    onClick={() => setFlashEnabled(!flashEnabled)}
+                    disabled={isRecording}
+                    className="absolute top-4 right-16 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={flashEnabled ? 'Turn off flash' : 'Turn on flash'}
+                  >
+                    {flashEnabled ? (
+                      <Zap className="h-6 w-6 text-yellow-400 fill-yellow-400" />
+                    ) : (
+                      <ZapOff className="h-6 w-6 text-white" />
+                    )}
+                  </button>
+                )}
+                
+                <button
+                  onClick={() => setShowQualitySettings(!showQualitySettings)}
+                  disabled={isRecording}
+                  className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Camera settings"
+                >
+                  <Settings className="h-6 w-6 text-white" />
+                </button>
+              </>
+            )}
+
+            {/* Camera Settings Panel - iPhone Style */}
+            {showQualitySettings && !recordedBlob && (
+              <div className="absolute inset-0 z-40 bg-black/95 backdrop-blur-xl flex items-center justify-center">
+                <div className="w-full max-w-sm px-8">
+                  {/* Close Settings Button */}
+                  <button
+                    onClick={() => setShowQualitySettings(false)}
+                    className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                  >
+                    <X className="h-6 w-6 text-white" />
+                  </button>
+
+                  {/* Settings Grid - 3 buttons layout */}
+                  <div className="grid grid-cols-3 gap-6 mb-8">
+                    {/* Flash */}
+                    <div className="flex flex-col items-center gap-3">
+                      <button
+                        onClick={() => setFlashEnabled(!flashEnabled)}
+                        disabled={!flashSupported || isRecording}
+                        className={`w-20 h-20 rounded-full flex items-center justify-center transition-colors ${
+                          flashSupported 
+                            ? flashEnabled 
+                              ? 'bg-yellow-500/90' 
+                              : 'bg-white/10 hover:bg-white/20'
+                            : 'bg-white/10 opacity-50 cursor-not-allowed'
+                        }`}
+                        title={flashSupported ? 'Toggle flash' : 'Flash not supported on this device'}
+                      >
+                        <Zap className={`h-8 w-8 ${flashEnabled ? 'text-white' : 'text-white'}`} strokeWidth={1.5} />
+                      </button>
+                      <span className={`text-white text-xs font-medium ${!flashSupported ? 'opacity-50' : ''}`}>
+                        FLASH
+                      </span>
+                    </div>
+
+                    {/* Live - Navigate to stream page */}
+                    <div className="flex flex-col items-center gap-3">
+                      <button
+                        onClick={() => {
+                          handleClose();
+                          navigate('/stream');
+                        }}
+                        disabled={isRecording}
+                        className="w-20 h-20 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Go to Live Stream"
+                      >
+                        <Circle className="h-8 w-8 text-white" strokeWidth={1.5} />
+                      </button>
+                      <span className="text-white text-xs font-medium">LIVE</span>
+                    </div>
+
+                    {/* Recording Quality - Active Button */}
+                    <div className="flex flex-col items-center gap-3">
+                      <button
+                        onClick={() => {
+                          // Cycle through quality options
+                          const qualities: Array<'high' | 'main' | 'baseline'> = ['high', 'main', 'baseline'];
+                          const currentIndex = qualities.indexOf(videoQuality);
+                          const nextIndex = (currentIndex + 1) % qualities.length;
+                          setVideoQuality(qualities[nextIndex]);
+                        }}
+                        disabled={isRecording}
+                        className={`w-20 h-20 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 ${
+                          videoQuality === 'high' 
+                            ? 'bg-yellow-500/90' 
+                            : videoQuality === 'main'
+                            ? 'bg-blue-500/90'
+                            : 'bg-green-500/90'
+                        }`}
+                      >
+                        <div className="text-center">
+                          <Video className="h-6 w-6 text-white mx-auto mb-1" strokeWidth={2} />
+                          <div className="text-[10px] font-bold text-white leading-tight">
+                            {videoQuality === 'high' ? 'HIGH' : videoQuality === 'main' ? 'MAIN' : 'BASE'}
+                          </div>
+                        </div>
+                      </button>
+                      <span className="text-white text-xs font-medium leading-tight">
+                        RECORDING<br />QUALITY
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quality Description */}
+                  <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
+                    <div className="text-white text-sm font-medium mb-1">
+                      {videoQuality === 'high' && 'High Quality'}
+                      {videoQuality === 'main' && 'Main Quality (Default)'}
+                      {videoQuality === 'baseline' && 'Baseline Quality'}
+                    </div>
+                    <div className="text-white/70 text-xs">
+                      {videoQuality === 'high' && 'H.264 High Profile - Best quality, works on newest devices'}
+                      {videoQuality === 'main' && 'H.264 Main Profile - Better compression, works on modern devices'}
+                      {videoQuality === 'baseline' && 'H.264 Baseline Profile - Maximum compatibility, works on all devices'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Camera Preview or Recorded Video Playback */}
             <div className="w-full h-full flex items-center justify-center">
               {recordedBlob ? (
-                // Playback after recording
+                // Playback after recording - mirrored if recorded with front camera
                 <video
+                  key="recorded-video"
                   ref={videoRef}
-                  src={URL.createObjectURL(recordedBlob)}
-                  controls
-                  className="w-full h-full object-cover"
-                  autoPlay
+                  src={previewUrl || ''}
+                  className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                  style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
+                  playsInline
+                  loop
+                  muted={false}
                 />
               ) : (
-                // Live camera preview - mirrored for front-facing camera
+                // Live camera preview - mirrored for front-facing camera only
                 <video
+                  key="camera-preview"
                   ref={cameraPreviewRef}
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover scale-x-[-1]"
-                  style={{ transform: 'scaleX(-1)' }}
+                  className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                  style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
                 />
               )}
 
@@ -719,82 +1202,97 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               )}
             </div>
 
-            {/* Duration Display - Top Center */}
-            {isRecording && (
+            {/* Duration Display - Top Center (only during recording) */}
+            {isRecording && !recordedBlob && (
               <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 px-4 py-2 rounded-full bg-red-600 text-white font-mono text-sm flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-white animate-pulse" />
-                {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
+                {Math.floor(recordingDuration / 60).toString().padStart(2, '0')}:{(recordingDuration % 60).toString().padStart(2, '0')}
               </div>
             )}
 
-            {/* Bottom Controls */}
-            <div className="absolute bottom-0 left-0 right-0 z-40 pb-8 pt-12 bg-gradient-to-t from-black/80 to-transparent">
-              <div className="flex items-center justify-between px-6">
-                {/* Upload File Button - Bottom Left */}
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full bg-gray-800/70 hover:bg-gray-700 text-white h-14 w-14"
+            {/* Bottom Controls - Minimal iOS-style */}
+            <div className="absolute bottom-0 left-0 right-0 z-40 pb-8 pt-12">
+              {/* Flip Camera Button - Bottom Right (hidden during paused state and when recorded) */}
+              {!recordedBlob && !isRecordingProcessing && !isPaused && (
+                <button
+                  onClick={switchCamera}
+                  disabled={isRecording}
+                  className="absolute bottom-8 right-6 p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-50"
+                  title={facingMode === 'user' ? 'Switch to back camera' : 'Switch to front camera'}
                 >
-                  <ImageIcon className="h-6 w-6" />
-                </Button>
+                  <RefreshCw className="h-6 w-6 text-white" />
+                </button>
+              )}
 
-                {/* Center Record/Pause Button */}
-                <div className="flex flex-col items-center gap-2">
-                  {recordedBlob ? (
-                    // Show "Next" button after recording
-                    <Button
-                      onClick={handleUseRecording}
-                      size="lg"
-                      className="rounded-full h-20 w-20 bg-gradient-to-r from-purple-600 to-orange-600 hover:from-purple-700 hover:to-orange-700"
-                    >
-                      <CheckCircle2 className="h-8 w-8" />
-                    </Button>
-                  ) : (
-                    <button
-                      onClick={handleRecordPauseClick}
-                      className="relative h-20 w-20 rounded-full border-4 border-white flex items-center justify-center bg-transparent hover:bg-white/10 transition-all"
-                    >
-                      {isRecording && !isPaused ? (
-                        <div className="w-12 h-12 bg-white" />
-                      ) : (
-                        <div className="w-16 h-16 rounded-full bg-red-600" />
-                      )}
-                    </button>
-                  )}
-                  
-                  {/* Recording control buttons */}
-                  {isRecording && !recordedBlob && (
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleStopRecording}
-                        variant="ghost"
-                        size="sm"
-                        className="text-white hover:bg-white/20"
-                      >
-                        <CheckCircle2 className="h-4 w-4 mr-1" />
-                        Done
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Re-record after recording is done */}
-                  {recordedBlob && (
+              <div className="relative flex items-center justify-center">
+                {isRecordingProcessing ? (
+                  // Processing recorded video
+                  <div className="text-white text-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"></div>
+                    <p className="text-sm">Processing video...</p>
+                  </div>
+                ) : recordedBlob ? (
+                  // After recording: Show Next button
+                  <div className="flex gap-4">
                     <Button
                       onClick={handleReRecord}
                       variant="ghost"
-                      size="sm"
+                      size="lg"
                       className="text-white hover:bg-white/20"
                     >
-                      <RotateCcw className="h-4 w-4 mr-1" />
+                      <RotateCcw className="h-5 w-5 mr-2" />
                       Re-record
                     </Button>
-                  )}
-                </div>
+                    <Button
+                      onClick={handleUseRecording}
+                      size="lg"
+                      className="bg-white text-black hover:bg-gray-200"
+                    >
+                      Next
+                      <CheckCircle2 className="h-5 w-5 ml-2" />
+                    </Button>
+                  </div>
+                ) : (
+                  // During camera preview or recording: Record button centered, Preview button to the right
+                  <>
+                    {/* Centered record button */}
+                    <button
+                      onClick={handleRecordPauseClick}
+                      className="relative h-20 w-20 rounded-full border-4 border-white flex items-center justify-center bg-transparent transition-all"
+                    >
+                      {isRecording && !isPaused ? (
+                        // Square pause button when recording
+                        <div className="w-8 h-8 bg-white" />
+                      ) : isPaused ? (
+                        // Red circle for resume recording
+                        <div className="w-12 h-12 rounded-full bg-red-600" />
+                      ) : (
+                        // Red circle for start recording
+                        <div className="w-16 h-16 rounded-full bg-red-600" />
+                      )}
+                    </button>
 
-                {/* Right side placeholder for symmetry */}
-                <div className="h-14 w-14" />
+                    {/* Re-record button (only when paused) - positioned to the left */}
+                    {isPaused && (
+                      <button
+                        onClick={handleReRecord}
+                        className="absolute left-8 text-white text-lg font-medium hover:text-gray-300 transition-colors"
+                      >
+                        Re-record
+                      </button>
+                    )}
+
+                    {/* Preview button (only when paused) - positioned to the right */}
+                    {isPaused && (
+                      <button
+                        onClick={handlePreviewClick}
+                        className="absolute right-8 text-white text-lg font-medium hover:text-gray-300 transition-colors"
+                      >
+                        Preview
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
@@ -806,6 +1304,86 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
               onChange={handleFileSelect}
               className="hidden"
             />
+          </div>
+        )}
+
+        {/* Preview Screen - After recording finishes */}
+        {uploadStep === 'preview' && recordedBlob && (
+          <div className="relative w-full h-full bg-black md:rounded-3xl md:border-2 md:border-gray-800 overflow-hidden md:shadow-2xl">
+            {/* Close Button */}
+            <button
+              onClick={handleClose}
+              className="absolute top-4 left-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+            >
+              <X className="h-6 w-6 text-white" />
+            </button>
+
+            {/* Mute/Unmute Button - Top Right */}
+            <button
+              onClick={handleToggleMute}
+              className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+              title={isPreviewMuted ? 'Unmute audio' : 'Mute audio'}
+            >
+              {isPreviewMuted ? (
+                <VolumeX className="h-6 w-6 text-white" />
+              ) : (
+                <Volume2 className="h-6 w-6 text-white" />
+              )}
+            </button>
+
+            {/* Video Preview - Simple thumbnail */}
+            <div className="w-full h-full flex items-center justify-center bg-gray-900">
+              <video
+                key={`preview-${recordedBlob.size}`}
+                ref={videoRef}
+                src={previewUrl || ''}
+                className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
+                playsInline
+                muted={isPreviewMuted}
+                loop
+                autoPlay
+              />
+              
+              {/* Info overlay */}
+              <div className="absolute top-20 left-0 right-0 z-40 flex justify-center pointer-events-none">
+                <div className="bg-black/70 backdrop-blur-sm px-4 py-2 rounded-full">
+                  <p className="text-white text-sm">Recording ready to publish</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons - Bottom */}
+            <div className="absolute bottom-0 left-0 right-0 z-40 pb-6">
+              <div className="flex items-center justify-between px-6">
+                {/* Delete Button - Bottom Left */}
+                <button
+                  onClick={handleDeleteRecording}
+                  className="p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+                  title="Delete recording"
+                >
+                  <Trash2 className="h-6 w-6 text-white" />
+                </button>
+
+                {/* Publish Button - Bottom Center */}
+                <Button
+                  onClick={handlePublishToNostr}
+                  size="lg"
+                  className="bg-gradient-to-r from-purple-600 to-orange-600 hover:from-purple-700 hover:to-orange-700 text-white px-8"
+                >
+                  Publish to Nostr
+                </Button>
+
+                {/* Download Button - Bottom Right */}
+                <button
+                  onClick={handleDownloadRecording}
+                  className="p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+                  title="Download recording"
+                >
+                  <Download className="h-6 w-6 text-white" />
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1007,7 +1585,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                   <p>• {compressionResult ? '✓' : '•'} Video compression {compressionResult ? 'completed' : 'skipped'}</p>
                   <p>• Uploading to Blossom servers...</p>
                   <p>• Generating thumbnail...</p>
-                  <p>• Creating hybrid Nostr event...</p>
+                  <p>• Creating NIP-71 video event...</p>
                   <p>• Publishing to relays...</p>
                 </div>
               </>

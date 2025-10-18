@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useNotificationContext } from '@/contexts/NotificationProvider';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +25,7 @@ import { truncateNumber, truncateName, formatRelativeTime } from '@/lib/notifica
 export default function Notifications() {
   const { user } = useCurrentUser();
   const { data: notifications = [], isLoading } = useNotifications();
+  const { updateLastSeenTimestamp } = useNotificationContext();
   const [selectedTab, setSelectedTab] = useState('all');
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -32,6 +34,14 @@ export default function Notifications() {
     title: 'Notifications - ZapTok',
     description: 'View your latest notifications including zaps, comments, reposts, and follows on ZapTok.',
   });
+
+  // Update last seen timestamp when user views the notifications page
+  useEffect(() => {
+    if (user) {
+      updateLastSeenTimestamp();
+      console.log('[Notifications Page] Updated last seen timestamp');
+    }
+  }, [user, updateLastSeenTimestamp]);
 
   // Redirect to home if user is not logged in
   if (!user) {
@@ -208,7 +218,7 @@ export default function Notifications() {
       )}
 
       {/* Middle Notifications Column - Full Width on Mobile */}
-      <div className={`flex-1 bg-black ${!isMobile ? 'border-r border-gray-800' : ''} ${isMobile ? 'min-w-0 overflow-x-hidden' : ''}`}>
+      <div className={`flex-1 bg-black ${!isMobile ? 'border-r border-gray-800' : ''} ${isMobile ? 'overflow-x-hidden' : ''} min-w-0`}>
         {/* Header */}
         <div className={`py-5 ${isMobile ? 'px-4' : 'px-6'}`}>
           <div className="flex items-center justify-between">
@@ -242,7 +252,7 @@ export default function Notifications() {
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto scrollbar-hide" style={{ height: 'calc(100vh - 97px)' }}>
+        <div className="overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ height: 'calc(100vh - 97px)' }}>
           <Tabs value={selectedTab} onValueChange={setSelectedTab}>
             <div className={`py-0 border-b border-gray-800 ${isMobile ? 'px-0' : 'px-6'}`}>
               <div className="relative flex w-full bg-black">

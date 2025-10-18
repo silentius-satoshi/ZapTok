@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DebugSection } from '@/components/debug/DebugSection';
 import { useVideoCache } from '@/hooks/useVideoCache';
 import { clearCashuStoreCache } from '@/stores/userCashuStore';
 import { useCacheSize } from '@/hooks/useCacheSize';
@@ -23,6 +24,7 @@ interface CacheManagementSettingsProps {
 }
 
 export function CacheManagementSettings({ className }: CacheManagementSettingsProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isClearingSpecific, setIsClearingSpecific] = useState<string | null>(null);
@@ -146,21 +148,40 @@ export function CacheManagementSettings({ className }: CacheManagementSettingsPr
     }
   };
 
+  // Generate data for copy functionality
+  const debugData = {
+    timestamp: new Date().toISOString(),
+    totalSize: formatSize(totalSize),
+    breakdown: {
+      videoCache: formatSize(breakdown.videoCache),
+      profileImages: formatSize(breakdown.profileImages),
+      appResources: formatSize(breakdown.appResources),
+      cashuData: formatSize(breakdown.other),
+    }
+  };
+
   return (
-    <div className={cn('space-y-6', className)}>
-      {/* Cache Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Cache Overview
-          </CardTitle>
-          <CardDescription>
-            Monitor and manage application cache usage
-          </CardDescription>
-        </CardHeader>
-        
-        <CardContent className="space-y-4">
+    <DebugSection
+      title="Cache Management"
+      icon={<Database className="h-4 w-4" />}
+      isExpanded={isExpanded}
+      onExpandedChange={setIsExpanded}
+      copyData={debugData}
+      className={className}
+    >
+      <div className="space-y-6">
+        {/* Cache Overview */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              Cache Overview
+            </CardTitle>
+            <CardDescription>
+              Monitor and manage application cache usage
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent className="space-y-4">
           {/* Total Cache Size */}
           <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
             <div>
@@ -310,6 +331,7 @@ export function CacheManagementSettings({ className }: CacheManagementSettingsPr
           </Alert>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </DebugSection>
   );
 }

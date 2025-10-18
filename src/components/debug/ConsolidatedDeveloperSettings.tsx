@@ -10,6 +10,9 @@ import { TechnicalDiagnostics } from '@/components/debug/TechnicalDiagnostics';
 import { AdvancedAnalysis } from '@/components/debug/AdvancedAnalysis';
 import { CacheManagementSettings } from '@/components/settings/CacheManagementSettings';
 import { PWAManagementSettings } from '@/components/settings/PWAManagementSettings';
+import { PushNotificationsSettings } from '@/components/settings/PushNotificationsSettings';
+import { VideoStorageDebug } from '@/components/VideoStorageDebug';
+import { VideoEventComparison } from '@/components/VideoEventComparison';
 import { Copy, Download } from 'lucide-react';
 
 /**
@@ -175,18 +178,11 @@ export function ConsolidatedDeveloperSettings() {
         <AuthenticationDebug />
         <WalletPaymentsDebug />
         <TechnicalDiagnostics />
+        <VideoStorageDebug />
         <AdvancedAnalysis />
-      </div>
-
-      {/* PWA Management Section */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-semibold">PWA Management</h3>
+        <VideoEventComparison />
         <PWAManagementSettings />
-      </div>
-
-      {/* Cache Management Section */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-semibold">Cache Management</h3>
+        <PushNotificationsSettings />
         <CacheManagementSettings />
       </div>
 

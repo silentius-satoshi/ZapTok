@@ -1,8 +1,16 @@
 /**
- * Video Event Strategy for NIP-71 Compliance
+ * Video Event Strategy for NIP-71 Compliance (Updated October 2025)
  * 
  * This strategy creates NIP-71 compliant video events (kind 21/22) with rich metadata
  * that can be understood by video-aware Nostr clients.
+ * 
+ * NIP-71 Updates Implemented:
+ * - imeta tags are the PRIMARY source of video information
+ * - Required: title tag and published_at tag
+ * - imeta now uses "image" instead of "thumb"
+ * - imeta includes duration and bitrate (recommended)
+ * - imeta includes "service nip96" for NIP-96 server lookup
+ * - Removed duplicate metadata tags (all metadata in imeta)
  */
 
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -18,6 +26,8 @@ export interface VideoEventData {
   type?: string;
   width?: number;
   height?: number;
+  bitrate?: number;
+  publishedAt?: number; // Unix timestamp of first publication
 }
 
 export interface VideoEventOptions {
@@ -34,12 +44,13 @@ export interface VideoEventOptions {
 /**
  * Create a NIP-71 compliant video event
  * 
- * Strategy:
+ * Strategy (Updated for NIP-71 latest spec):
  * 1. Use kind 21 (normal videos) or kind 22 (short videos) based on dimensions/duration
- * 2. Include video URL and metadata in tags
- * 3. Add NIP-71 style tags for advanced clients
- * 4. Use imeta tags for media metadata
- * 5. Include rich metadata for discoverability
+ * 2. Store ALL video metadata in imeta tags (primary source per NIP-71)
+ * 3. Add required published_at tag
+ * 4. Use title tag (required)
+ * 5. Content field contains summary/description
+ * 6. Add optional tags for discoverability (t, alt, etc.)
  */
 export function createVideoEvent(
   data: VideoEventData, 
@@ -72,78 +83,69 @@ export function createVideoEvent(
   // Build tags array
   const tags: string[][] = [];
 
-  // Add video URL tag for easy parsing
-  tags.push(['url', data.videoUrl]);
+  // Add required title tag (NIP-71 requirement)
+  if (data.title) {
+    tags.push(['title', data.title]);
+  }
 
-  // Add imeta tag for rich media metadata (NIP-92 style)
+  // Add required published_at tag (NIP-71 requirement)
+  // Use provided timestamp or current time for first publication
+  const publishedAt = data.publishedAt || Math.floor(Date.now() / 1000);
+  tags.push(['published_at', publishedAt.toString()]);
+
+  // Add imeta tag - PRIMARY source of video information per NIP-71
+  // All metadata should be in imeta, not separate tags
   if (includeImeta && data.videoUrl) {
     const imetaTag = ['imeta', `url ${data.videoUrl}`];
     
+    // Add mime type (m)
     if (data.type) {
       imetaTag.push(`m ${data.type}`);
     }
     
+    // Add file hash (x)
     if (data.hash) {
       imetaTag.push(`x ${data.hash}`);
     }
     
-    if (data.size) {
-      imetaTag.push(`size ${data.size}`);
-    }
-    
+    // Add dimensions (dim)
     if (data.width && data.height) {
       imetaTag.push(`dim ${data.width}x${data.height}`);
     }
     
+    // Add preview image (image, not thumb - NIP-71 update)
     if (data.thumbnailUrl) {
-      imetaTag.push(`thumb ${data.thumbnailUrl}`);
+      imetaTag.push(`image ${data.thumbnailUrl}`);
     }
+    
+    // Add duration (recommended in NIP-71)
+    if (data.duration !== undefined) {
+      imetaTag.push(`duration ${data.duration}`);
+    }
+    
+    // Add bitrate (recommended in NIP-71)
+    if (data.bitrate !== undefined) {
+      imetaTag.push(`bitrate ${data.bitrate}`);
+    }
+    
+    // Add file size
+    if (data.size) {
+      imetaTag.push(`size ${data.size}`);
+    }
+    
+    // Add service tag if using NIP-96 compatible servers
+    // This allows clients to search the author's NIP-96 server list
+    imetaTag.push('service nip96');
     
     tags.push(imetaTag);
   }
 
-  // Add NIP-71 style tags for advanced clients
-  if (includeNip71Tags) {
-    if (data.title) {
-      tags.push(['title', data.title]);
-    }
-    
-    if (data.description) {
-      tags.push(['summary', data.description]);
-    }
-    
-    if (data.duration) {
-      tags.push(['duration', data.duration.toString()]);
-    }
-    
-    if (data.size) {
-      tags.push(['size', data.size.toString()]);
-    }
-    
-    if (data.type) {
-      tags.push(['m', data.type]);
-    }
-    
-    if (data.hash) {
-      tags.push(['x', data.hash]);
-    }
-    
-    if (data.width && data.height) {
-      tags.push(['dim', `${data.width}x${data.height}`]);
-    }
-    
-    if (data.thumbnailUrl) {
-      tags.push(['thumb', data.thumbnailUrl]);
-      tags.push(['image', data.thumbnailUrl]);
-    }
-  }
-
-  // Add hashtags for discoverability
+  // Add hashtags for discoverability (t tags)
   hashtags.forEach(tag => {
     tags.push(['t', tag]);
   });
 
-  // Add accessibility description
+  // Add accessibility description (alt tag)
   if (data.description) {
     tags.push(['alt', data.description]);
   }
