@@ -38,6 +38,8 @@ import { NotificationSettings } from '@/components/NotificationSettings';
 import { useToast } from '@/hooks/useToast';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useNostrLogin } from '@nostrify/react/login';
+import { filterValidVideos } from '@/lib/videoValidation';
+import { brokenVideoTracker } from '@/services/brokenVideoTracker';
 import { nip19 } from 'nostr-tools';
 import { usePrimalFollowerCount } from '@/hooks/usePrimalFollowerCount';
 import { getLightningAddress } from '@/lib/lightning';
@@ -266,12 +268,16 @@ const Profile = () => {
     }
   }, [showVideoViewer]);
 
-  // Get the current video list based on active tab
+  // Get the current video list based on active tab and filter out invalid sources
   const getCurrentVideos = () => {
-    if (activeTab === 'posts') return userVideos.data || [];
-    if (activeTab === 'reposts') return repostedVideos.data || [];
-    if (activeTab === 'bookmarks' && isOwnProfile) return bookmarkedVideos.data || [];
-    return [];
+    let videos: any[] = [];
+    if (activeTab === 'posts') videos = userVideos.data || [];
+    else if (activeTab === 'reposts') videos = repostedVideos.data || [];
+    else if (activeTab === 'bookmarks' && isOwnProfile) videos = bookmarkedVideos.data || [];
+    
+    // Filter out videos with no working sources AND videos that have failed to load
+    // Use brokenVideoTracker for persistent filtering across sessions
+    return brokenVideoTracker.filterBrokenVideos(filterValidVideos(videos));
   };
 
   const currentVideos = getCurrentVideos();

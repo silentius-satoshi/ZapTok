@@ -15,6 +15,8 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { devLog } from '@/lib/devConsole';
 import { bundleLog } from '@/lib/logBundler';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
+import { filterValidVideos } from '@/lib/videoValidation';
+import { brokenVideoTracker } from '@/services/brokenVideoTracker';
 
 export interface GlobalVideoFeedRef {
   refresh: () => void;
@@ -29,6 +31,9 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
   const lastScrollTopRef = useRef(0);
+  
+  // Track failed video IDs to filter them out from rendering
+  const [failedVideoIds, setFailedVideoIds] = useState<Set<string>>(new Set());
 
   // Initialize analytics services for feed-level prefetching
   // This enables comments, reposts, and reactions to batch together
@@ -70,10 +75,15 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
     mergeNewVideos,
   } = useOptimizedGlobalVideoFeed();
 
-  // Flatten pages into a single array of videos
+  // Flatten pages into a single array of videos and filter out invalid sources
   const videos = useMemo(() => {
-    return data?.pages.flatMap(page => page) || [];
-  }, [data]);
+    const allVideos = data?.pages.flatMap(page => page) || [];
+    // Filter out videos with no working sources AND videos that have failed to load
+    // Use brokenVideoTracker for persistent filtering across sessions
+    return brokenVideoTracker.filterBrokenVideos(
+      filterValidVideos(allVideos).filter(video => !failedVideoIds.has(video.id))
+    );
+  }, [data, failedVideoIds]);
 
   // Manual load more function to match timeline API
   const loadMore = async () => {
@@ -524,6 +534,17 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
                       const newIndex = Math.max(index - 1, 0);
                       setCurrentVideoIndex(newIndex);
                       scrollToVideo(newIndex);
+                    }}
+                    onVideoUnavailable={() => {
+                      // Mark video as failed to prevent re-rendering
+                      setFailedVideoIds(prev => new Set(prev).add(video.id));
+                      
+                      // The video will be automatically filtered out by the useMemo above
+                      // causing the feed to re-render without this video, and the current index
+                      // will now point to the next video in the list
+                      if (import.meta.env.DEV) {
+                        bundleLog('GlobalVideoFeed', `🚫 Video ${video.id.slice(0, 8)} marked as failed and filtered out`);
+                      }
                     }}
                   />
                 </div>

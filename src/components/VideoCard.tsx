@@ -19,6 +19,7 @@ import { VideoZapAnalytics } from '@/components/VideoZapAnalytics';
 import { VideoProgressBar } from '@/components/VideoProgressBar';
 import { mediaManager } from '@/services/mediaManager';
 import { useContentPolicy } from '@/providers/ContentPolicyProvider';
+import { brokenVideoTracker } from '@/services/brokenVideoTracker';
 
 interface VideoCardProps {
   event: NostrEvent & {
@@ -228,13 +229,30 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         }
       }
       
-      devError('Video error', { 
+      devError('Video error - Auto-skipping', { 
         eventId: event.id, 
         url: workingUrl, 
         errorCode: mediaError?.code,
         errorDetails,
         title: event.title 
       });
+
+      // Mark video as broken in the tracker for immediate filtering
+      brokenVideoTracker.markAsBroken(event.id);
+
+      // Auto-skip videos that fail to load (following Jumble's approach)
+      // Critical errors that mean the video will never play
+      if (mediaError && (
+        mediaError.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
+        mediaError.code === MediaError.MEDIA_ERR_DECODE
+      )) {
+        if (onVideoUnavailable && isActive) {
+          // Small delay to prevent jarring immediate skip
+          setTimeout(() => {
+            onVideoUnavailable();
+          }, 500);
+        }
+      }
     };
 
     const handleLoadedData = () => {
