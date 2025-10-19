@@ -6,11 +6,13 @@ import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '@nostrify/react/login';
 import { nip19, getPublicKey as derivePublicKeyFromSecret } from 'nostr-tools';
 import { deriveP2PKPubkey } from '@/lib/p2pk';
+import { useCashuPreferences } from '@/hooks/useCashuPreferences';
 
 export function KeysSettings() {
   const { user } = useCurrentUser();
   const { logins } = useNostrLogin();
   const { toast } = useToast();
+  const { cashuEnabled } = useCashuPreferences();
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [showP2PKPrivateKey, setShowP2PKPrivateKey] = useState(false);
 
@@ -211,18 +213,19 @@ export function KeysSettings() {
         </p>
       </div>
 
-      {/* P2PK Keys Section */}
-      <div className="space-y-6 p-6 bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-800/30 rounded-lg">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-amber-600" />
-            <h3 className="text-xl font-medium">P2PK-locked ecash</h3>
+      {/* P2PK Keys Section - Only shown if Cashu features are enabled */}
+      {cashuEnabled && (
+        <div className="space-y-6 p-6 bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-800/30 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-amber-600" />
+              <h3 className="text-xl font-medium">P2PK-locked ecash</h3>
+            </div>
+            <div className="flex items-center gap-1 text-amber-600 text-sm">
+              <Wallet className="w-4 h-4" />
+              <span>For Cashu P2PK Proofs</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1 text-amber-600 text-sm">
-            <Wallet className="w-4 h-4" />
-            <span>For Cashu P2PK Proofs</span>
-          </div>
-        </div>
 
         <div className="bg-amber-100/50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4">
           <div className="flex items-start gap-3">
@@ -318,6 +321,7 @@ export function KeysSettings() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

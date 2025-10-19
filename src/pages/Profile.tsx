@@ -35,6 +35,7 @@ import { ZapButton } from '@/components/ZapButton';
 import { NutzapButton } from '@/components/users/NutzapButton';
 import { UserNutzapDialog } from '@/components/users/UserNutzapDialog';
 import { NotificationSettings } from '@/components/NotificationSettings';
+import { useCashuPreferences } from '@/hooks/useCashuPreferences';
 import { useToast } from '@/hooks/useToast';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useNostrLogin } from '@nostrify/react/login';
@@ -59,6 +60,7 @@ const Profile = () => {
   const { logins } = useNostrLogin();
   const { toast } = useToast();
   const { withLoginCheck } = useLoginPrompt();
+  const { cashuEnabled } = useCashuPreferences();
   const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'bookmarks'>('posts');
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
@@ -673,15 +675,17 @@ const Profile = () => {
                             </div>
                           </Button>
 
-                          {/* 3. Nutzap Button */}
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="w-10 h-10"
-                            onClick={() => setIsNutzapDialogOpen(true)}
-                          >
-                            <img src={`${import.meta.env.BASE_URL}images/cashu-icon.png`} alt="Cashu" className="h-4 w-4" />
-                          </Button>
+                          {/* 3. Nutzap Button - Only shown if Cashu features are enabled */}
+                          {cashuEnabled && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="w-10 h-10"
+                              onClick={() => setIsNutzapDialogOpen(true)}
+                            >
+                              <img src={`${import.meta.env.BASE_URL}images/cashu-icon.png`} alt="Cashu" className="h-4 w-4" />
+                            </Button>
+                          )}
 
                           {/* 4. Direct Message Button */}
                           <Button
@@ -815,12 +819,14 @@ const Profile = () => {
         relays={config.relayUrls}
       />
 
-      {/* User Nutzap Dialog */}
-      <UserNutzapDialog
-        open={isNutzapDialogOpen}
-        onOpenChange={setIsNutzapDialogOpen}
-        pubkey={targetPubkey}
-      />
+      {/* User Nutzap Dialog - Only shown if Cashu features are enabled */}
+      {cashuEnabled && (
+        <UserNutzapDialog
+          open={isNutzapDialogOpen}
+          onOpenChange={setIsNutzapDialogOpen}
+          pubkey={targetPubkey}
+        />
+      )}
 
       {/* Notification Settings Dialog */}
       <Dialog open={showNotificationSettings} onOpenChange={setShowNotificationSettings}>

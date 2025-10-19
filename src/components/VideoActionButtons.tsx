@@ -27,6 +27,7 @@ import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
 import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useToast } from '@/hooks/useToast';
+import { useCashuPreferences } from '@/hooks/useCashuPreferences';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,6 +68,7 @@ export function VideoActionButtons({
   const { logins } = useNostrLogin();
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const { cashuEnabled } = useCashuPreferences();
   const [showQRModal, setShowQRModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showRepostDialog, setShowRepostDialog] = useState(false);
@@ -299,17 +301,19 @@ export function VideoActionButtons({
           </span>
         </div>
 
-        {/* 3. Nutzap Button - Now available for all signer types */}
-        <div className="flex flex-col items-center gap-1">
-          <NutzapButton
-            postId={event.id}
-            authorPubkey={event.pubkey}
-            showText={false}
-          />
-          <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
-            {nutzapData?.totalAmount ? formatNutzapAmount(nutzapData.totalAmount) : '0'}
-          </span>
-        </div>
+        {/* 3. Nutzap Button - Only shown if Cashu features are enabled */}
+        {cashuEnabled && (
+          <div className="flex flex-col items-center gap-1">
+            <NutzapButton
+              postId={event.id}
+              authorPubkey={event.pubkey}
+              showText={false}
+            />
+            <span className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-xs'} drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]`}>
+              {nutzapData?.totalAmount ? formatNutzapAmount(nutzapData.totalAmount) : '0'}
+            </span>
+          </div>
+        )}
 
         {/* 4. Comment Button */}
         <div className="flex flex-col items-center gap-1">

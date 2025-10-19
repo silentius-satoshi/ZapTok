@@ -29,6 +29,7 @@ import { useBitcoinPrice, satsToUSD } from '@/hooks/useBitcoinPrice';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
 import { DollarSign, Bitcoin } from 'lucide-react';
+import { useCashuPreferences } from '@/hooks/useCashuPreferences';
 // import FeedButton from '@/components/FeedButton'; // Disabled until feed switching is fully implemented
 
 export function MobileNavigation() {
@@ -40,6 +41,9 @@ export function MobileNavigation() {
 
   // Get comprehensive wallet/signer detection
   const { walletInfo, isConnected, userHasLightningAccess, isBunkerSigner, isNsecSigner, isExtensionSigner } = useWallet();
+
+  // Cashu features preference
+  const { cashuEnabled } = useCashuPreferences();
 
   // Currency toggle functionality
   const { showSats, toggleCurrency } = useCurrencyDisplayStore();
@@ -120,7 +124,8 @@ export function MobileNavigation() {
     const lightningBalance = userHasLightningAccess 
       ? (parseInt(localStorage.getItem(`lightning_balance_${user.pubkey}`) || '0', 10) || 0)
       : 0;
-    const totalBalance = lightningBalance + cashuBalance;
+    // Only include Cashu balance if Cashu features are enabled
+    const totalBalance = lightningBalance + (cashuEnabled ? cashuBalance : 0);
 
     if (showSats) {
       return `${totalBalance.toLocaleString()}`;
@@ -278,12 +283,14 @@ export function MobileNavigation() {
                 <>
                   <div className="flex items-center gap-0.5">
                     <Bitcoin className="w-4 h-4 text-orange-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
-                    <img 
-                      src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
-                      alt="Cashu" 
-                      className="w-3 h-3" 
-                      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
-                    />
+                    {cashuEnabled && (
+                      <img 
+                        src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+                        alt="Cashu" 
+                        className="w-3 h-3" 
+                        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
+                      />
+                    )}
                   </div>
                   <span className="text-orange-200 font-medium text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
                     {user ? formatToggleBalance() : '0'} sats
@@ -335,25 +342,27 @@ export function MobileNavigation() {
               <UserPlus className="h-6 w-6" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
             </button>
 
-            {/* Wallet Icon - Cashu only (Bitcoin Connect is in bottom nav) */}
-            <button
-              onClick={() => {
-                if (!user) {
-                  setShowLoginModal(true);
-                } else {
-                  navigate('/cashu-wallet');
-                }
-              }}
-              aria-label="Cashu Wallet"
-              className="text-white/80 hover:text-white transition-colors"
-            >
-              <img
-                src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
-                alt="Cashu"
-                className="w-6 h-6"
-                style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
-              />
-            </button>
+            {/* Wallet Icon - Cashu only (Bitcoin Connect is in bottom nav) - Only shown if Cashu features are enabled */}
+            {cashuEnabled && (
+              <button
+                onClick={() => {
+                  if (!user) {
+                    setShowLoginModal(true);
+                  } else {
+                    navigate('/cashu-wallet');
+                  }
+                }}
+                aria-label="Cashu Wallet"
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <img
+                  src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+                  alt="Cashu"
+                  className="w-6 h-6"
+                  style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
+                />
+              </button>
+            )}
 
             {/* Upload Icon */}
             <button
@@ -502,7 +511,7 @@ export function MobileNavigation() {
                   {user && (
                     <div className="px-4 py-2 space-y-2 flex-shrink-0">
                       <BitcoinConnectBalanceDisplay variant="compact" />
-                      <CashuBalanceDisplay variant="compact" />
+                      {cashuEnabled && <CashuBalanceDisplay variant="compact" />}
                     </div>
                   )}
 

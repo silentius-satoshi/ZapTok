@@ -24,6 +24,7 @@ import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { VideoCacheDebug } from '@/components/VideoCacheDebug';
+import { useCashuPreferences } from '@/hooks/useCashuPreferences';
 
 export function Navigation() {
   const { user, isAuthenticated, checkLogin } = useCurrentUser();
@@ -34,6 +35,7 @@ export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
+  const { cashuEnabled } = useCashuPreferences();
 
   // Get comprehensive wallet/signer detection
   const { isBunkerSigner, isNsecSigner, isExtensionSigner } = useWallet();
@@ -416,7 +418,7 @@ export function Navigation() {
           {user ? (
             <>
               <BitcoinConnectBalanceDisplay variant="compact" />
-              <CashuBalanceDisplay variant="compact" />
+              {cashuEnabled && <CashuBalanceDisplay variant="compact" />}
               <SupporterButton />
             </>
           ) : (
