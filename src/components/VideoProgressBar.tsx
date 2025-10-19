@@ -16,9 +16,10 @@ interface VideoProgressBarProps {
   className?: string;
   isPaused?: boolean;
   onScrubbingChange?: (isScrubbing: boolean) => void;
+  isMobile?: boolean;
 }
 
-export function VideoProgressBar({ videoRef, className = '', isPaused = false, onScrubbingChange }: VideoProgressBarProps) {
+export function VideoProgressBar({ videoRef, className = '', isPaused = false, onScrubbingChange, isMobile = false }: VideoProgressBarProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -164,14 +165,14 @@ export function VideoProgressBar({ videoRef, className = '', isPaused = false, o
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      {/* Progress Bar Container - Transparent background for larger touch target */}
+      {/* Progress Bar Container - Compact on mobile, larger on desktop */}
       <div
         ref={progressBarRef}
-        className={`flex-1 rounded-full cursor-pointer relative mx-4 transition-all duration-200 ${
-          isDragging || isTouchDevice ? 'h-8' : 'h-4'
+        className={`flex-1 rounded-full cursor-pointer relative transition-all duration-200 ${
+          isMobile ? 'h-6 mx-2' : (isDragging || isTouchDevice ? 'h-8 mx-4' : 'h-4 mx-4')
         }`}
         style={{ 
-          backgroundColor: 'transparent', // Transparent - only visual track shows
+          backgroundColor: 'transparent',
           display: 'flex',
           alignItems: 'center',
         }}
@@ -189,28 +190,27 @@ export function VideoProgressBar({ videoRef, className = '', isPaused = false, o
           }
         }}
       >
-        {/* Filled Progress - Gradient matching side nav */}
+        {/* Filled Progress - Compact on mobile */}
         <div
           className="absolute left-0 rounded-full z-10"
           style={{ 
             width: handlePosition > 0 ? `${handlePosition}%` : '2px',
             background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
-            height: isDragging || isTouchDevice ? '12px' : '4px',
+            height: isMobile ? '3px' : (isDragging || isTouchDevice ? '12px' : '4px'),
             top: '50%',
             transform: 'translateY(-50%)',
             transition: isDragging ? 'height 0.2s' : 'all 0.1s'
           }}
         />
         
-        {/* Draggable Handle - Larger on touch devices for better UX */}
+        {/* Draggable Handle - Smaller on mobile for compact display */}
         <div
           className={`absolute rounded-full shadow-lg z-20 ${
             showHandle ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
           }`}
           style={{ 
-            // Larger handle on touch devices: 20px vs 12px
-            width: isTouchDevice ? '20px' : '12px',
-            height: isTouchDevice ? '20px' : '12px',
+            width: isMobile ? '14px' : (isTouchDevice ? '20px' : '12px'),
+            height: isMobile ? '14px' : (isTouchDevice ? '20px' : '12px'),
             left: `${handlePosition}%`,
             top: '50%',
             background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
@@ -220,8 +220,7 @@ export function VideoProgressBar({ videoRef, className = '', isPaused = false, o
               ? 'translate(-50%, -50%) scale(1)'
               : 'translate(-50%, -50%) scale(0)',
             transition: isDragging ? 'none' : 'all 0.2s',
-            // Add larger invisible touch target using ::before pseudo-element padding simulation
-            boxShadow: isTouchDevice ? '0 0 0 12px transparent' : '0 0 0 6px transparent',
+            boxShadow: isMobile ? '0 0 0 8px transparent' : (isTouchDevice ? '0 0 0 12px transparent' : '0 0 0 6px transparent'),
             cursor: 'grab'
           }}
         />

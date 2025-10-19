@@ -699,13 +699,14 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         </div>
       )}
 
-      {/* Video Progress Bar - At the very bottom, below description */}
+      {/* Video Progress Bar - Compact positioning between description and bottom nav */}
       {shouldLoadVideo && !isYouTube && workingUrl && !gridMode && (
         <VideoProgressBar
           videoRef={videoRef}
           isPaused={userPaused || !isPlaying}
           onScrubbingChange={setIsScrubbing}
-          className="absolute bottom-2 left-0 right-0 z-20"
+          isMobile={isMobile}
+          className={`absolute left-0 right-0 z-20 ${isMobile ? 'bottom-1' : 'bottom-2'}`}
         />
       )}
     </div>
