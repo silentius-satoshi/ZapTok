@@ -46,36 +46,69 @@ export function Settings() {
 
   // Display user's configured relays from NIP-65 relay list
   const getDisplayRelays = () => {
-    let displayRelays: string[] = [];
+    const readRelays: Array<{ name: string; url: string; status: 'active' | 'connecting' | 'inactive' | 'placeholder' }> = [];
+    const writeRelays: Array<{ name: string; url: string; status: 'active' | 'connecting' | 'inactive' | 'placeholder' }> = [];
     
     // Use user's NIP-65 relay list if available
     if (userRelayList && (userRelayList.read.length > 0 || userRelayList.write.length > 0)) {
-      // Combine read and write relays, removing duplicates
-      const allUserRelays = new Set([...userRelayList.read, ...userRelayList.write]);
-      displayRelays = Array.from(allUserRelays);
+      // Process read relays
+      userRelayList.read.forEach(url => {
+        const isConnected = connectionState[url] === 'connected';
+        const isConnecting = connectionState[url] === 'connecting';
+        
+        readRelays.push({
+          name: url.replace(/^wss?:\/\//, ''),
+          url,
+          status: (isConnected ? 'active' : isConnecting ? 'connecting' : 'inactive') as 'active' | 'connecting' | 'inactive'
+        });
+      });
+      
+      // Process write relays
+      userRelayList.write.forEach(url => {
+        const isConnected = connectionState[url] === 'connected';
+        const isConnecting = connectionState[url] === 'connecting';
+        
+        writeRelays.push({
+          name: url.replace(/^wss?:\/\//, ''),
+          url,
+          status: (isConnected ? 'active' : isConnecting ? 'connecting' : 'inactive') as 'active' | 'connecting' | 'inactive'
+        });
+      });
     } else if (activeRelays.length > 0) {
-      // Fallback to active relays if no user relay list
-      displayRelays = activeRelays;
+      // Fallback to active relays if no user relay list - show in both read and write
+      activeRelays.forEach(url => {
+        const isConnected = connectionState[url] === 'connected';
+        const isConnecting = connectionState[url] === 'connecting';
+        
+        const relayInfo = {
+          name: url.replace(/^wss?:\/\//, ''),
+          url,
+          status: (isConnected ? 'active' : isConnecting ? 'connecting' : 'inactive') as 'active' | 'connecting' | 'inactive'
+        };
+        
+        readRelays.push(relayInfo);
+        writeRelays.push({ ...relayInfo });
+      });
     }
     
-    const placeholderCount = Math.max(0, Math.max(2, displayRelays.length) - displayRelays.length);
-    const placeholders = Array.from({ length: placeholderCount }, (_, i) => ({
-      name: `relay${i + 1}.example.com`,
-      url: `wss://relay${i + 1}.example.com/`,
-      status: 'placeholder' as const
-    }));
+    // Add placeholders if lists are empty
+    if (readRelays.length === 0) {
+      readRelays.push({
+        name: 'relay1.example.com',
+        url: 'wss://relay1.example.com/',
+        status: 'placeholder' as const
+      });
+    }
+    
+    if (writeRelays.length === 0) {
+      writeRelays.push({
+        name: 'relay2.example.com',
+        url: 'wss://relay2.example.com/',
+        status: 'placeholder' as const
+      });
+    }
 
-    return [...displayRelays.map(url => {
-      const isConnected = connectionState[url] === 'connected';
-      const isConnecting = connectionState[url] === 'connecting';
-      
-      return {
-        name: url.replace(/^wss?:\/\//, ''),
-        url,
-        // Show as 'active' if we have connection state showing connected, otherwise 'inactive'
-        status: (isConnected ? 'active' : isConnecting ? 'connecting' : 'inactive') as 'active' | 'connecting' | 'inactive' | 'placeholder'
-      };
-    }), ...placeholders];
+    return { readRelays, writeRelays };
   };
 
   const renderSettingsContent = () => {
@@ -219,12 +252,33 @@ export function Settings() {
       {/* Right Relay Column - Hidden on mobile */}
       <div className="hidden md:block w-96 bg-black p-8">
         <div className="space-y-10">
-          {/* Relays Section */}
+          {/* Read Relays Section */}
           <div>
-            <h3 className="text-2xl font-semibold mb-6 text-white">Relays</h3>
+            <h3 className="text-2xl font-semibold mb-6 text-white">Read Relays</h3>
             <div className="space-y-4">
-              {getDisplayRelays().map((relay, index) => (
-                <div key={index} className="flex items-center gap-4 text-lg">
+              {getDisplayRelays().readRelays.map((relay, index) => (
+                <div key={`read-${index}`} className="flex items-center gap-4 text-lg">
+                  <div className={`w-3 h-3 rounded-full ${
+                    relay.status === 'active' ? 'bg-green-500' :
+                    relay.status === 'connecting' ? 'bg-yellow-500 animate-pulse' :
+                    relay.status === 'placeholder' ? 'bg-gray-500' : 'bg-red-500'
+                  }`} />
+                  <span className={`truncate ${
+                    relay.status === 'placeholder' ? 'text-gray-500' : 'text-gray-300'
+                  }`}>
+                    {relay.url}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Write Relays Section */}
+          <div>
+            <h3 className="text-2xl font-semibold mb-6 text-white">Write Relays</h3>
+            <div className="space-y-4">
+              {getDisplayRelays().writeRelays.map((relay, index) => (
+                <div key={`write-${index}`} className="flex items-center gap-4 text-lg">
                   <div className={`w-3 h-3 rounded-full ${
                     relay.status === 'active' ? 'bg-green-500' :
                     relay.status === 'connecting' ? 'bg-yellow-500 animate-pulse' :
