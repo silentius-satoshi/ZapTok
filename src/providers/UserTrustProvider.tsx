@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useSimplePool } from '@/hooks/useSimplePool';
-import type { NostrEvent } from '@nostrify/nostrify';
-import type { Filter } from '@nostr/tools';
+import { type NostrEvent } from '@nostrify/nostrify';
+import indexedDBService from '@/services/indexedDB.service';
 
 /**
  * Web of Trust Provider
@@ -95,13 +95,30 @@ export function UserTrustProvider({ children }: { children: React.ReactNode }) {
   // Fetch follow list for a given pubkey
   const fetchFollowings = useCallback(async (pubkey: string): Promise<string[]> => {
     try {
-      // Query for kind 3 (Contact List) events
+      // Phase 1: Check IndexedDB cache first (offline-first pattern)
+      const cachedEvent = await indexedDBService.getFollowListEvent(pubkey);
+      
+      if (cachedEvent) {
+        console.log('[WoT] Using cached follow list for', pubkey.slice(0, 8));
+        
+        // Extract pubkeys from cached event
+        const followings = cachedEvent.tags
+          .filter(tag => tag[0] === 'p')
+          .map(tag => tag[1])
+          .filter(Boolean);
+        
+        return followings;
+      }
+
+      console.log('[WoT] Cache miss - fetching follow list from relays for', pubkey.slice(0, 8));
+
+      // Phase 2: Query for kind 3 (Contact List) events from relays
       const events = await new Promise<NostrEvent[]>((resolve) => {
         const foundEvents: NostrEvent[] = [];
         let eoseCount = 0;
         const expectedEose = Math.min(simplePoolRelays.length, 3); // Only use first 3 relays
         
-        const filter: Filter = { kinds: [3], authors: [pubkey], limit: 1 };
+        const filter = { kinds: [3], authors: [pubkey], limit: 1 };
         
         const sub = simplePool.subscribeMany(
           simplePoolRelays.slice(0, 3),
