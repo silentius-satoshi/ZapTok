@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Bitcoin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { formatBalance } from '@/lib/cashu';
 import { useSeoMeta } from '@unhead/react';
+import { WebLNProviders } from '@getalby/bitcoin-connect';
 
 export function BitcoinConnectWallet() {
   useSeoMeta({
@@ -21,11 +22,23 @@ export function BitcoinConnectWallet() {
 
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { isBunkerSigner, isNsecSigner, isExtensionSigner } = useWallet();
+  const { isBunkerSigner, isNsecSigner, isExtensionSigner, isConnected, provider } = useWallet();
   const { data: btcPrice } = useBitcoinPrice();
   const [showSats, setShowSats] = useState(true);
+  const [isRizfulConnected, setIsRizfulConnected] = useState(false);
 
   const toggleCurrency = () => setShowSats(!showSats);
+
+  // Check if the connected wallet is Rizful
+  useEffect(() => {
+    if (provider instanceof WebLNProviders.NostrWebLNProvider) {
+      const lud16 = provider.client.lud16;
+      const domain = lud16?.split('@')[1];
+      setIsRizfulConnected(domain === 'rizful.com');
+    } else {
+      setIsRizfulConnected(false);
+    }
+  }, [provider]);
 
   return (
     <AuthGate>
@@ -84,7 +97,40 @@ export function BitcoinConnectWallet() {
                       </p>
                     </div>
                     
+                    {/* Always show Bitcoin Connect Button - shows balance/disconnect when connected */}
                     <BcButton />
+                    
+                    {/* Show Rizful option only when not connected */}
+                    {!isConnected && (
+                      <>
+                        {/* Or Divider */}
+                        <div className="flex items-center gap-3 my-4">
+                          <div className="flex-1 border-t border-gray-700"></div>
+                          <span className="text-gray-500 text-sm">or</span>
+                          <div className="flex-1 border-t border-gray-700"></div>
+                        </div>
+                        
+                        {/* Rizful Vault Button - Alternative Option */}
+                        <div className="mb-4">
+                          <Button
+                            className="bg-orange-500 hover:bg-orange-600 text-white font-medium w-64"
+                            onClick={() => navigate('/rizful')}
+                          >
+                            Create a Rizful Vault
+                          </Button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Show Rizful badge when connected via Rizful */}
+                    {isConnected && isRizfulConnected && (
+                      <div className="mt-4 p-4 bg-orange-900/20 border border-orange-700/50 rounded-lg">
+                        <div className="text-orange-400 font-medium mb-1">Connected via Rizful Vault</div>
+                        <div className="text-xs text-gray-400">
+                          You're using a Rizful Vault for Lightning payments
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="mt-6 p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
                       <h3 className="text-blue-400 font-medium mb-2">Features</h3>
