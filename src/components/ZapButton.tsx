@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Zap, Loader } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { getLightningAddress } from '@/lib/lightning';
-import { Event } from 'nostr-tools';
+import { Event, generateSecretKey, getPublicKey } from 'nostr-tools';
 import lightningService from '@/services/lightning.service';
 import noteStatsService from '@/services/note-stats.service';
 import ZapDialog from './ZapDialog';
@@ -29,6 +29,21 @@ function formatAmount(amount: number): string {
   if (amount < 1000) return amount.toString();
   if (amount < 1000000) return `${Math.round(amount / 100) / 10}k`;
   return `${Math.round(amount / 100000) / 10}M`;
+}
+
+// Helper to generate throwaway keypair for pseudo-anonymous zaps
+function generateThrowawayKeypair() {
+  const sk = generateSecretKey();
+  const pk = getPublicKey(sk);
+  return {
+    pubkey: pk,
+    signer: {
+      signEvent: async (event: any) => {
+        const { finalizeEvent } = await import('nostr-tools');
+        return finalizeEvent(event, sk);
+      }
+    }
+  };
 }
 
 export function ZapButton({
@@ -85,42 +100,37 @@ export function ZapButton({
   }, [recipientPubkey, authorData, user?.pubkey]);
 
   const handleZap = async () => {
-    await withLoginCheck(async () => {
-      try {
-        setZapping(true);
+    try {
+      setZapping(true);
 
-        // Create the proper recipient for the zap call
+      // For non-authenticated users, use throwaway keypair (public anonymous)
+      if (!user || !canSign) {
+        console.log('🎭 [ZapButton] Using throwaway keypair for pseudo-anonymous zap');
+        console.log('💰 [ZapButton] Quick Zap Amount:', defaultZapSats, 'sats');
+        console.log('💬 [ZapButton] Quick Zap Comment:', defaultZapComment);
+        const throwawayUser = generateThrowawayKeypair();
         const zapTarget = event || recipientPubkey;
 
         const zapResult = await lightningService.zap(
-          user!.pubkey,
+          throwawayUser.pubkey,
           zapTarget,
           defaultZapSats,
           defaultZapComment,
           nostr,
-          user!
+          throwawayUser
         );
 
         // Check if payment was cancelled (returns null)
         if (!zapResult) {
-          // Payment was cancelled, don't show success toast
           return;
         }
 
-        // Refresh wallet balance after successful zap
-        try {
-          await getBalance();
-        } catch (balanceError) {
-          // Log but don't show error - zap was successful
-          console.warn('Failed to refresh balance after zap:', balanceError);
-        }
-
-        // Update local stats immediately for instant feedback
+        // Update local stats immediately for instant feedback (use throwaway pubkey)
         if (noteId) {
           noteStatsService.addZap(
-            user!.pubkey,
+            throwawayUser.pubkey,
             noteId,
-            `temp-${Date.now()}`, // Temporary PR until we get the real one
+            `temp-${Date.now()}`,
             defaultZapSats,
             defaultZapComment
           );
@@ -128,45 +138,26 @@ export function ZapButton({
 
         toast({
           title: "Zap Sent!",
-          description: `Sent ${defaultZapSats} sats`,
+          description: `Sent ${defaultZapSats} sats as "Anonymous Supporter"`,
           variant: "default",
         });
-      } catch (error) {
-        toast({
-          title: "Zap Failed",
-          description: `${(error as Error).message}`,
-          variant: "destructive",
-        });
-      } finally {
-        setZapping(false);
+        return;
       }
-    }, {
-      loginMessage: 'Login required to send zaps',
-      onLoginRequired: () => {
-        toast({
-          title: "Login Required",
-          description: "Please sign in to send Bitcoin zaps to creators",
-          variant: "default",
-        });
-      }
-    });
-  };
 
-  const handleDialogZap = async (amount: number, comment?: string) => {
-    try {
-      if (!user) {
-        throw new Error('You need to be logged in to zap');
-      }
-      setZapping(true);
-
-      // Create the proper recipient for the zap call
+      // Authenticated zap with Nostr event signing
       const zapTarget = event || recipientPubkey;
 
-      const zapResult = await lightningService.zap(user.pubkey, zapTarget, amount, comment || '', nostr, user);
+      const zapResult = await lightningService.zap(
+        user.pubkey,
+        zapTarget,
+        defaultZapSats,
+        defaultZapComment,
+        nostr,
+        user
+      );
 
       // Check if payment was cancelled (returns null)
       if (!zapResult) {
-        // Payment was cancelled, don't show success toast
         return;
       }
 
@@ -174,7 +165,6 @@ export function ZapButton({
       try {
         await getBalance();
       } catch (balanceError) {
-        // Log but don't show error - zap was successful
         console.warn('Failed to refresh balance after zap:', balanceError);
       }
 
@@ -183,7 +173,95 @@ export function ZapButton({
         noteStatsService.addZap(
           user.pubkey,
           noteId,
-          `temp-${Date.now()}`, // Temporary PR until we get the real one
+          `temp-${Date.now()}`,
+          defaultZapSats,
+          defaultZapComment
+        );
+      }
+
+      toast({
+        title: "Zap Sent!",
+        description: `Sent ${defaultZapSats} sats`,
+        variant: "default",
+      });
+    } catch (error) {
+      toast({
+        title: "Zap Failed",
+        description: `${(error as Error).message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setZapping(false);
+    }
+  };
+
+  const handleDialogZap = async (amount: number, comment?: string) => {
+    try {
+      setZapping(true);
+
+      // For non-authenticated users, use throwaway keypair (public anonymous)
+      if (!user || !canSign) {
+        console.log('🎭 [ZapButton Dialog] Using throwaway keypair for pseudo-anonymous zap');
+        const throwawayUser = generateThrowawayKeypair();
+        const zapTarget = event || recipientPubkey;
+
+        const zapResult = await lightningService.zap(
+          throwawayUser.pubkey,
+          zapTarget,
+          amount,
+          comment || '',
+          nostr,
+          throwawayUser
+        );
+
+        // Check if payment was cancelled (returns null)
+        if (!zapResult) {
+          return;
+        }
+
+        // Update local stats immediately for instant feedback (use throwaway pubkey)
+        if (noteId) {
+          noteStatsService.addZap(
+            throwawayUser.pubkey,
+            noteId,
+            `temp-${Date.now()}`,
+            amount,
+            comment
+          );
+        }
+
+        setOpenZapDialog(false);
+        toast({
+          title: "Zap Sent!",
+          description: `Sent ${amount} sats as "Anonymous Supporter"`,
+          variant: "default",
+        });
+        return;
+      }
+
+      // Authenticated zap with Nostr event signing
+      const zapTarget = event || recipientPubkey;
+
+      const zapResult = await lightningService.zap(user.pubkey, zapTarget, amount, comment || '', nostr, user);
+
+      // Check if payment was cancelled (returns null)
+      if (!zapResult) {
+        return;
+      }
+
+      // Refresh wallet balance after successful zap
+      try {
+        await getBalance();
+      } catch (balanceError) {
+        console.warn('Failed to refresh balance after zap:', balanceError);
+      }
+
+      // Update local stats immediately for instant feedback
+      if (noteId) {
+        noteStatsService.addZap(
+          user.pubkey,
+          noteId,
+          `temp-${Date.now()}`,
           amount,
           comment
         );
@@ -221,14 +299,7 @@ export function ZapButton({
     if (quickZap) {
       timerRef.current = setTimeout(() => {
         isLongPressRef.current = true;
-        if (!user) {
-          toast({
-            title: "Login Required",
-            description: "Please log in to send zaps",
-            variant: "destructive",
-          });
-          return;
-        }
+        // Open dialog for both authenticated and anonymous users
         setOpenZapDialog(true);
       }, 500);
     }
@@ -252,24 +323,10 @@ export function ZapButton({
     }
 
     if (!quickZap) {
-      if (!user) {
-        toast({
-          title: "Login Required",
-          description: "Please log in to send zaps",
-          variant: "destructive",
-        });
-        return;
-      }
+      // Allow both authenticated and anonymous users to open dialog
       setOpenZapDialog(true);
     } else if (!isLongPressRef.current) {
-      if (!user) {
-        toast({
-          title: "Login Required",
-          description: "Please log in to send zaps",
-          variant: "destructive",
-        });
-        return;
-      }
+      // Allow both authenticated and anonymous users to zap
       handleZap();
     }
     isLongPressRef.current = false;
@@ -287,7 +344,7 @@ export function ZapButton({
   // Create tooltip message
   const getTooltipMessage = () => {
     if (!lightningAddress) return 'User has no Lightning address';
-    if (!user) return 'Login to zap';
+    if (!user) return 'Zap anonymously (no custom message)';
     return 'Zap';
   };
 

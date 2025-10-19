@@ -537,27 +537,146 @@ export class LightningService {
           }
         }, 1000);
       } else {
-        // Monitor Nostr for zap receipt
-        const filter: Filter = {
-          kinds: [kinds.Zap],
-          '#p': [recipient],
-          since: dayjs().subtract(1, 'minute').unix()
-        };
+        // Monitor Nostr for zap receipt using Nostrify's req() API
+        try {
+          const filter: Filter = {
+            kinds: [kinds.Zap],
+            '#p': [recipient],
+            since: dayjs().subtract(1, 'minute').unix()
+          };
 
-        if (event) {
-          filter['#e'] = [event.id];
-        }
-
-        subCloser = nostr.subscribe([ZAPTOK_CONFIG.DEFAULT_RELAY_URL], filter, {
-          onevent: (evt: NostrEvent) => {
-            const info = getZapInfoFromEvent(evt);
-            if (!info) return;
-
-            if (info.invoice === pr) {
-              setPaid({ preimage: info.preimage ?? '' });
-            }
+          if (event) {
+            filter['#e'] = [event.id];
           }
-        });
+
+          // Use Nostrify's req() API for subscription
+          const abortController = new AbortController();
+          const subscription = nostr.req(
+            [filter],
+            { signal: abortController.signal }
+          );
+
+          // Store closer to abort subscription when payment completes/cancels
+          subCloser = {
+            close: () => abortController.abort()
+          };
+
+          // Process zap receipt events
+          (async () => {
+            try {
+              for await (const msg of subscription) {
+                if (msg[0] === 'EVENT') {
+                  const evt = msg[2] as NostrEvent;
+                  const info = getZapInfoFromEvent(evt);
+                  if (!info) continue;
+
+                  if (info.invoice === pr) {
+                    setPaid({ preimage: info.preimage ?? '' });
+                    abortController.abort();
+                    break;
+                  }
+                }
+              }
+            } catch (err) {
+              // Subscription aborted or errored, ignore
+            }
+          })();
+        } catch (subscribeError) {
+          // Ignore subscription errors - payment monitoring will rely on invoice verification
+          console.warn('Failed to monitor Nostr for zap receipt:', subscribeError);
+        }
+      }
+    });
+  }
+
+  /**
+   * Anonymous zap - creates Lightning invoice without Nostr authentication
+   * Used for read-only mode where users don't have Nostr identity
+   */
+  async anonymousZap(
+    recipientPubkey: string,
+    sats: number,
+    nostr: any,
+    closeOuterModal?: () => void
+  ): Promise<{ preimage: string; invoice: string } | null> {
+    // Fetch recipient's profile
+    const profileEvent = await this.fetchProfile(recipientPubkey, nostr);
+    if (!profileEvent) {
+      throw new Error('Recipient not found');
+    }
+
+    const zapEndpoint = await this.getZapEndpoint(profileEvent);
+    if (!zapEndpoint) {
+      throw new Error("Recipient's lightning address is invalid");
+    }
+
+    const { callback, lnurl } = zapEndpoint;
+    const amount = sats * 1000; // Convert to millisats
+
+    // Request invoice without nostr parameter (anonymous)
+    const invoiceRes = await fetch(
+      `${callback}?amount=${amount}&lnurl=${lnurl}`
+    );
+
+    const invoiceBody = await invoiceRes.json();
+    if (invoiceBody.error) {
+      throw new Error(invoiceBody.message);
+    }
+
+    const { pr, verify } = invoiceBody;
+    if (!pr) {
+      throw new Error('Failed to create invoice');
+    }
+
+    console.log('🔍 [AnonymousZap] Invoice response:', { pr: pr.substring(0, 50) + '...', hasVerify: !!verify, verify });
+
+    // Pay with WebLN if available
+    if (this.provider) {
+      const { preimage } = await this.provider.sendPayment(pr);
+      closeOuterModal?.();
+      return { preimage, invoice: pr };
+    }
+
+    // Fallback to Bitcoin Connect payment modal with verification polling
+    return new Promise((resolve) => {
+      closeOuterModal?.();
+      let checkPaymentInterval: ReturnType<typeof setInterval> | undefined;
+
+      const { setPaid } = launchPaymentModal({
+        invoice: pr,
+        onPaid: (response) => {
+          console.log('✅ [AnonymousZap] Payment confirmed via Bitcoin Connect callback');
+          clearInterval(checkPaymentInterval);
+          resolve({ preimage: response.preimage, invoice: pr });
+        },
+        onCancelled: () => {
+          console.log('❌ [AnonymousZap] Payment cancelled by user');
+          clearInterval(checkPaymentInterval);
+          resolve(null);
+        }
+      });
+
+      // Poll for payment verification if verify URL is available
+      if (verify) {
+        console.log('🔄 [AnonymousZap] Starting verification polling with verify URL:', verify);
+        checkPaymentInterval = setInterval(async () => {
+          try {
+            console.log('🔍 [AnonymousZap] Polling payment status...');
+            const invoice = new Invoice({ pr, verify });
+            const paid = await invoice.verifyPayment();
+            console.log('📊 [AnonymousZap] Verification result:', { paid, hasPreimage: !!invoice.preimage });
+            if (paid && invoice.preimage) {
+              console.log('✅ [AnonymousZap] Payment verified! Preimage:', invoice.preimage);
+              setPaid({ preimage: invoice.preimage });
+              clearInterval(checkPaymentInterval);
+            }
+          } catch (error) {
+            console.error('⚠️ [AnonymousZap] Verification polling error:', error);
+            // Ignore verification errors, continue polling
+          }
+        }, 1000);
+      } else {
+        console.warn('⚠️ [AnonymousZap] No verify URL provided - payment status will only be detected via Bitcoin Connect callback');
       }
     });
   }

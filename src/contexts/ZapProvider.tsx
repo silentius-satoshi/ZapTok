@@ -24,6 +24,7 @@ export function ZapProvider({ children }: ZapProviderProps) {
 
   const updateDefaultSats = (sats: number) => {
     if (sats >= 1 && sats <= 100000) {
+      console.log('💰 [ZapProvider] Updating default zap sats from', defaultZapSats, 'to', sats);
       setDefaultZapSats(sats);
     }
   };

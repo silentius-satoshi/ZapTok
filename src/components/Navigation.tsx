@@ -457,10 +457,10 @@ export function Navigation() {
               </div>
 
               <Button
-                onClick={() => setShowLoginModal(true)}
+                onClick={() => navigate('/donate')}
                 variant="outline"
                 className="hidden md:flex items-center gap-2 bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white hover:border-gray-500 transition-colors cursor-pointer"
-                title="Sign in to become a supporter"
+                title="Support ZapTok with Lightning"
               >
                 <Heart className="h-4 w-4 text-red-500" />
                 Become a Supporter

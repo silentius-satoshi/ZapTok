@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/useToast';
 import { useAuthor } from '@/hooks/useAuthor';
@@ -36,6 +37,7 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
   const [comment, setComment] = useState('');
   const [selectedAmount, setSelectedAmount] = useState<number | null>(defaultAmount || null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showPublicly, setShowPublicly] = useState(false);
 
   // Fetch ZapTok profile information
   const { data: zapTokProfile } = useAuthor(ZAPTOK_CONFIG.DEV_PUBKEY);
@@ -75,15 +77,6 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
   };
 
   const handleZap = async () => {
-    if (!user) {
-      toast({
-        title: "Login Required",
-        description: "Please log in to send zaps.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const amountValue = parseInt(amount);
 
     if (!amount || amountValue <= 0) {
@@ -125,20 +118,103 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
     setIsProcessing(true);
 
     try {
-      const result = await lightningService.zap(
-        user.pubkey,
-        ZAPTOK_DEV_PUBKEY,
-        amountValue,
-        comment,
-        nostr,
-        user,
-        onClose
-      );
+      let result;
+
+      // Use anonymous zap for non-authenticated users
+      if (!user) {
+        // If user wants to show publicly, create throwaway keypair
+        if (showPublicly) {
+          console.log('🎭 [DonationZap] Using throwaway keypair for public anonymous zap');
+          const { generateSecretKey, getPublicKey, finalizeEvent } = await import('nostr-tools');
+          const throwawaySecretKey = generateSecretKey();
+          const throwawayPubkey = getPublicKey(throwawaySecretKey);
+          
+          // Create a temporary user object with signing capability
+          const tempUser = {
+            pubkey: throwawayPubkey,
+            signer: {
+              signEvent: async (event: any) => {
+                return finalizeEvent(event, throwawaySecretKey);
+              }
+            }
+          };
+
+          console.log('📝 [DonationZap] Throwaway pubkey:', throwawayPubkey);
+
+          // Use authenticated zap with throwaway identity
+          result = await lightningService.zap(
+            throwawayPubkey,
+            ZAPTOK_DEV_PUBKEY,
+            amountValue,
+            comment || '',
+            nostr,
+            tempUser,
+            onClose
+          );
+        } else {
+          console.log('🕶️ [DonationZap] Using truly anonymous zap (no Nostr identity)');
+          // Truly anonymous - no Nostr identity
+          result = await lightningService.anonymousZap(
+            ZAPTOK_DEV_PUBKEY,
+            amountValue,
+            nostr,
+            onClose
+          );
+        }
+      } else {
+        // Authenticated user
+        if (showPublicly) {
+          // User wants to donate anonymously
+          console.log('🎭 [DonationZap] Authenticated user donating anonymously with throwaway keypair');
+          const { generateSecretKey, getPublicKey, finalizeEvent } = await import('nostr-tools');
+          const throwawaySecretKey = generateSecretKey();
+          const throwawayPubkey = getPublicKey(throwawaySecretKey);
+          
+          // Create a temporary user object with signing capability
+          const tempUser = {
+            pubkey: throwawayPubkey,
+            signer: {
+              signEvent: async (event: any) => {
+                return finalizeEvent(event, throwawaySecretKey);
+              }
+            }
+          };
+
+          console.log('📝 [DonationZap] Throwaway pubkey:', throwawayPubkey);
+
+          // Use authenticated zap with throwaway identity
+          result = await lightningService.zap(
+            throwawayPubkey,
+            ZAPTOK_DEV_PUBKEY,
+            amountValue,
+            comment || '',
+            nostr,
+            tempUser,
+            onClose
+          );
+        } else {
+          // Normal authenticated donation linked to profile
+          console.log('✍️ [DonationZap] Authenticated donation linked to profile');
+          result = await lightningService.zap(
+            user.pubkey,
+            ZAPTOK_DEV_PUBKEY,
+            amountValue,
+            comment,
+            nostr,
+            user,
+            onClose
+          );
+        }
+      }
 
       if (result) {
         toast({
           title: "Zap Successful!",
-          description: "Thank you for supporting ZapTok development!",
+          description: user 
+            ? "Thank you for supporting ZapTok development!"
+            : showPublicly 
+              ? "Thank you for your support! Your donation will appear as 'Anonymous Supporter'"
+              : "Thank you for your private donation!",
         });
         resetForm();
       } else {
@@ -165,6 +241,7 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
     setComment('');
     setSelectedAmount(defaultAmount || null);
     setIsProcessing(false);
+    setShowPublicly(false);
   };
 
   const handleClose = () => {
@@ -198,6 +275,35 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
             Send Lightning sats to support ZapTok development
           </DialogDescription>
         </DialogHeader>
+
+        {/* Anonymous Donation Option - Available for All Users */}
+        <div className="space-y-3">
+          <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-700 bg-gray-800/50">
+            <Checkbox
+              id="donateAnonymously"
+              checked={showPublicly}
+              onCheckedChange={(checked) => setShowPublicly(checked as boolean)}
+              className="mt-0.5 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"
+            />
+            <div className="flex-1">
+              <label
+                htmlFor="donateAnonymously"
+                className="text-sm font-medium text-gray-200 cursor-pointer"
+              >
+                {user ? 'Donate anonymously' : 'Show my donation publicly (anonymous)'}
+              </label>
+              <p className="text-xs text-gray-400 mt-1">
+                {showPublicly 
+                  ? (user 
+                      ? '🔒 Your donation will use a throwaway identity and appear as "Anonymous Supporter"'
+                      : '✅ Your donation will appear as "Anonymous Supporter" in the supporters list')
+                  : (user 
+                      ? '🔓 Your donation will be linked to your Nostr profile'
+                      : '👻 Your donation will be completely private with no public record')}
+              </p>
+            </div>
+          </div>
+        </div>
 
         <div className="space-y-6">
           {/* Amount Selection */}
@@ -233,37 +339,87 @@ export function DonationZap({ isOpen, onClose, defaultAmount }: DonationZapProps
             />
           </div>
 
-          {/* Comment Field */}
-          <div className="space-y-2">
-            <Label className="text-yellow-400 font-medium">
-              Comment (optional)
-            </Label>
-            <Textarea
-              placeholder="Leave a message..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-yellow-400 resize-none"
-              rows={3}
-              maxLength={144}
-            />
-            <div className="text-xs text-gray-400 text-right">
-              {comment.length}/144
+          {/* Public Display Option - Only for non-authenticated users */}
+          {!user && (
+            <div className="space-y-3">
+              <div className="flex items-start space-x-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700">
+                <Checkbox
+                  id="show-publicly"
+                  checked={showPublicly}
+                  onCheckedChange={(checked) => setShowPublicly(checked as boolean)}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <label
+                    htmlFor="show-publicly"
+                    className="text-sm font-medium text-gray-200 cursor-pointer"
+                  >
+                    Show my donation publicly
+                  </label>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {showPublicly 
+                      ? "Your donation will appear as 'Anonymous Supporter' in the supporters list for everyone to see"
+                      : "Your donation will be completely private and won't appear in any public list"
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {/* Comment Field - Only shown when public display is enabled */}
+              {showPublicly && (
+                <div className="space-y-2">
+                  <Label className="text-yellow-400 font-medium">
+                    Comment (optional)
+                  </Label>
+                  <Textarea
+                    placeholder="Leave a message..."
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-yellow-400 resize-none"
+                    rows={3}
+                    maxLength={144}
+                  />
+                  <div className="text-xs text-gray-400 text-right">
+                    {comment.length}/144
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* Comment Field - Only for authenticated users */}
+          {user && (
+            <div className="space-y-2">
+              <Label className="text-yellow-400 font-medium">
+                Comment (optional)
+              </Label>
+              <Textarea
+                placeholder="Leave a message..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-yellow-400 resize-none"
+                rows={3}
+                maxLength={144}
+              />
+              <div className="text-xs text-gray-400 text-right">
+                {comment.length}/144
+              </div>
+            </div>
+          )}
 
               {/* Zap Button */}
               <Button
                 onClick={handleZap}
-                disabled={isProcessing || !amount || parseInt(amount) <= 0 || !user}
+                disabled={isProcessing || !amount || parseInt(amount) <= 0}
                 className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-3"
               >
-                {isProcessing ? 'Sending Zap...' : user ? 'Send Zap ⚡' : 'Login Required'}
+                {isProcessing ? 'Sending Zap...' : 'Send Zap ⚡'}
               </Button>
 
               {/* Lightning Address Info */}
               <div className="text-xs text-gray-400 text-center space-y-1">
-                <div>⚡ NIP-57 Nostr Zaps</div>
-                <div>Limits: 1 - 1M sats • Comments: 144 chars max</div>
+                <div>⚡ {user ? 'NIP-57 Nostr Zaps' : 'Lightning Network Donations'}</div>
+                <div>Limits: 1 - 1M sats{user ? ' • Comments: 144 chars max' : ''}</div>
               </div>
         </div>
       </DialogContent>
