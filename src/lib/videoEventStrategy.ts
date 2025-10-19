@@ -88,6 +88,11 @@ export function createVideoEvent(
     tags.push(['title', data.title]);
   }
 
+  // Add summary tag (NIP-71 requirement for description)
+  if (data.description) {
+    tags.push(['summary', data.description]);
+  }
+
   // Add required published_at tag (NIP-71 requirement)
   // Use provided timestamp or current time for first publication
   const publishedAt = data.publishedAt || Math.floor(Date.now() / 1000);
@@ -106,6 +111,11 @@ export function createVideoEvent(
     // Add file hash (x)
     if (data.hash) {
       imetaTag.push(`x ${data.hash}`);
+    }
+    
+    // Add file size (before dim for consistent ordering)
+    if (data.size) {
+      imetaTag.push(`size ${data.size}`);
     }
     
     // Add dimensions (dim)
@@ -128,16 +138,49 @@ export function createVideoEvent(
       imetaTag.push(`bitrate ${data.bitrate}`);
     }
     
-    // Add file size
-    if (data.size) {
-      imetaTag.push(`size ${data.size}`);
-    }
-    
     // Add service tag if using NIP-96 compatible servers
     // This allows clients to search the author's NIP-96 server list
     imetaTag.push('service nip96');
     
     tags.push(imetaTag);
+  }
+
+  // Add NIP-71 style separate tags for compatibility with older clients
+  if (includeNip71Tags) {
+    // Add url tag
+    if (data.videoUrl) {
+      tags.push(['url', data.videoUrl]);
+    }
+    
+    // Add hash tag (x)
+    if (data.hash) {
+      tags.push(['x', data.hash]);
+    }
+    
+    // Add dimensions tag (dim)
+    if (data.width && data.height) {
+      tags.push(['dim', `${data.width}x${data.height}`]);
+    }
+    
+    // Add duration tag
+    if (data.duration !== undefined) {
+      tags.push(['duration', data.duration.toString()]);
+    }
+    
+    // Add thumbnail tag (thumb or image)
+    if (data.thumbnailUrl) {
+      tags.push(['thumb', data.thumbnailUrl]);
+    }
+    
+    // Add mime type tag (m)
+    if (data.type) {
+      tags.push(['m', data.type]);
+    }
+    
+    // Add size tag
+    if (data.size) {
+      tags.push(['size', data.size.toString()]);
+    }
   }
 
   // Add hashtags for discoverability (t tags)

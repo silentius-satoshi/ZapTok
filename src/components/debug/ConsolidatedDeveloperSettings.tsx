@@ -125,20 +125,9 @@ export function ConsolidatedDeveloperSettings() {
     <div className="space-y-6">
       {/* Developer Mode Toggle */}
       <Card>
-        <CardHeader>
-          <CardTitle>Developer Mode</CardTitle>
-          <CardDescription>
-            Enable access to advanced debugging tools and technical settings
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <div className="text-sm font-medium">Enable Developer Mode</div>
-              <div className="text-sm text-muted-foreground">
-                Show advanced debugging information and developer tools
-              </div>
-            </div>
+            <div className="text-base font-medium">Developer Mode</div>
             <Switch
               checked={developerModeEnabled}
               onCheckedChange={toggleDeveloperMode}

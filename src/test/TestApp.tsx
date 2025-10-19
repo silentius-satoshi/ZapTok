@@ -13,6 +13,7 @@ import { CurrentVideoProvider } from '@/contexts/CurrentVideoContext';
 import { FeedProvider } from '@/providers/FeedProvider';
 import { CurrentRelaysProvider } from '@/providers/CurrentRelaysProvider';
 import { FavoriteRelaysProvider } from '@/providers/FavoriteRelaysProvider';
+import { ContentPolicyProvider } from '@/providers/ContentPolicyProvider';
 
 interface TestAppProps {
   children: React.ReactNode;
@@ -53,11 +54,13 @@ export function TestApp({ children }: TestAppProps) {
                     <CurrentRelaysProvider>
                       <FeedProvider>
                         <WalletProvider>
-                          <VideoPlaybackProvider>
-                            <CurrentVideoProvider>
-                              {children}
-                            </CurrentVideoProvider>
-                          </VideoPlaybackProvider>
+                          <ContentPolicyProvider>
+                            <VideoPlaybackProvider>
+                              <CurrentVideoProvider>
+                                {children}
+                              </CurrentVideoProvider>
+                            </VideoPlaybackProvider>
+                          </ContentPolicyProvider>
                         </WalletProvider>
                       </FeedProvider>
                     </CurrentRelaysProvider>

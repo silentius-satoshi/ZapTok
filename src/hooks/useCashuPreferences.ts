@@ -5,7 +5,7 @@ interface CashuPreferences {
 }
 
 const DEFAULT_PREFERENCES: CashuPreferences = {
-  cashuEnabled: true, // Enabled by default for existing users
+  cashuEnabled: false, // Disabled by default - users must opt-in
 };
 
 /**

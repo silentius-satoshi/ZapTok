@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import React from 'react';
 import { Search, Heart, Zap, PlusSquare, Settings, Users, Globe, Radio, UserPlus, Menu, Wallet, User, LogOut, Info, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -76,6 +76,9 @@ export function MobileNavigation() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUserSearchModal, setShowUserSearchModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showingBalance, setShowingBalance] = useState<'bitcoin' | 'cashu'>('bitcoin');
+  const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPressRef = useRef(false);
 
   // Swipe gesture state for closing hamburger menu
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
@@ -124,19 +127,73 @@ export function MobileNavigation() {
     const lightningBalance = userHasLightningAccess 
       ? (parseInt(localStorage.getItem(`lightning_balance_${user.pubkey}`) || '0', 10) || 0)
       : 0;
-    // Only include Cashu balance if Cashu features are enabled
-    const totalBalance = lightningBalance + (cashuEnabled ? cashuBalance : 0);
 
+    // When Cashu is disabled, only show Lightning balance
+    if (!cashuEnabled) {
+      if (showSats) {
+        return `${lightningBalance.toLocaleString()}`;
+      } else {
+        if (btcPriceData?.USD) {
+          const usdAmount = satsToUSD(lightningBalance, btcPriceData.USD);
+          return `${usdAmount.toFixed(2)}`;
+        } else {
+          return `${lightningBalance.toLocaleString()}`;
+        }
+      }
+    }
+
+    // When Cashu is enabled, show the selected balance type
+    const displayBalance = showingBalance === 'bitcoin' ? lightningBalance : cashuBalance;
+    
     if (showSats) {
-      return `${totalBalance.toLocaleString()}`;
+      return `${displayBalance.toLocaleString()}`;
     } else {
       // Use the existing useBitcoinPrice hook utilities
       if (btcPriceData?.USD) {
-        const usdAmount = satsToUSD(totalBalance, btcPriceData.USD);
+        const usdAmount = satsToUSD(displayBalance, btcPriceData.USD);
         return `${usdAmount.toFixed(2)}`;
       } else {
-        return `${totalBalance.toLocaleString()}`;
+        return `${displayBalance.toLocaleString()}`;
       }
+    }
+  };
+
+  // Handle press events for balance toggle
+  const handleBalancePointerDown = () => {
+    if (!user) return;
+    
+    isLongPressRef.current = false;
+    pressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      // Long press: toggle currency format
+      toggleCurrency();
+    }, 500); // 500ms threshold for long press
+  };
+
+  const handleBalancePointerUp = () => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+
+    // Short press: toggle balance type (only when Cashu is enabled)
+    if (!isLongPressRef.current && cashuEnabled) {
+      setShowingBalance(prev => prev === 'bitcoin' ? 'cashu' : 'bitcoin');
+    } else if (!isLongPressRef.current && !cashuEnabled) {
+      // When Cashu is disabled, short press toggles currency format
+      toggleCurrency();
+    }
+  };
+
+  const handleBalancePointerLeave = () => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
     }
   };
 
@@ -270,24 +327,28 @@ export function MobileNavigation() {
             {/* Currency Toggle Button */}
             <button
               className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
-              onClick={() => {
-                if (!user) {
-                  setShowLoginModal(true);
-                } else {
-                  toggleCurrency();
-                }
-              }}
-              title={user ? `Switch to ${showSats ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}` : 'Sign in to view your balance'}
+              onPointerDown={handleBalancePointerDown}
+              onPointerUp={handleBalancePointerUp}
+              onPointerLeave={handleBalancePointerLeave}
+              title={
+                user 
+                  ? cashuEnabled 
+                    ? `${showingBalance === 'bitcoin' ? 'Bitcoin' : 'Cashu'} balance - Short press: Switch balance | Long press: Toggle ${showSats ? 'USD' : 'sats'}`
+                    : `Bitcoin balance - Switch to ${showSats ? 'USD' : 'BTC'} ${isPriceLoading ? '(updating price...)' : btcPriceData?.USD ? `(BTC: $${btcPriceData.USD.toLocaleString()})` : ''}`
+                  : 'Sign in to view your balance'
+              }
             >
               {showSats ? (
                 <>
                   <div className="flex items-center gap-0.5">
-                    <Bitcoin className="w-4 h-4 text-orange-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
-                    {cashuEnabled && (
+                    {/* Show single icon based on current balance type */}
+                    {!cashuEnabled || showingBalance === 'bitcoin' ? (
+                      <Bitcoin className="w-4 h-4 text-orange-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                    ) : (
                       <img 
                         src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
                         alt="Cashu" 
-                        className="w-3 h-3" 
+                        className="w-4 h-4" 
                         style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
                       />
                     )}
