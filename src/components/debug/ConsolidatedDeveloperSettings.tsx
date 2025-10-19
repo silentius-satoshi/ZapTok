@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useSignerAnalysis } from '@/hooks/useSignerAnalysis';
+import { useDeveloperMode } from '@/hooks/useDeveloperMode';
 import { useToast } from '@/hooks/useToast';
 import { DebugStatusCard } from '@/components/debug/DebugStatusCard';
 import { AuthenticationDebug } from '@/components/debug/AuthenticationDebug';
@@ -13,7 +16,7 @@ import { PWAManagementSettings } from '@/components/settings/PWAManagementSettin
 import { PushNotificationsSettings } from '@/components/settings/PushNotificationsSettings';
 import { VideoStorageDebug } from '@/components/VideoStorageDebug';
 import { VideoEventComparison } from '@/components/VideoEventComparison';
-import { Copy, Download } from 'lucide-react';
+import { Copy, Download, AlertTriangle } from 'lucide-react';
 
 /**
  * Consolidated Developer Settings page with improved organization and reduced redundancy
@@ -23,6 +26,7 @@ export function ConsolidatedDeveloperSettings() {
   const { user, metadata } = useCurrentUser();
   const signerAnalysis = useSignerAnalysis();
   const { toast } = useToast();
+  const { developerModeEnabled, toggleDeveloperMode } = useDeveloperMode();
 
   const generateAllDebugInfo = () => {
     return {
@@ -119,6 +123,37 @@ export function ConsolidatedDeveloperSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Developer Mode Toggle */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="text-base font-medium">Developer Mode</div>
+            <Switch
+              checked={developerModeEnabled}
+              onCheckedChange={toggleDeveloperMode}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Warning Banner - Always visible */}
+      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-yellow-200 font-medium text-sm">
+              ⚠️ Advanced Settings
+            </p>
+            <p className="text-yellow-100/80 text-sm">
+              These settings are for technically-savvy users. Please don't change them unless you are a developer or a Nostr expert.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Show content only when Developer Mode is enabled */}
+      {developerModeEnabled ? (
+        <>
       {/* Header with Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -191,6 +226,15 @@ export function ConsolidatedDeveloperSettings() {
         Debug information is generated in real-time and may contain sensitive data. 
         Handle with care when sharing.
       </div>
+        </>
+      ) : (
+        /* Message when Developer Mode is disabled */
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">
+            Enable Developer Mode above to access debugging tools and advanced settings.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

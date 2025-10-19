@@ -26,6 +26,7 @@ import { useNostr } from '@/hooks/useNostr';
 import { useToast } from '@/hooks/useToast';
 import { useVideoReactions } from '@/hooks/useVideoReactions';
 import { useVideoNutzaps } from '@/hooks/useVideoNutzaps';
+import { useCashuPreferences } from '@/hooks/useCashuPreferences';
 import { CommentPrompt } from '@/components/auth/LoginPrompt';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { genUserName } from '@/lib/genUserName';
@@ -42,6 +43,7 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
   const { withLoginCheck } = useLoginPrompt();
   const commentsData = useVideoComments(videoEvent.id);
   const { mutate: publishComment, isPending: isPublishing } = usePublishComment();
+  const { cashuEnabled } = useCashuPreferences();
 
   const [commentText, setCommentText] = useState('');
   const [replyingTo, setReplyingTo] = useState<NostrEvent | null>(null);
@@ -181,6 +183,7 @@ export function CommentsModal({ isOpen, onClose, videoEvent }: CommentsModalProp
 function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () => void }) {
   const author = useAuthor(comment.pubkey);
   const { canSign } = useCurrentUser();
+  const { cashuEnabled } = useCashuPreferences();
   const navigate = useNavigate();
 
   // Get zap analytics for this comment
@@ -250,17 +253,19 @@ function CommentItem({ comment, onReply }: { comment: NostrEvent; onReply: () =>
                   </span>
                 </div>
 
-                {/* Cashu Nutzap Button */}
-                <div className="flex items-center gap-1">
-                  <NutzapButton
-                    postId={comment.id}
-                    authorPubkey={comment.pubkey}
-                    showText={false}
-                  />
-                  <span className="text-xs font-medium">
-                    {nutzapData.totalAmount > 0 ? nutzapData.totalAmount : '0'}
-                  </span>
-                </div>
+                {/* Cashu Nutzap Button - Only shown if Cashu features are enabled */}
+                {cashuEnabled && (
+                  <div className="flex items-center gap-1">
+                    <NutzapButton
+                      postId={comment.id}
+                      authorPubkey={comment.pubkey}
+                      showText={false}
+                    />
+                    <span className="text-xs font-medium">
+                      {nutzapData.totalAmount > 0 ? nutzapData.totalAmount : '0'}
+                    </span>
+                  </div>
+                )}
               </>
             )}
             

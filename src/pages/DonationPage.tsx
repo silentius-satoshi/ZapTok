@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { ArrowLeft, Zap, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { ZAPTOK_CONFIG } from '@/constants';
@@ -13,7 +19,7 @@ export function DonationPage() {
   const navigate = useNavigate();
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState<number | undefined>(undefined);
-  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
 
   const handleAmountSelect = (amount: number) => {
     setSelectedAmount(amount);
@@ -48,34 +54,66 @@ export function DonationPage() {
             <CardTitle className="text-2xl font-bold text-yellow-400 flex items-center justify-center gap-3">
               <Zap className="h-6 w-6" />
               <span>Support ZapTok Development</span>
-              <TooltipProvider>
-                <Tooltip open={isTooltipOpen} onOpenChange={setIsTooltipOpen}>
-                  <TooltipTrigger asChild>
-                    <button
-                      className="h-4 w-4 text-gray-400 hover:text-yellow-400 cursor-help focus:outline-none focus:text-yellow-400"
-                      onClick={() => setIsTooltipOpen(!isTooltipOpen)}
-                      onTouchStart={() => setIsTooltipOpen(!isTooltipOpen)}
-                      aria-label="How Lightning donations work"
-                    >
-                      <Info className="h-4 w-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent 
-                    className="max-w-xs"
-                    onPointerDownOutside={() => setIsTooltipOpen(false)}
+              <Dialog open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
+                <DialogTrigger asChild>
+                  <button
+                    className="h-4 w-4 text-gray-400 hover:text-yellow-400 cursor-pointer focus:outline-none focus:text-yellow-400 transition-colors"
+                    aria-label="How Lightning donations work"
                   >
-                    <div className="text-sm space-y-2">
-                      <div className="font-semibold">How Lightning Donations Work:</div>
-                      <div className="space-y-1">
-                        <div><span className="text-yellow-400">1.</span> Choose an amount or enter a custom donation amount</div>
-                        <div><span className="text-yellow-400">2.</span> A Lightning invoice will be generated instantly</div>
-                        <div><span className="text-yellow-400">3.</span> Pay with your Lightning wallet (WebLN supported)</div>
-                        <div><span className="text-yellow-400">4.</span> Your support directly helps ZapTok development!</div>
+                    <Info className="h-4 w-4" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md bg-gray-900 border-gray-700">
+                  <DialogHeader>
+                    <DialogTitle className="text-yellow-400 flex items-center gap-2">
+                      <Zap className="h-5 w-5" />
+                      How Lightning Donations Work
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="text-gray-300 space-y-4 mt-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-400/20 flex items-center justify-center text-yellow-400 font-bold text-sm">
+                        1
+                      </div>
+                      <div className="text-sm">
+                        Choose an amount or enter a custom donation amount
                       </div>
                     </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-400/20 flex items-center justify-center text-yellow-400 font-bold text-sm">
+                        2
+                      </div>
+                      <div className="text-sm">
+                        A Lightning invoice will be generated instantly
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-400/20 flex items-center justify-center text-yellow-400 font-bold text-sm">
+                        3
+                      </div>
+                      <div className="text-sm">
+                        Pay with your Lightning wallet (WebLN supported)
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-400/20 flex items-center justify-center text-yellow-400 font-bold text-sm">
+                        4
+                      </div>
+                      <div className="text-sm">
+                        Your support directly helps ZapTok development!
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6">
+                    <Button
+                      onClick={() => setIsInfoDialogOpen(false)}
+                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900"
+                    >
+                      Got it!
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-8">

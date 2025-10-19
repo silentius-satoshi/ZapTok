@@ -40,7 +40,7 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
   // Recording quality settings - defined before useRecordVideo
   type VideoQuality = 'high' | 'main' | 'baseline';
-  const [videoQuality, setVideoQuality] = useState<VideoQuality>('main'); // Default to Main profile
+  const [videoQuality, setVideoQuality] = useState<VideoQuality>('high'); // Default to High profile for better quality
   const [showQualitySettings, setShowQualitySettings] = useState(false);
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [flashSupported, setFlashSupported] = useState(false);
@@ -690,18 +690,13 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
     });
 
     setIsProcessing(true);
-    setUploadStep('uploading');
-    setUploadProgress(0);
-    setRetryInfo('');
-    setCurrentServer('');
-    setUploadAttempts([]);
 
     // Declare fileToUpload outside try block so it's accessible in catch block
     let fileToUpload = selectedFile;
     let compressionInfo = '';
 
     try {
-      // Generate thumbnail if video is loaded
+      // Generate thumbnail BEFORE changing upload step (so videoRef is still available)
       let thumbnailUrl = '';
       if (videoRef.current) {
         console.log('🖼️ [VideoUpload] Generating thumbnail...');
@@ -785,6 +780,9 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
       } else {
         console.log('Video compression not needed or not supported');
       }
+
+      // NOW change to uploading step (after thumbnail generation, before video upload)
+      setUploadStep('uploading');
 
       // Upload video using Blossom protocol
       console.log('🚀 [VideoUpload] Starting Blossom upload...');
@@ -1143,8 +1141,8 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
                   {/* Quality Description */}
                   <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
                     <div className="text-white text-sm font-medium mb-1">
-                      {videoQuality === 'high' && 'High Quality'}
-                      {videoQuality === 'main' && 'Main Quality (Default)'}
+                      {videoQuality === 'high' && 'High Quality (Default)'}
+                      {videoQuality === 'main' && 'Main Quality'}
                       {videoQuality === 'baseline' && 'Baseline Quality'}
                     </div>
                     <div className="text-white/70 text-xs">
@@ -1212,6 +1210,17 @@ export function VideoUploadModal({ isOpen, onClose }: VideoUploadModalProps) {
 
             {/* Bottom Controls - Minimal iOS-style */}
             <div className="absolute bottom-0 left-0 right-0 z-40 pb-8 pt-12">
+              {/* Upload File Button - Bottom Left (hidden during recording/paused/processing) */}
+              {!recordedBlob && !isRecordingProcessing && !isPaused && !isRecording && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-8 left-6 p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors z-50"
+                  title="Upload video file"
+                >
+                  <Upload className="h-6 w-6 text-white" />
+                </button>
+              )}
+
               {/* Flip Camera Button - Bottom Right (hidden during paused state and when recorded) */}
               {!recordedBlob && !isRecordingProcessing && !isPaused && (
                 <button

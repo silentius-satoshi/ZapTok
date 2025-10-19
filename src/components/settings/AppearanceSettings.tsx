@@ -1,6 +1,22 @@
 import { SettingsSection } from "./SettingsSection";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useTheme } from "@/hooks/useTheme";
+import { Label } from "@/components/ui/label";
 
 export function AppearanceSettings() {
+  const { theme, setTheme } = useTheme();
+
+  const handleSystemThemeToggle = (checked: boolean) => {
+    if (checked) {
+      // Enable system theme
+      setTheme('system');
+    } else {
+      // Disable system theme - use current system preference as static choice
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      setTheme(systemTheme);
+    }
+  };
+
   return (
     <SettingsSection>
       <div className="space-y-6">
@@ -59,13 +75,18 @@ export function AppearanceSettings() {
         </div>
 
         {/* Automatically set Dark or Light mode */}
-        <div className="flex items-center space-x-3 opacity-60">
-          <input
-            type="checkbox"
-            disabled
-            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 cursor-not-allowed"
+        <div className="flex items-center space-x-3">
+          <Checkbox
+            id="system-theme"
+            checked={theme === 'system'}
+            onCheckedChange={handleSystemThemeToggle}
           />
-          <span className="text-gray-500">Automatically set Dark or Light mode based on your system settings</span>
+          <Label
+            htmlFor="system-theme"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+          >
+            Automatically set Dark or Light mode based on your system settings
+          </Label>
         </div>
       </div>
     </SettingsSection>

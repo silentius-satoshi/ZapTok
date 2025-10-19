@@ -16,15 +16,22 @@ interface VideoProgressBarProps {
   className?: string;
   isPaused?: boolean;
   onScrubbingChange?: (isScrubbing: boolean) => void;
+  isMobile?: boolean;
 }
 
-export function VideoProgressBar({ videoRef, className = '', isPaused = false, onScrubbingChange }: VideoProgressBarProps) {
+export function VideoProgressBar({ videoRef, className = '', isPaused = false, onScrubbingChange, isMobile = false }: VideoProgressBarProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [dragPosition, setDragPosition] = useState(0); // Track real-time drag position
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const progressBarRef = useRef<HTMLDivElement>(null);
+
+  // Detect touch device
+  useEffect(() => {
+    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
 
   // Format time as MM:SS
   const formatTime = (seconds: number): string => {
@@ -152,20 +159,22 @@ export function VideoProgressBar({ videoRef, className = '', isPaused = false, o
   // Use drag position when dragging for instant handle updates, otherwise use progressPercentage
   const handlePosition = isDragging ? dragPosition : progressPercentage;
 
-  // Determine if handle should be visible (on hover, when paused, or when dragging)
-  const showHandle = isHovering || isPaused || isDragging;
+  // Determine if handle should be visible
+  // Always show on touch devices for better UX, or on hover/pause/drag for desktop
+  const showHandle = isTouchDevice || isHovering || isPaused || isDragging;
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      {/* Progress Bar */}
+      {/* Progress Bar Container - Compact on mobile, larger on desktop */}
       <div
         ref={progressBarRef}
-        className={`flex-1 rounded-full cursor-pointer relative mx-4 group transition-all duration-200 ${
-          isDragging ? 'h-2' : 'h-1'
+        className={`flex-1 rounded-full cursor-pointer relative transition-all duration-200 ${
+          isMobile ? 'h-6 mx-2' : (isDragging || isTouchDevice ? 'h-8 mx-4' : 'h-4 mx-4')
         }`}
         style={{ 
-          overflow: 'visible',
-          backgroundColor: 'rgba(255, 255, 255, 0.3)'
+          backgroundColor: 'transparent',
+          display: 'flex',
+          alignItems: 'center',
         }}
         onMouseDown={handlePointerDown}
         onTouchStart={handlePointerDown}
@@ -181,34 +190,38 @@ export function VideoProgressBar({ videoRef, className = '', isPaused = false, o
           }
         }}
       >
-        {/* Filled Progress - Gradient matching side nav */}
+        {/* Filled Progress - Compact on mobile */}
         <div
           className="absolute left-0 rounded-full z-10"
           style={{ 
             width: handlePosition > 0 ? `${handlePosition}%` : '2px',
             background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
-            height: isDragging ? '8px' : '3px',
+            height: isMobile ? '3px' : (isDragging || isTouchDevice ? '12px' : '4px'),
             top: '50%',
             transform: 'translateY(-50%)',
             transition: isDragging ? 'height 0.2s' : 'all 0.1s'
           }}
         />
         
-        {/* Draggable Handle - Shows on hover, when paused, or when dragging */}
+        {/* Draggable Handle - Smaller on mobile for compact display */}
         <div
-          className={`absolute w-3 h-3 rounded-full shadow-lg z-20 ${
+          className={`absolute rounded-full shadow-lg z-20 ${
             showHandle ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
           }`}
           style={{ 
-            left: `calc(${handlePosition}% - 6px)`,
+            width: isMobile ? '14px' : (isTouchDevice ? '20px' : '12px'),
+            height: isMobile ? '14px' : (isTouchDevice ? '20px' : '12px'),
+            left: `${handlePosition}%`,
             top: '50%',
             background: 'linear-gradient(to right, #fb923c, #ec4899, #9333ea)',
             transform: isDragging 
-              ? 'translate(0, -50%) scale(1.3)' 
+              ? 'translate(-50%, -50%) scale(1.3)' 
               : showHandle
-              ? 'translate(0, -50%) scale(1)'
-              : 'translate(0, -50%) scale(0)',
-            transition: isDragging ? 'none' : 'all 0.2s'
+              ? 'translate(-50%, -50%) scale(1)'
+              : 'translate(-50%, -50%) scale(0)',
+            transition: isDragging ? 'none' : 'all 0.2s',
+            boxShadow: isMobile ? '0 0 0 8px transparent' : (isTouchDevice ? '0 0 0 12px transparent' : '0 0 0 6px transparent'),
+            cursor: 'grab'
           }}
         />
       </div>

@@ -13,6 +13,8 @@ import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { bundleLog } from '@/lib/logBundler';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
+import { filterValidVideos } from '@/lib/videoValidation';
+import { brokenVideoTracker } from '@/services/brokenVideoTracker';
 
 export interface FollowingVideoFeedRef {
   refresh: () => void;
@@ -29,6 +31,9 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
   const { setCurrentVideo } = useCurrentVideo();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Track failed video IDs to filter them out from rendering
+  const [failedVideoIds, setFailedVideoIds] = useState<Set<string>>(new Set());
 
   // Initialize analytics services for feed-level prefetching
   // This enables comments, reposts, and reactions to batch together
@@ -55,7 +60,7 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
 
   // Use timeline-based following feed
   const {
-    videos,
+    videos: rawVideos,
     newVideos,
     loading,
     hasMore,
@@ -70,6 +75,12 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
     autoRefresh: !disableAutoRefresh, // Respect the disable flag
     waitForFollowingList: true, // Wait for contact list to be loaded
   });
+
+  // Filter out videos with no working sources AND videos that have failed to load
+  // Use brokenVideoTracker for persistent filtering across sessions
+  const videos = brokenVideoTracker.filterBrokenVideos(
+    filterValidVideos(rawVideos).filter(video => !failedVideoIds.has(video.id))
+  );
 
   // Expose refresh function to parent
   useImperativeHandle(ref, () => ({
@@ -313,6 +324,17 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
                       const newIndex = Math.max(index - 1, 0);
                       setCurrentVideoIndex(newIndex);
                       scrollToVideo(newIndex);
+                    }}
+                    onVideoUnavailable={() => {
+                      // Mark video as failed to prevent re-rendering
+                      setFailedVideoIds(prev => new Set(prev).add(video.id));
+                      
+                      // The video will be automatically filtered out by the filter above
+                      // causing the feed to re-render without this video, and the current index
+                      // will now point to the next video in the list
+                      if (import.meta.env.DEV) {
+                        bundleLog('TimelineFollowingVideoFeed', `🚫 Video ${video.id.slice(0, 8)} marked as failed and filtered out`);
+                      }
                     }}
                   />
                 </div>

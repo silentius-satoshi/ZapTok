@@ -42,12 +42,12 @@ export interface CompressionResult {
  * - Prevents codec issues across devices
  */
 export const DEFAULT_COMPRESSION_OPTIONS: CompressionOptions = {
-  maxWidth: 720,
-  maxHeight: 1280, // Vertical video priority
-  videoBitrate: 2000000, // 2 Mbps - better quality
+  maxWidth: 1080,        // Increased to 1080p for better quality
+  maxHeight: 1920,       // Full HD vertical video
+  videoBitrate: 3500000, // 3.5 Mbps - high quality while keeping file size reasonable
   audioBitrate: 128000,  // 128 kbps - NIP-71 standard, AAC-LC for compatibility
   frameRate: 30,         // 30fps - smooth playback
-  quality: 0.8,          // 80% quality - good balance
+  quality: 0.85,         // 85% quality - better quality
   maxMemoryUsage: 50,    // 50MB memory limit
 };
 
@@ -297,31 +297,31 @@ export async function compressVideo(
 
   // Improved compression settings balancing size and quality
   if (fileSizeMB > 100) {
-    // Very large files: significant compression but maintain quality
-    finalSettings.videoBitrate = 1200000;   // 1.2 Mbps - better quality
-    finalSettings.maxWidth = 720;           // 720p for good quality
-    finalSettings.maxHeight = 1280;         // 720p vertical
-    finalSettings.frameRate = 24;           // 24fps - smooth enough
-    finalSettings.quality = 0.75;           // Better quality
+    // Very large files: moderate compression but maintain quality
+    finalSettings.videoBitrate = 2500000;   // 2.5 Mbps - better quality
+    finalSettings.maxWidth = 1080;          // 1080p for good quality
+    finalSettings.maxHeight = 1920;         // Full HD vertical
+    finalSettings.frameRate = 30;           // 30fps - smooth playback
+    finalSettings.quality = 0.80;           // Good quality
     finalSettings.audioBitrate = 128000;    // 128 kbps audio
   } else if (fileSizeMB > 50) {
-    // Large files: moderate compression
-    finalSettings.videoBitrate = 1500000;   // 1.5 Mbps
-    finalSettings.maxWidth = 720;           // 720p
-    finalSettings.maxHeight = 1280;
+    // Large files: light compression
+    finalSettings.videoBitrate = 3000000;   // 3 Mbps
+    finalSettings.maxWidth = 1080;          // 1080p
+    finalSettings.maxHeight = 1920;
     finalSettings.frameRate = 30;           // 30fps
-    finalSettings.quality = 0.8;
+    finalSettings.quality = 0.82;
     finalSettings.audioBitrate = 128000;
   } else if (fileSizeMB > 25) {
-    // Medium files: light compression
-    finalSettings.videoBitrate = 2000000;   // 2 Mbps
-    finalSettings.maxWidth = 720;           // 720p
-    finalSettings.maxHeight = 1280;
+    // Medium files: minimal compression
+    finalSettings.videoBitrate = 3500000;   // 3.5 Mbps
+    finalSettings.maxWidth = 1080;          // 1080p
+    finalSettings.maxHeight = 1920;
     finalSettings.frameRate = 30;           // 30fps
     finalSettings.quality = 0.85;
     finalSettings.audioBitrate = 128000;
   }
-  // Small files use default settings with good quality
+  // Small files use default settings with high quality
 
   console.log('Final compression settings:', {
     originalSize: `${fileSizeMB.toFixed(1)}MB`,

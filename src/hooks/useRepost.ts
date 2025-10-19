@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostrPublish } from './useNostrPublish';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { videoRepostsService } from '@/services/videoReposts.service';
 
 interface RepostParams {
   event: NostrEvent;
@@ -42,13 +43,22 @@ export function useRepost() {
           },
           {
             onSuccess: () => {
-              // Invalidate relevant caches
+              // Invalidate React Query caches
               queryClient.invalidateQueries({
                 queryKey: ['user-reposts'],
               });
               queryClient.invalidateQueries({
                 queryKey: ['video-reposts', event.id],
               });
+              
+              // Clear videoRepostsService cache to force refetch
+              videoRepostsService.clearCache(event.id);
+              
+              // Trigger immediate refetch of reposts for this video
+              videoRepostsService.getReposts(event.id).catch((error) => {
+                console.error('Failed to refetch reposts after repost:', error);
+              });
+              
               resolve();
             },
             onError: (error) => {

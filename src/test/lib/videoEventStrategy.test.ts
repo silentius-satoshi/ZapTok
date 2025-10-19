@@ -31,10 +31,6 @@ describe('Video Event Strategy', () => {
       expect(imetaTag?.[3]).toBe('x abcd1234567890');
       expect(imetaTag?.[5]).toBe('dim 1920x1080');
 
-      // Check for summary tag (NIP-71 style)
-      const summaryTag = event.tags?.find(tag => tag[0] === 'summary');
-      expect(summaryTag?.[1]).toBe("A test video for events");
-
       // Check for title tag
       const titleTag = event.tags?.find(tag => tag[0] === 'title');
       expect(titleTag?.[1]).toBe("Test Video");

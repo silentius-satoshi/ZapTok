@@ -24,6 +24,7 @@ import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { VideoCacheDebug } from '@/components/VideoCacheDebug';
+import { useCashuPreferences } from '@/hooks/useCashuPreferences';
 
 export function Navigation() {
   const { user, isAuthenticated, checkLogin } = useCurrentUser();
@@ -34,6 +35,7 @@ export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { pauseAllVideos, resumeAllVideos } = useVideoPlayback();
+  const { cashuEnabled } = useCashuPreferences();
 
   // Get comprehensive wallet/signer detection
   const { isBunkerSigner, isNsecSigner, isExtensionSigner } = useWallet();
@@ -416,7 +418,7 @@ export function Navigation() {
           {user ? (
             <>
               <BitcoinConnectBalanceDisplay variant="compact" />
-              <CashuBalanceDisplay variant="compact" />
+              {cashuEnabled && <CashuBalanceDisplay variant="compact" />}
               <SupporterButton />
             </>
           ) : (
@@ -457,10 +459,10 @@ export function Navigation() {
               </div>
 
               <Button
-                onClick={() => setShowLoginModal(true)}
+                onClick={() => navigate('/donate')}
                 variant="outline"
                 className="hidden md:flex items-center gap-2 bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white hover:border-gray-500 transition-colors cursor-pointer"
-                title="Sign in to become a supporter"
+                title="Support ZapTok with Lightning"
               >
                 <Heart className="h-4 w-4 text-red-500" />
                 Become a Supporter

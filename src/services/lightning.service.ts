@@ -213,6 +213,86 @@ class LightningService {
     });
   }
 
+  /**
+   * Anonymous zap - creates Lightning invoice without Nostr authentication
+   * Used for read-only mode where users don't have Nostr identity
+   */
+  async anonymousZap(
+    recipientPubkey: string,
+    sats: number,
+    nostr: any,
+    closeOuterModel?: () => void
+  ): Promise<{ preimage: string; invoice: string } | null> {
+    // Fetch recipient's profile
+    const profile = await this.fetchProfile(recipientPubkey, nostr);
+    if (!profile) {
+      throw new Error('Recipient not found');
+    }
+
+    const zapEndpoint = await this.getZapEndpoint(profile);
+    if (!zapEndpoint) {
+      throw new Error("Recipient's lightning address is invalid");
+    }
+
+    const { callback, lnurl } = zapEndpoint;
+    const amount = sats * 1000; // Convert to millisats
+
+    // Request invoice without nostr parameter (anonymous)
+    const invoiceRes = await fetch(
+      `${callback}?amount=${amount}&lnurl=${lnurl}`
+    );
+
+    const invoiceBody = await invoiceRes.json();
+    if (invoiceBody.error) {
+      throw new Error(invoiceBody.message);
+    }
+
+    const { pr, verify } = invoiceBody;
+    if (!pr) {
+      throw new Error('Failed to create invoice');
+    }
+
+    // Pay with WebLN if available
+    if (this.provider) {
+      const { preimage } = await this.provider.sendPayment(pr);
+      closeOuterModel?.();
+      return { preimage, invoice: pr };
+    }
+
+    // Fallback to Bitcoin Connect payment modal with verification polling
+    return new Promise((resolve) => {
+      closeOuterModel?.();
+      let checkPaymentInterval: ReturnType<typeof setInterval> | undefined;
+
+      const { setPaid } = launchPaymentModal({
+        invoice: pr,
+        onPaid: (response) => {
+          clearInterval(checkPaymentInterval);
+          resolve({ preimage: response.preimage, invoice: pr });
+        },
+        onCancelled: () => {
+          clearInterval(checkPaymentInterval);
+          resolve(null);
+        }
+      });
+
+      // Poll for payment verification if verify URL is available
+      if (verify) {
+        checkPaymentInterval = setInterval(async () => {
+          try {
+            const invoice = new Invoice({ pr, verify });
+            const paid = await invoice.verifyPayment();
+            if (paid && invoice.preimage) {
+              setPaid({ preimage: invoice.preimage });
+            }
+          } catch (error) {
+            // Ignore verification errors, continue polling
+          }
+        }, 1000);
+      }
+    });
+  }
+
   async payInvoice(
     invoice: string,
     closeOuterModel?: () => void

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Volume2, VolumeX } from 'lucide-react';
+import { Play, Volume2, VolumeX, Wifi, WifiOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useVideoRegistration } from '@/hooks/useVideoRegistration';
@@ -17,6 +17,9 @@ import { isYouTubeUrl } from '@/lib/youtubeEmbed';
 import { YouTubeEmbed } from '@/components/YouTubeEmbed';
 import { VideoZapAnalytics } from '@/components/VideoZapAnalytics';
 import { VideoProgressBar } from '@/components/VideoProgressBar';
+import { mediaManager } from '@/services/mediaManager';
+import { useContentPolicy } from '@/providers/ContentPolicyProvider';
+import { brokenVideoTracker } from '@/services/brokenVideoTracker';
 
 interface VideoCardProps {
   event: NostrEvent & {
@@ -44,14 +47,20 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubbingTime, setScrubbingTime] = useState(0);
+  const [manuallyLoaded, setManuallyLoaded] = useState(false); // Track manual load override
   const videoRef = useVideoRegistration(); // Use the video registration hook
+  const containerRef = useRef<HTMLDivElement>(null); // Container ref for IntersectionObserver
   const navigate = useNavigate();
   const author = useAuthor(event.pubkey);
   const isMobile = useIsMobile();
   const { isStandalone, isInstalled } = usePWA();
+  const { autoLoadMedia, connectionType } = useContentPolicy();
   
   // Track if this video has been activated before to avoid resetting position on pause/unpause
   const hasBeenActivatedRef = useRef(false);
+
+  // Determine if this video should load based on policy
+  const shouldLoadVideo = autoLoadMedia || manuallyLoaded;
 
   // Phase 6.4: Cache thumbnails for grid mode
   const { cachedUrl: cachedThumbnail } = useThumbnailCache(event.thumbnail, gridMode);
@@ -220,13 +229,30 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         }
       }
       
-      devError('Video error', { 
+      devError('Video error - Auto-skipping', { 
         eventId: event.id, 
         url: workingUrl, 
         errorCode: mediaError?.code,
         errorDetails,
         title: event.title 
       });
+
+      // Mark video as broken in the tracker for immediate filtering
+      brokenVideoTracker.markAsBroken(event.id);
+
+      // Auto-skip videos that fail to load (following Jumble's approach)
+      // Critical errors that mean the video will never play
+      if (mediaError && (
+        mediaError.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
+        mediaError.code === MediaError.MEDIA_ERR_DECODE
+      )) {
+        if (onVideoUnavailable && isActive) {
+          // Small delay to prevent jarring immediate skip
+          setTimeout(() => {
+            onVideoUnavailable();
+          }, 500);
+        }
+      }
     };
 
     const handleLoadedData = () => {
@@ -320,6 +346,53 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     };
   }, [videoRef, isActive, userPaused, event.id, workingUrl]);
 
+  // Battery Optimization: IntersectionObserver for viewport-based video control
+  // Automatically pauses videos when scrolled out of view to save battery
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    const container = containerRef.current;
+
+    // Skip if YouTube (handled separately) or if no refs
+    if (isYouTube || !videoElement || !container || !workingUrl) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          // Video entered viewport - use mediaManager for auto-play
+          if (isActive && !userPaused) {
+            // Add 200ms debounce to prevent rapid play/pause during scrolling
+            setTimeout(() => {
+              if (container && entry.isIntersecting) {
+                mediaManager.autoPlay(videoElement);
+                bundleLog('battery', `🔋 Video entered viewport - auto-playing: ${event.title?.slice(0, 30) || event.id.slice(0, 8)}`);
+              }
+            }, 200);
+          }
+        } else {
+          // CRITICAL: Video left viewport - pause immediately to save battery
+          if (!userPaused) {
+            mediaManager.pause(videoElement);
+            bundleLog('battery', `🔋 Video left viewport - pausing to save battery: ${event.title?.slice(0, 30) || event.id.slice(0, 8)}`);
+          }
+        }
+      },
+      {
+        threshold: 0.5, // Trigger when 50% of video is visible
+        rootMargin: '50px', // Start slightly before entering viewport for smoother experience
+      }
+    );
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+      // Clean up: ensure video is paused when component unmounts
+      if (!userPaused) {
+        mediaManager.pause(videoElement);
+      }
+    };
+  }, [videoRef, containerRef, isActive, userPaused, workingUrl, isYouTube, event.title, event.id]);
+
   const handlePlayPause = () => {
     const videoElement = videoRef.current;
     if (!videoElement) return;
@@ -337,13 +410,13 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         }
       }
 
-      videoElement.play().catch(() => {
-        // Ignore play failures
-      });
+      // Use mediaManager to ensure single-video-at-a-time enforcement
+      mediaManager.play(videoElement);
       setIsPlaying(true);
       setUserPaused(false);
     } else {
-      videoElement.pause();
+      // Use mediaManager for consistent pause behavior
+      mediaManager.pause(videoElement);
       setIsPlaying(false);
       setUserPaused(true);
     }
@@ -380,16 +453,61 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     setIsPlaying(false);
   };
 
-  // Detect video orientation to choose appropriate object-fit
-  // Landscape videos (width > height) use object-contain to show full video
-  // Portrait/square videos use object-cover to fill the container
-  const isLandscape = event.width && event.height && event.width > event.height;
-  const objectFitClass = isLandscape ? 'object-contain' : 'object-cover';
+  // Always use object-contain to show the full video without cropping
+  // This prevents the zoomed-in/cropped appearance
+  const objectFitClass = 'object-contain';
 
   return (
-    <div className="relative w-full h-full bg-black overflow-hidden">
+    <div ref={containerRef} className="relative w-full h-full bg-black overflow-hidden">
+      {/* Click to Load Overlay - Shows when media auto-load is disabled */}
+      {!shouldLoadVideo && workingUrl && (
+        <div 
+          className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer bg-gradient-to-b from-gray-900/90 via-gray-900/95 to-black/95 z-30 backdrop-blur-sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            setManuallyLoaded(true);
+            bundleLog('battery', `🔋 User manually loaded video on ${connectionType} connection`);
+          }}
+        >
+          <div className="text-center space-y-4 px-6">
+            {/* Connection Icon */}
+            <div className="flex justify-center">
+              {connectionType === 'cellular' ? (
+                <WifiOff className="w-16 h-16 text-orange-400 drop-shadow-lg" />
+              ) : (
+                <Wifi className="w-16 h-16 text-blue-400 drop-shadow-lg" />
+              )}
+            </div>
+            
+            {/* Message */}
+            <div className="space-y-2">
+              <p className="text-white text-lg font-semibold drop-shadow-lg">
+                {connectionType === 'cellular' ? 'Cellular Connection Detected' : 'Click to Load Video'}
+              </p>
+              <p className="text-gray-300 text-sm drop-shadow-md">
+                {connectionType === 'cellular' 
+                  ? 'Tap to load video and use mobile data'
+                  : 'Tap to load and play video'}
+              </p>
+            </div>
+
+            {/* Play Button */}
+            <div className="rounded-full p-4 bg-white/10 backdrop-blur-sm border border-white/20">
+              <Play className="w-12 h-12 text-white drop-shadow-lg" fill="white" />
+            </div>
+
+            {/* Video Info */}
+            {event.title && (
+              <p className="text-gray-400 text-xs max-w-xs truncate">
+                {event.title}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Video Element, YouTube Embed, or Error State */}
-      {workingUrl ? (
+      {workingUrl && shouldLoadVideo ? (
         isYouTube ? (
           // YouTube Embed
           <YouTubeEmbed
@@ -419,6 +537,21 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             onPause={handleVideoPause}
           />
         )
+      ) : workingUrl && !shouldLoadVideo ? (
+        // Placeholder when video exists but auto-load is disabled (handled by overlay above)
+        <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+          {event.thumbnail ? (
+            <img 
+              src={cachedThumbnail || event.thumbnail} 
+              alt={event.title || 'Video thumbnail'} 
+              className="w-full h-full object-cover opacity-50"
+            />
+          ) : (
+            <div className="text-gray-600">
+              <Play className="w-20 h-20 mx-auto mb-2 opacity-30" />
+            </div>
+          )}
+        </div>
       ) : isTestingUrls ? (
         <div className="w-full h-full bg-gray-900 flex items-center justify-center">
           <div className="text-center text-gray-400">
@@ -441,7 +574,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       )}
 
       {/* Pause Overlay */}
-      {userPaused && !isPlaying && (
+      {shouldLoadVideo && userPaused && !isPlaying && (
         <div
           className="absolute inset-0 flex items-center justify-center cursor-pointer"
           onClick={handlePlayPause}
@@ -453,7 +586,7 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       )}
 
       {/* Volume Button - Right Side (styled like action buttons) */}
-      {!gridMode && workingUrl && !isYouTube && (
+      {shouldLoadVideo && !gridMode && workingUrl && !isYouTube && (
         <button
           onClick={handleToggleMute}
           className={`absolute ${isMobile ? 'bottom-[470px] right-4' : 'top-4 right-4'} z-20 group transition-all duration-200`}
@@ -566,13 +699,14 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         </div>
       )}
 
-      {/* Video Progress Bar - At the very bottom, below description */}
-      {!isYouTube && workingUrl && !gridMode && (
+      {/* Video Progress Bar - Compact positioning between description and bottom nav */}
+      {shouldLoadVideo && !isYouTube && workingUrl && !gridMode && (
         <VideoProgressBar
           videoRef={videoRef}
           isPaused={userPaused || !isPlaying}
           onScrubbingChange={setIsScrubbing}
-          className="absolute bottom-2 left-0 right-0 z-20"
+          isMobile={isMobile}
+          className={`absolute left-0 right-0 z-20 ${isMobile ? 'bottom-1' : 'bottom-2'}`}
         />
       )}
     </div>
