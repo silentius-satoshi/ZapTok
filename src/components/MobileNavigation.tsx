@@ -359,7 +359,19 @@ export function MobileNavigation() {
                 </>
               ) : (
                 <>
-                  <DollarSign className="w-4 h-4 text-green-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                  <div className="flex items-center gap-0.5">
+                    {/* Keep the Bitcoin and optional Cashu icons visible when showing USD so the user knows which wallet the USD maps to */}
+                    {!cashuEnabled || showingBalance === 'bitcoin' ? (
+                      <Bitcoin className="w-4 h-4 text-orange-400" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                    ) : (
+                      <img 
+                        src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+                        alt="Cashu" 
+                        className="w-4 h-4" 
+                        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}
+                      />
+                    )}
+                  </div>
                   <span className="text-green-200 font-medium text-xs" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
                     ${user ? formatToggleBalance() : '0.00'}
                   </span>

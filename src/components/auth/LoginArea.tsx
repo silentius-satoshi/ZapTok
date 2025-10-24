@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Zap } from 'lucide-react';
+import { User, Zap, Bitcoin } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { LoginModal } from './LoginModal';
 import { AddAccountDialog } from './AddAccountDialog';
@@ -14,6 +14,7 @@ import { useBitcoinPrice, satsToUSD, formatUSD } from '@/hooks/useBitcoinPrice';
 import { useCashuWallet } from '@/hooks/useCashuWallet';
 import { useCashuStore } from '@/stores/cashuStore';
 import { useCurrencyDisplayStore } from '@/stores/currencyDisplayStore';
+import { useCashuPreferences } from '@/hooks/useCashuPreferences';
 import { cn } from '@/lib/utils';
 import { bundleLog } from '@/lib/logBundler';
 import { devLog } from '@/lib/devConsole';
@@ -41,6 +42,9 @@ export function LoginArea({
   const { currentUser } = useLoggedInAccounts();
   const { walletInfo, isConnected, getBalance, provider, userHasLightningAccess } = useWallet();
   const { data: btcPriceData, isLoading: isPriceLoading } = useBitcoinPrice();
+
+  // Cashu features preference
+  const { cashuEnabled } = useCashuPreferences();
 
   // Get global store for comparison
   const globalCashuStore = useCashuStore();
@@ -93,7 +97,21 @@ export function LoginArea({
     // Use reactive Cashu balance directly
     const globalCashuBalance = globalCashuStore?.getTotalBalance?.() || 0;
 
-    // Calculate total balance as Lightning + Cashu
+    // When Cashu is disabled, only show Lightning balance
+    if (!cashuEnabled) {
+      if (showSats) {
+        return `${lightningBalance.toLocaleString()} sats`;
+      } else {
+        if (btcPriceData?.USD) {
+          const usdAmount = satsToUSD(lightningBalance, btcPriceData.USD);
+          return `${usdAmount.toFixed(2)} USD`;
+        } else {
+          return `${lightningBalance.toLocaleString()} sats (price loading...)`;
+        }
+      }
+    }
+
+    // When Cashu is enabled, calculate total balance as Lightning + Cashu
     const totalBalance = lightningBalance + cashuBalance;
 
     // Only log when values actually change to reduce console spam
@@ -129,7 +147,7 @@ export function LoginArea({
         return `${totalBalance.toLocaleString()} sats (price loading...)`;
       }
     }
-  }, [walletInfo?.balance, cashuBalance, globalCashuStore, showSats, btcPriceData, currentUser?.pubkey, userHasLightningAccess]);
+  }, [walletInfo?.balance, cashuBalance, globalCashuStore, showSats, btcPriceData, currentUser?.pubkey, userHasLightningAccess, cashuEnabled]);
 
   // Determine if currency toggle should be shown - Always show for logged-in users
   const shouldShowCurrencyToggle = useMemo(() => {
@@ -152,12 +170,19 @@ export function LoginArea({
       {showSats ? (
         <>
           <div className="flex items-center gap-0.5">
-            <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
-            <img 
-              src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
-              alt="Cashu" 
-              className="w-3 h-3"
-            />
+            {/* Show only Bitcoin icon when Cashu is disabled, both icons when enabled */}
+            {cashuEnabled ? (
+              <>
+                <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
+                <img 
+                  src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+                  alt="Cashu" 
+                  className="w-3 h-3"
+                />
+              </>
+            ) : (
+              <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
+            )}
           </div>
           <span className='text-orange-200 font-medium text-xs group-hover:text-orange-100 transition-colors duration-200'>
             {formatBalance().replace(' sats', '')} sats
@@ -165,7 +190,21 @@ export function LoginArea({
         </>
       ) : (
         <>
-          <span className='text-green-400 font-semibold text-xs group-hover:text-green-300 transition-colors duration-200'>$</span>
+          <div className="flex items-center gap-0.5">
+            {/* Keep the Bitcoin and optional Cashu icons visible when showing USD so the user knows which wallet the USD maps to */}
+            {cashuEnabled ? (
+              <>
+                <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
+                <img
+                  src={`${import.meta.env.BASE_URL}images/cashu-icon.png`}
+                  alt="Cashu"
+                  className="w-3 h-3"
+                />
+              </>
+            ) : (
+              <span className='text-orange-400 font-semibold text-xs group-hover:text-orange-300 transition-colors duration-200'>₿</span>
+            )}
+          </div>
           <span className='text-green-200 font-medium text-xs group-hover:text-green-100 transition-colors duration-200'>
             {formatBalance().replace('$', '').replace(' USD', '')} USD
             {isPriceLoading && <span className="opacity-50 ml-1">⟳</span>}
