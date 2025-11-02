@@ -89,11 +89,16 @@ export function formatBalance(sats: number): string {
 }
 
 export async function activateMint(mintUrl: string): Promise<{ mintInfo: GetInfoResponse, keysets: MintKeyset[] }> {
-  const mint = new CashuMint(mintUrl);
-  const wallet = new CashuWallet(mint);
-  const mintInfo = await wallet.getMintInfo();
-  const keysets = await wallet.getKeySets();
-  return { mintInfo, keysets };
+  try {
+    const mint = new CashuMint(mintUrl);
+    const wallet = new CashuWallet(mint);
+    const mintInfo = await wallet.getMintInfo();
+    const keysets = await wallet.getKeySets();
+    return { mintInfo, keysets };
+  } catch (error) {
+    console.error(`Failed to activate mint ${mintUrl}:`, error);
+    throw error; // Re-throw to allow caller to handle
+  }
 }
 
 export async function updateMintKeys(mintUrl: string, keysets: MintKeyset[]): Promise<{ keys: Record<string, MintKeys>[] }> {
@@ -102,8 +107,14 @@ export async function updateMintKeys(mintUrl: string, keysets: MintKeyset[]): Pr
   const keys: Record<string, MintKeys>[] = [];
 
   for (const keyset of keysets) {
-    const keysetKeys = await wallet.getKeys(keyset.id);
-    keys.push({ [keyset.id]: keysetKeys });
+    try {
+      const keysetKeys = await wallet.getKeys(keyset.id);
+      keys.push({ [keyset.id]: keysetKeys });
+    } catch (error) {
+      console.warn(`Failed to fetch keys for keyset ${keyset.id} from ${mintUrl}:`, error);
+      // Skip this keyset and continue with others
+      // This can happen when a mint returns deprecated/invalid keysets
+    }
   }
 
   return { keys };

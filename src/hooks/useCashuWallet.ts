@@ -76,14 +76,38 @@ export function useCashuWallet() {
         walletData.mints = [...new Set(walletData.mints)];
 
         // fetch the mint info and keysets for each mint
-        await Promise.all(walletData.mints.map(async (mint) => {
-          const { mintInfo, keysets } = await activateMint(mint);
-          cashuStore.addMint(mint);
-          cashuStore.setMintInfo(mint, mintInfo);
-          cashuStore.setKeysets(mint, keysets);
-          const { keys } = await updateMintKeys(mint, keysets);
-          cashuStore.setKeys(mint, keys);
-        }));
+        const mintActivationResults = await Promise.allSettled(
+          walletData.mints.map(async (mint) => {
+            const { mintInfo, keysets } = await activateMint(mint);
+            cashuStore.addMint(mint);
+            cashuStore.setMintInfo(mint, mintInfo);
+            cashuStore.setKeysets(mint, keysets);
+            const { keys } = await updateMintKeys(mint, keysets);
+            cashuStore.setKeys(mint, keys);
+            return mint;
+          })
+        );
+
+        // Log any failed mint activations
+        const failedMints = mintActivationResults
+          .map((result, index) => ({ result, mint: walletData.mints[index] }))
+          .filter(({ result }) => result.status === 'rejected');
+        
+        if (failedMints.length > 0) {
+          console.warn('Some mints failed to activate:', failedMints.map(({ mint }) => mint));
+        }
+
+        // Filter out failed mints from wallet data
+        const successfulMints = mintActivationResults
+          .map((result, index) => ({ result, mint: walletData.mints[index] }))
+          .filter(({ result }) => result.status === 'fulfilled')
+          .map(({ mint }) => mint);
+
+        // Update wallet with only successful mints if some failed
+        if (successfulMints.length !== walletData.mints.length) {
+          walletData.mints = successfulMints;
+          console.log('Wallet updated with only reachable mints:', successfulMints);
+        }
 
         cashuStore.setPrivkey(walletData.privkey);
 
