@@ -94,6 +94,16 @@ export function ConsolidatedDeveloperSettings() {
   // Generate status card data
   const getAuthStatus = () => {
     if (!user) return { status: 'disconnected' as const, description: 'No user logged in' };
+    
+    // Special handling for nsec and bunker signers - they work even with 'partial' or 'error' status
+    if (signerAnalysis.signerType === 'nsec') {
+      return { status: 'connected' as const, description: 'Private key authentication active' };
+    }
+    if (signerAnalysis.signerType === 'bunker') {
+      return { status: 'connected' as const, description: 'Remote signer authentication active' };
+    }
+    
+    // For extension signers, use the actual status
     if (signerAnalysis.status === 'connected') return { status: 'connected' as const, description: 'Authentication working correctly' };
     if (signerAnalysis.status === 'partial') return { status: 'partial' as const, description: 'Limited functionality available' };
     return { status: 'error' as const, description: 'Authentication issues detected' };
@@ -191,7 +201,7 @@ export function ConsolidatedDeveloperSettings() {
           status={authStatus.status}
           description={authStatus.description}
           details={[
-            `Signer: ${signerAnalysis.signerType}`,
+            `Signer: ${signerAnalysis.signerType === 'nsec' ? 'Private Key (nsec)' : signerAnalysis.signerType}`,
             ...(signerAnalysis.details.extensionName ? [`Extension: ${signerAnalysis.details.extensionName}`] : []),
           ]}
         />
