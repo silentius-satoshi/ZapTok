@@ -287,8 +287,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     videoElement.addEventListener('loadstart', handleLoadStart);
 
     if (isActive) {
-      // Reset to beginning only when first becoming active (not on pause/unpause)
-      if (!hasBeenActivatedRef.current) {
+      // Always reset to beginning when becoming active to prevent pre-buffered playback
+      // This ensures videos start from the beginning even if they pre-loaded
+      if (!hasBeenActivatedRef.current || videoElement.currentTime > 0.5) {
         videoElement.currentTime = 0;
         hasBeenActivatedRef.current = true;
       }
@@ -518,9 +519,8 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             className={`w-full h-full ${objectFitClass} cursor-pointer`}
             loop
             playsInline
-            autoPlay={isActive}
             muted={isMuted} // Use state for mute control
-            preload={isActive || shouldPreload || (gridMode && isMobile) ? "auto" : "metadata"} // Force auto preload for mobile grid to show poster
+            preload={isActive ? "auto" : "metadata"} // Only preload active video fully, metadata for others
             webkit-playsinline="true" // iOS Safari compatibility
             x5-video-player-type="h5" // WeChat browser optimization
             x5-video-player-fullscreen="true" // WeChat fullscreen optimization
