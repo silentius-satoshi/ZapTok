@@ -72,9 +72,26 @@ export function useFollowUser() {
         newFollowingCount: newContacts.length,
       };
     },
-    onSuccess: () => {
-      // Invalidate and refetch following list queries
-      queryClient.invalidateQueries({ queryKey: ['following'] });
+    onSuccess: (data, variables) => {
+      if (!user?.pubkey) return;
+      
+      // Invalidate and refetch following list for the current user
+      // This ensures the UI updates immediately to show the new follow status
+      queryClient.invalidateQueries({ 
+        queryKey: ['following', user.pubkey]
+      });
+      
+      // Force refetch to ensure UI updates immediately
+      queryClient.refetchQueries({ 
+        queryKey: ['following', user.pubkey]
+      });
+      
+      // Also invalidate all following queries (in case displayed elsewhere)
+      queryClient.invalidateQueries({ 
+        queryKey: ['following'],
+        exact: false
+      });
+      
       // Also invalidate video feed since it depends on following list
       queryClient.invalidateQueries({ queryKey: ['video-feed'] });
     },

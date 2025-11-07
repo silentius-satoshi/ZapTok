@@ -73,6 +73,8 @@ export function VideoActionButtons({
   const [showShareModal, setShowShareModal] = useState(false);
   const [showRepostDialog, setShowRepostDialog] = useState(false);
   const [showUnfollowDialog, setShowUnfollowDialog] = useState(false);
+  const [followAnimationState, setFollowAnimationState] = useState<'idle' | 'transitioning' | 'hiding' | 'complete'>('idle');
+  const [localFollowingState, setLocalFollowingState] = useState<boolean | null>(null);
   const reactions = useVideoReactions(event.id);
   const commentsData = useVideoComments(event.id);
   const repostsData = useVideoReposts(event.id);
@@ -119,6 +121,9 @@ export function VideoActionButtons({
   // Check if currently following this user
   const followingList = following.data?.pubkeys || [];
   const isCurrentlyFollowing = followingList.includes(event.pubkey);
+  
+  // Use local state during animation, fall back to actual state
+  const effectiveFollowingState = localFollowingState !== null ? localFollowingState : isCurrentlyFollowing;
 
   // Since bookmarks are disabled in feeds, always show as unbookmarked
   // This allows users to add bookmarks but doesn't fetch existing bookmark state
@@ -208,6 +213,30 @@ export function VideoActionButtons({
       isCurrentlyFollowing: isCurrentlyFollowing,
     }, {
       onSuccess: () => {
+        // Start animation sequence only when following (not unfollowing)
+        if (!isCurrentlyFollowing) {
+          // Lock the local state to NOT following during animation
+          setLocalFollowingState(false);
+          
+          // Step 1: Transition from + to checkmark (500ms)
+          setFollowAnimationState('transitioning');
+          
+          setTimeout(() => {
+            // Step 2: Start fading out (after showing checkmark for 300ms)
+            setFollowAnimationState('hiding');
+            
+            setTimeout(() => {
+              // Step 3: Animation complete - unlock local state and hide button
+              setFollowAnimationState('complete');
+              setLocalFollowingState(null); // Allow actual following state to take over
+            }, 400); // Fade out duration
+          }, 500); // Show checkmark duration
+        } else {
+          // Reset animation state when unfollowing
+          setFollowAnimationState('idle');
+          setLocalFollowingState(null);
+        }
+        
         toast({
           title: isCurrentlyFollowing ? 'Unfollowed' : 'Following',
           description: isCurrentlyFollowing 
@@ -217,9 +246,19 @@ export function VideoActionButtons({
         setShowUnfollowDialog(false);
       },
       onError: (error) => {
+        console.error('[Follow Error]', error);
+        
+        // Check for bunker permission errors
+        const errorMsg = error instanceof Error ? error.message : 'Failed to update following status.';
+        const isBunkerError = errorMsg.toLowerCase().includes('user rejected') || 
+                              errorMsg.toLowerCase().includes('permission') ||
+                              errorMsg.toLowerCase().includes('bunker');
+        
         toast({
           title: 'Action Failed',
-          description: error instanceof Error ? error.message : 'Failed to update following status.',
+          description: isBunkerError 
+            ? 'Permission denied. Please approve the follow request in your bunker app.'
+            : errorMsg,
           variant: 'destructive',
         });
         setShowUnfollowDialog(false);
@@ -261,25 +300,29 @@ export function VideoActionButtons({
             </Avatar>
           </div>
 
-          {/* Follow Button */}
-          {user && user.pubkey !== event.pubkey && (
+          {/* Follow Button - Hidden when already following (after animation) */}
+          {user && user.pubkey !== event.pubkey && !isCurrentlyFollowing && (
             <Button
               variant="ghost"
               size="sm"
               className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 rounded-full p-0 flex items-center justify-center ${
                 isMobile ? 'h-5 w-5' : 'h-6 w-6'
               } ${
-                isCurrentlyFollowing
+                effectiveFollowingState
                   ? 'bg-gray-600 hover:bg-gray-700'
                   : 'bg-red-500 hover:bg-red-600'
-              } text-white border border-white/20 shadow-md disabled:opacity-50`}
+              } text-white border border-white/20 shadow-md disabled:opacity-50 transition-all duration-300 ${
+                followAnimationState === 'transitioning' ? 'scale-110 bg-green-500' : ''
+              } ${
+                followAnimationState === 'hiding' || followAnimationState === 'complete' ? 'opacity-0 scale-75' : 'opacity-100'
+              }`}
               onClick={handleFollow}
               disabled={isFollowPending}
             >
-              {isCurrentlyFollowing ? (
-                <Check className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
+              {followAnimationState === 'transitioning' ? (
+                <Check className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} transition-transform duration-300`} />
               ) : (
-                <Plus className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
+                <Plus className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} transition-transform duration-300`} />
               )}
             </Button>
           )}

@@ -61,12 +61,34 @@ export function useNostrPublish(): UseMutationResult<NostrEvent> {
           }
         }
 
-        const event = await user.signer.signEvent({
-          kind: t.kind,
-          content: processedContent,
-          tags,
-          created_at: t.created_at ?? Math.floor(Date.now() / 1000),
-        });
+        let event: NostrEvent;
+        try {
+          event = await user.signer.signEvent({
+            kind: t.kind,
+            content: processedContent,
+            tags,
+            created_at: t.created_at ?? Math.floor(Date.now() / 1000),
+          });
+        } catch (signError) {
+          console.error('[useNostrPublish] Signing error:', signError);
+          
+          // Provide helpful error messages for common bunker issues
+          if (signError instanceof Error) {
+            const msg = signError.message.toLowerCase();
+            if (msg.includes('user rejected') || msg.includes('denied') || msg.includes('permission')) {
+              throw new Error('Permission denied. Please approve the request in your bunker app (nsec.app, Amber, etc.)');
+            }
+            if (msg.includes('timeout') || msg.includes('timed out')) {
+              throw new Error('Bunker connection timeout. Please check your bunker app and try again.');
+            }
+            if (msg.includes('not connected') || msg.includes('connection')) {
+              throw new Error('Not connected to bunker. Please reconnect your bunker app.');
+            }
+          }
+          
+          // Re-throw original error if not a known bunker issue
+          throw signError;
+        }
 
         // Validate the signed event structure per NIP-01
         if (!validateEventStructure(event)) {

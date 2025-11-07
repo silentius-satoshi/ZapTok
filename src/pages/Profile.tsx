@@ -186,9 +186,19 @@ const Profile = () => {
           description: result.isNowFollowing ? "User followed" : "User unfollowed",
         });
       } catch (error) {
+        console.error('[Follow Error]', error);
+        
+        // Check for bunker permission errors
+        const errorMsg = error instanceof Error ? error.message : 'Failed to update follow status';
+        const isBunkerError = errorMsg.toLowerCase().includes('user rejected') || 
+                              errorMsg.toLowerCase().includes('permission') ||
+                              errorMsg.toLowerCase().includes('bunker');
+        
         toast({
           title: "Error",
-          description: error instanceof Error ? error.message : "Failed to update follow status",
+          description: isBunkerError 
+            ? 'Permission denied. Please approve the follow request in your bunker app.'
+            : errorMsg,
           variant: "destructive",
         });
       }
