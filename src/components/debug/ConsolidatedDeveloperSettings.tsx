@@ -16,7 +16,7 @@ import { PWAManagementSettings } from '@/components/settings/PWAManagementSettin
 import { PushNotificationsSettings } from '@/components/settings/PushNotificationsSettings';
 import { VideoStorageDebug } from '@/components/VideoStorageDebug';
 import { VideoEventComparison } from '@/components/VideoEventComparison';
-import { Copy, Download, AlertTriangle } from 'lucide-react';
+import { Copy, Download } from 'lucide-react';
 
 /**
  * Consolidated Developer Settings page with improved organization and reduced redundancy
@@ -26,7 +26,12 @@ export function ConsolidatedDeveloperSettings() {
   const { user, metadata } = useCurrentUser();
   const signerAnalysis = useSignerAnalysis();
   const { toast } = useToast();
-  const { developerModeEnabled, toggleDeveloperMode } = useDeveloperMode();
+  const { 
+    developerModeEnabled, 
+    toggleDeveloperMode,
+    cellularCheckEnabled,
+    toggleCellularCheck,
+  } = useDeveloperMode();
 
   const generateAllDebugInfo = () => {
     return {
@@ -125,31 +130,35 @@ export function ConsolidatedDeveloperSettings() {
     <div className="space-y-6">
       {/* Developer Mode Toggle */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="text-base font-medium">Developer Mode</div>
+            <div className="space-y-1">
+              <div className="text-base font-medium">Developer Mode</div>
+              <div className="text-xs text-muted-foreground">
+                These settings are for technically-savvy users. Please don't change them unless you are a developer or a Nostr expert.
+              </div>
+            </div>
             <Switch
               checked={developerModeEnabled}
               onCheckedChange={toggleDeveloperMode}
             />
           </div>
+          
+          {/* Cellular Connection Check Toggle - shown below Developer Mode */}
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="space-y-1">
+              <div className="text-sm font-medium">Mobile Cellular Connection Check</div>
+              <div className="text-xs text-muted-foreground">
+                Enable check for battery optimization on cellular networks
+              </div>
+            </div>
+            <Switch
+              checked={cellularCheckEnabled}
+              onCheckedChange={toggleCellularCheck}
+            />
+          </div>
         </CardContent>
       </Card>
-
-      {/* Warning Banner - Always visible */}
-      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="text-yellow-200 font-medium text-sm">
-              ⚠️ Advanced Settings
-            </p>
-            <p className="text-yellow-100/80 text-sm">
-              These settings are for technically-savvy users. Please don't change them unless you are a developer or a Nostr expert.
-            </p>
-          </div>
-        </div>
-      </div>
 
       {/* Show content only when Developer Mode is enabled */}
       {developerModeEnabled ? (

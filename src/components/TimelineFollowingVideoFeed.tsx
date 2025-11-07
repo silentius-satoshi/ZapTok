@@ -15,6 +15,9 @@ import { bundleLog } from '@/lib/logBundler';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { filterValidVideos } from '@/lib/videoValidation';
 import { brokenVideoTracker } from '@/services/brokenVideoTracker';
+import { useContentPolicy } from '@/providers/ContentPolicyProvider';
+import { useProfileCache } from '@/hooks/useProfileCache';
+import { useVideoPrefetch } from '@/hooks/useVideoPrefetch';
 
 export interface FollowingVideoFeedRef {
   refresh: () => void;
@@ -29,11 +32,16 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { setCurrentVideo } = useCurrentVideo();
+  const { autoLoadMedia } = useContentPolicy();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Track failed video IDs to filter them out from rendering
   const [failedVideoIds, setFailedVideoIds] = useState<Set<string>>(new Set());
+
+  // Enhanced caching hooks for prefetching
+  const { batchLoadProfiles } = useProfileCache();
+  const { preloadThumbnails } = useVideoPrefetch();
 
   // Initialize analytics services for feed-level prefetching
   // This enables comments, reposts, and reactions to batch together
@@ -133,6 +141,31 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
       setCurrentVideo(videos[currentVideoIndex]);
     }
   }, [videos, currentVideoIndex, setCurrentVideo]);
+
+  // Prefetch metadata for next 3 videos when current video changes
+  useEffect(() => {
+    if (!autoLoadMedia || videos.length === 0) return;
+
+    const nextVideos = videos.slice(currentVideoIndex + 1, currentVideoIndex + 4);
+    
+    if (nextVideos.length > 0) {
+      const nextAuthorPubkeys = [...new Set(nextVideos.map(event => event.pubkey))];
+      const nextThumbnailUrls = nextVideos
+        .map(event => event.thumbnail)
+        .filter(Boolean) as string[];
+
+      // Prefetch profiles and thumbnails for next 3 videos
+      if (nextAuthorPubkeys.length > 0) {
+        batchLoadProfiles(nextAuthorPubkeys).catch(() => {});
+      }
+
+      if (nextThumbnailUrls.length > 0) {
+        preloadThumbnails(nextThumbnailUrls);
+      }
+
+      bundleLog('video-preload', `🎬 Preloading metadata for next ${nextVideos.length} videos`);
+    }
+  }, [currentVideoIndex, videos, autoLoadMedia, batchLoadProfiles, preloadThumbnails]);
 
   // Intersection Observer for auto-navigation
   useEffect(() => {
@@ -315,6 +348,7 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
                     event={video}
                     isActive={index === currentVideoIndex}
                     showVerificationBadge={!isMobile}
+                    shouldPreload={autoLoadMedia && index > currentVideoIndex && index <= currentVideoIndex + 3}
                     onNext={() => {
                       const newIndex = Math.min(index + 1, videos.length - 1);
                       setCurrentVideoIndex(newIndex);

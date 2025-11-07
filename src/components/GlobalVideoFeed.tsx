@@ -17,6 +17,7 @@ import { bundleLog } from '@/lib/logBundler';
 import { ZapTokLogo } from '@/components/ZapTokLogo';
 import { filterValidVideos } from '@/lib/videoValidation';
 import { brokenVideoTracker } from '@/services/brokenVideoTracker';
+import { useContentPolicy } from '@/providers/ContentPolicyProvider';
 
 export interface GlobalVideoFeedRef {
   refresh: () => void;
@@ -27,6 +28,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { setCurrentVideo } = useCurrentVideo();
+  const { autoLoadMedia } = useContentPolicy();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
@@ -157,6 +159,31 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
       }, 100);
     }
   }, [videos, batchLoadProfiles, preloadThumbnails]);
+
+  // Prefetch metadata for next 3 videos when current video changes
+  useEffect(() => {
+    if (!autoLoadMedia || videos.length === 0) return;
+
+    const nextVideos = videos.slice(currentVideoIndex + 1, currentVideoIndex + 4);
+    
+    if (nextVideos.length > 0) {
+      const nextAuthorPubkeys = [...new Set(nextVideos.map(event => event.pubkey))];
+      const nextThumbnailUrls = nextVideos
+        .map(event => event.thumbnail)
+        .filter(Boolean) as string[];
+
+      // Prefetch profiles and thumbnails for next 3 videos
+      if (nextAuthorPubkeys.length > 0) {
+        batchLoadProfiles(nextAuthorPubkeys).catch(() => {});
+      }
+
+      if (nextThumbnailUrls.length > 0) {
+        preloadThumbnails(nextThumbnailUrls);
+      }
+
+      bundleLog('video-preload', `🎬 Preloading metadata for next ${nextVideos.length} videos`);
+    }
+  }, [currentVideoIndex, videos, autoLoadMedia, batchLoadProfiles, preloadThumbnails]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -525,6 +552,7 @@ export const GlobalVideoFeed = forwardRef<GlobalVideoFeedRef>((props, ref) => {
                     event={video}
                     isActive={index === currentVideoIndex}
                     showVerificationBadge={!isMobile}
+                    shouldPreload={autoLoadMedia && index > currentVideoIndex && index <= currentVideoIndex + 3}
                     onNext={() => {
                       const newIndex = Math.min(index + 1, videos.length - 1);
                       setCurrentVideoIndex(newIndex);

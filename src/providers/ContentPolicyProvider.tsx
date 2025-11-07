@@ -8,10 +8,14 @@
  * 
  * Detects connection type via navigator.connection API and adjusts behavior accordingly.
  * Based on Jumble's proven battery optimization patterns.
+ * 
+ * The cellular check can be disabled via developer settings for users who want to
+ * bypass connection detection.
  */
 
 import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
 import { bundleLog } from '@/lib/logBundler';
+import { useDeveloperMode } from '@/hooks/useDeveloperMode';
 
 export type MediaAutoLoadPolicy = 'always' | 'wifi-only' | 'never';
 
@@ -31,6 +35,8 @@ interface ContentPolicyProviderProps {
 }
 
 export function ContentPolicyProvider({ children }: ContentPolicyProviderProps) {
+  const { cellularCheckEnabled } = useDeveloperMode();
+  
   // Default to 'wifi-only' for optimal battery savings
   const [mediaAutoLoadPolicy, setMediaAutoLoadPolicy] = useState<MediaAutoLoadPolicy>(() => {
     // Load from localStorage if available
@@ -42,6 +48,13 @@ export function ContentPolicyProvider({ children }: ContentPolicyProviderProps) 
 
   // Monitor connection type changes
   useEffect(() => {
+    // If cellular check is disabled, always set connection to 'unknown' to bypass detection
+    if (!cellularCheckEnabled) {
+      bundleLog('battery', '🔋 Cellular check disabled - connection detection bypassed');
+      setConnectionType('unknown');
+      return;
+    }
+
     const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
 
     if (!connection) {
@@ -77,7 +90,7 @@ export function ContentPolicyProvider({ children }: ContentPolicyProviderProps) 
     return () => {
       connection.removeEventListener('change', updateConnectionType);
     };
-  }, []);
+  }, [cellularCheckEnabled]); // Re-run effect when cellularCheckEnabled changes
 
   // Save policy changes to localStorage
   useEffect(() => {

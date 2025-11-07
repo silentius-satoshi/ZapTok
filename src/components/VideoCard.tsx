@@ -453,9 +453,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     setIsPlaying(false);
   };
 
-  // Always use object-contain to show the full video without cropping
-  // This prevents the zoomed-in/cropped appearance
-  const objectFitClass = 'object-contain';
+  // Use object-cover to fill the screen completely like desktop
+  // This maximizes video size and eliminates black bars on mobile
+  const objectFitClass = 'object-cover';
 
   return (
     <div ref={containerRef} className="relative w-full h-full bg-black overflow-hidden">
