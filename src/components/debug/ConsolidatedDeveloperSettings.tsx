@@ -2,18 +2,22 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown, ChevronRight, CheckCircle2, WifiOff } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useSignerAnalysis } from '@/hooks/useSignerAnalysis';
 import { useDeveloperMode } from '@/hooks/useDeveloperMode';
 import { useToast } from '@/hooks/useToast';
+import { useAppContext } from '@/hooks/useAppContext';
+import { useWallet } from '@/hooks/useWallet';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { usePWA } from '@/hooks/usePWA';
 import { DebugStatusCard } from '@/components/debug/DebugStatusCard';
 import { AuthenticationDebug } from '@/components/debug/AuthenticationDebug';
-import { WalletPaymentsDebug } from '@/components/debug/WalletPaymentsDebug';
+import { CashuWalletDebug } from '@/components/debug/CashuWalletDebug';
 import { TechnicalDiagnostics } from '@/components/debug/TechnicalDiagnostics';
-import { AdvancedAnalysis } from '@/components/debug/AdvancedAnalysis';
 import { CacheManagementSettings } from '@/components/settings/CacheManagementSettings';
-import { PWAManagementSettings } from '@/components/settings/PWAManagementSettings';
-import { PushNotificationsSettings } from '@/components/settings/PushNotificationsSettings';
 import { VideoStorageDebug } from '@/components/VideoStorageDebug';
 import { VideoEventComparison } from '@/components/VideoEventComparison';
 import { Copy, Download } from 'lucide-react';
@@ -25,6 +29,8 @@ import { Copy, Download } from 'lucide-react';
 export function ConsolidatedDeveloperSettings() {
   const { user, metadata } = useCurrentUser();
   const signerAnalysis = useSignerAnalysis();
+  const { config } = useAppContext();
+  const { walletInfo, isConnected: walletConnected } = useWallet();
   const { toast } = useToast();
   const { 
     developerModeEnabled, 
@@ -32,20 +38,119 @@ export function ConsolidatedDeveloperSettings() {
     cellularCheckEnabled,
     toggleCellularCheck,
   } = useDeveloperMode();
+  
+  const {
+    permission,
+    isSupported: pushSupported,
+    subscribeToPush,
+    requestPermission,
+  } = usePushNotifications();
+
+  const {
+    isInstallable,
+    isInstalled,
+    isStandalone,
+    isOnline,
+    hasUpdate,
+  } = usePWA();
+
+  const [pwaExpanded, setPwaExpanded] = useState(false);
+
+  const handlePushNotificationToggle = async (enabled: boolean) => {
+    if (!pushSupported) {
+      toast({
+        title: "Not Supported",
+        description: "Push notifications are not supported in this browser.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (permission === 'denied') {
+      toast({
+        title: "Notifications Blocked",
+        description: "Please allow notifications in your browser settings.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (enabled && permission !== 'granted') {
+      try {
+        const granted = await requestPermission();
+        if (granted) {
+          await subscribeToPush();
+          toast({
+            title: "Notifications Enabled",
+            description: "You will now receive push notifications.",
+          });
+        }
+      } catch (error) {
+        console.error('[Notifications] Setup failed:', error);
+        toast({
+          title: "Error",
+          description: "Failed to enable notifications.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
 
   const generateAllDebugInfo = () => {
-    return {
+    // Collect all debug information from all sections
+    const allDebugInfo = {
       timestamp: new Date().toISOString(),
-      user: user ? {
-        pubkey: user.pubkey,
-        hasMetadata: Boolean(metadata),
-      } : null,
-      signerAnalysis,
+      
+      // Authentication & Identity section - RAW DATA
+      authentication: {
+        user: user ? {
+          pubkey: user.pubkey,
+          metadata: metadata,
+        } : null,
+        signerAnalysis,
+        appConfig: config,
+      },
+      
+      // Wallet & Payments section
+      wallet: {
+        connected: walletConnected,
+        walletInfo,
+      },
+      
+      // Technical section - RAW DATA
+      technical: {
+        signerDetection: {
+          type: signerAnalysis.signerType,
+          details: signerAnalysis.details,
+          capabilities: signerAnalysis.capabilities,
+        },
+        webLNAnalysis: {
+          available: signerAnalysis.capabilities.webln,
+          provider: signerAnalysis.details.webLNProvider,
+          methods: typeof window !== 'undefined' && window.webln ? Object.keys(window.webln) : [],
+        },
+        browserEnvironment: typeof window !== 'undefined' ? {
+          userAgent: navigator.userAgent,
+          webLNSupport: Boolean(window.webln),
+          nostrExtension: Boolean(window.nostr),
+          localStorage: Boolean(window.localStorage),
+          clipboardAPI: Boolean(navigator.clipboard),
+        } : null,
+      },
+      
+      // Environment
       environment: {
         userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'Server',
         url: typeof window !== 'undefined' ? window.location.href : 'N/A',
+        online: typeof navigator !== 'undefined' ? navigator.onLine : true,
+        storage: typeof navigator !== 'undefined' && 'storage' in navigator ? {
+          persisted: 'persisted',
+          quota: 'available',
+        } : null,
       },
     };
+    
+    return allDebugInfo;
   };
 
   const handleCopyAll = async () => {
@@ -80,7 +185,7 @@ export function ConsolidatedDeveloperSettings() {
       
       toast({
         title: "Report downloaded",
-        description: "Debug report saved to downloads",
+        description: "Debug report saved to downloads (sensitive data redacted)",
       });
     } catch (error) {
       toast({
@@ -138,14 +243,15 @@ export function ConsolidatedDeveloperSettings() {
 
   return (
     <div className="space-y-6">
-      {/* Developer Mode Toggle */}
+      {/* Settings Card */}
       <Card>
         <CardContent className="pt-6 space-y-4">
+          {/* Developer Mode Toggle */}
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <div className="text-base font-medium">Developer Mode</div>
               <div className="text-xs text-muted-foreground">
-                These settings are for technically-savvy users. Please don't change them unless you are a developer or a Nostr expert.
+                Enable Developer Mode to access debugging tools
               </div>
             </div>
             <Switch
@@ -154,7 +260,7 @@ export function ConsolidatedDeveloperSettings() {
             />
           </div>
           
-          {/* Cellular Connection Check Toggle - shown below Developer Mode */}
+          {/* Cellular Connection Check Toggle */}
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="space-y-1">
               <div className="text-sm font-medium">Mobile Cellular Connection Check</div>
@@ -165,6 +271,86 @@ export function ConsolidatedDeveloperSettings() {
             <Switch
               checked={cellularCheckEnabled}
               onCheckedChange={toggleCellularCheck}
+            />
+          </div>
+
+          {/* PWA Management Collapsible */}
+          <Collapsible open={pwaExpanded} onOpenChange={setPwaExpanded} className="pt-4 border-t">
+            <CollapsibleTrigger className="flex items-center justify-between w-full">
+              <div className="space-y-1">
+                <div className="text-sm font-medium">PWA Management</div>
+                <div className="text-xs text-muted-foreground">
+                  {isStandalone ? 'Running as installed app' : 'Running in browser'}
+                </div>
+              </div>
+              {pwaExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4 space-y-3">
+              {/* Current Status */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Current Status</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isStandalone ? 'Running as installed app' : 'Running in browser'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isInstalled ? (
+                    <Badge variant="default" className="text-xs">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      {isStandalone ? 'PWA Active' : 'Installed'}
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-xs">
+                      Browser Mode
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Connection Status */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Connection</p>
+                  <p className="text-xs text-muted-foreground">
+                    Network connectivity status
+                  </p>
+                </div>
+                <Badge variant={isOnline ? "default" : "destructive"} className="text-xs">
+                  {isOnline ? "Online" : "Offline"}
+                </Badge>
+              </div>
+
+              {/* Offline Status Note */}
+              {!isOnline && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted">
+                  <WifiOff className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">
+                    You're offline. Some features may be limited, but cached content is still available.
+                  </p>
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Push Notifications Toggle */}
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="space-y-1">
+              <div className="text-sm font-medium">Push Notifications</div>
+              <div className="text-xs text-muted-foreground">
+                {!pushSupported 
+                  ? "Not supported in this browser"
+                  : permission === 'denied' 
+                  ? "Blocked - Allow in browser settings"
+                  : permission === 'granted'
+                  ? "Enabled"
+                  : "Receive notifications for new content"}
+              </div>
+            </div>
+            <Switch
+              checked={permission === 'granted'}
+              onCheckedChange={handlePushNotificationToggle}
+              disabled={!pushSupported || permission === 'denied'}
             />
           </div>
         </CardContent>
@@ -207,7 +393,7 @@ export function ConsolidatedDeveloperSettings() {
         />
         
         <DebugStatusCard
-          title="Wallet & Payments"
+          title="Cashu Wallet"
           status={walletStatus.status}
           description={walletStatus.description}
           details={[
@@ -230,30 +416,14 @@ export function ConsolidatedDeveloperSettings() {
       {/* Detailed Debug Sections */}
       <div className="space-y-4">
         <AuthenticationDebug />
-        <WalletPaymentsDebug />
+        <CashuWalletDebug />
         <TechnicalDiagnostics />
         <VideoStorageDebug />
-        <AdvancedAnalysis />
         <VideoEventComparison />
-        <PWAManagementSettings />
-        <PushNotificationsSettings />
         <CacheManagementSettings />
       </div>
-
-      {/* Footer Info */}
-      <div className="text-center text-xs text-muted-foreground border-t pt-4">
-        Debug information is generated in real-time and may contain sensitive data. 
-        Handle with care when sharing.
-      </div>
         </>
-      ) : (
-        /* Message when Developer Mode is disabled */
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
-            Enable Developer Mode above to access debugging tools and advanced settings.
-          </p>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -92,7 +92,6 @@ export function PWAManagementSettings({ className }: PWAManagementSettingsProps)
       icon={<Smartphone className="h-4 w-4" />}
       isExpanded={isExpanded}
       onExpandedChange={setIsExpanded}
-      copyData={debugData}
       className={className}
     >
       <div className="space-y-6">

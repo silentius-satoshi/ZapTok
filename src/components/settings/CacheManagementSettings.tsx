@@ -83,7 +83,7 @@ export function CacheManagementSettings({ className }: CacheManagementSettingsPr
       }
       
       // Clear localStorage (except for essential settings)
-      const keysToPreserve = ['nostr:login', 'nostr:relay-url', 'app:theme'];
+      const keysToPreserve = ['nostr:login', 'nostr:relay-url', 'app:theme', 'cashu'];
       const allKeys = Object.keys(localStorage);
       allKeys.forEach(key => {
         if (!keysToPreserve.some(preserve => key.startsWith(preserve))) {
@@ -166,7 +166,6 @@ export function CacheManagementSettings({ className }: CacheManagementSettingsPr
       icon={<Database className="h-4 w-4" />}
       isExpanded={isExpanded}
       onExpandedChange={setIsExpanded}
-      copyData={debugData}
       className={className}
     >
       <div className="space-y-6">
@@ -324,9 +323,13 @@ export function CacheManagementSettings({ className }: CacheManagementSettingsPr
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="text-sm">
-              <strong>Clear All Cache</strong> removes all cached data but preserves login, theme, and relay settings.
+              <strong>Trash Icons:</strong> Clear individual cache types (video, app resources, or Cashu data) without affecting other caches.
               <br />
-              <strong>Force Refresh & Reload</strong> clears cache and immediately reloads the application.
+              <strong>Refresh Cache:</strong> Updates cache size display without deleting any data.
+              <br />
+              <strong>Clear All Cache:</strong> Removes videos, images, and app resources but keeps you logged in with your theme and relay preferences intact.
+              <br />
+              <strong>Force Refresh & Reload:</strong> Clears all cache and automatically reloads the page for a fresh start.
             </AlertDescription>
           </Alert>
         </CardContent>

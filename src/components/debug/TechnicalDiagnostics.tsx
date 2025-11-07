@@ -56,7 +56,6 @@ export function TechnicalDiagnostics() {
       icon={<Bug className="h-4 w-4" />}
       isExpanded={isExpanded}
       onExpandedChange={setIsExpanded}
-      copyData={technicalData}
     >
       <div className="space-y-4">
         {/* Debug Controls */}

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrLogin } from '@nostrify/react/login';
 
 export interface SignerAnalysis {
   signerType: 'extension' | 'bunker' | 'nsec' | 'none';
@@ -30,6 +31,10 @@ export interface SignerAnalysis {
  */
 export function useSignerAnalysis(): SignerAnalysis {
   const { user } = useCurrentUser();
+  const { logins } = useNostrLogin();
+  
+  // Get the current login object by matching pubkey
+  const currentLogin = user ? logins.find(login => login.pubkey === user.pubkey) : null;
 
   return useMemo(() => {
     if (!user) {
@@ -62,35 +67,78 @@ export function useSignerAnalysis(): SignerAnalysis {
 
     // Detect signer type
     if (signer) {
-      // Check for bunker (NIP-46) connection
-      if ('rpc' in signer || signer.toString().includes('bunker')) {
-        signerType = 'bunker';
-        // Extract bunker URL if available
-        try {
-          bunkerUrl = signer.toString();
-        } catch {
-          bunkerUrl = 'Unknown bunker connection';
-        }
-      }
-      // Check for extension signer
-      else if (typeof window !== 'undefined' && window.nostr) {
-        signerType = 'extension';
-        // Detect extension name
-        try {
-          if (navigator.userAgent.includes('Alby')) {
-            extensionName = 'Alby';
-          } else if ((window.nostr as any)._metadata?.name) {
-            extensionName = (window.nostr as any)._metadata.name;
-          } else {
+      // PRIORITY 1: Check login type first (most reliable)
+      if (currentLogin) {
+        if (currentLogin.type === 'nsec') {
+          signerType = 'nsec';
+        } else if (currentLogin.type === 'bunker' || currentLogin.type === 'x-bunker-nostr-tools') {
+          signerType = 'bunker';
+          // Extract bunker URL if available
+          try {
+            const customLogin = currentLogin as any;
+            bunkerUrl = customLogin.bunkerUrl || customLogin.data?.bunkerUrl || 'Remote signer (NIP-46)';
+          } catch {
+            bunkerUrl = 'Remote signer (NIP-46)';
+          }
+        } else if (currentLogin.type === 'extension') {
+          signerType = 'extension';
+          // Detect extension name
+          try {
+            if (navigator.userAgent.includes('Alby')) {
+              extensionName = 'Alby';
+            } else if ((window.nostr as any)?._metadata?.name) {
+              extensionName = (window.nostr as any)._metadata.name;
+            } else {
+              extensionName = 'Browser Extension';
+            }
+          } catch {
             extensionName = 'Browser Extension';
           }
-        } catch {
-          extensionName = 'Browser Extension';
         }
       }
-      // Check for nsec (private key)
-      else if ((user as any).privkey || (signer as any).privkey) {
-        signerType = 'nsec';
+      
+      // PRIORITY 2: Fallback to signer property detection if no login type matched
+      if (signerType === 'none') {
+        // Check for bunker (NIP-46) connection via signer properties
+        const isBunker = 
+          'rpc' in signer || 
+          'relay' in signer ||
+          signer.constructor?.name === 'NDKNip46Signer' ||
+          signer.constructor?.name === 'Nip46Signer' ||
+          signer.constructor?.name?.includes('Bunker') ||
+          signer.toString().includes('bunker') ||
+          signer.toString().includes('nip46');
+          
+        if (isBunker) {
+          signerType = 'bunker';
+          // Extract bunker URL if available
+          try {
+            const signerString = String(signer);
+            bunkerUrl = signerString === '[object Object]' ? 'Remote signer (NIP-46)' : signerString;
+          } catch {
+            bunkerUrl = 'Unknown bunker connection';
+          }
+        }
+        // Check for extension signer
+        else if (typeof window !== 'undefined' && window.nostr) {
+          signerType = 'extension';
+          // Detect extension name
+          try {
+            if (navigator.userAgent.includes('Alby')) {
+              extensionName = 'Alby';
+            } else if ((window.nostr as any)._metadata?.name) {
+              extensionName = (window.nostr as any)._metadata.name;
+            } else {
+              extensionName = 'Browser Extension';
+            }
+          } catch {
+            extensionName = 'Browser Extension';
+          }
+        }
+        // Fallback: if we have NIP-44 but no other type, it's likely nsec (since bunker would be caught above)
+        else if (signer.nip44) {
+          signerType = 'nsec';
+        }
       }
     }
 
@@ -148,11 +196,11 @@ export function useSignerAnalysis(): SignerAnalysis {
       details: {
         extensionName,
         bunkerUrl,
-        hasPrivateKey: Boolean((user as any).privkey),
+        hasPrivateKey: signerType === 'nsec',
         webLNProvider,
         methodsAvailable,
       },
       status,
     };
-  }, [user]);
+  }, [user, currentLogin]);
 }

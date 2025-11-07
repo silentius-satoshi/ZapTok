@@ -34,7 +34,6 @@ export function AuthenticationDebug() {
       icon={<Shield className="h-4 w-4" />}
       isExpanded={isExpanded}
       onExpandedChange={setIsExpanded}
-      copyData={debugData}
     >
       <div className="space-y-4">
         {/* Current User Status */}
