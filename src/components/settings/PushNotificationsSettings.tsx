@@ -51,7 +51,6 @@ export function PushNotificationsSettings({ className }: PushNotificationsSettin
       icon={<Bell className="h-4 w-4" />}
       isExpanded={isExpanded}
       onExpandedChange={setIsExpanded}
-      copyData={debugData}
       className={className}
     >
       <div className="space-y-6">

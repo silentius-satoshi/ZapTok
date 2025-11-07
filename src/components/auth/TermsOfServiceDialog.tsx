@@ -1,4 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface TermsOfServiceDialogProps {
   open: boolean;
@@ -7,26 +13,52 @@ interface TermsOfServiceDialogProps {
 
 export function TermsOfServiceDialog({ open, onAccept }: TermsOfServiceDialogProps) {
   const [accepted, setAccepted] = useState(false);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Reset scroll state when modal opens
+    if (open) {
+      setHasScrolledToBottom(false);
+      setAccepted(false);
+    }
+  }, [open]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const element = e.currentTarget;
+    const bottom = Math.abs(element.scrollHeight - element.scrollTop - element.clientHeight) < 5;
+    if (bottom && !hasScrolledToBottom) {
+      setHasScrolledToBottom(true);
+    }
+  };
 
   const handleAccept = () => {
-    if (accepted) {
+    if (accepted && hasScrolledToBottom) {
       onAccept();
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 md:p-4">
-      <div className="w-full h-full md:h-auto md:max-w-2xl md:max-h-[90vh] bg-neutral-900 md:rounded-lg shadow-xl flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-        <div className="p-6 text-center flex-shrink-0">
-          <div className="flex items-center justify-center gap-3 mb-4">
+    <Dialog open={open}>
+      <DialogContent 
+        className="max-w-lg max-h-[85vh] overflow-hidden bg-neutral-900 border-gray-800"
+        hideClose={true}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <DialogHeader className="text-center">
+          <DialogTitle className="flex items-center justify-center gap-3">
             <img src="/images/icon-128x128.png" alt="ZapTok" className="w-10 h-10" />
-            <h2 className="text-2xl font-bold">ZapTok Terms of Service</h2>
-          </div>
-        </div>
+            <span className="text-2xl font-bold">ZapTok Terms of Service</span>
+          </DialogTitle>
+        </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto text-left text-sm text-neutral-300 px-6 py-4 bg-neutral-950 mx-6 mb-6 rounded">
+        <div 
+          ref={contentRef}
+          onScroll={handleScroll}
+          className="overflow-y-scroll text-left text-sm text-neutral-300 p-4 bg-neutral-950 rounded max-h-[50vh]" 
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#6b7280 #1f2937' }}
+        >
           <p className="mb-3">
             <strong>Last Updated: {new Date().toLocaleDateString()}</strong>
           </p>
@@ -129,11 +161,6 @@ export function TermsOfServiceDialog({ open, onAccept }: TermsOfServiceDialogPro
             All application data is stored locally on your device. We do not track your activity or
             collect analytics.
           </p>
-          <p className="mb-3">
-            <strong>ZapTok Username Service:</strong> If you register a ZapTok username, we collect
-            and store your public key, username, registration IP address, and country. This data is
-            necessary to operate the username service and prevent abuse.
-          </p>
           <p className="mb-3">Third-party services may log your activity:</p>
           <p className="mb-3">
             • Nostr relays may log connections and events
@@ -154,24 +181,32 @@ export function TermsOfServiceDialog({ open, onAccept }: TermsOfServiceDialogPro
           </p>
         </div>
 
-        <div className="p-6 flex-shrink-0">
+        <div className="p-4 border-t border-gray-800">
+          {!hasScrolledToBottom && (
+            <p className="text-xs text-yellow-500 text-center mb-3">
+              Please scroll to the bottom to continue
+            </p>
+          )}
           <div className="flex items-center justify-center mb-4">
             <label className="flex items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={accepted}
                 onChange={(e) => setAccepted(e.target.checked)}
-                className="w-5 h-5 mr-3 accent-purple-600"
+                disabled={!hasScrolledToBottom}
+                className="w-5 h-5 mr-3 accent-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <span className="text-sm">I have read and agree to the Terms of Service</span>
+              <span className={`text-sm ${!hasScrolledToBottom ? 'opacity-50' : ''}`}>
+                I have read and agree to the Terms of Service
+              </span>
             </label>
           </div>
 
           <button
             onClick={handleAccept}
-            disabled={!accepted}
+            disabled={!accepted || !hasScrolledToBottom}
             className={`w-full py-3 px-6 rounded-lg font-medium transition ${
-              accepted
+              accepted && hasScrolledToBottom
                 ? 'bg-purple-600 hover:bg-purple-700 text-white'
                 : 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
             }`}
@@ -179,7 +214,7 @@ export function TermsOfServiceDialog({ open, onAccept }: TermsOfServiceDialogPro
             Continue
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -63,6 +63,32 @@ export function TermsGatekeeper({ children }: TermsGatekeeperProps) {
         
         setHasAcceptedTerms(true);
         setShowTerms(false);
+
+        // After user interaction, attempt to autoplay videos
+        // The Terms acceptance button click counts as user interaction with the domain,
+        // which should grant autoplay permission (per Chrome's autoplay policy)
+        setTimeout(() => {
+          const videos = document.querySelectorAll('video');
+          videos.forEach((video) => {
+            if (video.paused) {
+              // Always check the Promise returned by play() as recommended by Chrome
+              const playPromise = video.play();
+              
+              if (playPromise !== undefined) {
+                playPromise
+                  .then(() => {
+                    // Autoplay started successfully!
+                    console.log('Video autoplay started after terms acceptance');
+                  })
+                  .catch((error) => {
+                    // Autoplay was prevented by browser policy
+                    // User will need to manually tap/click the video to start playback
+                    console.log('Autoplay prevented, manual play required:', error.message);
+                  });
+              }
+            }
+          });
+        }, 100);
       } catch (error) {
         console.error('Error saving terms acceptance:', error);
       }
