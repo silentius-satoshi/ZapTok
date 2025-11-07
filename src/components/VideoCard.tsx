@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Volume2, VolumeX, Wifi, WifiOff } from 'lucide-react';
+import { Play, Wifi, WifiOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useVideoRegistration } from '@/hooks/useVideoRegistration';
@@ -41,13 +41,18 @@ interface VideoCardProps {
 }
 
 export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious, onVideoUnavailable, showVerificationBadge = true, shouldPreload = false, gridMode = false }: VideoCardProps) {
+  // Check user's volume preference from localStorage
+  const volumePreference = localStorage.getItem('video-volume-preference');
+  const userPrefersSound = volumePreference === 'unmuted';
+  
   const [isPlaying, setIsPlaying] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
-  const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
+  const [isMuted, setIsMuted] = useState(!userPrefersSound); // Use user's preference
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubbingTime, setScrubbingTime] = useState(0);
   const [manuallyLoaded, setManuallyLoaded] = useState(false); // Track manual load override
+  const [showPlayOverlay, setShowPlayOverlay] = useState(!userPrefersSound); // Show play button if user hasn't enabled sound yet
   const videoRef = useVideoRegistration(); // Use the video registration hook
   const containerRef = useRef<HTMLDivElement>(null); // Container ref for IntersectionObserver
   const navigate = useNavigate();
@@ -289,42 +294,53 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       }
 
       if (!userPaused) {
-        // Enhanced PWA mobile autoplay strategy
-        const isPWAMobile = isMobile && (isStandalone || isInstalled);
+        // Check user's volume preference
+        const volumePref = localStorage.getItem('video-volume-preference');
+        const userPrefersSound = volumePref === 'unmuted';
         
-        // Always start muted for reliable autoplay across all platforms
-        videoElement.muted = true;
-        setIsMuted(true); // Sync state
+        // If user hasn't enabled sound yet, show play overlay instead of autoplay
+        if (!userPrefersSound) {
+          bundleLog('videoAutoPlay', '🔇 User has not enabled sound - showing play overlay');
+          setShowPlayOverlay(true);
+          setIsPlaying(false);
+          videoElement.pause();
+          return;
+        }
         
+        // User has enabled sound preference - autoplay with sound
         const playPromise = videoElement.play();
 
         if (playPromise !== undefined) {
           playPromise
             .then(() => {
-              bundleLog('videoAutoPlay', `✅ Muted autoplay successful${isPWAMobile ? ' (PWA Mobile)' : ''}`);
+              bundleLog('videoAutoPlay', '✅ Autoplay successful');
               setIsPlaying(true);
+              setShowPlayOverlay(false);
 
-              // Only try to auto-unmute on mobile PWA where it works reliably
-              // Desktop browsers block auto-unmute due to stricter autoplay policies
-              if (isPWAMobile) {
-                setTimeout(() => {
-                  if (!userPaused && isActive && videoElement) {
-                    videoElement.volume = 1.0; // Ensure full volume
-                    videoElement.muted = false;
-                    setIsMuted(false); // Sync state
-                    bundleLog('videoAutoPlay', '🔊 Auto-unmuting after autoplay (PWA Mobile)');
-                  }
-                }, 100);
-              } else {
-                // Desktop: Keep muted, user must click volume button
-                bundleLog('videoAutoPlay', '🔇 Desktop autoplay started muted (click volume button to unmute)');
-              }
+              // Restore audio based on user preference
+              // Use requestAnimationFrame for smoother unmute without delay
+              requestAnimationFrame(() => {
+                if (!userPaused && isActive && videoElement) {
+                  videoElement.volume = 1.0;
+                  videoElement.muted = false;
+                  setIsMuted(false);
+                  bundleLog('videoAutoPlay', '🔊 Audio restored based on user preference');
+                }
+              });
             })
             .catch((error) => {
-              bundleLog('videoAutoPlayErrors', `❌ Autoplay failed: ${error.message}${isPWAMobile ? ' (PWA Mobile)' : ''}`);
+              bundleLog('videoAutoPlayErrors', `❌ Autoplay failed: ${error.message}`);
+              // Show play button overlay when autoplay is blocked
+              setShowPlayOverlay(true);
+              setIsPlaying(false);
             });
         } else {
           setIsPlaying(true);
+          setShowPlayOverlay(false);
+          // Restore audio for browsers that don't return a promise
+          videoElement.volume = 1.0;
+          videoElement.muted = false;
+          setIsMuted(false);
         }
       }
     } else {
@@ -397,17 +413,16 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
-    const isPWAMobile = isMobile && (isStandalone || isInstalled);
-
     if (videoElement.paused) {
-      // When manually playing, ensure audio is enabled for active video
-      if (isActive) {
-        videoElement.muted = isMuted; // Use state instead of forcing unmute
-
-        // For PWA mobile, additional interaction tracking
-        if (isPWAMobile) {
-          bundleLog('mobilePWAInteraction', '👆 User manually played video in PWA');
-        }
+      // When manually playing via the play overlay, unmute the video and save preference
+      if (showPlayOverlay) {
+        videoElement.muted = false;
+        setIsMuted(false);
+        setShowPlayOverlay(false);
+        
+        // Save user's sound preference
+        localStorage.setItem('video-volume-preference', 'unmuted');
+        bundleLog('autoplay', '▶️ User enabled sound via play overlay - preference saved');
       }
 
       // Use mediaManager to ensure single-video-at-a-time enforcement
@@ -420,29 +435,6 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
       setIsPlaying(false);
       setUserPaused(true);
     }
-  };
-
-  const handleToggleMute = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering video play/pause
-    const videoElement = videoRef.current;
-    if (!videoElement) return;
-
-    // Only allow unmuting if this video is active
-    if (!isActive) {
-      bundleLog('audioControl', '⚠️ Cannot unmute inactive video');
-      return;
-    }
-
-    const newMutedState = !isMuted;
-    
-    // When unmuting, ensure volume is at full
-    if (!newMutedState) {
-      videoElement.volume = 1.0;
-    }
-    
-    videoElement.muted = newMutedState;
-    setIsMuted(newMutedState);
-    bundleLog('audioControl', `🔊 Volume button clicked: ${newMutedState ? 'Muted' : 'Unmuted'}`);
   };
 
   const handleVideoPlay = () => {
@@ -573,31 +565,23 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
         </div>
       )}
 
-      {/* Pause Overlay */}
-      {shouldLoadVideo && userPaused && !isPlaying && (
+      {/* Pause Overlay OR Autoplay Failed Overlay */}
+      {shouldLoadVideo && (userPaused || showPlayOverlay) && !isPlaying && (
         <div
-          className="absolute inset-0 flex items-center justify-center cursor-pointer"
+          className="absolute inset-0 flex items-center justify-center cursor-pointer bg-black/20"
           onClick={handlePlayPause}
         >
-          <div className="rounded-full p-6">
+          <div className="rounded-full bg-black/50 p-6 backdrop-blur-sm hover:bg-black/70 transition-all">
             <Play className="w-16 h-16 text-white drop-shadow-lg" fill="white" />
           </div>
-        </div>
-      )}
-
-      {/* Volume Button - Right Side (styled like action buttons) */}
-      {shouldLoadVideo && !gridMode && workingUrl && !isYouTube && (
-        <button
-          onClick={handleToggleMute}
-          className={`absolute ${isMobile ? 'bottom-[470px] right-4' : 'top-4 right-4'} z-20 group transition-all duration-200`}
-          aria-label={isMuted ? 'Unmute' : 'Mute'}
-        >
-          {isMuted ? (
-            <VolumeX className="w-7 h-7 text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200" />
-          ) : (
-            <Volume2 className="w-7 h-7 text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] group-hover:text-blue-300 group-hover:scale-110 transition-all duration-200" />
+          {showPlayOverlay && (
+            <div className="absolute bottom-32 text-center">
+              <p className="text-white text-sm font-medium drop-shadow-lg">
+                Tap to play with sound
+              </p>
+            </div>
           )}
-        </button>
+        </div>
       )}
 
       {/* Large Timestamp Overlay - Shows during scrubbing, positioned bottom center above description */}
