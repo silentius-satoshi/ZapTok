@@ -1,0 +1,36 @@
+{
+  "name": "ZapTok",
+  "packageId": "com.zaptok.app",
+  "host": "zaptok.social",
+  "startUrl": "/",
+  "themeColor": "#000000",
+  "backgroundColor": "#000000",
+  "iconUrl": "/images/icon-512x512.png",
+  "splashScreenFadeOutDuration": 300,
+  "enableNotifications": true,
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "shortcuts": [],
+  "signingInfo": {
+    "file": "",
+    "alias": "",
+    "storePassword": "",
+    "keyPassword": ""
+  },
+  "appVersion": "1.0.0",
+  "appVersionCode": 1,
+  "minSdkVersion": 24,
+  "targetSdkVersion": 34,
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": false
+    },
+    "playBilling": {
+      "enabled": false
+    }
+  },
+  "launcherName": "ZapTok",
+  "display": "standalone",
+  "orientation": "portrait"
+}

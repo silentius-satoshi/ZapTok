@@ -125,12 +125,28 @@ export function usePWA(): PWAState & PWAActions {
       return;
     }
 
-    let hasRegistered = false;
-
-    if ('serviceWorker' in navigator && !hasRegistered) {
-      hasRegistered = true;
-      navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
+    // Check if service worker is already registered (via index.html or Vite PWA plugin)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration()
+        .then((existingRegistration) => {
+          if (existingRegistration) {
+            // Already registered, just use it
+            const swRegistration: ServiceWorkerRegistration = {
+              installing: existingRegistration.installing,
+              waiting: existingRegistration.waiting,
+              active: existingRegistration.active,
+              update: async () => { await existingRegistration.update(); },
+              unregister: () => existingRegistration.unregister(),
+            };
+            setServiceWorkerRegistration(swRegistration);
+            return;
+          }
+          
+          // Not registered yet, register it
+          return navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
+        })
         .then((registration) => {
+          if (!registration) return; // Already handled above
           // Only log once per session to reduce noise
           if (import.meta.env.DEV && !sessionStorage.getItem('pwa-registered')) {
             sessionStorage.setItem('pwa-registered', 'true');

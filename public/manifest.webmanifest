@@ -10,6 +10,7 @@
   "scope": "/",
   "lang": "en",
   "categories": ["social", "video", "entertainment"],
+  "id": "/",
   "icons": [
     {
       "src": "/images/icon-72x72.png",
@@ -60,12 +61,18 @@
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [
+  "shortcuts": [
     {
-      "src": "/images/ZapTok-v3.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide"
+      "name": "Discover Videos",
+      "short_name": "Discover",
+      "description": "Discover trending videos",
+      "url": "/discover",
+      "icons": [
+        {
+          "src": "/images/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ]
 }

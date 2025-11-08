@@ -41,7 +41,7 @@ export default defineConfig(() => ({
       srcDir: 'src',
       filename: 'sw.ts',
       registerType: 'autoUpdate',
-      injectRegister: false,
+      injectRegister: 'auto', // Changed from false to auto for better PWABuilder detection
       injectManifest: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
       },
