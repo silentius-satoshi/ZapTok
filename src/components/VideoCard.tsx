@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Wifi, WifiOff } from 'lucide-react';
+import { Play, Wifi, WifiOff, Maximize, Minimize, MoreHorizontal, Volume2, VolumeX, PictureInPicture } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useVideoRegistration } from '@/hooks/useVideoRegistration';
 import { useVideoUrlFallback } from '@/hooks/useVideoUrlFallback';
@@ -38,9 +45,10 @@ interface VideoCardProps {
   showVerificationBadge?: boolean;
   shouldPreload?: boolean; // Whether to preload this video for smooth scrolling
   gridMode?: boolean; // If true, show zap analytics instead of username/description/date
+  onAspectRatioDetected?: (aspectRatio: number) => void; // Callback when video aspect ratio is detected
 }
 
-export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious, onVideoUnavailable, showVerificationBadge = true, shouldPreload = false, gridMode = false }: VideoCardProps) {
+export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPrevious, onVideoUnavailable, showVerificationBadge = true, shouldPreload = false, gridMode = false, onAspectRatioDetected }: VideoCardProps) {
   // Check user's volume preference from localStorage
   const volumePreference = localStorage.getItem('video-volume-preference');
   const userPrefersSound = volumePreference === 'unmuted';
@@ -53,6 +61,9 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
   const [scrubbingTime, setScrubbingTime] = useState(0);
   const [manuallyLoaded, setManuallyLoaded] = useState(false); // Track manual load override
   const [showPlayOverlay, setShowPlayOverlay] = useState(!userPrefersSound); // Show play button if user hasn't enabled sound yet
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [volume, setVolume] = useState(100); // Volume level (0-100)
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const videoRef = useVideoRegistration(); // Use the video registration hook
   const containerRef = useRef<HTMLDivElement>(null); // Container ref for IntersectionObserver
   const navigate = useNavigate();
@@ -446,12 +457,95 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     setIsPlaying(false);
   };
 
-  // Use object-cover to fill the screen completely like desktop
-  // This maximizes video size and eliminates black bars on mobile
-  const objectFitClass = 'object-cover';
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        // Enter fullscreen
+        await containerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        // Exit fullscreen
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      devError('Fullscreen error:', error);
+    }
+  };
+
+  // Listen for fullscreen changes (user can also exit with ESC key)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleMute = () => {
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    const newMutedState = !isMuted;
+    videoElement.muted = newMutedState;
+    setIsMuted(newMutedState);
+    
+    // Save user's volume preference
+    localStorage.setItem('video-volume-preference', newMutedState ? 'muted' : 'unmuted');
+    bundleLog('volume', `🔊 User ${newMutedState ? 'muted' : 'unmuted'} video - preference saved`);
+  };
+
+  const handleVolumeChange = (value: number[]) => {
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    const newVolume = value[0];
+    setVolume(newVolume);
+    videoElement.volume = newVolume / 100;
+    
+    // Automatically unmute if volume is increased from 0
+    if (newVolume > 0 && isMuted) {
+      videoElement.muted = false;
+      setIsMuted(false);
+      localStorage.setItem('video-volume-preference', 'unmuted');
+    }
+    
+    // Automatically mute if volume is set to 0
+    if (newVolume === 0 && !isMuted) {
+      videoElement.muted = true;
+      setIsMuted(true);
+      localStorage.setItem('video-volume-preference', 'muted');
+    }
+  };
+
+  const togglePictureInPicture = async () => {
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    try {
+      if (document.pictureInPictureElement) {
+        // Exit PiP
+        await document.exitPictureInPicture();
+      } else {
+        // Enter PiP
+        await videoElement.requestPictureInPicture();
+      }
+    } catch (error) {
+      devError('Picture in Picture error:', error);
+    }
+  };
+
+  // Use object-cover for both desktop and mobile with dynamic container sizing
+  // Desktop: Container size adapts to video aspect ratio, object-cover fills it
+  // Mobile: Full-screen with object-cover (TikTok-style)
+  // Fullscreen: Use object-contain to show entire video with black bars if needed
+  const objectFitClass = isFullscreen ? 'object-contain' : 'object-cover';
 
   return (
-    <div ref={containerRef} className="relative w-full h-full bg-black overflow-hidden">
+    <div ref={containerRef} className="relative w-full h-full bg-black overflow-hidden group">
       {/* Click to Load Overlay - Shows when media auto-load is disabled */}
       {!shouldLoadVideo && workingUrl && (
         <div 
@@ -527,6 +621,14 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             onClick={handlePlayPause}
             onPlay={handleVideoPlay}
             onPause={handleVideoPause}
+            onLoadedMetadata={(e) => {
+              // Detect and report aspect ratio when video metadata loads
+              const video = e.currentTarget;
+              if (video.videoWidth && video.videoHeight && onAspectRatioDetected) {
+                const aspectRatio = video.videoWidth / video.videoHeight;
+                onAspectRatioDetected(aspectRatio);
+              }
+            }}
           />
         )
       ) : workingUrl && !shouldLoadVideo ? (
@@ -595,12 +697,13 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
 
       {/* Video Description - Bottom Left (Higher for YouTube to avoid player controls) */}
       {/* Hidden during scrubbing, or in grid mode show zap analytics instead */}
+      {/* Desktop: Hidden until hover, Mobile: Always visible */}
       {gridMode ? (
         <div className={`absolute bottom-4 left-4 text-white z-10 transition-opacity duration-200 ${isScrubbing ? 'opacity-0' : 'opacity-100'}`}>
           <VideoZapAnalytics videoId={event.id} />
         </div>
       ) : (
-        <div className={`absolute left-4 right-20 text-white z-10 transition-opacity duration-200 ${isYouTube ? 'bottom-20' : 'bottom-4'} ${isScrubbing ? 'opacity-0' : 'opacity-100'}`}>
+        <div className={`absolute left-4 right-20 text-white z-10 transition-opacity duration-300 ${isYouTube ? 'bottom-20' : 'bottom-4'} ${isScrubbing ? 'opacity-0' : isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
           <div className="space-y-1">
             {/* Username - Always visible (except during scrubbing) */}
             <div className="flex items-center gap-2">
@@ -692,6 +795,99 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
           isMobile={isMobile}
           className={`absolute left-0 right-0 z-20 ${isMobile ? 'bottom-1' : 'bottom-2'}`}
         />
+      )}
+
+      {/* 3-Dot Menu Button - Desktop only, top-right corner */}
+      {/* Hidden until hover on desktop */}
+      {!isMobile && shouldLoadVideo && workingUrl && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              className="absolute top-4 right-4 z-30 p-2 rounded-lg bg-transparent hover:bg-gray-500/30 opacity-0 group-hover:opacity-100 transition-all duration-300 text-white"
+              aria-label="Video options"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-black/90 backdrop-blur-md border-white/10">
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFullscreen();
+              }}
+              className="text-white cursor-pointer hover:bg-white/10 focus:bg-white/10"
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize className="w-4 h-4 mr-2" />
+                  Exit Fullscreen
+                </>
+              ) : (
+                <>
+                  <Maximize className="w-4 h-4 mr-2" />
+                  Fullscreen
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                togglePictureInPicture();
+              }}
+              className="text-white cursor-pointer hover:bg-white/10 focus:bg-white/10"
+            >
+              <PictureInPicture className="w-4 h-4 mr-2" />
+              Picture in Picture
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      {/* Volume Control - Desktop only, top-left corner */}
+      {/* Hidden until hover on desktop */}
+      {!isMobile && shouldLoadVideo && workingUrl && (
+        <div 
+          className="absolute top-4 left-4 z-30 flex items-center bg-gray-500/30 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300"
+          onMouseEnter={() => setShowVolumeSlider(true)}
+          onMouseLeave={() => setShowVolumeSlider(false)}
+        >
+          {/* Volume Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMute();
+            }}
+            className="p-2 text-white transition-all duration-200"
+            aria-label={isMuted ? 'Unmute' : 'Mute'}
+          >
+            {isMuted ? (
+              <VolumeX className="w-5 h-5" />
+            ) : (
+              <Volume2 className="w-5 h-5" />
+            )}
+          </button>
+
+          {/* Volume Slider - Extends on hover with animation */}
+          <div 
+            className={`flex items-center transition-all duration-300 ease-in-out ${
+              showVolumeSlider ? 'w-32 opacity-100 pr-3' : 'w-0 opacity-0'
+            }`}
+            style={{ overflow: showVolumeSlider ? 'visible' : 'hidden' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="volume-slider-white w-full">
+              <Slider
+                value={[volume]}
+                onValueChange={handleVolumeChange}
+                max={100}
+                step={1}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

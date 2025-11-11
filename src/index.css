@@ -748,4 +748,33 @@
   .animate-pulse-aura {
     animation: pulse-aura 2s ease-in-out infinite;
   }
+
+  /* White Bulbous Volume Slider Handle */
+  .volume-slider-white [role="slider"] {
+    background: white !important;
+    background-color: white !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 16px !important;
+    height: 16px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+    position: relative !important;
+    z-index: 10 !important;
+  }
+  
+  .volume-slider-white [role="slider"]:hover {
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3) !important;
+  }
+  
+  .volume-slider-white {
+    position: relative;
+    z-index: 1;
+  }
+  
+  .volume-slider-white span[data-radix-collection-item] {
+    background: white !important;
+    background-color: white !important;
+    border: none !important;
+    border-radius: 50% !important;
+  }
 }

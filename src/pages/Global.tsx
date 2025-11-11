@@ -37,10 +37,8 @@ const Global = () => {
             </div>
 
             {/* Global Video Feed */}
-            <div className={`flex-1 flex items-center justify-center overflow-hidden ${isMobile ? '' : 'pr-8'}`}>
-              <div className={`w-full h-full flex items-center justify-center ${isMobile ? '' : 'max-w-3xl'}`}>
-                <GlobalVideoFeed ref={globalFeedRef} />
-              </div>
+            <div className="flex-1 overflow-hidden">
+              <GlobalVideoFeed ref={globalFeedRef} />
             </div>
 
             {/* Right Sidebar - Compact Login Area */}

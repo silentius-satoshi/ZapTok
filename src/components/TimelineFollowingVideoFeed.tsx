@@ -38,6 +38,9 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
   
   // Track failed video IDs to filter them out from rendering
   const [failedVideoIds, setFailedVideoIds] = useState<Set<string>>(new Set());
+  
+  // Track aspect ratios for each video to dynamically size containers
+  const [videoAspectRatios, setVideoAspectRatios] = useState<Map<string, number>>(new Map());
 
   // Enhanced caching hooks for prefetching
   const { batchLoadProfiles } = useProfileCache();
@@ -328,7 +331,39 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
         style={{ scrollBehavior: 'smooth' }}
       >
 
-        {videos.map((video, index) => (
+        {videos
+          .filter((video) => {
+            // On mobile, filter out landscape videos (aspect ratio > 1)
+            if (isMobile) {
+              const aspectRatio = videoAspectRatios.get(video.id);
+              // If aspect ratio is known and it's landscape, filter it out
+              // If aspect ratio is unknown, allow it through (will be detected on load)
+              return !aspectRatio || aspectRatio <= 1;
+            }
+            return true; // Desktop: show all videos
+          })
+          .map((video, index) => {
+          const aspectRatio = videoAspectRatios.get(video.id);
+          
+          // Calculate exact container dimensions based on video aspect ratio
+          let containerStyle: React.CSSProperties = {};
+          if (!isMobile && aspectRatio) {
+            // Account for sidebar widths on desktop:
+            // Left sidebar: 16rem (--sidebar-width) - always visible on md+
+            // Right sidebar (login area): 24rem (w-96) - only visible on lg+ (≥1024px)
+            // 
+            // Using calc(100vw - 40rem) for maximum width
+            // The container will naturally shrink on smaller screens due to flex-1 behavior
+            const maxWidthLandscape = 'calc(100vw - 40rem)';
+            
+            containerStyle = {
+              aspectRatio: aspectRatio.toString(),
+              maxWidth: aspectRatio > 1 ? maxWidthLandscape : '60vh',
+              maxHeight: '100vh',
+            };
+          }
+          
+          return (
           <div
             key={`${video.id}-${index}`}
             data-video-index={index}
@@ -338,17 +373,23 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
                 : "h-screen flex items-center justify-center snap-start"
             }
             >
-              <div className={`flex w-full items-end h-full ${isMobile ? 'flex-col relative' : 'gap-6 max-w-2xl'}`}>
+              <div 
+                className={`flex w-full h-full ${isMobile ? 'flex-col relative items-end' : 'items-end gap-6'}`}
+                style={!isMobile ? containerStyle : undefined}
+              >
                 <div className={`overflow-hidden bg-black shadow-2xl hover:shadow-3xl transition-all duration-300 ${
                   isMobile
                     ? 'w-full h-full border-none'
-                    : 'flex-1 h-full rounded-3xl border-2 border-gray-800'
+                    : 'w-full h-full rounded-3xl border-2 border-gray-800'
                 }`}>
                   <VideoCard
                     event={video}
                     isActive={index === currentVideoIndex}
                     showVerificationBadge={!isMobile}
                     shouldPreload={autoLoadMedia && index > currentVideoIndex && index <= currentVideoIndex + 3}
+                    onAspectRatioDetected={(ratio) => {
+                      setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio));
+                    }}
                     onNext={() => {
                       const newIndex = Math.min(index + 1, videos.length - 1);
                       setCurrentVideoIndex(newIndex);
@@ -381,7 +422,8 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
                 </div>
               </div>
             </div>
-        ))}
+          );
+        })}
 
         {/* Loading indicator at bottom */}
         {loading && (
