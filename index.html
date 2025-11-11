@@ -42,13 +42,7 @@
     <link rel="manifest" href="/manifest.webmanifest">
     
     <!-- Service Worker Registration (for PWABuilder detection) -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js');
-        });
-      }
-    </script>
+    <script src="/sw-register.js"></script>
   </head>
   <body>
     <div id="root"></div>
