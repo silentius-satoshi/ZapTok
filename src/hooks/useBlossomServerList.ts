@@ -20,6 +20,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useNostrPublish } from './useNostrPublish';
 import { Kind } from '@/constants';
+import relayListService from '@/services/relayList.service';
 
 export interface BlossomServerList {
   servers: string[];
@@ -54,8 +55,17 @@ export function useBlossomServerList(pubkey?: string) {
     queryFn: async () => {
       if (!targetPubkey) return null;
 
-      const signal = AbortSignal.timeout(5000);
-      const events = await nostr.query([
+      const signal = AbortSignal.timeout(8000);
+      
+      // Get user's relay list to query their personal relays
+      const relayList = await relayListService.getUserRelayList(targetPubkey, nostr);
+      const userRelays = [...new Set([...relayList.read, ...relayList.write])];
+      
+      // Query both user's personal relays AND default pool
+      // This ensures we find the server list wherever it's published
+      const relayGroup = userRelays.length > 0 ? nostr.group(userRelays) : nostr;
+      
+      const events = await relayGroup.query([
         {
           kinds: [Kind.Blossom], // 10063
           authors: [targetPubkey],
