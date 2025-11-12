@@ -77,7 +77,7 @@ export function RecentSupporters() {
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <h3 className="text-yellow-400 text-lg font-semibold">Recent Supporters</h3>
+        <h3 className="text-yellow-400 text-lg font-semibold text-center">Recent Supporters</h3>
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex items-center justify-between rounded-md border border-gray-700 p-3 gap-3">
             <div className="flex items-center gap-3 flex-1">
@@ -97,7 +97,7 @@ export function RecentSupporters() {
   if (error) {
     return (
       <div className="space-y-3">
-        <h3 className="text-yellow-400 text-lg font-semibold">Recent Supporters</h3>
+        <h3 className="text-yellow-400 text-lg font-semibold text-center">Recent Supporters</h3>
         <div className="text-center text-gray-400 text-sm py-6 border border-gray-700 rounded-md">
           Unable to load supporter data
         </div>
@@ -108,7 +108,7 @@ export function RecentSupporters() {
   if (!supporters || supporters.length === 0) {
     return (
       <div className="space-y-3">
-        <h3 className="text-yellow-400 text-lg font-semibold">Recent Supporters</h3>
+        <h3 className="text-yellow-400 text-lg font-semibold text-center">Recent Supporters</h3>
         <div className="text-center text-gray-400 text-sm py-6 border border-gray-700 rounded-md">
           No supporters yet. Be the first! ⚡
         </div>
@@ -118,7 +118,7 @@ export function RecentSupporters() {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-yellow-400 text-lg font-semibold">Recent Supporters</h3>
+      <h3 className="text-yellow-400 text-lg font-semibold text-center">Recent Supporters</h3>
       <div className="space-y-3">
         {supporters.slice(0, 10).map((supporter) => (
           <SupporterItem key={supporter.pubkey} supporter={supporter} />
