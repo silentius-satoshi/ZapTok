@@ -8,7 +8,6 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import {
-  Settings,
   ArrowLeft,
   Zap,
   MessageCircle,
@@ -85,10 +84,6 @@ export default function Notifications() {
 
   const handleBack = () => {
     navigate('/'); // Go back to home page
-  };
-
-  const handleSettingsClick = () => {
-    navigate('/settings?section=notifications');
   };
 
   // Get enhanced notification statistics
@@ -237,16 +232,6 @@ export default function Notifications() {
               >
                 notifications
               </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSettingsClick}
-                className="text-gray-400 hover:text-white"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </div>
