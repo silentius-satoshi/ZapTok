@@ -1,16 +1,13 @@
 import { ComponentType } from 'react';
 
 // Import all settings components
-import { AppearanceSettings } from './AppearanceSettings';
 import { MediaUploadsSettings } from './MediaUploadsSettings';
 import { StreamSettings } from './StreamSettings';
 import { CashuWalletSettings } from './CashuWalletSettings';
-import { NotificationsSettings } from './NotificationsSettings';
 import { NetworkSettings } from './NetworkSettings';
 import { ZapsSettings } from './ZapsSettings';
-import { WebOfTrustSettings } from './WebOfTrustSettings';
 import { GenericSettings } from './GenericSettings';
-import { ConsolidatedDeveloperSettings } from '../debug/ConsolidatedDeveloperSettings';
+import { GeneralSettings } from '../debug/GeneralSettings';
 import { KeysSettings } from './KeysSettings';
 
 export interface SettingsSectionConfig {
@@ -22,6 +19,14 @@ export interface SettingsSectionConfig {
 }
 
 const allSettingsSections: SettingsSectionConfig[] = [
+  // General Settings (includes Cache, PWA Management, Push Notifications, Web of Trust, Muted Content & Content Moderation)
+  {
+    id: 'developer',
+    title: 'General',
+    component: GeneralSettings,
+    category: 'developer'
+  },
+
   // Core Identity & Security Settings
   {
     id: 'keys',
@@ -45,62 +50,18 @@ const allSettingsSections: SettingsSectionConfig[] = [
     category: 'network'
   },
 
-  // Interface Settings
-  {
-    id: 'appearance',
-    title: 'Appearance',
-    component: AppearanceSettings,
-    category: 'interface'
-  },
-
   // Content Settings
-  {
-    id: 'stream',
-    title: 'Stream',
-    component: StreamSettings,
-    category: 'content'
-  },
   {
     id: 'media-uploads',
     title: 'Media Uploads',
     component: MediaUploadsSettings,
     category: 'content'
   },
-
-  // Moderation Settings
   {
-    id: 'web-of-trust',
-    title: 'Web of Trust',
-    component: WebOfTrustSettings,
-    category: 'moderation'
-  },
-  {
-    id: 'muted-content',
-    title: 'Muted Content',
-    component: GenericSettings,
-    category: 'moderation'
-  },
-  {
-    id: 'content-moderation',
-    title: 'Content Moderation',
-    component: GenericSettings,
-    category: 'moderation'
-  },
-
-  // Notification Settings
-  {
-    id: 'notifications',
-    title: 'Notifications',
-    component: NotificationsSettings,
-    category: 'interface'
-  },
-
-  // Developer Settings (includes Cache & PWA Management)
-  {
-    id: 'developer',
-    title: 'Developer & Advanced',
-    component: ConsolidatedDeveloperSettings,
-    category: 'developer'
+    id: 'stream',
+    title: 'Stream',
+    component: StreamSettings,
+    category: 'content'
   },
 
   // Monetization Settings
@@ -112,14 +73,8 @@ const allSettingsSections: SettingsSectionConfig[] = [
   }
 ];
 
-// Filter out sections that should be hidden in production
-export const settingsSections: SettingsSectionConfig[] = allSettingsSections.filter(section => {
-  // Hide appearance, muted content, and content moderation from production
-  if (import.meta.env.PROD) {
-    return !['appearance', 'muted-content', 'content-moderation'].includes(section.id);
-  }
-  return true;
-});
+// Export all settings sections
+export const settingsSections: SettingsSectionConfig[] = allSettingsSections;
 
 export const getSettingSectionById = (id: string): SettingsSectionConfig | undefined => {
   return settingsSections.find(section => section.id === id);
