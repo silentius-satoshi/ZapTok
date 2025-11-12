@@ -20,13 +20,6 @@ export function WebOfTrustSettings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold mb-2">Web of Trust</h2>
-        <p className="text-muted-foreground">
-          Control what content you see based on your social network
-        </p>
-      </div>
-
       {/* WoT Status Card */}
       <Card>
         <CardHeader>

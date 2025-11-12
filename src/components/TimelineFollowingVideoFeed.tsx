@@ -352,8 +352,7 @@ export const TimelineFollowingVideoFeed = forwardRef<FollowingVideoFeedRef, Time
             // Left sidebar: 16rem (--sidebar-width) - always visible on md+
             // Right sidebar (login area): 24rem (w-96) - only visible on lg+ (≥1024px)
             // 
-            // Using calc(100vw - 40rem) for maximum width
-            // The container will naturally shrink on smaller screens due to flex-1 behavior
+            // For landscape videos, expand to full viewport width minus sidebars
             const maxWidthLandscape = 'calc(100vw - 40rem)';
             
             containerStyle = {

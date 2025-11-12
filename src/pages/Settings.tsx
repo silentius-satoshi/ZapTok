@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, ArrowLeft } from 'lucide-react';
 import { Navigation } from '@/components/Navigation';
@@ -8,6 +9,8 @@ import { useWallet } from '@/hooks/useWallet';
 import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { useNostrConnection } from '@/components/NostrProvider';
+import { RecentSupporters } from '@/components/donation/RecentSupporters';
+import { DonationZap } from '@/components/DonationZap';
 import {
   settingsSections,
   getSettingSectionById,
@@ -19,14 +22,21 @@ import {
 
 export function Settings() {
   const { config } = useAppContext();
-  const { isBunkerSigner } = useWallet();
+  const { isBunkerSigner, isExtensionSigner } = useWallet();
   const { activeRelays, connectionState, userRelayList } = useNostrConnection();
   const navigate = useNavigate();
+  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
+  const [selectedAmount, setSelectedAmount] = useState<number | undefined>(undefined);
 
   useSeoMeta({
     title: 'Settings - ZapTok',
     description: 'Configure your ZapTok account settings, privacy preferences, and network options.',
   });
+
+  const handleAmountSelect = (amount: number) => {
+    setSelectedAmount(amount);
+    setIsDonationModalOpen(true);
+  };
 
   const {
     selectedSection,
@@ -113,9 +123,14 @@ export function Settings() {
 
   const renderSettingsContent = () => {
     if (!selectedSection) {
-      // Filter out cashu-wallet section for bunker signers
+      // Filter out sections based on signer type
       const availableSections = settingsSections.filter(section => {
+        // Hide cashu-wallet for bunker signers
         if (section.id === 'cashu-wallet' && isBunkerSigner) {
+          return false;
+        }
+        // Hide keys for bunker and extension signers (they can't access nsec)
+        if (section.id === 'keys' && (isBunkerSigner || isExtensionSigner)) {
           return false;
         }
         return true;
@@ -198,6 +213,7 @@ export function Settings() {
                         selectedSection === 'network' ? 'network' :
                         selectedSection === 'keys' ? 'keys' :
                         selectedSection === 'media-uploads' ? 'media uploads' :
+                        selectedSection === 'developer' ? 'general' :
                         sectionConfig?.title?.toLowerCase() || selectedSection;
 
     return (
@@ -246,6 +262,49 @@ export function Settings() {
         {/* Content */}
         <div className="overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ height: 'calc(100vh - 97px - 4rem)' }}>
           {renderSettingsContent()}
+          
+          {/* Donation Section - Only show on main settings page */}
+          {!selectedSection && (
+            <div className="mt-8 px-6 pb-8">
+              <div className="mb-6 text-center">
+                <h2 className="text-xl font-semibold text-white mb-2">Enjoying ZapTok?</h2>
+                <p className="text-gray-400 text-sm">Your donation helps me maintain ZapTok and make it better 😊</p>
+              </div>
+              
+              {/* Preset Amount Buttons */}
+              <div className="grid grid-cols-4 gap-3 mb-6">
+                <button
+                  onClick={() => handleAmountSelect(1000)}
+                  className="h-12 rounded-lg bg-gray-800/80 hover:bg-gray-700 border border-gray-700 hover:border-yellow-500 transition-all flex items-center justify-center text-white font-medium"
+                >
+                  <span className="mr-1">⚡</span> 1k
+                </button>
+                <button
+                  onClick={() => handleAmountSelect(10000)}
+                  className="h-12 rounded-lg bg-gray-800/80 hover:bg-gray-700 border border-gray-700 hover:border-yellow-500 transition-all flex items-center justify-center text-white font-medium"
+                >
+                  <span className="mr-1">🚀</span> 10k
+                </button>
+                <button
+                  onClick={() => handleAmountSelect(100000)}
+                  className="h-12 rounded-lg bg-gray-800/80 hover:bg-gray-700 border border-gray-700 hover:border-yellow-500 transition-all flex items-center justify-center text-white font-medium"
+                >
+                  <span className="mr-1">💎</span> 100k
+                </button>
+                <button
+                  onClick={() => handleAmountSelect(1000000)}
+                  className="h-12 rounded-lg bg-gray-800/80 hover:bg-gray-700 border border-gray-700 hover:border-yellow-500 transition-all flex items-center justify-center text-white font-medium"
+                >
+                  <span className="mr-1">🌟</span> 1M
+                </button>
+              </div>
+
+              {/* Recent Supporters Section */}
+              <div>
+                <RecentSupporters />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -295,6 +354,16 @@ export function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Donation Modal */}
+      <DonationZap
+        isOpen={isDonationModalOpen}
+        onClose={() => {
+          setIsDonationModalOpen(false);
+          setSelectedAmount(undefined);
+        }}
+        defaultAmount={selectedAmount}
+      />
     </div>
   );
 }

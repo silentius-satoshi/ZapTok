@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Wifi, WifiOff, Maximize, Minimize, MoreHorizontal, Volume2, VolumeX, PictureInPicture } from 'lucide-react';
+import { Play, Wifi, WifiOff, Maximize, Minimize, MoreHorizontal, Volume2, VolumeX, PictureInPicture, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import {
@@ -538,6 +538,39 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
     }
   };
 
+  const handleDownloadVideo = async () => {
+    if (!workingUrl) return;
+
+    try {
+      // Fetch the video blob
+      const response = await fetch(workingUrl);
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Generate filename from title or use default
+      const title = event.title || 'video';
+      const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const timestamp = Date.now();
+      link.download = `${sanitizedTitle}_${timestamp}.mp4`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      devLog('Video downloaded successfully');
+    } catch (error) {
+      devError('Download video error:', error);
+    }
+  };
+
   // Use object-cover for both desktop and mobile with dynamic container sizing
   // Desktop: Container size adapts to video aspect ratio, object-cover fills it
   // Mobile: Full-screen with object-cover (TikTok-style)
@@ -841,6 +874,16 @@ export function VideoCard({ event, isActive, onNext: _onNext, onPrevious: _onPre
             >
               <PictureInPicture className="w-4 h-4 mr-2" />
               Picture in Picture
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownloadVideo();
+              }}
+              className="text-white cursor-pointer hover:bg-white/10 focus:bg-white/10"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download Video
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

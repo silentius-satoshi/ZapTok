@@ -11,22 +11,26 @@ import { useDeveloperMode } from '@/hooks/useDeveloperMode';
 import { useToast } from '@/hooks/useToast';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useWallet } from '@/hooks/useWallet';
-import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { usePWA } from '@/hooks/usePWA';
+import { useCashuPreferences } from '@/hooks/useCashuPreferences';
 import { DebugStatusCard } from '@/components/debug/DebugStatusCard';
 import { AuthenticationDebug } from '@/components/debug/AuthenticationDebug';
 import { CashuWalletDebug } from '@/components/debug/CashuWalletDebug';
 import { TechnicalDiagnostics } from '@/components/debug/TechnicalDiagnostics';
 import { CacheManagementSettings } from '@/components/settings/CacheManagementSettings';
+import { MutedContentSettings } from '@/components/settings/MutedContentSettings';
+import { ContentModerationSettings } from '@/components/settings/ContentModerationSettings';
+import { WebOfTrustSettings } from '@/components/settings/WebOfTrustSettings';
+import { PushNotifications } from '@/components/PushNotifications';
 import { VideoStorageDebug } from '@/components/VideoStorageDebug';
 import { VideoEventComparison } from '@/components/VideoEventComparison';
 import { Copy, Download } from 'lucide-react';
 
 /**
- * Consolidated Developer Settings page with improved organization and reduced redundancy
+ * General Settings page with improved organization and reduced redundancy
  * Includes Cache Management, PWA Management, and Debug tools in one unified interface
  */
-export function ConsolidatedDeveloperSettings() {
+export function GeneralSettings() {
   const { user, metadata } = useCurrentUser();
   const signerAnalysis = useSignerAnalysis();
   const { config } = useAppContext();
@@ -40,13 +44,6 @@ export function ConsolidatedDeveloperSettings() {
   } = useDeveloperMode();
   
   const {
-    permission,
-    isSupported: pushSupported,
-    subscribeToPush,
-    requestPermission,
-  } = usePushNotifications();
-
-  const {
     isInstallable,
     isInstalled,
     isStandalone,
@@ -54,49 +51,14 @@ export function ConsolidatedDeveloperSettings() {
     hasUpdate,
   } = usePWA();
 
+  const { cashuEnabled } = useCashuPreferences();
+
   const [pwaExpanded, setPwaExpanded] = useState(false);
-
-  const handlePushNotificationToggle = async (enabled: boolean) => {
-    if (!pushSupported) {
-      toast({
-        title: "Not Supported",
-        description: "Push notifications are not supported in this browser.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (permission === 'denied') {
-      toast({
-        title: "Notifications Blocked",
-        description: "Please allow notifications in your browser settings.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (enabled && permission !== 'granted') {
-      try {
-        const granted = await requestPermission();
-        if (granted) {
-          await subscribeToPush();
-          toast({
-            title: "Notifications Enabled",
-            description: "You will now receive push notifications.",
-          });
-        }
-      } catch (error) {
-        console.error('[Notifications] Setup failed:', error);
-        toast({
-          title: "Error",
-          description: "Failed to enable notifications.",
-          variant: "destructive",
-        });
-      }
-    }
-  };
-
-  const generateAllDebugInfo = () => {
+  const [pushNotificationsExpanded, setPushNotificationsExpanded] = useState(false);
+  const [webOfTrustExpanded, setWebOfTrustExpanded] = useState(false);
+  const [mutedContentExpanded, setMutedContentExpanded] = useState(false);
+  const [contentModerationExpanded, setContentModerationExpanded] = useState(false);
+  const [cellularCheckExpanded, setCellularCheckExpanded] = useState(false);  const generateAllDebugInfo = () => {
     // Collect all debug information from all sections
     const allDebugInfo = {
       timestamp: new Date().toISOString(),
@@ -246,44 +208,13 @@ export function ConsolidatedDeveloperSettings() {
       {/* Settings Card */}
       <Card>
         <CardContent className="pt-6 space-y-4">
-          {/* Developer Mode Toggle */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="text-base font-medium">Developer Mode</div>
-              <div className="text-xs text-muted-foreground">
-                Enable Developer Mode to access debugging tools
-              </div>
-            </div>
-            <Switch
-              checked={developerModeEnabled}
-              onCheckedChange={toggleDeveloperMode}
-            />
-          </div>
-          
-          {/* Cellular Connection Check Toggle */}
-          <div className="flex items-center justify-between pt-4 border-t">
-            <div className="space-y-1">
-              <div className="text-sm font-medium">Mobile Cellular Connection Check</div>
-              <div className="text-xs text-muted-foreground">
-                Enable check for battery optimization on cellular networks
-              </div>
-            </div>
-            <Switch
-              checked={cellularCheckEnabled}
-              onCheckedChange={toggleCellularCheck}
-            />
-          </div>
-
           {/* PWA Management Collapsible */}
-          <Collapsible open={pwaExpanded} onOpenChange={setPwaExpanded} className="pt-4 border-t">
-            <CollapsibleTrigger className="flex items-center justify-between w-full">
-              <div className="space-y-1">
+          <Collapsible open={pwaExpanded} onOpenChange={setPwaExpanded}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full group hover:bg-gray-800/50 transition-colors py-2 -mx-4 px-4 rounded">
+              <div className="flex-1 flex items-center justify-between">
                 <div className="text-sm font-medium">PWA Management</div>
-                <div className="text-xs text-muted-foreground">
-                  {isStandalone ? 'Running as installed app' : 'Running in browser'}
-                </div>
+                {pwaExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </div>
-              {pwaExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-4 space-y-3">
               {/* Current Status */}
@@ -333,24 +264,69 @@ export function ConsolidatedDeveloperSettings() {
             </CollapsibleContent>
           </Collapsible>
 
-          {/* Push Notifications Toggle */}
+          {/* Push Notifications Collapsible */}
+          <Collapsible open={pushNotificationsExpanded} onOpenChange={setPushNotificationsExpanded} className="pt-4 border-t">
+            <CollapsibleTrigger className="flex items-center justify-between w-full group hover:bg-gray-800/50 transition-colors py-2 -mx-4 px-4 rounded">
+              <div className="flex-1 flex items-center justify-between">
+                <div className="text-sm font-medium">Push Notifications</div>
+                {pushNotificationsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4">
+              <PushNotifications />
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Web of Trust Collapsible */}
+          <Collapsible open={webOfTrustExpanded} onOpenChange={setWebOfTrustExpanded} className="pt-4 border-t">
+            <CollapsibleTrigger className="flex items-center justify-between w-full group hover:bg-gray-800/50 transition-colors py-2 -mx-4 px-4 rounded">
+              <div className="flex-1 flex items-center justify-between">
+                <div className="text-sm font-medium">Web of Trust</div>
+                {webOfTrustExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4">
+              <WebOfTrustSettings />
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Muted Content Collapsible */}
+          <Collapsible open={mutedContentExpanded} onOpenChange={setMutedContentExpanded} className="pt-4 border-t">
+            <CollapsibleTrigger className="flex items-center justify-between w-full group hover:bg-gray-800/50 transition-colors py-2 -mx-4 px-4 rounded">
+              <div className="flex-1 flex items-center justify-between">
+                <div className="text-sm font-medium">Muted Content</div>
+                {mutedContentExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4">
+              <MutedContentSettings />
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Content Moderation Collapsible */}
+          <Collapsible open={contentModerationExpanded} onOpenChange={setContentModerationExpanded} className="pt-4 border-t">
+            <CollapsibleTrigger className="flex items-center justify-between w-full group hover:bg-gray-800/50 transition-colors py-2 -mx-4 px-4 rounded">
+              <div className="flex-1 flex items-center justify-between">
+                <div className="text-sm font-medium">Content Moderation</div>
+                {contentModerationExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4">
+              <ContentModerationSettings />
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Developer Mode Toggle */}
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="space-y-1">
-              <div className="text-sm font-medium">Push Notifications</div>
+              <div className="text-base font-medium">Developer Mode</div>
               <div className="text-xs text-muted-foreground">
-                {!pushSupported 
-                  ? "Not supported in this browser"
-                  : permission === 'denied' 
-                  ? "Blocked - Allow in browser settings"
-                  : permission === 'granted'
-                  ? "Enabled"
-                  : "Receive notifications for new content"}
+                Enable Developer Mode to access debugging tools
               </div>
             </div>
             <Switch
-              checked={permission === 'granted'}
-              onCheckedChange={handlePushNotificationToggle}
-              disabled={!pushSupported || permission === 'denied'}
+              checked={developerModeEnabled}
+              onCheckedChange={toggleDeveloperMode}
             />
           </div>
         </CardContent>
@@ -416,12 +392,46 @@ export function ConsolidatedDeveloperSettings() {
       {/* Detailed Debug Sections */}
       <div className="space-y-4">
         <AuthenticationDebug />
-        <CashuWalletDebug />
+        {cashuEnabled && <CashuWalletDebug />}
         <TechnicalDiagnostics />
         <VideoStorageDebug />
         <VideoEventComparison />
         <CacheManagementSettings />
       </div>
+
+      {/* Mobile Cellular Connection Check */}
+      <Card>
+        <Collapsible open={cellularCheckExpanded} onOpenChange={setCellularCheckExpanded}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full justify-between">
+              <div className="flex items-center gap-2">
+                <WifiOff className="h-4 w-4" />
+                <span>Mobile Cellular Connection Check</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {cellularCheckExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </div>
+            </Button>
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Battery Optimization Check</p>
+                  <p className="text-xs text-muted-foreground">
+                    Enable check for battery optimization on cellular networks
+                  </p>
+                </div>
+                <Switch
+                  checked={cellularCheckEnabled}
+                  onCheckedChange={toggleCellularCheck}
+                />
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
+      </Card>
         </>
       ) : null}
     </div>
