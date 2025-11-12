@@ -1,68 +1,90 @@
+import { useState } from 'react';
 import { CashuRelaySettings } from './CashuRelaySettings';
 import { SettingsSection } from './SettingsSection';
 import { useWallet } from '@/hooks/useWallet';
-import { LightningWalletInfo } from '@/components/LightningWalletInfo';
+import { useCashuPreferences } from '@/hooks/useCashuPreferences';
 import { CashuWalletInfo } from '@/components/CashuWalletInfo';
 import { CashuDebugInfo } from '@/components/CashuDebugInfo';
-import { useCashuPreferences } from '@/hooks/useCashuPreferences';
-import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 export function CashuWalletSettings() {
-  const { isCashuCompatible, isExtensionSigner } = useWallet();
-  const { cashuEnabled, toggleCashuEnabled } = useCashuPreferences();
+  const { isCashuCompatible } = useWallet();
+  const { cashuEnabled, setCashuEnabled } = useCashuPreferences();
+  
+  const [cashuWalletExpanded, setCashuWalletExpanded] = useState(false);
+  const [cashuRelayExpanded, setCashuRelayExpanded] = useState(false);
+  const [cashuDebugExpanded, setCashuDebugExpanded] = useState(false);
 
   return (
     <SettingsSection
-      description="Manage your Lightning & Cashu wallet:"
+      description="Manage your Cashu wallet:"
     >
-      <div className="space-y-6">
-        {/* Cashu Feature Toggle */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Cashu Features</CardTitle>
-            <CardDescription>
-              Control visibility of Cashu-related features throughout the app
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <div className="text-sm font-medium">Enable Cashu Features</div>
-                <div className="text-sm text-muted-foreground">
-                  Show nutzap buttons, Cashu balance, and wallet integration
-                </div>
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          {/* Show Cashu Features Toggle */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="text-base font-medium">Show Cashu Features</div>
+              <div className="text-xs text-muted-foreground">
+                Display Cashu Wallet and nutzap features throughout the app
               </div>
-              <Switch
-                checked={cashuEnabled}
-                onCheckedChange={toggleCashuEnabled}
-              />
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Lightning Wallet Info - Only show for extension signers */}
-        {isExtensionSigner && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Lightning Wallet</h3>
-            <LightningWalletInfo />
+            <Switch
+              id="cashu-visibility"
+              checked={cashuEnabled}
+              onCheckedChange={setCashuEnabled}
+            />
           </div>
-        )}
 
-        {/* Cashu Wallet - Only show if Cashu is enabled and compatible */}
-        {cashuEnabled && isCashuCompatible && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Cashu Wallet</h3>
-            <CashuWalletInfo />
-            <div className="mt-3">
-              <CashuRelaySettings alwaysExpanded={true} />
-            </div>
-            <div className="mt-4">
-              <CashuDebugInfo />
-            </div>
-          </div>
-        )}
-      </div>
+          {/* Cashu Wallet - Only show if Cashu is enabled and compatible */}
+          {cashuEnabled && isCashuCompatible && (
+            <>
+              {/* Cashu Wallet Info Collapsible */}
+              <Collapsible open={cashuWalletExpanded} onOpenChange={setCashuWalletExpanded} className="pt-4 border-t">
+                <CollapsibleTrigger className="flex items-center justify-between w-full group hover:bg-gray-800/50 transition-colors py-2 -mx-4 px-4 rounded">
+                  <div className="flex-1 flex items-center justify-between">
+                    <div className="text-sm font-medium">Cashu Wallet</div>
+                    {cashuWalletExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4">
+                  <CashuWalletInfo />
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Cashu Relay Settings Collapsible */}
+              <Collapsible open={cashuRelayExpanded} onOpenChange={setCashuRelayExpanded} className="pt-4 border-t">
+                <CollapsibleTrigger className="flex items-center justify-between w-full group hover:bg-gray-800/50 transition-colors py-2 -mx-4 px-4 rounded">
+                  <div className="flex-1 flex items-center justify-between">
+                    <div className="text-sm font-medium">Cashu Relay Settings</div>
+                    {cashuRelayExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4">
+                  <CashuRelaySettings alwaysExpanded={false} />
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Cashu Debug Info Collapsible */}
+              <Collapsible open={cashuDebugExpanded} onOpenChange={setCashuDebugExpanded} className="pt-4 border-t">
+                <CollapsibleTrigger className="flex items-center justify-between w-full group hover:bg-gray-800/50 transition-colors py-2 -mx-4 px-4 rounded">
+                  <div className="flex-1 flex items-center justify-between">
+                    <div className="text-sm font-medium">Cashu Debug Information</div>
+                    {cashuDebugExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4">
+                  <CashuDebugInfo />
+                </CollapsibleContent>
+              </Collapsible>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </SettingsSection>
   );
 }
