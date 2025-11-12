@@ -13,7 +13,6 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { useWallet } from '@/hooks/useWallet';
 import { usePWA } from '@/hooks/usePWA';
 import { useCashuPreferences } from '@/hooks/useCashuPreferences';
-import { useCashuPreferences } from '@/hooks/useCashuPreferences';
 import { DebugStatusCard } from '@/components/debug/DebugStatusCard';
 import { AuthenticationDebug } from '@/components/debug/AuthenticationDebug';
 import { CashuWalletDebug } from '@/components/debug/CashuWalletDebug';

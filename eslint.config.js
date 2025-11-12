@@ -64,7 +64,7 @@ export default tseslint.config(
         ],
       ],
       "custom/no-inline-script": "error",
-      // "custom/require-webmanifest": "error", // Disabled - using Vite PWA plugin
+      "custom/require-webmanifest": "error",
     },
   }
 );
